@@ -34,9 +34,14 @@ public:
     static void RINOr(const TestRBA &A, const TestRBA &B, TestRBA &out);
     static void RINot(const TestRBA &A, TestRBA &out);
 
+    void WriteLane(size_T idx, lane_t new_v, lane_t new_rel = (lane_t)0);
+    void InjectFaultBits(size_t lane_idx, lane_t flip_mask);
+    void AtomicWriteLaneEmulated(size_y idx, lane_t new_v, lane_t new_rel = 0)
+
     // helpers
     void ClearState() { std::fill(st.begin(), st.end(), (lane_t)0); }
     void MarkAllState() { std::fill(st.begin(), st.end(), std::numeric_limits<lane_t>::max()); }
     void ClearRelation() { std::fill(rel.begin(), rel.end(), (lane_t)0); }
     void MarkAllRelation() { std::fill(rel.begin(), rel.end(), std::numeric_limits<lane_t>::max()); }
+    void DebugPrint(size_t count = 4) const;
 };
