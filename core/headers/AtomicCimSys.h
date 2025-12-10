@@ -10,6 +10,10 @@
 #include <optional>
 #include <new>
 
+# define BIT64 64
+# define ODD 1u
+# define EVEN 2u
+
 
 //unsure
 #if defined(__GNUC__) || defined(__clang__)
@@ -38,12 +42,12 @@ namespace AtomicCIMBits{
         return static_cast<uint8_t>((meta >> 24) & 0xffu);
     }
     //unpack->rel
-    inline constexpr uint8_t MPUrel(metaU32_t meta) noexcept
+    inline constexpr uint8_t MUPrel(metaU32_t meta) noexcept
     {
         return static_cast<uint8_t>((meta >> 16) & 0xffu);
     }
     //unpack->clk
-    inline constexpr uint16_t MPUclk(metaU32_t meta) noexcept
+    inline constexpr uint16_t MUPclk(metaU32_t meta) noexcept
     {
         return static_cast<uint16_t>(meta & 0xffffu);
     }
@@ -116,7 +120,23 @@ class ACBArray32_t
 
         void Init(size_t N);
         void FreeAll() noexcept;
-};
+        size_t Size() const noexcept
+        {
+            return n_;
+        }
+        ACBits_32t ACBArrayview_at(size_t i) noexcept
+        {
+            assert(i < n_);
+            return ACBits_32t(&Value64tPtrA_[i], &MetaPtrA_[i]);
+        }
+        template<typename T> std::optional<T> Read_t(size_t i) const noexcept;
+        
+        template<typename T>
+        void WriteCAS(size_t i, T val, uint8_t st = 0, uint8_t rel = 0) noexcept;
+        void CommitBlock(size_t base, const storageBits_t *vals, size_t count, uint8_t st = 0, uint8_t rel = 0) noexcept;
+        void SetInit(size_t i, uint32_t bits, uint8_t st = 0, uint8_t rel = 0) noexcept;
+        void DebugPrint(size_t idx, std::ostream &os = std::cout) const;
+    };
 
 
 
