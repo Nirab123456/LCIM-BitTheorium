@@ -25,21 +25,18 @@ namespace AtomicCSCompact
         }
     }
 
-
-    template<typename OUT = uint32_t, typename VAL = uint8_t, typename STRL = uint4_tt, typename CLK = uint8_t>
-    static OUT PackAny(VAL value, VAL inv_value, STRL st, STRL rel, CLK clk)
+    template<typename... T>
+    void FreeAll(T*&... ptrs)
     {
-        OUT r = 0;
-        r |= static_cast<OUT>(clk);
-        r <<= sizeof(CLK);
-        r |= static_cast<OUT>(st);
-        r <<= sizeof(STRL);
-        r |= static_cast<OUT>(rel);
-        r <<= sizeof(STRL);
-        r |= static_cast<OUT>(inv_value);
-        r <<= sizeof(VAL);
-        r |= static_cast<OUT>(value);
-        return r;
+        auto del = [](auto*& p)
+        {
+            if (p)
+            {
+                delete[] p;
+                p = nullptr;
+            }
+        };
+        (del(ptrs), ...)
     }
 
     template <
@@ -99,6 +96,29 @@ namespace AtomicCSCompact
         }
     };
 
+
+    template <
+        size_t VALIB,
+        size_t STRLB,
+        size_t CLKB,
+        typename OUT = uint64_t
+    >
+    struct ARFieldView
+    {
+        using valin_t = std::conditional_t<VALIB <= 8, uint8_t,
+            std::conditional_t<VALIB <= 16, uint16_t, uint32_t>>;
+        using strl_t = std::conditional_t<STRLB <= 8, uint8_t>>;        
+        using clk_t = std::conditional_t<CLKB <=8, uint8_t,
+            std::consitional_t<CLKB <= 16, uint16_t, uint32_t>>;
+        valin_t value;
+        valin_t inv;
+        strl_t st;
+        strl_t rel;
+        clk_t clk;
+    };
+
+
+
     struct uint4_tt
     {
         uint8_t v;
@@ -127,4 +147,17 @@ namespace AtomicCSCompact
         static_assert(sizeof(void*) >= 4,"pointer size assumption");
     }
     
+
+
+    template<size_t VALIB, size_t STRLB, size_t CLKB, typename OUT>
+    std::optional<ARFieldView <VALIB, STRLB, CLKB, OUT> >
+    PackedACArray<VALIB, STRLB, CLKB, OUT>::Read(size_t idx, std::memory_order order = std::memory_order_acquire)  noexcept
+    {
+        
+    }
+
+
+
+
+
 }

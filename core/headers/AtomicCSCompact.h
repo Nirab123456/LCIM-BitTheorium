@@ -27,19 +27,7 @@ namespace AtomicCSCompact
 
 
     template<typename... T>
-    void FreeAll(T*&... ptrs)
-    {
-        auto del = [](auto*& p)
-        {
-            if (p)
-            {
-                delete[] p;
-                p = nullptr;
-            }
-        };
-        (del(ptrs), ...)
-    }
-
+    void FreeAll(T*&... ptrs);
     template<typename T>
     void InitAnyView(std::atomic<T>*& dataptr, size_t N, size_t& cn);
 
@@ -50,26 +38,65 @@ namespace AtomicCSCompact
         size_t CLKB,
         typename OUT = uint64_t
     >
-
     struct BitPacker;
-    class ACBCompact4_t
+
+    template <
+        size_t VALIB,
+        size_t STRLB,
+        size_t CLKB,
+        typename OUT = uint64_t
+    >
+    struct ARFieldView;
+
+    template <
+        size_t VALIB,
+        size_t STRLB,
+        size_t CLKB,
+        typename OUT = uint64_t
+    >
+    class PackedACArray 
     {
+        static_assert(((VALIB + VALIB) + (STRLB +STRLB) + CLKB) <= (sizeof(OUT) * 8), "(v + inv + st + rel) exceed the intended OUT width");
+        using PackDevil = BitPacker<VALIB, STRLB, CLKB, OUT>;
+    
     private:
-        size_t n_ = 0;
-        std::atomic<uint32_t>* data_ = nullptr;
+        size_t n_;
+        std::atomic<OUT>* data_;
+    
     public:
-        ACBCompact4_t() = default;
-        ~ACBCompact4_t()
+
+
+        PackedACArray() noexcept :
+            n_(0), data_{nullptr}
+        {}
+        ~PackedACArray(const PackedACArray&) = delete;
+        PackedACArray& operator = (const PackedACArray&) = delete;
+        PackedACArray(PackedACArray&& o) noexcept
         {
-            FreeAll(data_);
-        } 
+            n_ = o.n_;
+            data_ = o.data_;
+            o.n_ = 0;
+            o.data_ = nullptr;
+        }
+        PackedACArray& operator = (PackedACArray&& o) noexcept
+        {
+            if (this != &o)
+            {
+                FreeAll(data_);
+                n_ = o.n_;
+                data_ = o.data_;
+                o.n_ = 0,
+                o.data_ = nullptr;
+            }
+            return* this;
+        }
 
-        struct FieldView4_t;
-        size_t size() const { return n_;}
+        size_t sizePA const noexcept { return n_; }
+        bool IsemptyPA const noexcept { return n_ == 0; }
 
-        static constexpr uint32_t C4TMask = 0xfu;
-        static constexpr uint32_t CLKMask = 0xffffu;
-
+        std::optional<ARFieldView> Read(size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept;
 
     };
+
+
 }
