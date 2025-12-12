@@ -175,9 +175,9 @@ namespace AtomicCSCompact
 
             ARFieldView arfv;
 
-            PackDevil::UnpackAnyT(raw, arfv.value, arfv.inv, arfv.st, arfv.rel, arfv.clk);
+            PackDevil.UnpackAnyT(raw, arfv.value, arfv.inv, arfv.st, arfv.rel, arfv.clk);
 
-            OUT expectedINV = (PackDevil::ValIMask & (~(OUT(arfv.value))));
+            OUT expectedINV = (PackDevil.ValIMask & (~(OUT(arfv.value))));
             if (OUT(arfv.inv) != expectedINV)
             {
                 return std::nullopt;
@@ -185,13 +185,34 @@ namespace AtomicCSCompact
             return arfv;
         }
 
-        bool WriteCas(size_t idx, valin_t nvalue, 
+        bool WriteCas(size_t idx, valin_t inva, 
             std::optional<strl_t> setST = {},
             std::optional<strl_t> setREL = {},
             std::memory_order CASOrder = std:: memory_order_acq_rel
         ) noexcept
         {
+            static_assert(std::is_integral_v<valin_t>, "valin_t integral");
+            if (idx >=n_)
+            {
+                return false;
+            }
 
+            OUT ValMasked = OUT(inva) & PackDevil.ValIMask;
+            OUT InvMasked = (OUT(~OUT(inva)) & PackDevil.ValIMask);
+            while (true)
+            {
+                OUT old = data_[idx].load(std::memory_order_acquire);
+                valin_t oldv;
+                valin_t oldinv;
+                strl_t oldst;
+                strl_t oldrel;
+                clk_t oldclk;
+                PackDevil.UnpackAnyT(old, oldv, oldinv, oldst, oldrel, oldclk);
+
+                clk_t pend = clk_t(oldclk + 1);
+                strl_t stv = setST.has
+            }
+            
         }
 
     };

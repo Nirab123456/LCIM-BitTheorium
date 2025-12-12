@@ -102,7 +102,7 @@ namespace AtomicCSCompact
         Read(size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept;
 
     std::optional<ARFieldView<VALIB, STRLB, CLKB, OUT>>
-        bool WriteCas(size_t idx, valin_t nvalue, 
+        bool WriteCas(size_t idx, valin_t inva, 
             std::optional<strl_t> setST = {},
             std::optional<strl_t> setREL = {},
             std::memory_order CASOrder = std:: memory_order_acq_rel
