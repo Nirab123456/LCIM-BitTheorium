@@ -31,7 +31,7 @@ namespace AtomicCSCompact
     template<typename T>
     void InitAnyView(std::atomic<T>*& dataptr, size_t N, size_t& cn);
 
-
+    //bit packer
     template <
         size_t VALIB,
         size_t STRLB,
@@ -40,6 +40,7 @@ namespace AtomicCSCompact
     >
     struct BitPacker;
 
+    //field view
     template <
         size_t VALIB,
         size_t STRLB,
@@ -48,6 +49,7 @@ namespace AtomicCSCompact
     >
     struct ARFieldView;
 
+    //packed array
     template <
         size_t VALIB,
         size_t STRLB,
@@ -91,11 +93,20 @@ namespace AtomicCSCompact
             return* this;
         }
 
-        size_t sizePA const noexcept { return n_; }
-        bool IsemptyPA const noexcept { return n_ == 0; }
 
-        std::optional<ARFieldView> Read(size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept;
+        size_t sizePA() const noexcept { return n_; }
+        bool IsemptyPA() const noexcept { return n_ == 0; }
 
+        
+    std::optional<ARFieldView> 
+        Read(size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept;
+
+    std::optional<ARFieldView<VALIB, STRLB, CLKB, OUT>>
+        bool WriteCas(size_t idx, valin_t nvalue, 
+            std::optional<strl_t> setST = {},
+            std::optional<strl_t> setREL = {},
+            std::memory_order CASOrder = std:: memory_order_acq_rel
+        ) noexcept;
     };
 
 

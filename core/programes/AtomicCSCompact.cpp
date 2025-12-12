@@ -39,6 +39,7 @@ namespace AtomicCSCompact
         (del(ptrs), ...)
     }
 
+    //bit packer
     template <
         size_t VALIB,
         size_t STRLB,
@@ -148,13 +149,54 @@ namespace AtomicCSCompact
     }
     
 
-
-    template<size_t VALIB, size_t STRLB, size_t CLKB, typename OUT>
-    std::optional<ARFieldView <VALIB, STRLB, CLKB, OUT> >
-    PackedACArray<VALIB, STRLB, CLKB, OUT>::Read(size_t idx, std::memory_order order = std::memory_order_acquire)  noexcept
+    //packed array
+    template <
+        size_t VALIB,
+        size_t STRLB,
+        size_t CLKB,
+        typename OUT = uint64_t
+    >
+    class PackedACArray 
     {
+
+    public:
+
         
-    }
+    std::optional<ARFieldView> 
+        Read(size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept
+        {
+            ARFieldView<VALIB, STRLB, CLKB, OUT> innerview{};
+            if (idx >= n_)
+            {
+                return std::nullopt;
+            }
+
+            OUT raw = data_[idx].load(order);
+
+            ARFieldView arfv;
+
+            PackDevil::UnpackAnyT(raw, arfv.value, arfv.inv, arfv.st, arfv.rel, arfv.clk);
+
+            OUT expectedINV = (PackDevil::ValIMask & (~(OUT(arfv.value))));
+            if (OUT(arfv.inv) != expectedINV)
+            {
+                return std::nullopt;
+            }
+            return arfv;
+        }
+
+        bool WriteCas(size_t idx, valin_t nvalue, 
+            std::optional<strl_t> setST = {},
+            std::optional<strl_t> setREL = {},
+            std::memory_order CASOrder = std:: memory_order_acq_rel
+        ) noexcept
+        {
+
+        }
+
+    };
+
+
 
 
 
