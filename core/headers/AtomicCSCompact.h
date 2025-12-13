@@ -19,6 +19,30 @@ struct uint4_tt {
     constexpr uint4_tt& operator=(uint8_t x) { v = uint8_t(x & 0x0Fu); return *this; }
 };
 
+
+template<typename T>
+void InitAView(std::atomic<T>*& dataptr, size_t N, size_t& cn)
+{
+    FreeAll(dataptr);
+    if (N == 0)
+    {
+        cn = 0;
+        return;
+    }
+    cn = N;
+    const size_t alignment = std::max<size_t>(alignof(std::atomic<T>), static_cast<size_t>(PREF_ALIGN_4_8));
+    try
+    {
+        dataptr = new(std::align_val_t(alignment)) std::atomic<uint32_t>[cn]();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        FreeAll(dataptr);
+        throw;
+    }
+}
+
 // FreeAll helper (inline)
 template<typename... T>
 inline void FreeAll(T*&... ptrs) {
@@ -89,6 +113,7 @@ public:
 
     // is underlying atomic lock free?
     static bool is_lock_free() noexcept;
+
 
 private:
     std::size_t n_;

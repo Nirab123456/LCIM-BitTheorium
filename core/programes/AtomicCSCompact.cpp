@@ -9,24 +9,6 @@
 namespace AtomicCSCompact
 {
 
-// Portable aligned allocation helper (posix_memalign or _aligned_malloc on MSVC)
-static void* aligned_alloc_safe(std::size_t alignment, std::size_t size) {
-#if defined(_MSC_VER)
-    return _aligned_malloc(size, alignment);
-#else
-    void* p = nullptr;
-    if (posix_memalign(&p, alignment, size) != 0) return nullptr;
-    return p;
-#endif
-}
-static void aligned_free_safe(void* p) {
-#if defined(_MSC_VER)
-    _aligned_free(p);
-#else
-    free(p);
-#endif
-}
-
 // ---------------- BitPacker ----------------
 template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
 struct BitPacker {
@@ -105,23 +87,17 @@ PackedACArray<VALBITS,STRLB,CLKB,OUT>::operator=(PackedACArray&& o) noexcept {
 
 template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
 void PackedACArray<VALBITS,STRLB,CLKB,OUT>::init(std::size_t n) {
-    free_all();
-    if (n == 0) return;
-    n_ = n;
-    const size_t alignment = std::max<size_t>(alignof(std::atomic<OUT>), size_t(64));
-    void* raw = aligned_alloc_safe(alignment, sizeof(std::atomic<OUT>) * n_);
-    if (!raw) throw std::bad_alloc();
-    data_ = reinterpret_cast<std::atomic<OUT>*>(raw);
-    for (size_t i=0;i<n_;++i) new (&data_[i]) std::atomic<OUT>(OUT(0));
+    if (data_)
+    {
+        FreeAll(data_);
+    }
+    InitAView(data_, n, n_);
 }
 
 template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
 void PackedACArray<VALBITS,STRLB,CLKB,OUT>::free_all() noexcept {
     if (data_) {
-        for (size_t i=0;i<n_;++i) data_[i].~atomic();
-        aligned_free_safe(data_);
-        data_ = nullptr;
-        n_ = 0;
+        FreeAll(data_);
     }
 }
 
