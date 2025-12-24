@@ -1,128 +1,91 @@
-#pragma once
-// AtomicCSCompact.h - declarations only (templates are defined/instantiated in .cpp)
-
-#include <cstdint>
+#pragma once 
+#include <cstring>
 #include <atomic>
 #include <optional>
 #include <cstddef>
 #include <type_traits>
 
-namespace AtomicCSCompact
-{
+#define SIZE_OF_BYTE_IN_BITS 8
 
-// small nibble type
-struct uint4_tt {
-    uint8_t v;
-    constexpr uint4_tt() : v(0) {}
-    constexpr explicit uint4_tt(uint8_t x) : v(uint8_t(x & 0x0Fu)) {}
-    constexpr operator uint8_t() const { return uint8_t(v & 0x0Fu); }
-    constexpr uint4_tt& operator=(uint8_t x) { v = uint8_t(x & 0x0Fu); return *this; }
-};
+namespace AtomicCScompact {
 
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    struct BitPacker;
+    
 
-template<typename T>
-void InitAView(std::atomic<T>*& dataptr, size_t N, size_t& cn)
-{
-    FreeAll(dataptr);
-    if (N == 0)
+    template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT = uint64_t>
+    class PackedACarray
     {
-        cn = 0;
-        return;
-    }
-    cn = N;
-    const size_t alignment = std::max<size_t>(alignof(std::atomic<T>), static_cast<size_t>(PREF_ALIGN_4_8));
-    try
-    {
-        dataptr = new(std::align_val_t(alignment)) std::atomic<uint32_t>[cn]();
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        FreeAll(dataptr);
-        throw;
-    }
-}
+        static_assert((VALBITS + (2* STRLB) + CLKB) <= sizeof(OUT) * 8,
+            "Packed field exceeded OUt width");
+    public:
+        using out_t = OUT;
+        using valin_t = std::conditional_t<VALBITS <= 8, uint8_t,
+                std::conditional_t<VALBITS <= 32, uint32_t, uint32_t>>;
+        using strl_t = std::conditional_t<STRLB <= 8, uint8_t, uint16_t>;
+        using clk16_t = std::conditional_t<CLKB <= 8, uint8_t,
+                std::conditional_t<CLKB <= 16, uint16_t, uint16_t>>;
+        
+        struct ACFieldView {
+            valin_t value;
+            strl_t st;
+            strl_t rel;
+            clk16_t clk;
+        };
 
-// FreeAll helper (inline)
-template<typename... T>
-inline void FreeAll(T*&... ptrs) {
-    auto del = [](auto*& p) {
-        if (p) { delete[] p; p = nullptr; }
+        PackedACarray() noexcept;
+        ~PackedACarray();
+        PackedACarray(const PackedACarray&) = delete;
+        PackedACarray& operator = (const PackedACarray&) = delete;
+        PackedACarray(PackedACarray&&) noexcept;
+        PackedACarray& operator = (PackedACarray&&) noexcept;
+        
+        void init(std::size_t n, uint8_t PrefAllignment = PREF_ALLIGNMENT_);
+        void free_all() noexcept;
+
+        std::size_t sizePA() const noexcept
+        {
+            return n_;
+        }
+        bool emptyPA() const noexcept
+        {
+            return n_ == 0;
+        }
+        std::optional<ACFieldView> Read(
+            std::size_t idx, std::memory_order mo = std::memory_order_acquire
+        )const noexcept;
+        bool writeCAS(
+            std::size_t idx, valin_t newValue,
+            std::optional<strl_t> setST = {},
+            std::optional<strl_t> setREL = {},
+            std::memory_order casOrder = std::memory_order_acq_rel
+        ) noexcept;
+
+        void CommitStore(
+            std::size_t idx, valin_t newValue, 
+            strl_t SetST = 0,
+            strl_t SetREL = 0,
+            std::memory_order mo = std::memory_order_release
+        ) noexcept;
+
+        void CommitBlock(std::size_t base, const valin_t *vals, std::size_t count,
+                            strl_t setST, strl_t setREL, std::memory_order mo) noexcept;
+
+        void debugPrint(std::size_t idx) const noexcept;
+
+        bool IsLkFree() noexcept
+        {
+            return std::stomic<OUT>().IsLkFree();
+        }
+    
+    private:
+        std::size_T n_;
+        std::atomic<out_t>* data_;
+        uint8_t PREF_ALLIGNMENT_ = 64;
+        using BP_ = BitPacker<VALBITS, STRLB, CLKB, OUT>;
     };
-    (del(ptrs), ...);
+
+    using RelPArry8_t = PackedACarray<8, 4, 16, uint32_t>;
+    using RelPArry32_t = PackedACarray<32, 8, 16, uint64_t>;
+    
 }
-
-// forward-declare the packer and field-view templates
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT = uint64_t>
-struct BitPacker;
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT = uint64_t>
-struct ARFieldView;
-
-// Packed atomic array declaration (definitions in .cpp)
-// VALBITS : bits for value
-// STRLB   : bits for each of st and rel
-// CLKB    : bits for clock
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT = uint64_t>
-class PackedACArray
-{
-    static_assert(((VALBITS + VALBITS) + (STRLB + STRLB) + CLKB) <= (sizeof(OUT) * 8),
-                  "(v + inv + st + rel + clk) exceed the intended OUT width");
-
-public:
-    using out_t = OUT;
-    using valin_t = std::conditional_t<VALBITS <= 8, uint8_t,
-                    std::conditional_t<VALBITS <= 16, uint16_t, uint32_t>>;
-    using strl_t = std::conditional_t<STRLB <= 8, uint8_t, uint16_t>;
-    using clk_t  = std::conditional_t<CLKB <= 8,  uint8_t,
-                    std::conditional_t<CLKB <= 16, uint16_t, uint32_t>>;
-
-    using FieldView = ARFieldView<VALBITS, STRLB, CLKB, OUT>;
-
-    // ctor/dtor and move
-    PackedACArray() noexcept;
-    ~PackedACArray();
-    PackedACArray(const PackedACArray&) = delete;
-    PackedACArray& operator=(const PackedACArray&) = delete;
-    PackedACArray(PackedACArray&&) noexcept;
-    PackedACArray& operator=(PackedACArray&&) noexcept;
-
-    // allocate/free
-    void init(std::size_t n);
-    void free_all() noexcept;
-
-    // capacity
-    std::size_t sizePA() const noexcept;
-    bool emptyPA() const noexcept;
-
-    // Read: returns std::nullopt on out-of-range or integrity check failure
-    std::optional<FieldView> Read(std::size_t idx, std::memory_order order = std::memory_order_acquire) const noexcept;
-
-    // CAS-style write: returns true if successful
-    bool WriteCas(std::size_t idx, valin_t newValue,
-                  std::optional<strl_t> setST = {},
-                  std::optional<strl_t> setREL = {},
-                  std::memory_order casOrder = std::memory_order_acq_rel) noexcept;
-
-    // Exclusive committer path (no CAS): commit new value and bump clock
-    void CommitStore(std::size_t idx, valin_t newValue, strl_t setST = 0, strl_t setREL = 0,
-                     std::memory_order mo = std::memory_order_release) noexcept;
-
-    // debug
-    void debug_print(std::size_t idx) const noexcept;
-
-    // is underlying atomic lock free?
-    static bool is_lock_free() noexcept;
-
-
-private:
-    std::size_t n_;
-    std::atomic<OUT>* data_;
-};
-
-// convenience typedefs (explicit instantiations will exist in .cpp)
-using RelPacked4  = PackedACArray<4, 4, 16, uint32_t>;
-using RelPacked8  = PackedACArray<8, 4,  8, uint32_t>;
-using RelPacked16 = PackedACArray<16,8, 16, uint64_t>;
-
-} // namespace AtomicCSCompact

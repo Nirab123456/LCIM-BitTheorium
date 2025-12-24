@@ -1,187 +1,236 @@
-// AtomicCSCompact.cpp
 #include "AtomicCSCompact.h"
-
-#include <cstdlib>
 #include <new>
-#include <algorithm>
 #include <iostream>
+#include <cstring>
+#include <cassert>
 
-namespace AtomicCSCompact
-{
+namespace AtomicCScompact{
 
-// ---------------- BitPacker ----------------
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-struct BitPacker {
-    static_assert(std::is_unsigned_v<OUT>, "OUT must be unsigned");
-    static constexpr size_t TOTAL_BITS = (VALBITS + VALBITS) + (STRLB + STRLB) + CLKB;
-    static_assert(TOTAL_BITS <= sizeof(OUT) * 8, "Total bits exceed OUT");
-
-    static constexpr OUT VAL_MASK  = (VALBITS == 0) ? OUT(0) : ((OUT(1) << VALBITS) - OUT(1));
-    static constexpr OUT STRL_MASK = (STRLB == 0) ? OUT(0) : ((OUT(1) << STRLB) - OUT(1));
-    static constexpr OUT CLK_MASK  = (CLKB == 0) ? OUT(0) : ((OUT(1) << CLKB) - OUT(1));
-
-    // pack: val (lsb) | inv | rel | st | clk
-    static inline OUT pack(OUT val, OUT inv, OUT st, OUT rel, OUT clk) noexcept {
-        OUT out = 0;
-        out |= (val & VAL_MASK);
-        out |= ((inv & VAL_MASK) << VALBITS);
-        out |= ((rel & STRL_MASK) << (VALBITS + VALBITS));
-        out |= ((st  & STRL_MASK) << (VALBITS + VALBITS + STRLB));
-        out |= ((clk & CLK_MASK)  << (VALBITS + VALBITS + STRLB + STRLB));
-        return out;
-    }
-
-    template<typename Vt, typename Stt, typename Clkt>
-    static inline void unpack(OUT packed, Vt &val, Vt &inv, Stt &st, Stt &rel, Clkt &clk) noexcept {
-        OUT cursor = packed;
-        val = static_cast<Vt>(cursor & VAL_MASK);
-        cursor >>= VALBITS;
-        inv = static_cast<Vt>(cursor & VAL_MASK);
-        cursor >>= VALBITS;
-        rel = static_cast<Stt>(cursor & STRL_MASK);
-        cursor >>= STRLB;
-        st  = static_cast<Stt>(cursor & STRL_MASK);
-        cursor >>= STRLB;
-        clk = static_cast<Clkt>(cursor & CLK_MASK);
-    }
-};
-
-// ---------------- ARFieldView (POD) ----------------
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-struct ARFieldView {
-    using valin_t = std::conditional_t<VALBITS <= 8, uint8_t,
-                    std::conditional_t<VALBITS <= 16, uint16_t, uint32_t>>;
-    using strl_t = std::conditional_t<STRLB <= 8, uint8_t, uint16_t>;
-    using clk_t  = std::conditional_t<CLKB <= 8, uint8_t,
-                    std::conditional_t<CLKB <= 16, uint16_t, uint32_t>>;
-
-    valin_t value;
-    valin_t inv;
-    strl_t st;
-    strl_t rel;
-    clk_t clk;
-};
-
-// ---------------- PackedACArray implementations ----------------
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-PackedACArray<VALBITS,STRLB,CLKB,OUT>::PackedACArray() noexcept : n_(0), data_(nullptr) {}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-PackedACArray<VALBITS,STRLB,CLKB,OUT>::~PackedACArray() { free_all(); }
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-PackedACArray<VALBITS,STRLB,CLKB,OUT>::PackedACArray(PackedACArray&& o) noexcept
-: n_(o.n_), data_(o.data_) { o.n_ = 0; o.data_ = nullptr; }
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-PackedACArray<VALBITS,STRLB,CLKB,OUT>&
-PackedACArray<VALBITS,STRLB,CLKB,OUT>::operator=(PackedACArray&& o) noexcept {
-    if (this != &o) {
-        free_all();
-        n_ = o.n_; data_ = o.data_;
-        o.n_ = 0; o.data_ = nullptr;
-    }
-    return *this;
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-void PackedACArray<VALBITS,STRLB,CLKB,OUT>::init(std::size_t n) {
-    if (data_)
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    struct BitPacker
     {
-        FreeAll(data_);
-    }
-    InitAView(data_, n, n_);
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-void PackedACArray<VALBITS,STRLB,CLKB,OUT>::free_all() noexcept {
-    if (data_) {
-        FreeAll(data_);
-    }
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-std::size_t PackedACArray<VALBITS,STRLB,CLKB,OUT>::sizePA() const noexcept { return n_; }
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-bool PackedACArray<VALBITS,STRLB,CLKB,OUT>::emptyPA() const noexcept { return n_ == 0; }
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-std::optional<typename PackedACArray<VALBITS,STRLB,CLKB,OUT>::FieldView>
-PackedACArray<VALBITS,STRLB,CLKB,OUT>::Read(std::size_t idx, std::memory_order order) const noexcept
-{
-    if (idx >= n_) return std::nullopt;
-    OUT raw = data_[idx].load(order);
-    FieldView f{};
-    BitPacker<VALBITS,STRLB,CLKB,OUT>::unpack(raw, f.value, f.inv, f.st, f.rel, f.clk);
-    OUT expected_inv = (BitPacker<VALBITS,STRLB,CLKB,OUT>::VAL_MASK & (~OUT(f.value)));
-    if (OUT(f.inv) != expected_inv) return std::nullopt;
-    return f;
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-bool PackedACArray<VALBITS,STRLB,CLKB,OUT>::WriteCas(std::size_t idx, valin_t newValue,
-            std::optional<strl_t> setST, std::optional<strl_t> setREL, std::memory_order casOrder) noexcept
-{
-    if (idx >= n_) return false;
-    OUT valmask = OUT(newValue) & BitPacker<VALBITS,STRLB,CLKB,OUT>::VAL_MASK;
-    OUT invmask = (OUT(~OUT(newValue)) & BitPacker<VALBITS,STRLB,CLKB,OUT>::VAL_MASK);
-
-    for (;;) {
-        OUT old = data_[idx].load(std::memory_order_acquire);
-        valin_t oldv; valin_t oldinv; strl_t oldst; strl_t oldrel; clk_t oldclk;
-        BitPacker<VALBITS,STRLB,CLKB,OUT>::unpack(old, oldv, oldinv, oldst, oldrel, oldclk);
-
-        clk_t pend = clk_t(oldclk + 1u);
-        strl_t stv = setST.has_value() ? setST.value() : oldst;
-        strl_t relv = setREL.has_value() ? setREL.value() : oldrel;
-
-        OUT pending = BitPacker<VALBITS,STRLB,CLKB,OUT>::pack(valmask, invmask, OUT(stv), OUT(relv), OUT(pend));
-
-        OUT expected = old;
-        if ( data_[idx].compare_exchange_strong(expected, pending, casOrder, std::memory_order_acquire) ) {
-            // commit final
-            clk_t finalclk = clk_t(pend + 1u);
-            OUT finalw = BitPacker<VALBITS,STRLB,CLKB,OUT>::pack(valmask, invmask, OUT(stv), OUT(relv), OUT(finalclk));
-            data_[idx].store(finalw, std::memory_order_release);
-            return true;
+        static_assert(std::is_unsigned_v<OUT>,"OUT must be unsigned");
+        static_assert((VALBITS + (2 * STRLB) + CLKB) <= sizeof(OUT) * SIZE_OF_BYTE_IN_BITS,
+                        "Packed width exceed OUT length");
+        static constexpr OUT ValMask = (VALBITS == 0) ? OUT(0) : ((OUT(1) << VALBITS) - OUT(1));
+        static constexpr OUT StrlMask = (STRLB == 0) ? OUT(0) : ((OUT(1) << STRLB) - OUT(1));
+        static constexpr OUT ClkMask = (CLKB == 0) ? OUT(0) : ((OUT(1) << CLKB) - OUT(1));
+        static inline OUT PackDevil(OUT value, OUT st, OUT rel, OUT clk) noexcept
+        {
+            OUT out = 0;
+            out |= (value & ValMask);
+            out |= ((rel & StrlMask) << VALBITS);
+            out |= ((st & StrlMask) << (VALBITS + STRLB));
+            out |= ((clk & ClkMask) << (VALBITS + STRLB * 2));
+            return out;
         }
-        // else CAS failed; retry
+
+        template<typename Vt, typename SRt, typename Ct>
+        static inline void unpack(
+            OUT packed, Vt &value, SRt &st, SRt &rel, Ct &clk
+        )
+        {
+            OUT cursor = packed;
+            value = static_cast<Vt>(cursor & ValMask);
+            cursor >>= VALBITS;
+            rel = static_cast<SRt>(cursor & StrlMask);
+            cursor >>= STRLB;
+            st = static_cast<SRt>(cursor & StrlMask);
+            cursor >>= STRLB;
+            clk = static_cast<Ct>(cursor & ClkMask);
+        }
+    };
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>::PackedACarray() noexcept:
+                    n_(0), data_(nullptr)
+    {}
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>:: ~PackedACarray()
+    {
+        free_all();
     }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>::PackedACarray(PackedACarray&& o) noexcept:
+        n_(o.n_), data_(o.data_)
+    {
+        o.n_ = 0;
+        o.data_ = nullptr;
+    }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>&
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>::operator= (PackedACarray&& o) noexcept
+    {
+        if (this != &o)
+        {
+            free_all();
+            n_ = o.n_;
+            data_ = o.data_;
+            o.n_ = 0;
+            o.data_ = nullptr;
+        }
+    }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    void PackedACarray<VALBITS, STRLB, CLKB, OUT>::init(size_t n, uint8_t PrefAllignment)
+    {
+        free_all();
+        if (n == 0)
+        {
+            n_ = 0;
+            return;
+        }
+        n_ = n;
+        const allignment = std::max<size_t>(alignof(std::atomic<OUT>, static_cast<size_t>(PrefAllignment)));
+        try
+        {
+            data_ = new(std::align_val_t(allignment)) std::atomic<OUT>[n_];
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            free_all();
+            throw;
+        }
+    }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    void PackedACarray<VALBITS, STRLB, CLKB, OUT>::free_all() noexcept
+    {
+        if (!data_)
+        {
+            return;
+        }
+
+        delete[] data_;
+        data_ = nullptr;
+    }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    std::optional<typename PackedACarray<VALBITS, STRLB, CLKB, OUT>::ACFieldView>
+    PackedACarray<VALBITS, STRLB, CLKB, OUT>::Read(std::size_t idx, std::memory_order mo) const noexcept
+    {
+        if (idx >= n_)
+        {
+            return std::nullopt;
+        }
+        OUT raw = data_[idx].load(mo);
+        ACFieldView f {};
+        BitPacker<VALBITS, STRLB, CLKB, OUT>::unpack(raw, f.value, f.st, f.rel, f.clk);
+        if ((f.clk & 1u) != 0u)
+        {
+            return std::nullopt;
+        }
+        return f;
+    }
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    bool PackedACarray<VALBITS, STRLB, CLKB, OUT>::writeCAS(
+        std::size_t idx, valin_t newValue,
+        std::optional<strl_t> setST,
+        std::optional<strl_t> setRel,
+        std::memory_order casOrder
+    ) noexcept
+    {
+        if (idx >= n_)
+        {
+            return false;
+        }
+        OUT valmask = OUT(newValue) & BP.ValMask;
+        
+        while(true)
+        {
+            OUT old = data_[idx].load(std::memory_order_acquire);
+            valin_t oldv;
+            strl_t oldst;
+            strl_t oldrel;
+            clk16_t oldclk;
+
+            BP.unpack(old, oldv, oldst, oldrel, oldclk);
+            clk16_t pend = static_cast<clk_t>(oldclk +1u);
+            strl_t stv = setST.has_value() ? setST.value() : oldst;
+            strl_t relv = setRel.has_value() ? setRel.value() : oldrel;
+
+            OUT pending = BP_.PackBP(valmask, OUT(stv), OUT(relv), OUT(pend));
+
+            OUT expected = old;
+            if (data_[idx].compare_exchange_strong(expected, pending, casOrder, std::memory_order_acquire))
+            {
+                clk16_t finalclk = ststic_cast<clk_t>(pend + 1u);
+                OUT finalw = BP.PackDevil(valmask, OUT(stv), OUT(relv), OUT(finalclk));
+                data_[idx].store(finalw, std::memory_order_release);
+                return true;
+            }
+        }
+    }
+
+
+    template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    void PackedACarray<VALBITS, STRLB, CLKB, OUT>::CommitStore(std::size_t idx, valin_t newValue, strl_t SetST, strl_t SetREL, std::memory_order mo) noexcept
+    {
+        if (idx >= n_)
+        {
+            return;
+        }
+
+        OUT old = data_[idx].load(std::memory_order_relaxed);
+        valin_t oldv;
+        strl_t oldst;
+        strl_t oldrel;
+        strl_t oldclk;
+        BP.unpack(old, oldv, oldst, oldrel, oldclk);
+        clk16_t newclk = = static_cast<clk16_t>(oldclk + 2u);
+        OUT packed = BP_.PackDevil(OUT(newValue) & BP_.ValMask, OUT(SetST), OUT(SetREL), OUT(newclk));
+        data_[idx].store(packed, mo);
+    } 
+
+    template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    void PackedACarray<VALBITS,STRLB,CLKB,OUT>::CommitBlock(std::size_t base, const valin_t *vals, std::size_t count,
+                        strl_t setST, strl_t setREL, std::memory_order mo) noexcept
+    {
+        if (base + count > n_)
+        {
+            return;
+        }
+
+        for (std::size_t i = 0; i < count; i++)
+        {
+            OUT old = data_[base + i].load(std::memory_order_relaxed);
+            valin_t oldv;
+            strl_t oldst;
+            strl_t oldrel;
+            clk16_t oldclk;
+            BP_.unpack(old, oldv, oldst, oldrel, oldclk);
+            clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
+            OUT packed = BP_.PackDevil(OUT(vals[i] & BP_.ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
+            data_[base + i].store(packed, mo);
+        }
+    }
+
+
+    template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
+    void PackedACarray<VALBITS,STRLB,CLKB,OUT>::debugPrint(std::size_t idx) const noexcept
+    {
+        if (idx >= n_)
+        {
+            std::cout << "idx = " << idx << "Out of range" << std::endl;
+            return;
+        }
+
+        OUT raw = data_[idx].load(std::memory_order_acquire);
+        valin_t v;
+        strl_t st;
+        strel_t rel;
+        clk16_t clk;
+
+        BP_.unpack(raw, v, st, rel, clk);
+        std::cout << "idx=" << idx << " v=" << +v << " st=" << +st << " rel=" << +rel << " clk=" << +clk << "\n";        
+    }
+
+
+    template class PackedACarray<32, 8, 16, uint64_t>;
+
 }
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-void PackedACArray<VALBITS,STRLB,CLKB,OUT>::CommitStore(std::size_t idx, valin_t newValue, strl_t stv, strl_t relv, std::memory_order mo) noexcept
-{
-    if (idx >= n_) return;
-    OUT old = data_[idx].load(std::memory_order_relaxed);
-    valin_t oldv; valin_t oldinv; strl_t oldst; strl_t oldrel; clk_t oldclk;
-    BitPacker<VALBITS,STRLB,CLKB,OUT>::unpack(old, oldv, oldinv, oldst, oldrel, oldclk);
-    clk_t newclk = clk_t(oldclk + 2u);
-    OUT valmask = OUT(newValue) & BitPacker<VALBITS,STRLB,CLKB,OUT>::VAL_MASK;
-    OUT invmask = (OUT(~OUT(newValue)) & BitPacker<VALBITS,STRLB,CLKB,OUT>::VAL_MASK);
-    OUT packed = BitPacker<VALBITS,STRLB,CLKB,OUT>::pack(valmask, invmask, OUT(stv), OUT(relv), OUT(newclk));
-    data_[idx].store(packed, mo);
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-void PackedACArray<VALBITS,STRLB,CLKB,OUT>::debug_print(std::size_t idx) const noexcept {
-    auto opt = Read(idx);
-    if (!opt) { std::cout << "idx=" << idx << " <invalid>\n"; return; }
-    const auto &f = *opt;
-    std::cout << "idx=" << idx << " val=" << +f.value << " inv=" << +f.inv
-              << " st=" << +f.st << " rel=" << +f.rel << " clk=" << +f.clk << "\n";
-}
-
-template <size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-bool PackedACArray<VALBITS,STRLB,CLKB,OUT>::is_lock_free() noexcept {
-    return std::atomic<OUT>().is_lock_free();
-}
-
-// explicit instantiations (the ones used by your program)
-template class PackedACArray<4,4,16,uint32_t>;
-template class PackedACArray<8,4,8,uint32_t>;
-template class PackedACArray<16,8,16,uint64_t>;
-
-} // namespace AtomicCSCompact
