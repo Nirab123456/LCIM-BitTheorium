@@ -77,13 +77,13 @@ namespace AtomicCScompact {
 
         bool IsLkFree() noexcept
         {
-            return std::atomic<OUT>().IsLkFree();
+            return std::atomic<OUT>().is_lock_free();
         }
     
     private:
         std::size_t n_;
         std::atomic<out_t>* data_;
-        uint8_t PREF_ALLIGNMENT_ = 64;
+        static constexpr uint8_t PREF_ALLIGNMENT_ = 64;
         using BP_ = BitPacker<VALBITS, STRLB, CLKB, OUT>;
     };
 

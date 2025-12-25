@@ -72,6 +72,7 @@ namespace AtomicCScompact{
             o.n_ = 0;
             o.data_ = nullptr;
         }
+        return *this;
     }
 
     template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
@@ -87,7 +88,7 @@ namespace AtomicCScompact{
         const allignment = std::max<size_t>(alignof(std::atomic<OUT>, static_cast<size_t>(PrefAllignment)));
         try
         {
-            data_ = static_cast<std::atomic<OUT>*>(operator new[](n_ * sizeof(std::atomic<OUT>), std::align_val_t(PrefAllignment)));        
+            data_ = new(std::align_val_t(allignment)) std::atomic<OUT>[n_]();  
         }
         catch(const std::exception& e)
         {
@@ -119,7 +120,7 @@ namespace AtomicCScompact{
         }
         OUT raw = data_[idx].load(mo);
         ACFieldView f {};
-        BitPacker<VALBITS, STRLB, CLKB, OUT>::unpack(raw, f.value, f.st, f.rel, f.clk);
+        BP_::unpack(raw, f.value, f.st, f.rel, f.clk);
         if ((f.clk & 1u) != 0u)
         {
             return std::nullopt;
@@ -139,20 +140,20 @@ namespace AtomicCScompact{
             valin_t oldv;
             strl_t oldst;
             strl_t oldrel;
-            clk_t oldclk;
-            unpack(old, oldv, oldst, oldrel, oldclk);
+            clk16_t oldclk;
+            BP_::unpack(old, oldv, oldst, oldrel, oldclk);
 
             strl_t newst = setST.has_value() ? setST.value() : oldst;
             strl_t newrel = setREL.has_value() ? setREL.value() : oldrel;
-            clk_t pendingClk = static_cast<clk_t>(oldclk + 1u);
+            clk16_t pendingClk = static_cast<clk16_t>(oldclk + 1u);
 
-            out_t pending = pack(valueMask, out_t(newrel), out_t(newst), out_t(pendingClk));
+            out_t pending = BP_::PackDevil(valueMask, out_t(newrel), out_t(newst), out_t(pendingClk));
 
             out_t expected = old;
             if (data_[idx].compare_exchange_strong(expected, pending, order, std::memory_order_acquire)) {
                 // commit atomically the final state (advance clock)
-                clk_t finalClk = static_cast<clk_t>(pendingClk + 1u);
-                out_t finalw = pack(valueMask, out_t(newrel), out_t(newst), out_t(finalClk));
+                clk16_t finalClk = static_cast<clk16_t>(pendingClk + 1u);
+                out_t finalw = BP_::PackDevil(valueMask, out_t(newrel), out_t(newst), out_t(finalClk));
                 data_[idx].store(finalw, std::memory_order_release);
                 return true;
             }
@@ -173,9 +174,9 @@ namespace AtomicCScompact{
         strl_t oldst;
         strl_t oldrel;
         clk16_t oldclk;
-        BP_.unpack(old, oldv, oldst, oldrel, oldclk);
+        BP_::unpack(old, oldv, oldst, oldrel, oldclk);
         clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
-        OUT packed = BP_.PackDevil(OUT(newValue) & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk));
+        OUT packed = BP_::PackDevil(OUT(newValue) & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk));
         data_[idx].store(packed, mo);
     } 
 
@@ -195,9 +196,9 @@ namespace AtomicCScompact{
             strl_t oldst;
             strl_t oldrel;
             clk16_t oldclk;
-            BP_.unpack(old, oldv, oldst, oldrel, oldclk);
+            BP_::unpack(old, oldv, oldst, oldrel, oldclk);
             clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
-            OUT packed = BP_.PackDevil(OUT(vals[i] & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
+            OUT packed = BP_::PackDevil(OUT(vals[i] & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
             data_[base + i].store(packed, mo);
         }
     }
@@ -215,10 +216,10 @@ namespace AtomicCScompact{
         OUT raw = data_[idx].load(std::memory_order_acquire);
         valin_t v;
         strl_t st;
-        strel_t rel;
+        strl_t rel;
         clk16_t clk;
 
-        BP_.unpack(raw, v, st, rel, clk);
+        BP_::unpack(raw, v, st, rel, clk);
         std::cout << "idx=" << idx << " v=" << +v << " st=" << +st << " rel=" << +rel << " clk=" << +clk << "\n";        
     }
 

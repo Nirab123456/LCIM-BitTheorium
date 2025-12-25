@@ -109,6 +109,8 @@ void multiThreadTest(Table &t, size_t N, unsigned thc, size_t opsPerThread)
 
 int main(int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
     printbanner();
     const size_t N = 1 << 20;
     Table t;
