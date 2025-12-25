@@ -21,11 +21,13 @@ namespace AtomicCScompact {
     public:
         using out_t = OUT;
         using valin_t = std::conditional_t<VALBITS <= 8, uint8_t,
-                std::conditional_t<VALBITS <= 32, uint32_t, uint32_t>>;
-        using strl_t = std::conditional_t<STRLB <= 8, uint8_t, uint16_t>;
+                std::conditional_t<VALBITS <= 16, uint16_t,
+                std::conditional_t<VALBITS <= 32, uint32_t, uint64_t>>>;
+        using strl_t = std::conditional_t<STRLB <=8, uint8_t,
+                std::conditional_t<STRLB <= 16, uint16_t, uint32_t>>;
         using clk16_t = std::conditional_t<CLKB <= 8, uint8_t,
-                std::conditional_t<CLKB <= 16, uint16_t, uint16_t>>;
-        
+                std::conditional_t<CLKB <= 16, uint16_t, uint32_t>>;
+
         struct ACFieldView {
             valin_t value;
             strl_t st;
@@ -75,11 +77,11 @@ namespace AtomicCScompact {
 
         bool IsLkFree() noexcept
         {
-            return std::stomic<OUT>().IsLkFree();
+            return std::atomic<OUT>().IsLkFree();
         }
     
     private:
-        std::size_T n_;
+        std::size_t n_;
         std::atomic<out_t>* data_;
         uint8_t PREF_ALLIGNMENT_ = 64;
         using BP_ = BitPacker<VALBITS, STRLB, CLKB, OUT>;

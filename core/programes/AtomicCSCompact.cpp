@@ -87,7 +87,7 @@ namespace AtomicCScompact{
         const allignment = std::max<size_t>(alignof(std::atomic<OUT>, static_cast<size_t>(PrefAllignment)));
         try
         {
-            data_ = new(std::align_val_t(allignment)) std::atomic<OUT>[n_];
+            data_ = static_cast<std::atomic<OUT>*>(operator new[](n_ * sizeof(std::atomic<OUT>), std::align_val_t(PrefAllignment)));        
         }
         catch(const std::exception& e)
         {
@@ -128,48 +128,40 @@ namespace AtomicCScompact{
     }
 
     template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-    bool PackedACarray<VALBITS, STRLB, CLKB, OUT>::writeCAS(
-        std::size_t idx, valin_t newValue,
-        std::optional<strl_t> setST,
-        std::optional<strl_t> setRel,
-        std::memory_order casOrder
-    ) noexcept
+    bool PackedACarray<VALBITS,STRLB,CLKB,OUT>::writeCAS(std::size_t idx, valin_t newValue,
+            std::optional<strl_t> setST, std::optional<strl_t> setREL, std::memory_order order) noexcept
     {
-        if (idx >= n_)
-        {
-            return false;
-        }
-        OUT valmask = OUT(newValue) & BP.ValMask;
-        
-        while(true)
-        {
-            OUT old = data_[idx].load(std::memory_order_acquire);
+        if (idx >= n_) return false;
+        out_t valueMask = out_t(newValue) & VALMASK;
+
+        while (true) {
+            out_t old = data_[idx].load(std::memory_order_acquire);
             valin_t oldv;
             strl_t oldst;
             strl_t oldrel;
-            clk16_t oldclk;
+            clk_t oldclk;
+            unpack(old, oldv, oldst, oldrel, oldclk);
 
-            BP.unpack(old, oldv, oldst, oldrel, oldclk);
-            clk16_t pend = static_cast<clk_t>(oldclk +1u);
-            strl_t stv = setST.has_value() ? setST.value() : oldst;
-            strl_t relv = setRel.has_value() ? setRel.value() : oldrel;
+            strl_t newst = setST.has_value() ? setST.value() : oldst;
+            strl_t newrel = setREL.has_value() ? setREL.value() : oldrel;
+            clk_t pendingClk = static_cast<clk_t>(oldclk + 1u);
 
-            OUT pending = BP_.PackBP(valmask, OUT(stv), OUT(relv), OUT(pend));
+            out_t pending = pack(valueMask, out_t(newrel), out_t(newst), out_t(pendingClk));
 
-            OUT expected = old;
-            if (data_[idx].compare_exchange_strong(expected, pending, casOrder, std::memory_order_acquire))
-            {
-                clk16_t finalclk = ststic_cast<clk_t>(pend + 1u);
-                OUT finalw = BP.PackDevil(valmask, OUT(stv), OUT(relv), OUT(finalclk));
+            out_t expected = old;
+            if (data_[idx].compare_exchange_strong(expected, pending, order, std::memory_order_acquire)) {
+                // commit atomically the final state (advance clock)
+                clk_t finalClk = static_cast<clk_t>(pendingClk + 1u);
+                out_t finalw = pack(valueMask, out_t(newrel), out_t(newst), out_t(finalClk));
                 data_[idx].store(finalw, std::memory_order_release);
                 return true;
             }
+            // else expected is updated; try again
         }
     }
 
-
     template<size_t VALBITS, size_t STRLB, size_t CLKB, typename OUT>
-    void PackedACarray<VALBITS, STRLB, CLKB, OUT>::CommitStore(std::size_t idx, valin_t newValue, strl_t SetST, strl_t SetREL, std::memory_order mo) noexcept
+    void PackedACarray<VALBITS, STRLB, CLKB, OUT>::CommitStore(std::size_t idx, valin_t newValue, strl_t setST, strl_t setREL, std::memory_order mo) noexcept
     {
         if (idx >= n_)
         {
@@ -180,10 +172,10 @@ namespace AtomicCScompact{
         valin_t oldv;
         strl_t oldst;
         strl_t oldrel;
-        strl_t oldclk;
-        BP.unpack(old, oldv, oldst, oldrel, oldclk);
-        clk16_t newclk = = static_cast<clk16_t>(oldclk + 2u);
-        OUT packed = BP_.PackDevil(OUT(newValue) & BP_.ValMask, OUT(SetST), OUT(SetREL), OUT(newclk));
+        clk16_t oldclk;
+        BP_.unpack(old, oldv, oldst, oldrel, oldclk);
+        clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
+        OUT packed = BP_.PackDevil(OUT(newValue) & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk));
         data_[idx].store(packed, mo);
     } 
 
@@ -205,7 +197,7 @@ namespace AtomicCScompact{
             clk16_t oldclk;
             BP_.unpack(old, oldv, oldst, oldrel, oldclk);
             clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
-            OUT packed = BP_.PackDevil(OUT(vals[i] & BP_.ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
+            OUT packed = BP_.PackDevil(OUT(vals[i] & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
             data_[base + i].store(packed, mo);
         }
     }
