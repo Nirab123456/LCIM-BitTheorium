@@ -85,7 +85,7 @@ namespace AtomicCScompact{
             return;
         }
         n_ = n;
-        const allignment = std::max<size_t>(alignof(std::atomic<OUT>, static_cast<size_t>(PrefAllignment)));
+        const size_t allignment = std::max<size_t>(alignof(std::atomic<OUT>), static_cast<size_t>(PrefAllignment));
         try
         {
             data_ = new(std::align_val_t(allignment)) std::atomic<OUT>[n_]();  
@@ -133,7 +133,7 @@ namespace AtomicCScompact{
             std::optional<strl_t> setST, std::optional<strl_t> setREL, std::memory_order order) noexcept
     {
         if (idx >= n_) return false;
-        out_t valueMask = out_t(newValue) & VALMASK;
+        out_t valueMask = out_t(newValue) & BP_::ValMask;
 
         while (true) {
             out_t old = data_[idx].load(std::memory_order_acquire);
