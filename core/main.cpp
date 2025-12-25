@@ -57,15 +57,15 @@ void SingleThreadTest(Table &t, std::size_t N)
     std::cout << " sanity check" << (ok ? "pass" : "fail") << "\n" << std::endl;
 }
 
-void Casworker(Table &t, size_t idxRange, size_t ops, std::atomic<size_t> &successCount, unsigned seed)
+void Casworker(Table &t, size_t base, size_t idxRange, size_t ops, std::atomic<size_t> &successCount, unsigned seed)
 {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<size_t>dist(0, idxRange -1);
 
     for (size_t i = 0; i < ops; i++)
     {
-        size_t idx = idx + dist(rng);
-        uint32_t newv = static_cast<uint32_t>((seed & 0xffff) ^ static_cast<uint32_t>(i));
+        size_t idx = base  + dist(rng);
+        uint32_t newv = static_cast<uint32_t>((seed & 0xffffu) ^ static_cast<uint32_t>(i));
         bool ok = t.writeCAS(idx, newv, std::optional<Table::strl_t>(1), std::optional<Table::strl_t>(2));
 
         if (ok)
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
     printbanner();
     const size_t N = 1 << 20;
     Table t;
-
+    t.init(N);
     SingleThreadTest(t, 100000);
     unsigned threads = std::max<unsigned>(2, std::thread::hardware_concurrency());
     size_t opt = 5000;

@@ -147,14 +147,17 @@ namespace AtomicCScompact{
             strl_t newrel = setREL.has_value() ? setREL.value() : oldrel;
             clk16_t pendingClk = static_cast<clk16_t>(oldclk + 1u);
 
-            out_t pending = BP_::PackDevil(valueMask, out_t(newrel), out_t(newst), out_t(pendingClk));
-
             out_t expected = old;
-            if (data_[idx].compare_exchange_strong(expected, pending, order, std::memory_order_acquire)) {
+            if (data_[idx].compare_exchange_strong(expected, pendingClk, order, std::memory_order_acquire)) {
                 // commit atomically the final state (advance clock)
                 clk16_t finalClk = static_cast<clk16_t>(pendingClk + 1u);
-                out_t finalw = BP_::PackDevil(valueMask, out_t(newrel), out_t(newst), out_t(finalClk));
-                data_[idx].store(finalw, std::memory_order_release);
+                OUT packed = BP_::PackDevil(
+                    static_cast<out_t>(valueMask),
+                    static_cast<out_t>(newst),
+                    static_cast<out_t>(newrel),
+                    static_cast<out_t>(finalClk)
+                );
+                data_[idx].store(packed, std::memory_order_release);
                 return true;
             }
             // else expected is updated; try again
@@ -176,7 +179,12 @@ namespace AtomicCScompact{
         clk16_t oldclk;
         BP_::unpack(old, oldv, oldst, oldrel, oldclk);
         clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
-        OUT packed = BP_::PackDevil(OUT(newValue) & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk));
+        OUT packed = BP_::PackDevil(
+            static_cast<OUT>(newValue & BP_::ValMask),
+            static_cast<OUT>(setST),
+            static_cast<OUT>(setREL),
+            static_cast<OUT>(newclk)
+        );
         data_[idx].store(packed, mo);
     } 
 
@@ -198,7 +206,12 @@ namespace AtomicCScompact{
             clk16_t oldclk;
             BP_::unpack(old, oldv, oldst, oldrel, oldclk);
             clk16_t newclk = static_cast<clk16_t>(oldclk + 2u);
-            OUT packed = BP_::PackDevil(OUT(vals[i] & BP_::ValMask, OUT(setST), OUT(setREL), OUT(newclk)));
+            OUT packed = BP_::PackDevil(
+                static_cast<OUT>(vals[i] & BP_::ValMask),
+                static_cast<OUT>(setST),
+                static_cast<OUT>(setREL),
+                static_cast<OUT>(newclk)
+            );
             data_[base + i].store(packed, mo);
         }
     }
