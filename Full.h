@@ -814,31 +814,53 @@ struct Descriptor {
 */
 
 #endif // ATOMICCIM_UMBRELLA
-
 //=== File: AtomicCIM/Alloc.hpp ===
 #pragma once
+
+// Portable aligned allocation + NUMA-on-node allocators for Linux (libnuma)
+// and Windows (VirtualAllocExNuma). This header deliberately requires that
+// you compile on either Linux with libnuma (define HAVE_LIBNUMA and link -lnuma)
+// or Windows (any modern Windows SDK that exposes VirtualAllocExNuma).
+//
+// No fallbacks provided: if neither platform API is available the header
+// triggers a compile-time error. This is intentional for your paper.
 
 #include <cstddef>
 #include <cstdlib>
 #include <new>
+#include <stdexcept>
+#include <cstdint>
+#include <cassert>
 
-#if defined(HAVE_LIBNUMA)
+#if defined(_WIN32)
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
+  #include <windows.h>
+  #include <memoryapi.h> // header documentation reference; VirtualAllocExNuma is in memoryapi
+  // Linker: Kernel32.lib or KernelBase (MSVC) - default windows toolchains handle this.
+#elif defined(HAVE_LIBNUMA)
   #include <numa.h>
   #include <numaif.h>
+  #include <unistd.h>
+#else
+  #error "Alloc.hpp requires either Windows NUMA (VirtualAllocExNuma) or Linux libnuma (HAVE_LIBNUMA). Define HAVE_LIBNUMA and link -lnuma for Linux."
 #endif
 
 namespace atomiccim::alloc {
 
+// Generic aligned allocation (portable).
 inline void * aligned_alloc_portable(std::size_t alignment, std::size_t size) {
+    if (alignment == 0) alignment = alignof(void*);
 #if defined(_MSC_VER)
     void* p = _aligned_malloc(size, alignment);
     if (!p) throw std::bad_alloc();
     return p;
 #else
-    // posix/aligned_alloc requires size multiple of alignment on some platforms
-    size_t msize = ((size + alignment - 1) / alignment) * alignment;
-    void* p = std::aligned_alloc(alignment, msize);
-    if (!p) throw std::bad_alloc();
+    // posix_memalign is preferable because aligned_alloc sometimes requires size multiple of alignment.
+    void* p = nullptr;
+    int rc = posix_memalign(&p, alignment, size);
+    if (rc != 0 || !p) throw std::bad_alloc();
     return p;
 #endif
 }
@@ -847,20 +869,92 @@ inline void aligned_free_portable(void* p) noexcept {
 #if defined(_MSC_VER)
     _aligned_free(p);
 #else
-    std::free(p);
+    free(p);
+#endif
+}
+
+// Allocate memory pinned to a specific NUMA node (no fallbacks).
+// On Linux: uses numa_alloc_onnode(size, node).
+// On Windows: uses VirtualAllocExNuma to request physical memory from the node.
+//
+// Both implementations ensure the returned pointer is page-aligned (system page size).
+// Caller is responsible for freeing via free_onnode(...) or aligned_free_portable where applicable.
+
+inline std::size_t page_size() {
+#if defined(_WIN32)
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return static_cast<std::size_t>(si.dwPageSize);
+#else
+    long ps = sysconf(_SC_PAGESIZE);
+    return (ps > 0) ? static_cast<std::size_t>(ps) : 4096u;
 #endif
 }
 
 #if defined(HAVE_LIBNUMA)
-inline void * aligned_alloc_onnode(std::size_t alignment, std::size_t size, int node) {
-    // Use libnuma allocation on given node
-    // Note: numa_alloc_onnode does not guarantee alignment; we can over-allocate and align manually if needed.
-    // For simplicity we use numa_alloc_onnode and assume default alignment is OK for our usage (usually page-aligned).
-    void* p = numa_alloc_onnode(size, node);
+
+// Linux (libnuma) implementation.
+// Note: numa_alloc_onnode returns page-aligned memory and rounds up to page size.
+inline void* aligned_alloc_onnode(std::size_t alignment, std::size_t size, int node) {
+    if (alignment == 0) alignment = page_size();
+    // numa_alloc_onnode uses page-sized granularity. Round size up to page multiple.
+    std::size_t ps = page_size();
+    std::size_t rounded = ((size + ps - 1) / ps) * ps;
+    // Ensure libnuma available at runtime: numa_available() should be >= 0
+    if (numa_available() < 0) throw std::runtime_error("libnuma: numa_available() < 0 (NUMA not supported)");
+    if (node < 0 || node > numa_max_node()) throw std::invalid_argument("invalid numa node");
+    void* p = numa_alloc_onnode(rounded, node);
     if (!p) throw std::bad_alloc();
     return p;
 }
-inline void free_onnode(void* p, std::size_t size) noexcept { numa_free(p, size); }
-#endif
+
+inline void free_onnode(void* p, std::size_t size) noexcept {
+    if (!p) return;
+    std::size_t ps = page_size();
+    std::size_t rounded = ((size + ps - 1) / ps) * ps;
+    numa_free(p, rounded);
+}
+
+#elif defined(_WIN32)
+
+// Windows implementation using VirtualAllocExNuma.
+// Requires SDK that exposes VirtualAllocExNuma; we allocate in current process.
+inline void* aligned_alloc_onnode(std::size_t alignment, std::size_t size, int node) {
+    if (alignment == 0) alignment = page_size();
+    // VirtualAllocExNuma allocations are page-granular; round size up to page multiple.
+    std::size_t ps = page_size();
+    std::size_t rounded = ((size + ps - 1) / ps) * ps;
+
+    // VirtualAllocExNuma signature:
+    // LPVOID VirtualAllocExNuma(
+    //   HANDLE hProcess,
+    //   LPVOID lpAddress,
+    //   SIZE_T dwSize,
+    //   DWORD flAllocationType,
+    //   DWORD flProtect,
+    //   DWORD nndPreferred
+    // );
+    //
+    // We'll allocate in the current process and request the specified node.
+    HANDLE hProc = GetCurrentProcess();
+
+    // MEM_RESERVE | MEM_COMMIT -> commit pages immediately on the node if possible
+    DWORD allocType = MEM_RESERVE | MEM_COMMIT;
+    DWORD protect = PAGE_READWRITE;
+
+    LPVOID result = VirtualAllocExNuma(hProc, nullptr, rounded, allocType, protect, static_cast<DWORD>(node));
+    if (!result) {
+        // On Windows the call can fail for invalid node, insufficient resources, or if the API is unavailable.
+        throw std::bad_alloc();
+    }
+    return result;
+}
+
+inline void free_onnode(void* p, std::size_t /*size*/) noexcept {
+    if (!p) return;
+    VirtualFree(p, 0, MEM_RELEASE);
+}
+
+#endif // platform-specific implementations
 
 } // namespace atomiccim::alloc
