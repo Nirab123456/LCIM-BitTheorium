@@ -113,7 +113,7 @@ namespace AtomicCScompact::AllocNW
     }
 
 #elif defined(_WIN32)
-    inline void* AlignedAllocONNode(size_t alignment, size_t size, int node)
+    inline void* AlignedAllocONnode(size_t alignment, size_t size, int node)
     {
         if (alignment == 0)
         {

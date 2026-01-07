@@ -1,1 +1,4 @@
 core/build/
+.vs
+.vscode
+build

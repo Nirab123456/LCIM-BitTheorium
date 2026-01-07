@@ -1,27 +1,35 @@
 cmake_minimum_required(VERSION 3.10)
 project(AtomicCIM LANGUAGES CXX)
 
-# Use C++20 (change if you prefer C++17)
+# Produce compile_commands.json (useful for many IntelliSense tools)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Use C++20
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Source layout - adjust these if your folders differ
+# Source layout
 set(HEADERS_DIR ${CMAKE_SOURCE_DIR}/headers)
 set(SRC_DIR     ${CMAKE_SOURCE_DIR}/programs)
 
-# Include headers
-include_directories(${HEADERS_DIR})
-
-# List source files
+# Prefer explicit sources; add your .cpp files
 set(SRC_FILES
-    ${SRC_DIR}/AtomicCSCompact.cpp
+    ${HEADERS_DIR}/AllocNW.hpp
+    ${HEADERS_DIR}/PackedCell.hpp
     ${CMAKE_SOURCE_DIR}/main.cpp
+    main.cpp
+    # add other .cpp files here if you create them
+
 )
 
+# Add executable
 add_executable(AtomicCIM ${SRC_FILES})
 
-# Compiler warnings - adjust per your compiler
+# Include headers specifically for the target
+target_include_directories(AtomicCIM PRIVATE ${HEADERS_DIR})
+
+# Compiler warnings - target-specific
 if (MSVC)
     target_compile_options(AtomicCIM PRIVATE /W4 /WX)
 else()
