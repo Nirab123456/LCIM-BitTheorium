@@ -78,12 +78,8 @@ namespace AtomicCScompact::AllocNW
 
 //os specific
 #if defined(HAVE_NUMA)
-    inline void* AlignedAllocONnode(size_t alignment, size_t size, int node)
+    inline void* AlignedAllocONnode(size_t size, int node)
     {
-        if (alignment == 0)
-        {
-            alignment = PageSize();
-        }
         size_t ps = PageSize();
         size_t rounded = ((size + ps -1) / ps) * ps;
         if (numa_available() < 0)
@@ -94,6 +90,7 @@ namespace AtomicCScompact::AllocNW
         {
             throw std::invalid_argument("libnuma::Invalid node");
         }
+        void* p = numa_alloc_onnode(rounded, node);
         if (!p)
         {
             throw std::bad_alloc();
@@ -113,12 +110,8 @@ namespace AtomicCScompact::AllocNW
     }
 
 #elif defined(_WIN32)
-    inline void* AlignedAllocONnode(size_t alignment, size_t size, int node)
+    inline void* AlignedAllocONnode(size_t size, int node)
     {
-        if (alignment == 0)
-        {
-            alignment = PageSize();
-        }
         size_t ps = PageSize();
         size_t rounded = ((size + ps - 1) / ps) * ps;
 

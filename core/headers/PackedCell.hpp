@@ -45,6 +45,7 @@ namespace AtomicCScompact
             p |= ((packed64_t(clk) & MaskBits(CLK_B16)) << VALBITS);
             p |= ((packed64_t(st) & MaskBits(STBITS)) << (VALBITS + CLK_B16));
             p |= ((packed64_t(rel) & MaskBits(rel)) << (VALBITS + CLK_B16 + STBITS));
+            return p;
         }
         static inline val32_t UnpackVal(packed64_t p) noexcept
         {
@@ -71,6 +72,7 @@ namespace AtomicCScompact
             packed64_t p = (packed64_t)(clkvalue & MaskBits(CLK_B48));
             p |= (packed64_t(st) & MaskBits(STBITS)) << CLK_B48;
             p |= (packed64_t(rel) & MaskBits(RELBITS)) << (CLK_B48 + STBITS);
+            return p;
         }
         static inline uint64_t UnpackCLK48(packed64_t p) noexcept
         {
