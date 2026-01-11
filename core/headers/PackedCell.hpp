@@ -9,6 +9,9 @@
 
 namespace AtomicCScompact
 {
+    #define NO_VAL 0u
+    #define MAX_VAL 64u
+
     static constexpr std::memory_order MoLoad_      = std::memory_order_acquire;
     static constexpr std::memory_order MoStoreSeq_  = std::memory_order_release;
     static constexpr std::memory_order MoStoreUnSeq_= std::memory_order_relaxed;
@@ -31,101 +34,38 @@ namespace AtomicCScompact
         MODE_VALUE32 = 0,
         MODE_CLKVAL48 = 1
     };
-
-    // Safe constexpr mask generator that avoids UB when n == 64
     static inline constexpr packed64_t MaskBits(unsigned n) noexcept
     {
-        if (n == 0u) return packed64_t(0);
-        if (n >= 64u) return ~packed64_t(0);
+        if (n == NO_VAL) return packed64_t(0);
+        if (n >= MAX_VAL) return ~packed64_t(0);
         // produce low-n ones without shifting by >= width
-        return ( (~packed64_t(0)) >> (64u - static_cast<unsigned>(n)) );
+        return ( (~packed64_t(0)) >> (MAX_VAL - static_cast<unsigned>(n)) );
     }
 
-    struct PCellVal32_x64t
+    struct PackedCell64_t 
     {
-        static inline packed64_t PackV32x_64(val32_t value, clk16_t clk, tag8_t st, tag8_t rel) noexcept
-        {
-            packed64_t p = (packed64_t(value) & MaskBits(VALBITS));
-            p |= ((packed64_t(clk) & MaskBits(CLK_B16)) << VALBITS);
-            p |= ((packed64_t(st) & MaskBits(STBITS)) << (VALBITS + CLK_B16));
-            p |= ((packed64_t(rel) & MaskBits(RELBITS)) << (VALBITS + CLK_B16 + STBITS));
-            return p;
-        }
-        static inline int8_t UnpackV32x_64(val32_t& value, clk16_t& clk, tag8_t& st, tag8_t& rel, packed64_t packedD)
-        {
-            value = static_cast<val32_t>(packedD & MaskBits(VALBITS));
-            clk = static_cast<clk16_t>((packedD >> (VALBITS)) & MaskBits(CLK_B16));
-            st = static_cast<tag8_t>((packedD >>(VALBITS + CLK_B16)) & MaskBits(RELBITS));
-            rel = static_cast<tag8_t>((packedD >> (VALBITS + CLK_B16 + STBITS)) & MaskBits(RELBITS));
-            return 1;
-        } 
-        static inline val32_t UnpackVal(packed64_t p) noexcept
-        {
-            return val32_t(p & MaskBits(VALBITS));
-        }
-        static inline clk16_t UnpackCLK16(packed64_t p) noexcept
-        {
-            return clk16_t((p >> VALBITS) & MaskBits(CLK_B16));
-        }
-        static inline tag8_t UnpackST(packed64_t p) noexcept
-        {
-            return tag8_t((p >> (VALBITS + CLK_B16)) & MaskBits(STBITS));
-        }
-        static inline tag8_t UnpackREL(packed64_t p) noexcept
-        {
-            return tag8_t((p >> (VALBITS + CLK_B16 + STBITS)) & MaskBits(RELBITS));
-        }
-    };
-
-    struct PCLKCell48_x64
-    {
-        static inline packed64_t PackCLK48x_64(uint64_t clkvalue, tag8_t st, tag8_t rel) noexcept
-        {
-            packed64_t p = (packed64_t)(clkvalue & MaskBits(CLK_B48));
-            p |= ( (packed64_t(st) & MaskBits(STBITS)) << CLK_B48 );
-            p |= ( (packed64_t(rel) & MaskBits(RELBITS)) << (CLK_B48 + STBITS) );
+        static inline packed64_t PackV32x_64(val32_t v, clk16_t clk, tag8_t st, tag8_t rel) noexcept {
+            packed64_t p = (packed64_t(v) & MaskBits(VALBITS));
+            p |= (packed64_t(clk) & MaskBits(CLK_B16)) << VALBITS;
+            p |= (packed64_t(st)  & MaskBits(STBITS))  << (VALBITS + CLK_B16);
+            p |= (packed64_t(rel) & MaskBits(RELBITS)) << (VALBITS + CLK_B16 + STBITS);
             return p;
         }
 
-        static inline int8_t UnpackCLK48x_64(uint64_t lgclk, tag8_t& st, tag8_t& rel, packed64_t packedD)
-        {
-            lgclk = static_cast<val32_t>(packedD & MaskBits(CLK_B48));
-            st = static_cast<tag8_t>((packedD >>(CLK_B48)) & MaskBits(RELBITS));
-            rel = static_cast<tag8_t>((packedD >> (CLK_B48 + STBITS)) & MaskBits(RELBITS));
-            return 1;
+        static inline packed64_t PackCLK48x_64(clk16_t clk, tag8_t st, tag8_t rel) noexcept {
+            packed64_t p = (packed64_t(clk) & MaskBits(CLK_B16));
+            p |= (packed64_t(st)  & MaskBits(STBITS))  << CLK_B16;
+            p |= (packed64_t(rel) & MaskBits(RELBITS)) << (CLK_B16 + STBITS);
+            return p;
         }
-
-        static inline uint64_t UnpackCLK48(packed64_t p) noexcept
+        static inline val32_t ExtractValue32(packed64_t p) noexcept
         {
-            return uint64_t(p & MaskBits(CLK_B48));
+            return static_cast<val32_t>(p & MaskBits(VALBITS));
         }
-        static inline tag8_t UnpackST(packed64_t p) noexcept
+        static inline clk16_t ExtractClk16(packed64_t p) noexcept
         {
-            return tag8_t((p >> CLK_B48) & MaskBits(STBITS));
-        }
-        static inline tag8_t UnpackREL(packed64_t p) noexcept
-        {
-            return tag8_t((p >> (CLK_B48 + STBITS)) & MaskBits(RELBITS));
+            return static_cast<clk16_t>((p >> (VALBITS)))
         }
     };
 
-    struct PackedCell64_t
-    {
-        static inline packed64_t ComposeVal32(val32_t v, clk16_t clk, tag8_t st, tag8_t rel) noexcept
-        {
-            return PCellVal32_x64t::PackV32x_64(v, clk, st, rel);
-        }
-        static inline packed64_t ComposeCLK48V(uint64_t v, tag8_t st, tag8_t rel) noexcept
-        {
-            return PCLKCell48_x64::PackCLK48x_64(v, st, rel);
-        }
-
-        static inline val32_t  extract_value32(packed64_t p) noexcept { return PCellVal32_x64t::UnpackVal(p); }
-        static inline clk16_t  extract_clk16(packed64_t p) noexcept  { return PCellVal32_x64t::UnpackCLK16(p); }
-        static inline uint64_t extract_clk48(packed64_t p) noexcept  { return PCLKCell48_x64::UnpackCLK48(p); }
-        static inline tag8_t   extract_st_value32(packed64_t p) noexcept { return PCellVal32_x64t::UnpackST(p); }
-        static inline tag8_t   extract_rel_value32(packed64_t p) noexcept { return PCellVal32_x64t::UnpackREL(p); }
-        static inline tag8_t   extract_st_clk48(packed64_t p) noexcept  { return PCLKCell48_x64::UnpackST(p); }
-        static inline tag8_t   extract_rel_clk48(packed64_t p) noexcept { return PCLKCell48_x64::UnpackREL(p); }
-    };
 }

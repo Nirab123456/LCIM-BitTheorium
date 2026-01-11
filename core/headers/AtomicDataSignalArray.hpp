@@ -112,13 +112,64 @@ public:
             }
             Count_.store(0, MoStoreUnSeq_);
             ProducerCursor_(0, MoStoreUnSeq_);
-            ConsumCursor_(0, MoStoreUnSeq_)
-            
+            ConsumCursor_(0, MoStoreUnSeq_);
+        }
+    }
+    ~AtomicDSA()
+    {
+        if (Rawptr_)
+        {
+            for (size_t i = 0; i < Capacity_; i++)
+            {
+                Rawptr_[i] ~atomic()
+            }
+            size_t bytes = sizeof(std::atomic<packed64_t>) * Capacity_;
+            AllocNW::FreeONNode(static_cast<void*>(Rawptr_), bytes);
+            Rawptr_ = nullptr;
+        }
+    }
+    
+    AtomicDSA(const AtomicDSA&) = delete;
+    AtomicDSA& operator = (const AtomicDSA) = delete;
+
+    size_t GetCapacity() const noexcept
+    {
+        return Capacity_;
+    }
+    size_t GetOccupancy() const noexcept
+    {
+        return Count_.load(MoLoad_);
+    }
+    
+    size_t PublishSlot(PackedCell64_t item, int max_attempt = -1) noexcept
+    {
+        if constexpr (MODE == PackedMode::MODE_VALUE32)
+        {
+            val32_t v; clk16_t clk; tag8_t st; tag8_t rel;
+            PCellVal32_x64t::UnpackV32x_64(&v, &clk, &st, &rel, item);
+            item = PackedCell64_t::ComposeVal32(v, clk, ST_PUBLISHED, rel);
+        }
+        else if constexpr (MODE == PackedMode::MODE_CLKVAL48)
+        {
+            uint64_t full_clk; tag8_t st; tag8_t rel;
+            PCLKCell48_x64::UnpackCLK48x_64(&full_clk, &st, &rel, item);
+            item = PackedCell64_t::ComposeCLK48V(full_clk, ST_PUBLISHED, rel);
+        }
+
+        size_t attempts = 0;
+        size_t start = ProducerCursor_.fetch_add(1, std::memory_order_relaxed);
+        size_t idx = start % Capacity_;
+        while(true)
+        {
+            packed64_t cur = Rawptr_[idx].load(MoLoad_);
+            tag8_t cur_st = LoadState_(cur);
+            if (cur_st ==)
+            {
+                /* code */
+            }
             
         }
-        
     }
-    ~AtomicDSA();
 };
 
 
