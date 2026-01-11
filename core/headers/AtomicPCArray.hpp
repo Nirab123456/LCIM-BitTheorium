@@ -14,6 +14,7 @@
 
 namespace AtomicCScompact
 {
+
     template<PackedMode MODE>
     class AtomicPCArray
     {
@@ -21,11 +22,6 @@ namespace AtomicCScompact
         size_t n_;
         std::atomic<packed64_t>* data_;
         size_t OwnedSizeBytes_;
-
-        std::memory_order MoLoad_      = std::memory_order_acquire;
-        std::memory_order MoStore_     = std::memory_order_release;
-        std::memory_order EXsuccess_   = std::memory_order_acq_rel;
-        std::memory_order EXfailure_   = std::memory_order_relaxed;
 
     public:
         AtomicPCArray() noexcept : n_(0), data_(nullptr), OwnedSizeBytes_(0) {}
@@ -82,7 +78,7 @@ namespace AtomicCScompact
         void store(size_t idx, packed64_t val) noexcept
         {
             if (idx >= n_) return;
-            data_[idx].store(val, MoStore_);
+            data_[idx].store(val, MoStoreSeq_);
             std::atomic_notify_all(&data_[idx]);
         }
 

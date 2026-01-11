@@ -3,11 +3,18 @@
 #include <type_traits>
 #include <cassert>
 #include <limits>
+#include <atomic>
 
 #define ATOMIC_THRESHOLD 64u
 
 namespace AtomicCScompact
 {
+    static constexpr std::memory_order MoLoad_      = std::memory_order_acquire;
+    static constexpr std::memory_order MoStoreSeq_  = std::memory_order_release;
+    static constexpr std::memory_order MoStoreUnSeq_= std::memory_order_relaxed;
+    static constexpr std::memory_order EXsuccess_   = std::memory_order_acq_rel;
+    static constexpr std::memory_order EXfailure_   = std::memory_order_relaxed;
+
     static constexpr unsigned CLK_B48 = 48u;
     static constexpr unsigned VALBITS  = 32u;
     static constexpr unsigned CLK_B16  = 16u;
@@ -44,6 +51,14 @@ namespace AtomicCScompact
             p |= ((packed64_t(rel) & MaskBits(RELBITS)) << (VALBITS + CLK_B16 + STBITS));
             return p;
         }
+        static inline int8_t UnpackV32x_64(val32_t& value, clk16_t& clk, tag8_t& st, tag8_t& rel, packed64_t packedD)
+        {
+            value = static_cast<val32_t>(packedD & MaskBits(VALBITS));
+            clk = static_cast<clk16_t>((packedD >> (VALBITS)) & MaskBits(CLK_B16));
+            st = static_cast<tag8_t>((packedD >>(VALBITS + CLK_B16)) & MaskBits(RELBITS));
+            rel = static_cast<tag8_t>((packedD >> (VALBITS + CLK_B16 + STBITS)) & MaskBits(RELBITS));
+            return 1;
+        } 
         static inline val32_t UnpackVal(packed64_t p) noexcept
         {
             return val32_t(p & MaskBits(VALBITS));
@@ -71,6 +86,15 @@ namespace AtomicCScompact
             p |= ( (packed64_t(rel) & MaskBits(RELBITS)) << (CLK_B48 + STBITS) );
             return p;
         }
+
+        static inline int8_t UnpackCLK48x_64(uint64_t lgclk, tag8_t& st, tag8_t& rel, packed64_t packedD)
+        {
+            lgclk = static_cast<val32_t>(packedD & MaskBits(CLK_B48));
+            st = static_cast<tag8_t>((packedD >>(CLK_B48)) & MaskBits(RELBITS));
+            rel = static_cast<tag8_t>((packedD >> (CLK_B48 + STBITS)) & MaskBits(RELBITS));
+            return 1;
+        }
+
         static inline uint64_t UnpackCLK48(packed64_t p) noexcept
         {
             return uint64_t(p & MaskBits(CLK_B48));
