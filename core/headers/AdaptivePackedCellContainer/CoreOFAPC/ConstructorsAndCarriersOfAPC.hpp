@@ -13,7 +13,7 @@ struct APCDataStructure
     static constexpr size_t METACELL_COUNT = 96;
     static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
     static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
-    static constexpr uint16_t BRANCH_VERSION = 1u;
+    static constexpr uint8_t BRANCH_VERSION = 1u;
     static constexpr packed64_t PACKED_CELL_SENTENAL = UINT64_MAX;
     static constexpr packed64_t APC_META_CELL_SENTINAL = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
     static constexpr uint32_t APC_ALL_INDEX_LIMIT = UINT16_MAX - 1;
@@ -31,6 +31,14 @@ struct APCDataStructure
         return false;
     }
 
+    static constexpr bool ThisVersionValid(uint32_t version) noexcept
+    {
+        if (version < UINT8_MAX)
+        {
+            return true;
+        }
+        return false;
+    }
 
 
     static constexpr uint64_t AutoExtractDataOfAValidAPCCell(

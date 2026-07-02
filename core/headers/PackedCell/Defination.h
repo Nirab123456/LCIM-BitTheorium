@@ -14,12 +14,17 @@ namespace PredictedAdaptedEncoding
     //default Rel Class percentage
     #define FEEDFOEWARD_PERCENTAGE 8u
     #define FEEDBACKWARD_PERCENTAGE 6u
+    #define LATERAL_PERCENTAGE 2u
     #define STATESLOT_PERCENTAGE 8u
     #define ERRORSLOT_PERCENTAGE 6u
     #define EDGEDESCRIPTOR_PERCENTAGE 7u
     #define WEIGHTSLOT_PERCENTAGE 7u
     #define AUXSLOT_PERCENTAGE 3u
-    #define FREE_PERCENTAGE 55u
+    #define HETEROGENOUS_RAW_PERCENTAGE 0u
+    #define RAW64_BIT_PERCENTAGE 20u
+    #define PAIRED_POINTER_PERCENTAGE 0u
+    #define FREE_PERCENTAGE 30u
+    #define UNDEFINED_PERCENTAGE 2u
     //masterclock
     #define HALF16Bit_THRESHOLD_WRAP 0x8000u
     #define MIN_TIMER_DOWNSHIFT 6

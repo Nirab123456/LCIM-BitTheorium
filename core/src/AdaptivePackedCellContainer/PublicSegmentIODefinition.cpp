@@ -161,7 +161,6 @@ namespace PredictedAdaptedEncoding
         const uint64_t safe_capacity = static_cast<uint16_t>(std::min<size_t>(total_capacity, APC_ALL_INDEX_LIMIT));
         
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::MAGIC_ID, BRANCH_MAGIC);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::GLOBAL_CURRENT_VERSION, BRANCH_VERSION);
 
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::BRANCH_PRIORITY, UNSIGNED_ZERO);
         

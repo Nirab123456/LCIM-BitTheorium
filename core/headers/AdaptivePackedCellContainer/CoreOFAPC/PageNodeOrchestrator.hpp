@@ -138,7 +138,7 @@ struct PageNodeOrchestrator
 
     static constexpr uint8_t GetEndIndexOfLayouyBufferOfAPC() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::GLOBAL_CURRENT_VERSION);
+        return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_BOUNDS_VERSION);
     }
 
     static constexpr uint8_t GetLenOfLayoutConstructorInAPCHeader() noexcept

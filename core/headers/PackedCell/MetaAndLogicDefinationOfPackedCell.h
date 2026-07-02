@@ -200,7 +200,7 @@ namespace PredictedAdaptedEncoding {
         WEIGHT_SLOT = 0x7,
         AUX_SLOT = 0x8,
         HETEROGENOUS_RAW_MEMORY = 0x9,
-        SLOT_TABLE_DESCRIPTOR = 0xA,
+        RAW_64BIT_MEMORY = 0xA,
         PAIRED_POINTER_IN_MEMORY = 0xB,
         FREE_SLOT     = 0xC,
         UNDEFINED = 0xD,

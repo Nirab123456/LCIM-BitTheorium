@@ -139,7 +139,7 @@
 //             case APCPagedNodeSegmentClasses::META_HEADER: return "CONTROL";
 //             case APCPagedNodeSegmentClasses::AUX_SLOT: return "AUX";
 //             case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY: return "HETERO_MEM";
-//             case APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR: return "LOCAL_PTR";
+//             case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY: return "LOCAL_PTR";
 //             case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY: return "DIST_PTR";
 //             case APCPagedNodeSegmentClasses::FREE_SLOT: return "FREE";
 //             case APCPagedNodeSegmentClasses::UNDEFINED: return "UNDEFINED";
@@ -166,7 +166,7 @@
 //             APCPagedNodeSegmentClasses::META_HEADER,
 //             APCPagedNodeSegmentClasses::AUX_SLOT,
 //             APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY,
-//             APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR,
+//             APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY,
 //             APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY,
 //             APCPagedNodeSegmentClasses::FREE_SLOT,
 //             APCPagedNodeSegmentClasses::UNDEFINED

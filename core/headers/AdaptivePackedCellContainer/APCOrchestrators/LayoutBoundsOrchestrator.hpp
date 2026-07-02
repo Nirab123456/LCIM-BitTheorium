@@ -49,7 +49,7 @@ struct LayoutBoundsOfSingleRelNodeClass
             case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY:
                 return MetaIndexOfAPCNode::HETEROGENOUS_RAW_MEMORY_BOUNDS_VERSION;
                 
-            case APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR:
+            case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY:
                 return MetaIndexOfAPCNode::SLOT_TABLE_DESCRIPTOR_BOUNDS_VERSION;
 
             case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY:
@@ -216,7 +216,7 @@ struct CompleteAPCNodeRegionsLayout
     LayoutBoundsOfSingleRelNodeClass WeightLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::WEIGHT_SLOT, WEIGHTSLOT_PERCENTAGE)};
     LayoutBoundsOfSingleRelNodeClass AUXLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::AUX_SLOT, AUXSLOT_PERCENTAGE)};
     LayoutBoundsOfSingleRelNodeClass HeterogenousMemoryLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY, UNSIGNED_ZERO)};
-    LayoutBoundsOfSingleRelNodeClass LocalPairedPointerLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR, UNSIGNED_ZERO)};
+    LayoutBoundsOfSingleRelNodeClass LocalPairedPointerLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY, UNSIGNED_ZERO)};
     LayoutBoundsOfSingleRelNodeClass DistancePairedLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY, UNSIGNED_ZERO)};
     LayoutBoundsOfSingleRelNodeClass UndefinedLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::UNDEFINED, UNSIGNED_ZERO)};
     LayoutBoundsOfSingleRelNodeClass FreeLayout{MakeDefaultDesiredLayout(APCPagedNodeSegmentClasses::FREE_SLOT, FREE_PERCENTAGE)};
@@ -313,7 +313,7 @@ struct CompleteAPCNodeRegionsLayout
             case APCPagedNodeSegmentClasses::AUX_SLOT:             return &AUXLayout;
             case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY:
                 return &HeterogenousMemoryLayout;
-            case APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR: 
+            case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY: 
                 return &LocalPairedPointerLayout;
             case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY:
                 return &DistancePairedLayout;
@@ -410,8 +410,8 @@ struct CompleteAPCNodeRegionsLayout
     }
 };
 
-
-struct LayoutBoundsOrchestrator
+/// @brief // EVERYTHING TOP WILL BE REMOVED
+struct LayoutBuilderAndValidator
 {
     struct LayoutCarrier
     {
@@ -419,20 +419,33 @@ struct LayoutBoundsOrchestrator
         uint16_t EndIndex = APCDataStructure::APC_INDEX_SENTINAL;
         uint8_t Version = UINT8_MAX;
         APCPagedNodeSegmentClasses LayoutIdentity = APCPagedNodeSegmentClasses::NULLNAN;
+        LocalityPolicy LocalityOfLayout = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
     static_assert(sizeof(LayoutCarrier) <= sizeof(packed64_t));
 
-    static constexpr bool ValidateALayoutCarrier(LayoutCarrier& a_layout) noexcept
+    static constexpr bool ValidateALayoutCarrier(
+        LayoutCarrier& a_layout,
+        bool is_claimed_valid = true
+    ) noexcept
     {
+        if (a_layout.LocalityOfLayout == LocalityPolicy::UNASSIGNED_UNUSED_NANNULL)
+        {
+            return false;
+        }
+        if (!is_claimed_valid && a_layout.LocalityOfLayout == LocalityPolicy::CLAIMED)
+        {
+            return false;
+        }
+        
         if (
             APCDataStructure::IsThisIndexValidForAPC(a_layout.BeginIndex) &&
             APCDataStructure::IsThisIndexValidForAPC(a_layout.EndIndex) &&
+            APCDataStructure::ThisVersionValid(a_layout.Version) &&
             a_layout.BeginIndex <= a_layout.EndIndex &&
-            PageNodeOrchestrator::IsValidLayoutNode(a_layout.LayoutIdentity) &&
-            a_layout.Version < UINT8_MAX 
+            PageNodeOrchestrator::IsValidLayoutNode(a_layout.LayoutIdentity)
         )
-        {
+        {   
             return true;
         }
         a_layout.IsValid = false;
@@ -440,8 +453,7 @@ struct LayoutBoundsOrchestrator
     }
 
     static constexpr packed64_t CreateALayoutBoundsCell(
-        LayoutCarrier& a_layout,
-        LocalityPolicy locality = LocalityPolicy::IDLE
+        LayoutCarrier& a_layout
     ) noexcept
     {
         if (!ValidateALayoutCarrier(a_layout))
@@ -460,7 +472,7 @@ struct LayoutBoundsOrchestrator
             ModelFamily::MODEL48,
             static_cast<tag8_t>(Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8),
             APCPagedNodeSegmentClasses::META_HEADER,
-            locality,
+            a_layout.LocalityOfLayout,
             InternalDataTypePolicy ::UnsignedPCellDataType,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             raw48_layout
@@ -468,7 +480,10 @@ struct LayoutBoundsOrchestrator
 
     }
 
-    static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(packed64_t packed_cell) noexcept
+    static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(
+        packed64_t packed_cell,
+        bool is_claimed_valid = true
+    ) noexcept
     {
         LayoutCarrier return_carrier{};
         const PackedCell64_t::AuthoritiveCellView desired_auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
@@ -485,12 +500,97 @@ struct LayoutBoundsOrchestrator
         return_carrier.EndIndex = Subdivision2x16Plus2x8InternalMode48CellModel::ExtractSecondLow16Bit1_(desired_auth_view.Raw48BitInCellData);
         return_carrier.Version = Subdivision2x16Plus2x8InternalMode48CellModel::ExtractHigh8Bit2_(desired_auth_view.Raw48BitInCellData);
         return_carrier.LayoutIdentity = static_cast<APCPagedNodeSegmentClasses>(Subdivision2x16Plus2x8InternalMode48CellModel::ExtractHighestHigh8Bit3_(desired_auth_view.Raw48BitInCellData));
+        return_carrier.LocalityOfLayout = desired_auth_view.LocalityOfCell;
 
-        ValidateALayoutCarrier(return_carrier);
+        ValidateALayoutCarrier(return_carrier, is_claimed_valid);
         return return_carrier;
     }
 
-    
+
+};
+
+
+struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
+{
+
+    struct LayoutPercentage
+    {
+        uint16_t FeedForward = FEEDFOEWARD_PERCENTAGE;
+        uint16_t FeedBackward = FEEDBACKWARD_PERCENTAGE;
+        uint16_t Lateral = LATERAL_PERCENTAGE;
+        uint16_t StateSlot = STATESLOT_PERCENTAGE;
+        uint16_t ErrorSlot = ERRORSLOT_PERCENTAGE;
+        uint16_t EdgeDescriptor = EDGEDESCRIPTOR_PERCENTAGE;
+        uint16_t WeightSlot = WEIGHTSLOT_PERCENTAGE;
+        uint16_t AUXSlot = AUXSLOT_PERCENTAGE;
+        uint16_t HeterogenousSlot = HETEROGENOUS_RAW_PERCENTAGE;
+        uint16_t Raw64BitSlot = RAW64_BIT_PERCENTAGE;
+        uint16_t PairedPtr = PAIRED_POINTER_PERCENTAGE;
+        uint16_t FreeSlot = FREE_PERCENTAGE;
+        uint16_t UndefinedSlot = UNDEFINED_PERCENTAGE;
+    };
+
+
+    static constexpr LayoutPercentage DEFAULT_LAYOUT_PERCENTAGE{};
+
+    static constexpr std::optional<uint16_t> GetDefaultInitialPercentage(
+        APCPagedNodeSegmentClasses layout_class,
+        const LayoutPercentage& user_defined_percentage = DEFAULT_LAYOUT_PERCENTAGE
+    ) noexcept
+    {
+        if (!PageNodeOrchestrator::IsValidLayoutNode(layout_class))
+        {
+            return std::nullopt;
+        }
+
+        switch (layout_class)
+        {
+        case APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE:
+            return user_defined_percentage.FeedForward;
+        case APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE:
+            return user_defined_percentage.FeedBackward;
+        case APCPagedNodeSegmentClasses::LATERAL_MESAGE:
+            return user_defined_percentage.Lateral;
+        case APCPagedNodeSegmentClasses::STATE_SLOT:
+            return user_defined_percentage.StateSlot;
+        case APCPagedNodeSegmentClasses::ERROR_SLOT:
+            return user_defined_percentage.ErrorSlot;
+        case APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR:
+            return user_defined_percentage.EdgeDescriptor;
+        case APCPagedNodeSegmentClasses::WEIGHT_SLOT:
+            return user_defined_percentage.WeightSlot;
+        case APCPagedNodeSegmentClasses::AUX_SLOT:
+            return user_defined_percentage.AUXSlot;
+        case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY:
+            return user_defined_percentage.HeterogenousSlot;
+        case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY:
+            return user_defined_percentage.Raw64BitSlot;
+        case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY:
+            return user_defined_percentage.PairedPtr;
+        case APCPagedNodeSegmentClasses::FREE_SLOT:
+            return user_defined_percentage.FreeSlot;
+        case APCPagedNodeSegmentClasses::UNDEFINED:
+            return user_defined_percentage.UndefinedSlot;
+        default:
+            return std::nullopt;
+        }
+        
+    }
+
+    static constexpr bool NormalizeLayoutPercentageToPayloadSpan(
+        LayoutPercentage& user_defined_percentage,
+        const uint16_t& payload_span
+    ) noexcept;
+
+
+};
+
+
+
+struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
+{
+
+    /// @brief ///////////////////////////////
     static constexpr uint8_t LEN_OF_LAYOUT_BUFFER = PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader() + 1;
     using LayoutBufferOfAPC = std::array<packed64_t, LEN_OF_LAYOUT_BUFFER>;
 
@@ -503,17 +603,64 @@ struct LayoutBoundsOrchestrator
         }
     }
 
+    static constexpr std::optional<uint8_t> GetBufferIndexForALayout(LayoutCarrier& a_valid_layout) noexcept
+    {
+        if (!ValidateALayoutCarrier(a_valid_layout, true))
+        {
+            return std::nullopt;
+        }
 
+        const uint8_t start_idx = static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
+        return static_cast<uint8_t>(static_cast<uint8_t>(a_valid_layout.LayoutIdentity) - start_idx);
+    }
 
+    static constexpr bool InsertALayoutCellInBuffer(
+        LayoutBufferOfAPC& layout_buffer,
+        LayoutCarrier& a_valid_layout_carrier
+    ) noexcept
+    {
+        std::optional<uint8_t> maybe_buffer_idx = GetBufferIndexForALayout(a_valid_layout_carrier);
+        if (!maybe_buffer_idx.has_value())
+        {
+            return false;
+        }
+
+        const packed64_t layout_cell = CreateALayoutBoundsCell(a_valid_layout_carrier);
+
+        if (layout_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
+        {
+            return false;
+        }
+
+        layout_buffer[maybe_buffer_idx.value()] = layout_cell;
+        
+        return true;
+    }
 
 
     // static constexpr bool BuildInitialLayoutBuffer(
     //     LayoutBufferOfAPC& return_buffer,
-    //     uint32_t capacity_of_the_apc,
-    //     uint16_t desired_version = APCDataStructure::BRANCH_VERSION
+    //     uint16_t capacity_of_the_apc,
+    //     uint8_t desired_version = APCDataStructure::BRANCH_VERSION
     // ) noexcept
     // {
+    //     BuildNullLayoutBuffer(return_buffer);
+    //     if (
+    //         capacity_of_the_apc < MINIMUM_BRANCH_CAPACITY ||
+    //         !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
+    //         !APCDataStructure::ThisVersionValid(desired_version)
+    //     )
+    //     {
+    //         return false;
+    //     }
 
+    //     const uint16_t payload_begin = static_cast<uint16_t>(APCDataStructure::METACELL_COUNT);
+    //     const uint16_t payload_span = capacity_of_the_apc - payload_begin;
+
+
+
+
+        
     // }
 
     // static constexpr bool ValidateALayoutBuffer(

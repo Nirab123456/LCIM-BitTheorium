@@ -88,7 +88,6 @@ namespace PredictedAdaptedEncoding
         PAIRED_POINTER_IN_MEMORY_BOUNDS_VERSION = 53,
         FREE_BOUNDS_VERSION = 54,
         UNDEFINED_BOUNDS_VERSION = 55,
-        GLOBAL_CURRENT_VERSION = 56,
 
         // region occupancy
         REGION_OCCUPANCY_NONE = 57,
