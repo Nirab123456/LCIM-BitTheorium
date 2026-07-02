@@ -91,7 +91,7 @@ public:
         std::optional<uint64_t> clock48 = std::nullopt,
         AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
         LocalityPolicy locality = LocalityPolicy::PUBLISHED,
-        APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::CONTROL_SLOT
+        APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::META_HEADER
     ) noexcept;
 
     void WriteOrUpdateMetaClock48(AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL, std::optional<uint64_t>meta_clock_48 = std::nullopt) noexcept;

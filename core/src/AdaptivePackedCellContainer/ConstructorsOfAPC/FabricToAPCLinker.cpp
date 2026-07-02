@@ -58,7 +58,11 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = fabric_owner;
     }
 
-    bool FabricToAPCLinker::IsThisAPCValidRange_(size_t width,  APCSegmentPoolRange* return_range) noexcept
+    bool FabricToAPCLinker::IsThisAPCValidRange_(
+        size_t starting_idx_in_apc,
+        size_t width,  
+        APCSegmentPoolRange* return_range
+    ) noexcept
     {
         if (!FabricOwnerPtr_)
         {
@@ -71,18 +75,18 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
+        if (starting_idx_in_apc > CapacityOfThisAPC_ || width > (CapacityOfThisAPC_ - starting_idx_in_apc))
+        {
+            return false;
+        }
+        
+
         if (return_range)
         {
             *return_range = range_of_this_apc;
         }
-        
-        const size_t start_idx_of_memcopy_in_slab = range_of_this_apc.BeginIndex + width;
 
-        if (start_idx_of_memcopy_in_slab + width > range_of_this_apc.EndIndex)
-        {
-            return false;
-        }
-        return true;
+        return range_of_this_apc.IsVAlid && range_of_this_apc.BeginIndex + starting_idx_in_apc + width <= range_of_this_apc.EndIndex;
     }
 
 
@@ -93,7 +97,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
+        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
         {
             return false;
         }
@@ -113,7 +117,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
+        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
         {
             return false;
         }
@@ -133,7 +137,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(sequential_number_of_cells, &range_of_this_apc) || return_buffer == nullptr)
+        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || return_buffer == nullptr)
         {
             return false;
         }

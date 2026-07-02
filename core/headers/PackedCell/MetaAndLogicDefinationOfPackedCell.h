@@ -204,7 +204,7 @@ namespace PredictedAdaptedEncoding {
         PAIRED_POINTER_IN_MEMORY = 0xB,
         FREE_SLOT     = 0xC,
         UNDEFINED = 0xD,
-        CONTROL_SLOT = 0xE,
+        META_HEADER = 0xE,
         NULLNAN     = 0xF
     };
 

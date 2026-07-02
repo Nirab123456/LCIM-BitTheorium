@@ -170,7 +170,7 @@ namespace PredictedAdaptedEncoding
                         if (paired && CellOwnership == OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER)
                         {
                             const bool valid_paired_class = PageClass == APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY ||
-                                    PageClass == APCPagedNodeSegmentClasses::CONTROL_SLOT;
+                                    PageClass == APCPagedNodeSegmentClasses::META_HEADER;
                             if (!valid_paired_class)
                             {
                                 return false;

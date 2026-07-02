@@ -74,7 +74,7 @@ namespace PredictedAdaptedEncoding
             uint64_t value, 
             clk16_t version,
             LocalityPolicy locality = LocalityPolicy::IDLE,
-            APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::CONTROL_SLOT,
+            APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::META_HEADER,
             AttributePolicy attribute_policy = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
         ) noexcept
         {
@@ -86,7 +86,7 @@ namespace PredictedAdaptedEncoding
                 attribute_policy
             );
 
-            if (page_class == APCPagedNodeSegmentClasses::CONTROL_SLOT && value <= BIT_FAMILY_32_SENTINAL)
+            if (page_class == APCPagedNodeSegmentClasses::META_HEADER && value <= BIT_FAMILY_32_SENTINAL)
             {
                 return std::pair<packed64_t, packed64_t>(lowf_highs.first, PackedCell64_t::PACKED_CELL_SENTINAL);
             }

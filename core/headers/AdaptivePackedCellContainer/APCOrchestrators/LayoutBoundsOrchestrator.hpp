@@ -459,7 +459,7 @@ struct LayoutBoundsOrchestrator
         return PackedCell64_t::MakeModeledAPCValidPackedCell(
             ModelFamily::MODEL48,
             static_cast<tag8_t>(Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8),
-            APCPagedNodeSegmentClasses::CONTROL_SLOT,
+            APCPagedNodeSegmentClasses::META_HEADER,
             locality,
             InternalDataTypePolicy ::UnsignedPCellDataType,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
@@ -516,9 +516,13 @@ struct LayoutBoundsOrchestrator
 
     // }
 
+    // static constexpr bool ValidateALayoutBuffer(
+    //     LayoutBufferOfAPC& return_buffer,
+    //     uint32_t capacity_of_the_apc
+    // ) noexcept
+    // {
 
-
-
+    // }
 
     static constexpr bool MutateAPCLayout() noexcept;
 

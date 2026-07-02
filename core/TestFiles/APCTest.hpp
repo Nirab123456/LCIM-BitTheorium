@@ -136,7 +136,7 @@
 //             case APCPagedNodeSegmentClasses::ERROR_SLOT: return "ERROR";
 //             case APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR: return "EDGE";
 //             case APCPagedNodeSegmentClasses::WEIGHT_SLOT: return "WEIGHT";
-//             case APCPagedNodeSegmentClasses::CONTROL_SLOT: return "CONTROL";
+//             case APCPagedNodeSegmentClasses::META_HEADER: return "CONTROL";
 //             case APCPagedNodeSegmentClasses::AUX_SLOT: return "AUX";
 //             case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY: return "HETERO_MEM";
 //             case APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR: return "LOCAL_PTR";
@@ -163,7 +163,7 @@
 //             APCPagedNodeSegmentClasses::ERROR_SLOT,
 //             APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR,
 //             APCPagedNodeSegmentClasses::WEIGHT_SLOT,
-//             APCPagedNodeSegmentClasses::CONTROL_SLOT,
+//             APCPagedNodeSegmentClasses::META_HEADER,
 //             APCPagedNodeSegmentClasses::AUX_SLOT,
 //             APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY,
 //             APCPagedNodeSegmentClasses::SLOT_TABLE_DESCRIPTOR,
@@ -176,7 +176,7 @@
 //     std::array<APCPagedNodeSegmentClasses, 8> PrintedRegions() noexcept
 //     {
 //         return {
-//             APCPagedNodeSegmentClasses::CONTROL_SLOT,
+//             APCPagedNodeSegmentClasses::META_HEADER,
 //             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
 //             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
 //             APCPagedNodeSegmentClasses::LATERAL_MESAGE,
@@ -378,7 +378,7 @@
 
 //         for (const APCPagedNodeSegmentClasses region : TrackedRegionsNoNoneNoNan())
 //         {
-//             if (region == APCPagedNodeSegmentClasses::CONTROL_SLOT)
+//             if (region == APCPagedNodeSegmentClasses::META_HEADER)
 //             {
 //                 continue;
 //             }
@@ -434,7 +434,7 @@
 //     )
 //     {
 //         const OccupancyTriple central = ReadCentral(seg);
-//         const OccupancyTriple control = ReadRegion(seg, APCPagedNodeSegmentClasses::CONTROL_SLOT);
+//         const OccupancyTriple control = ReadRegion(seg, APCPagedNodeSegmentClasses::META_HEADER);
 //         const ExactPayloadLocalityCount exact = CountExactLocalPayload(seg);
 
 //         std::cout

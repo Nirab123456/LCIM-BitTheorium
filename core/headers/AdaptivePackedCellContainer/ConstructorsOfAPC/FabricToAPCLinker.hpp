@@ -30,6 +30,7 @@ protected:
     void ReleseFabricBindingOnly_() noexcept;
 
     bool IsThisAPCValidRange_(
+        size_t starting_idx_in_apc,
         size_t width = UNSIGNED_ZERO,
         APCSegmentPoolRange* return_range = nullptr
     ) noexcept;

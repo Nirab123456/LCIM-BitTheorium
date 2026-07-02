@@ -45,7 +45,7 @@ namespace PredictedAdaptedEncoding
             const packed64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
                 TypeFamily::VALUE48,
                 AccessContractOfValue::CAS_RMW,
-                APCPagedNodeSegmentClasses::CONTROL_SLOT,
+                APCPagedNodeSegmentClasses::META_HEADER,
                 locality,
                 InternalDataTypePolicy::UnsignedPCellDataType,
                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
@@ -77,7 +77,7 @@ namespace PredictedAdaptedEncoding
 
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_HORIZONTAL_S, identity_cfg.SharedNextId, a_header_buffer, locality);
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_S, identity_cfg.SharedPreviousId, a_header_buffer, locality);
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_VERTICAL_L, identity_cfg.LogicalPreviousId, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_VERTICAL_L, identity_cfg.LogicalNextId, a_header_buffer, locality);
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_VERTICAL_L, identity_cfg.LogicalPreviousId, a_header_buffer, locality);
 
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S, identity_cfg.SharedSequentialCount, a_header_buffer, locality);

@@ -359,7 +359,7 @@ namespace PredictedAdaptedEncoding
         bool caller_holds_the_flag
     ) noexcept
     {
-        if (page_class == APCPagedNodeSegmentClasses::CONTROL_SLOT)
+        if (page_class == APCPagedNodeSegmentClasses::META_HEADER)
         {
             return GetVirtualControlSlotLayout_();
         }
@@ -791,7 +791,7 @@ namespace PredictedAdaptedEncoding
         const packed64_t packed_cell = ReadRegionOccupancyCombinedCell(page_class);
 
         uint16_t max_for_a_page = UNSIGNED_ZERO;
-        if (page_class == APCPagedNodeSegmentClasses::CONTROL_SLOT)
+        if (page_class == APCPagedNodeSegmentClasses::META_HEADER)
         {
             max_for_a_page = static_cast<uint16_t>(
                 std::min<size_t>(METACELL_COUNT, APC_ALL_INDEX_LIMIT)
@@ -959,7 +959,7 @@ namespace PredictedAdaptedEncoding
 
             const packed64_t desired_cell = OccupancyOrchestrator::ComposeAPCOwned16x3Model_48t(
                 published_count, claimed_count, faulty_count, 
-                APCPagedNodeSegmentClasses::CONTROL_SLOT,
+                APCPagedNodeSegmentClasses::META_HEADER,
                 control_or_meta_cells_own_locality
             );
 

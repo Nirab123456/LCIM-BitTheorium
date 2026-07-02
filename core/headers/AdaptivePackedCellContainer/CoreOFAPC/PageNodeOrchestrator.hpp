@@ -48,7 +48,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsEmbededControlCell(const PackedCell64_t::AuthoritiveCellView& a_cell_view) noexcept
         {
-            if (a_cell_view.PageClass == APCPagedNodeSegmentClasses::CONTROL_SLOT)
+            if (a_cell_view.PageClass == APCPagedNodeSegmentClasses::META_HEADER)
             {
                 return true;
             }
@@ -105,7 +105,7 @@ namespace PredictedAdaptedEncoding
             */
             return page_class != APCPagedNodeSegmentClasses::NONE &&
                 page_class != APCPagedNodeSegmentClasses::NULLNAN &&
-                page_class != APCPagedNodeSegmentClasses::CONTROL_SLOT &&
+                page_class != APCPagedNodeSegmentClasses::META_HEADER &&
                 page_class != APCPagedNodeSegmentClasses::FREE_SLOT;
         }
 
@@ -115,7 +115,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             if (
-                !occupancy_cell_view.IsCellValid || occupancy_cell_view.PageClass != APCPagedNodeSegmentClasses::CONTROL_SLOT ||
+                !occupancy_cell_view.IsCellValid || occupancy_cell_view.PageClass != APCPagedNodeSegmentClasses::META_HEADER ||
                 occupancy_cell_view.CellMode != PackedMode::MODEL48 ||
                 occupancy_cell_view.LocalityOfCell != desired_cell_locality ||
                 occupancy_cell_view.SubClassOfModel48 != Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL
@@ -150,7 +150,7 @@ struct PageNodeOrchestrator
     {
         if (
             layout_node > APCPagedNodeSegmentClasses::NONE &&
-            layout_node < APCPagedNodeSegmentClasses::CONTROL_SLOT
+            layout_node < APCPagedNodeSegmentClasses::META_HEADER
         )
         {
             return true;
@@ -160,17 +160,23 @@ struct PageNodeOrchestrator
 
     static constexpr bool IsValidAPCHeaderCell(const PackedCell64_t::AuthoritiveCellView a_auth_view) noexcept
     {
-        if (!a_auth_view.IsCellValid && a_auth_view.PageClass != APCPagedNodeSegmentClasses::CONTROL_SLOT)
+        if (
+            !a_auth_view.IsCellValid || 
+            a_auth_view.PageClass != APCPagedNodeSegmentClasses::META_HEADER
+        )
         {
             return false;
         }
 
-        if (a_auth_view.CellMode != PackedMode::VALUE48 || a_auth_view.CellMode != PackedMode::MODEL48)
+        if (
+            a_auth_view.CellMode == PackedMode::VALUE48 || 
+            a_auth_view.CellMode == PackedMode::MODEL48
+        )
         {
-            return false;
+            return true;
         }
         
-        return true;
+        return false;
         
     }
 

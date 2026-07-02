@@ -19,7 +19,7 @@ namespace PredictedAdaptedEncoding
         const packed64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
             TypeFamily::VALUE48,
             AccessContractOfValue::CAS_RMW,
-            APCPagedNodeSegmentClasses::CONTROL_SLOT,
+            APCPagedNodeSegmentClasses::META_HEADER,
             locality,
             InternalDataTypePolicy::UnsignedPCellDataType,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
@@ -47,7 +47,7 @@ namespace PredictedAdaptedEncoding
         }
         const meta16_t meta16 = PackedCell64_t::MakeMeta16ForAnyOwnerAndItsClassModel_48t(
             OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-            static_cast<tag8_t>(APCPagedNodeSegmentClasses::CONTROL_SLOT),
+            static_cast<tag8_t>(APCPagedNodeSegmentClasses::META_HEADER),
             sub_class, attribute, locality, dtype
         );
         const packed64_t packed_cell = PackedCell64_t::Compose48BitFamilyPackedCell(raw48_value & MaskLowNBits(FAMILY_48_BIT_LEN), meta16);
@@ -429,7 +429,7 @@ namespace PredictedAdaptedEncoding
             }
             const packed64_t wanted_cell = OccupancyOrchestrator::ComposeAPCOwned16x3Model_48t(
                 published, claimed, faulty,
-                APCPagedNodeSegmentClasses ::CONTROL_SLOT,
+                APCPagedNodeSegmentClasses::META_HEADER,
                 LocalityPolicy::PUBLISHED
             );
             BackingPtr[static_cast<size_t>(meta_idx)].store(wanted_cell, MoStoreSeq_);
@@ -443,7 +443,7 @@ namespace PredictedAdaptedEncoding
 
         StoreCount(
             MetaIndexOfAPCNode::COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48,
-            APCPagedNodeSegmentClasses::CONTROL_SLOT,
+            APCPagedNodeSegmentClasses::META_HEADER,
             meta_published,
             UNSIGNED_ZERO,
             UNSIGNED_ZERO
@@ -469,7 +469,7 @@ namespace PredictedAdaptedEncoding
         
         StoreCount(
             MetaIndexOfAPCNode::REGION_OCCUPANCY_CONTROL,
-            APCPagedNodeSegmentClasses::CONTROL_SLOT,
+            APCPagedNodeSegmentClasses::META_HEADER,
             meta_published,
             UNSIGNED_ZERO,
             UNSIGNED_ZERO
@@ -536,7 +536,7 @@ namespace PredictedAdaptedEncoding
         out_virtual_control_slot.BeginIndex = 0u;
         out_virtual_control_slot.EndIndex = static_cast<uint32_t>(METACELL_COUNT);
         out_virtual_control_slot.VersionNumber = ReadGlobalLayoutVersion_().value_or(static_cast<uint16_t>(BRANCH_VERSION));
-        out_virtual_control_slot.PAGE_LAYOUT_CLASS = APCPagedNodeSegmentClasses::CONTROL_SLOT;
+        out_virtual_control_slot.PAGE_LAYOUT_CLASS = APCPagedNodeSegmentClasses::META_HEADER;
         out_virtual_control_slot.SetOrResetPercentage(
             static_cast<uint32_t>(GetTotalCapacityForThisAPC() == UNSIGNED_ZERO ? METACELL_COUNT : GetTotalCapacityForThisAPC())
         );

@@ -7,7 +7,7 @@ namespace PredictedAdaptedEncoding
     bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderDirectlyNonAtomic(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(APCDataStructure::METACELL_COUNT, &range_of_this_apc))
+        if (!IsThisAPCValidRange_(UNSIGNED_ZERO, APCDataStructure::METACELL_COUNT, &range_of_this_apc))
         {
             return false;
         }

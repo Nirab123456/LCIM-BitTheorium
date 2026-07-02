@@ -162,7 +162,7 @@ struct HashTableConf : public HashHelpers
             return PackedCell64_t::PACKED_CELL_SENTINAL;
         }
 
-        if (locality == LocalityPolicy::PUBLISHED && HashIdConstructror::IsValidHashHandle(hash_handle))
+        if (locality == LocalityPolicy::PUBLISHED && !HashIdConstructror::IsValidHashHandle(hash_handle))
         {
             return PackedCell64_t::PACKED_CELL_SENTINAL;
         }
