@@ -133,7 +133,7 @@ struct PageNodeOrchestrator
 {
     static constexpr uint8_t GetBeginIndexOfLayoutBufferOfAPC() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS);
+        return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS_VERSION);
     }
 
     static constexpr uint8_t GetEndIndexOfLayouyBufferOfAPC() noexcept

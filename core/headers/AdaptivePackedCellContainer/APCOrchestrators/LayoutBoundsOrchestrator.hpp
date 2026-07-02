@@ -23,10 +23,10 @@ struct LayoutBoundsOfSingleRelNodeClass
         switch (page_class)
         {
             case APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE:
-                return MetaIndexOfAPCNode::MESSAGE_FEEDFORWARD_BOUNDS_VERSION;
+                return MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS_VERSION;
 
             case APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE:
-                return MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS;
+                return MetaIndexOfAPCNode::FEEDBACKWARD_BOUNDS_VERSION;
 
             case APCPagedNodeSegmentClasses::LATERAL_MESAGE:
                 return MetaIndexOfAPCNode::LATERAL_BOUNDS_VERSION;
@@ -50,7 +50,7 @@ struct LayoutBoundsOfSingleRelNodeClass
                 return MetaIndexOfAPCNode::HETEROGENOUS_RAW_MEMORY_BOUNDS_VERSION;
                 
             case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY:
-                return MetaIndexOfAPCNode::SLOT_TABLE_DESCRIPTOR_BOUNDS_VERSION;
+                return MetaIndexOfAPCNode::RAW_64Bit_MEMORY;
 
             case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY:
                 return MetaIndexOfAPCNode::PAIRED_POINTER_IN_MEMORY_BOUNDS_VERSION;
@@ -513,7 +513,7 @@ struct LayoutBuilderAndValidator
 struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 {
 
-    struct LayoutPercentage
+    struct LayoutSpanAndPercentageCarrier
     {
         uint16_t FeedForward = FEEDFOEWARD_PERCENTAGE;
         uint16_t FeedBackward = FEEDBACKWARD_PERCENTAGE;
@@ -531,11 +531,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
     };
 
 
-    static constexpr LayoutPercentage DEFAULT_LAYOUT_PERCENTAGE{};
+    static constexpr LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_PERCENTAGE{};
 
     static constexpr std::optional<uint16_t> GetDefaultInitialPercentage(
         APCPagedNodeSegmentClasses layout_class,
-        const LayoutPercentage& user_defined_percentage = DEFAULT_LAYOUT_PERCENTAGE
+        const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_PERCENTAGE
     ) noexcept
     {
         if (!PageNodeOrchestrator::IsValidLayoutNode(layout_class))
@@ -578,9 +578,118 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
     }
 
     static constexpr bool NormalizeLayoutPercentageToPayloadSpan(
-        LayoutPercentage& user_defined_percentage,
+        LayoutSpanAndPercentageCarrier& user_defined_percentage,
         const uint16_t& payload_span
-    ) noexcept;
+    ) noexcept
+    {
+        if (
+            payload_span == UNSIGNED_ZERO ||
+            !APCDataStructure::IsThisIndexValidForAPC(payload_span)
+        )
+        {
+            return false;
+        }
+
+        std::array<uint16_t*, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> layout_fields_array
+        {
+            &user_defined_percentage.FeedForward,
+            &user_defined_percentage.FeedBackward,
+            &user_defined_percentage.Lateral,
+            &user_defined_percentage.StateSlot,
+            &user_defined_percentage.ErrorSlot,
+            &user_defined_percentage.EdgeDescriptor,
+            &user_defined_percentage.WeightSlot,
+            &user_defined_percentage.AUXSlot,
+            &user_defined_percentage.HeterogenousSlot,
+            &user_defined_percentage.Raw64BitSlot,
+            &user_defined_percentage.PairedPtr,
+            &user_defined_percentage.FreeSlot,
+            &user_defined_percentage.UndefinedSlot
+        };
+
+        uint32_t total_weight = UNSIGNED_ZERO;
+        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            total_weight += static_cast<uint32_t>(*layout_fields_array[i]);
+        }
+
+        if (total_weight == UNSIGNED_ZERO)
+        {
+            return false;
+        }
+
+        std::array<uint16_t, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> normalize_counts_array{};
+        std::array<uint32_t, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> reminders_array{};
+
+        uint32_t assigned_count = UNSIGNED_ZERO;
+        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            const uint32_t weight = static_cast<uint32_t>(*layout_fields_array[i]);
+            const uint32_t scaled = weight * static_cast<uint32_t>(payload_span);
+
+            const uint32_t base_count = scaled / total_weight;
+            const uint32_t reminder = scaled % total_weight;
+
+            normalize_counts_array[i] = static_cast<uint16_t>(base_count);
+            reminders_array[i] = reminder;
+            assigned_count += base_count;
+        }
+
+        if (assigned_count > payload_span)
+        {
+            return false;
+        }
+
+        uint32_t remaining_cells  = static_cast<uint32_t>(payload_span) - assigned_count;
+
+        while (remaining_cells > UNSIGNED_ZERO)
+        {
+            size_t best_idx = PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader();
+            uint32_t best_reminder = UNSIGNED_ZERO;
+            for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+            {
+                if (
+                    reminders_array[i] > best_reminder ||
+                    (
+                        reminders_array[i] == best_reminder && 
+                        best_idx == PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader() &&
+                        *layout_fields_array[i]
+                    )
+                )
+                {
+                    best_reminder = reminders_array[i];
+                    best_idx = i;
+                }
+            }
+
+            if (best_idx == PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader())
+            {
+                return false;
+            }
+            ++normalize_counts_array[best_idx];
+            reminders_array[best_idx] = UNSIGNED_ZERO;
+            --remaining_cells;
+        }
+        
+        uint32_t final_sum = UNSIGNED_ZERO;
+
+        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            final_sum += normalize_counts_array[i];
+        }
+
+        if (final_sum != payload_span)
+        {
+            return false;
+        }
+        
+        
+        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            *layout_fields_array[i] = normalize_counts_array[i];
+        }
+        return true;
+    }
 
 
 };

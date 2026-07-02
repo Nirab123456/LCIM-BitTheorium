@@ -1,5 +1,5 @@
 #pragma once
-#include "../CoreOFAPC/PageNodeOrchestrator.hpp"
+#include "../CoreOFAPC/PageAndNodeDef.hpp"
 
 namespace PredictedAdaptedEncoding
 {
