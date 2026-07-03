@@ -197,31 +197,6 @@ namespace
             apc.ReadCentralAPCOccupancyOfALocality(LocalityPolicy::FAULTY);
     }
     
-    static uint32_t RegionMeta(AdaptivePackedCellContainer& apc, APCPagedNodeSegmentClasses region)
-    {
-        return apc.ReadPublishedOccupancyOfAPageClass(region);
-    }
-
-    static void PrintRegion(
-        const char* label,
-        AdaptivePackedCellContainer& apc,
-        APCPagedNodeSegmentClasses region
-    )
-    {
-        const auto maybe = apc.ReadLayoutBoundsAndVersion(region);
-
-        std::cout << "    " << label
-                  << " meta_pub=" << RegionMeta(apc, region);
-
-        if (maybe)
-        {
-            std::cout << " span=[" << maybe->BeginIndex
-                      << "," << maybe->EndIndex
-                      << ") size=" << maybe->GetPayloadSpan();
-        }
-
-        std::cout << "\n";
-    }
 
     static void PrintNode(
         const char* name,
@@ -247,11 +222,11 @@ namespace
         const uint32_t payload = static_cast<uint32_t>(apc.PayloadCapacityFromHeader());
 
         std::cout << "\n[" << name << "]\n";
-        std::cout << "  branch=" << apc.GetSlabSlotID()
-                  << " logical=" << apc.GetLogicalId()
-                  << " shared=" << apc.GetSharedId()
-                  << " group=" << apc.ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::NODE_GROUP_SIZE)
-                  << "\n";
+        // std::cout << "  branch=" << apc.GetSlabSlotID()
+        //           << " logical=" << apc.GetLogicalId()
+        //           << " shared=" << apc.GetSharedId()
+        //           << " group=" << apc.ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::NODE_GROUP_SIZE)
+        //           << "\n";
 
         std::cout << "  payload_capacity=" << payload
                   << " total_capacity=" << apc.GetTotalCapacityForThisAPC()
@@ -271,11 +246,6 @@ namespace
                 << "\n";
 
         std::cout << "  region published-data pressure:\n";
-        PrintRegion("FF   ", apc, APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
-        PrintRegion("FB   ", apc, APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE);
-        PrintRegion("STATE", apc, APCPagedNodeSegmentClasses::STATE_SLOT);
-        PrintRegion("ERROR", apc, APCPagedNodeSegmentClasses::ERROR_SLOT);
-        PrintRegion("AUX  ", apc, APCPagedNodeSegmentClasses::AUX_SLOT);
 
         std::cout << "  clocks: "
                   << "accFF=" << apc.ReadLastAcceptedClok16ForThisSegment(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE)

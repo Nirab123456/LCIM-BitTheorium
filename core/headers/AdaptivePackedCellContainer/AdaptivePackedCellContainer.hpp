@@ -32,10 +32,6 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
 
         size_t MakeProbeStepCoPrime_(size_t seed, size_t region_capacity) const noexcept;
 
-        uint32_t SuggestedInternalAPCExpension_(CompleteAPCNodeRegionsLayout* complete_layout, uint8_t prefared_percentage_of_free = 50) noexcept;
-
-        uint16_t ComputeAdaptivemaxTreies_(packed64_t packed_cell) noexcept;
-
          bool IfValidPayloadIndex_(size_t idx) noexcept
         {
             return (BackingPtr && idx >= PayloadBegin() && idx < GetTotalCapacityForThisAPC());
@@ -80,12 +76,6 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
         {
             return false;
         }
-
-        uint64_t GetSlabSlotID() noexcept;
-
-        uint64_t GetLogicalId() noexcept;
-
-        uint64_t GetSharedId() noexcept;
 
         size_t ReserveProducerSlots(size_t number_of_slots) noexcept;
 

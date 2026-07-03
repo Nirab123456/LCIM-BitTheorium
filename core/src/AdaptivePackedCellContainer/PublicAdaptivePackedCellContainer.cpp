@@ -5,22 +5,6 @@ namespace PredictedAdaptedEncoding
 {
     class PackedCellContainerManager;
     
-    uint64_t AdaptivePackedCellContainer::GetSlabSlotID() noexcept
-    {
-
-        return ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::BRANCH_ID);
-
-    }
-
-    uint64_t AdaptivePackedCellContainer::GetLogicalId() noexcept
-    {
-        return ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::LOGICAL_GROUP_ID);
-    }
-
-    uint64_t AdaptivePackedCellContainer::GetSharedId() noexcept
-    {
-            return ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::SHARED_GROUP_ID);
-    }
 
     size_t AdaptivePackedCellContainer::ReserveProducerSlots(size_t number_of_slots) noexcept
     {
@@ -82,32 +66,6 @@ namespace PredictedAdaptedEncoding
     }
 
     
-    bool AdaptivePackedCellContainer::TryPublishRegionalSharedGrowthOnce(APCPagedNodeSegmentClasses region_kind, packed64_t packed_cell) noexcept
-    {
-        PublishResult local_result = PublishCellByRegionMAskTraverseStartsFromThisAPC(region_kind, packed_cell);
-        if (local_result.ResultStatus == PublishStatus::OK)
-        {
-            return true;
-        }
-
-        auto full_layout = ReadAndGetFullRegionLayout_();
-        const uint32_t grow_amount = SuggestedInternalAPCExpension_(full_layout ? &(*full_layout) : nullptr, 50);
-        if (grow_amount > 0 && TryExtendInternalPagedNode(
-            region_kind,
-            grow_amount,
-            APCGroupReserver::APCInitialIdentityStruct::APCSegmentExtendOrder::PRIORITY
-        ))
-        {
-            local_result = PublishCellByRegionMAskTraverseStartsFromThisAPC(region_kind, packed_cell);
-            if (local_result.ResultStatus == PublishStatus::OK)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
 
     std::optional<packed64_t> AdaptivePackedCellContainer::ConsumeCellByRegionMaskTraverseStartFromThisAPC(APCPagedNodeSegmentClasses region_kind, size_t& scan_cursor) noexcept
     {
@@ -149,49 +107,6 @@ namespace PredictedAdaptedEncoding
         return std::nullopt;
     }
 
-    PublishResult AdaptivePackedCellContainer::PublishCellByRegionMAskTraverseStartsFromThisAPC(
-        APCPagedNodeSegmentClasses page_class,
-        packed64_t cell_to_publish,
-        std::optional<uint16_t> max_tries
-    ) noexcept
-    {
-
-        if (!IfAPCBranchValid())
-        {
-            return PublishResult{};
-        }
-        const uint16_t resolved_tries = max_tries.has_value() ? *max_tries : ComputeAdaptivemaxTreies_(cell_to_publish);
-
-        const PublishResult local_result = TryPublishToRegionLocal_(cell_to_publish, page_class, resolved_tries);
-        if (local_result.ResultStatus == PublishStatus::OK)
-        {
-            return local_result;
-        }
-
-        AdaptivePackedCellContainer* curren_or_next_container_ptr = GetNextSharedSegment();
-        const uint32_t group_size = std::max<uint32_t>(1u, static_cast<uint32_t>(ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::NODE_GROUP_SIZE)));
-        uint32_t chain_guard = 0;
-        const uint32_t max_chain_steps = group_size + 2u;
-
-        while (curren_or_next_container_ptr && chain_guard++ < max_chain_steps)
-        {
-            //using resolved_tries here results deadlock 
-            const PublishResult sibling_result_publish = curren_or_next_container_ptr->TryPublishToRegionLocal_(cell_to_publish, page_class, resolved_tries);
-            if (sibling_result_publish.ResultStatus == PublishStatus::OK)
-            {
-                return sibling_result_publish;
-            }
-            AdaptivePackedCellContainer* next_apc_ptr = curren_or_next_container_ptr->GetNextSharedSegment();
-            if (!next_apc_ptr || next_apc_ptr == curren_or_next_container_ptr)
-            {
-                break;
-            }
-            curren_or_next_container_ptr = next_apc_ptr;
-        }
-
-        return local_result;
-    }
-
     void FabricToAPCLinker::FreeAll() noexcept
     {
         if (FabricOwnerPtr_ && FabricBackend_)
@@ -215,30 +130,6 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    uint32_t AdaptivePackedCellContainer::CountExactLocalRegionalOccupancy(APCPagedNodeSegmentClasses desired_region_class) noexcept
-    {
-        if (!IfAPCBranchValid())
-        {
-            return UNSIGNED_ZERO;
-        }
-
-        auto maybe_desired_class_bounds = ReadLayoutBoundsAndVersion(desired_region_class);
-        if (!maybe_desired_class_bounds || maybe_desired_class_bounds->IsEmpty())
-        {
-            return UNSIGNED_ZERO;
-        }
-
-        uint32_t count = 0;
-        for (size_t i = maybe_desired_class_bounds->BeginIndex; i < maybe_desired_class_bounds->EndIndex; i++)
-        {
-            const packed64_t current_packed_cell = BackingPtr[i].load(MoLoad_);
-            if (maybe_desired_class_bounds->CanCellBEConsumedForThisPhysicalRegion(current_packed_cell, i))
-            {
-                count++;
-            }
-        }
-        return count;
-    }
 
     uint32_t AdaptivePackedCellContainer::CountExactTotalChainOccupancy(APCPagedNodeSegmentClasses desired_region_class) noexcept
     {

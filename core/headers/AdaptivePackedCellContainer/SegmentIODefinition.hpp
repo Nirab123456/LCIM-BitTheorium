@@ -19,26 +19,6 @@ protected:
 
     bool UpdateAPCModeFlagsInHeader_(uint64_t flags_to_turn_on = UNSIGNED_ZERO, uint64_t flags_to_turn_off = UNSIGNED_ZERO, MetaIndexOfAPCNode desired_flag_idx = MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS) noexcept;
 
-    bool WriteBoundsPairToHeader_(
-        const LayoutBoundsOfSingleRelNodeClass layout_bound,
-        std::optional<uint16_t> version_number = std::nullopt,
-        bool caller_holds_the_flag = false
-    ) noexcept;
-
-    void InitDefaultAPCSegmentedNodeLayout_() noexcept;
-
-    std::optional<uint16_t> ReadGlobalLayoutVersion_() noexcept;
-
-    bool WriteGlobalLayoutVersion_(uint16_t layout_version) noexcept;
-    
-    std::optional<uint16_t> NextGlobalLayoutVersion_() noexcept;
-
-    bool WriteAllRegionsLayoutToHeader_(
-        const CompleteAPCNodeRegionsLayout& full_layout,
-        std::optional<uint16_t> forced_version_number = std::nullopt,
-        bool caller_holds_the_flag = false
-    ) noexcept;
-
     bool TurnOnReadyBitForDesiredPagedNode_(APCPagedNodeSegmentClasses desired_region_class) noexcept;
 
     bool ClearTheDesiredPagedNodeReadyBit_(APCPagedNodeSegmentClasses desired_region_class) noexcept;
@@ -49,15 +29,6 @@ protected:
     }
 
     bool ResetALLOccupancy16x3ModelToZero_() noexcept;
-
-    std::optional<LayoutBoundsOfSingleRelNodeClass> GetVirtualControlSlotLayout_() noexcept;
-
-    bool ApplyRegionalMigrationOccupancyTransitionCell(
-        LocalityPolicy from_locality_of_source_cell,
-        LocalityPolicy destination_locality_of_source_cell,
-        APCPagedNodeSegmentClasses source_page_class,
-        APCPagedNodeSegmentClasses destination_page_class
-    ) noexcept;
 
     /// @brief APC META USES TypeFamily::VALUE32 path WITH::AccessContractOfValue -> SYSTEM BROKES if anythhing else then32Bit family
     void InsertTypedValue48MetaCellOfAPC_(
@@ -123,10 +94,6 @@ public:
 
     bool TryIncrementOrDecrementActiveThreadCount(int8_t change_count) noexcept;
 
-    bool TryMarkSplitInFlight() noexcept;
-
-    bool ShouldSplitNow() noexcept;
-
     bool TryBindPortTarget(MetaIndexOfAPCNode port_meta_idx, uint64_t target_branch_id) noexcept;
 
     uint64_t TotalCASFailForThisBranchIncreaseAndGet(uint32_t increment) noexcept;
@@ -138,10 +105,6 @@ public:
         bool caller_already_holds_flag = false,
         std::optional<uint16_t> version_number = std::nullopt
     ) noexcept;
-
-    std::optional<LayoutBoundsOfSingleRelNodeClass> ReadLayoutBoundsAndVersion(APCPagedNodeSegmentClasses desired_rel_mask, bool caller_holds_the_flag = false) noexcept;
-    std::optional<CompleteAPCNodeRegionsLayout> ReadAndGetFullRegionLayout_(bool caller_holds_layout_flag = false) noexcept;
-
 
     bool TrySetLayoutMutationInFlight() noexcept;
 
@@ -165,16 +128,6 @@ public:
 
     bool ValidateAPCOccupancyInvarient() noexcept;
 
-    bool  TryBindShareNext(uint64_t shared_next_id) noexcept
-    {
-        return TryBindPortTarget(MetaIndexOfAPCNode::NEXT_HORIZONTAL_S, shared_next_id);
-    }
-
-    bool TryBindSharedPrevious(uint64_t shared_previous_id) noexcept
-    {
-        return TryBindPortTarget(MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_S, shared_previous_id);
-    }
-
     bool TurnOnASegmentFlag(ControlEnumOfAPCSegment desired_segment_flag) noexcept
     {
         return UpdateAPCModeFlagsInHeader_(static_cast<uint32_t>(desired_segment_flag), UNSIGNED_ZERO, MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS);
@@ -189,18 +142,7 @@ public:
     {
         return UpdateAPCModeFlagsInHeader_(UNSIGNED_ZERO, static_cast<uint32_t>(desired_control_flag), MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS);
     }
-
-
-    bool IsLayoutMutationFlagActive() noexcept
-    {
-        return HasThisControlEnumFlag(ControlEnumOfAPCSegment::LAYOUT_MUTATION_INFLIGHT);
-    }
     
-    void SetGraphNodeFlag() noexcept
-    {
-        TurnOnASegmentFlag(ControlEnumOfAPCSegment::IS_GRAPH_NODE);
-    }
-
     uint32_t GetTotalCapacityForThisAPC() noexcept
     {
         return static_cast<uint32_t>(ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT));
