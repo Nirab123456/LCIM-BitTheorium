@@ -41,7 +41,7 @@ namespace PredictedAdaptedEncoding
         )noexcept
         {
             return static_cast<MetaIndexOfAPCNode>(
-                static_cast<size_t>(MetaIndexOfAPCNode::REGION_OCCUPANCY_NONE) +
+                static_cast<size_t>(MetaIndexOfAPCNode::FEEDBACKWARD_OCC) +
                 (static_cast<uint8_t>(desired_region_class) & HIGH_FOUR_NIBBLE)
                 );
         }

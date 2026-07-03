@@ -58,10 +58,6 @@ namespace PredictedAdaptedEncoding
 
     bool SegmentIODefinition::UpdateAPCModeFlagsInHeader_(uint64_t flags_to_turn_on, uint64_t flags_to_turn_off, MetaIndexOfAPCNode desired_flag_idx) noexcept
     {
-        if (desired_flag_idx != MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS && desired_flag_idx != MetaIndexOfAPCNode::FABRIC_FLAG)
-        {
-            return false;
-        }
         
         while (true)
         {
@@ -192,13 +188,6 @@ namespace PredictedAdaptedEncoding
             );
         }
         
-        StoreCount(
-            MetaIndexOfAPCNode::REGION_OCCUPANCY_CONTROL,
-            APCPagedNodeSegmentClasses::META_HEADER,
-            meta_published,
-            UNSIGNED_ZERO,
-            UNSIGNED_ZERO
-        );
 
         ForceAutoReplaceAPCMetaCellValue(
             MetaIndexOfAPCNode::PAGED_NODE_READY_BIT,

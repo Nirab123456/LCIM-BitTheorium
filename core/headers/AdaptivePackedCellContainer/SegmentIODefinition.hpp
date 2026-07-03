@@ -84,10 +84,6 @@ public:
         const APCGroupReserver::APCInitialIdentityStruct& container_configuration
     ) noexcept;
 
-    void InitNodeSemantics(
-        uint64_t aux_param_uint48 = UNSIGNED_ZERO
-    ) noexcept;
-
     uint64_t ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode idx) noexcept;
 
     void TouchLocalMetaClock48() noexcept;
@@ -147,12 +143,6 @@ public:
     {
         return static_cast<uint32_t>(ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT));
     }
-
-    void MakeAPCBranchOwned() noexcept
-    {
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CURRENTLY_OWNED, 1u);
-    }
-
 
     void ResetTotalCASFailureForThisBranch() noexcept
     {

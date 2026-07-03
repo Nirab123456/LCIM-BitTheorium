@@ -19,7 +19,6 @@ namespace PredictedAdaptedEncoding
     void AdaptivePackedCellContainer::InitZeroState_() noexcept
     {
         ResetALLOccupancy16x3ModelToZero_();
-        MakeAPCBranchOwned();
         ResetTotalCASFailureForThisBranch();
         UpdateProducerCursorPlacement(static_cast<uint32_t>(PayloadBegin()));
         UpdateConsumerCursorPlacement(static_cast<uint32_t>(PayloadBegin()));

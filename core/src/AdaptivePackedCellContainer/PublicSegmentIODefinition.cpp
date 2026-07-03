@@ -127,26 +127,6 @@ namespace PredictedAdaptedEncoding
         
     }
 
-    void SegmentIODefinition::InitNodeSemantics(
-        uint64_t aux_param_uint48
-    ) noexcept
-    {
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::NODE_COMPUTE_KIND, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::NODE_AUX_PARAM_U32, aux_param_uint48);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LAST_ACCEPTED_FEED_FORWARD_CLOCK16, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LAST_ACCEPTED_FEED_BACKWARD_CLOCK16, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LAST_EMITTED_FEED_FORWARD_CLOCK16, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LAST_EMITTED_FEED_BACKWARD_CLOCK16, UNSIGNED_ZERO);
-
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::FEEDFORWARD_IN_TARGET_ID, APC_META_CELL_SENTINAL);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::FEEDFORWARD_OUT_TARGET_ID, APC_META_CELL_SENTINAL);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::FEEDBACKWARD_IN_TARGET_ID, APC_META_CELL_SENTINAL);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::FEEDBACKWARD_OUT_TARGET_ID, APC_META_CELL_SENTINAL);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LATERAL_0_TARGET_ID, APC_META_CELL_SENTINAL);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LATERAL_1_TARGET_ID, APC_META_CELL_SENTINAL);
-    }
-
-
 
     void SegmentIODefinition::InitRootOrChildBranch(
         size_t total_capacity,
@@ -167,19 +147,17 @@ namespace PredictedAdaptedEncoding
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CURRENT_ACTIVE_THREADS, UNSIGNED_ZERO);
         WrireAPCMetaModel_48t(MetaIndexOfAPCNode::COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT, safe_capacity);                                                                                        
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::LAST_SPLIT_EPOCH, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::PAGED_NODE_READY_BIT, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::DEFINED_MODE_OF_CURRENT_APC, static_cast<uint32_t>(container_configuration.InitialMode));
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::PRODUCER_CURSOR_PLACEMENT, static_cast<uint32_t>(METACELL_COUNT));
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CONSUMER_CURSORE_PLACEMENT, static_cast<uint32_t>(METACELL_COUNT));
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CURRENTLY_OWNED, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH, UNSIGNED_ZERO);
 
         ConfigureThisAPCIdentity(container_configuration);
         for (uint8_t i = 0; i < APCAndPagedNodeHelpers::SIZE_OF_APCPagedNodeRelMaskClasses; i++)
         {
             InsertTypedValue48MetaCellOfAPC_(
-                static_cast<MetaIndexOfAPCNode>(static_cast<size_t>(MetaIndexOfAPCNode::REGION_OCCUPANCY_NONE) + i), 
+                static_cast<MetaIndexOfAPCNode>(static_cast<size_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC) + i), 
                 UNSIGNED_ZERO
             );
         }
