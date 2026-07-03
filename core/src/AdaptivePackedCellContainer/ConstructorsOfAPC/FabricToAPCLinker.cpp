@@ -13,7 +13,7 @@ namespace PredictedAdaptedEncoding
         bool object_owned_by_fabric
     ) noexcept
     {
-        if (!raw_cells_ptr || cell_count < MINIMUM_BRANCH_CAPACITY || !fabric_owner)
+        if (!raw_cells_ptr || cell_count < MINIMUM_APC_CAPACITY || !fabric_owner)
         {
             return false;
         }

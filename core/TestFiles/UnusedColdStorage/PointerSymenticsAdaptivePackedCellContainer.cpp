@@ -194,7 +194,7 @@ namespace PredictedAdaptedEncoding
         {
             return { PublishStatus::INVALID, APCDataStructure::APC_SIZE_SENTINAL};
         }
-        if (PayloadCapacityFromHeader() < MINIMUM_BRANCH_CAPACITY)
+        if (PayloadCapacityFromHeader() < MINIMUM_APC_CAPACITY)
         {
             return {PublishStatus::FULL, APCDataStructure::APC_SIZE_SENTINAL};
         }

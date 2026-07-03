@@ -95,7 +95,7 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
         
         bool IfAPCBranchValid() noexcept
         {
-            return (BackingPtr && PayloadCapacityFromHeader() >= MINIMUM_BRANCH_CAPACITY - PayloadBegin());
+            return (BackingPtr && PayloadCapacityFromHeader() >= MINIMUM_APC_CAPACITY - PayloadBegin());
         }
 
         uint32_t ProducerORConsumerCursorSetAndGet_(std::optional<uint32_t> cursor_placement = std::nullopt, int32_t increment_or_decrement_of_cursor = 0, 

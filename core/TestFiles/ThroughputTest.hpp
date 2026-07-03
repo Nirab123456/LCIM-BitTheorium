@@ -303,7 +303,7 @@ void ThroughputTest()
 
     if (!silicon_local_fabric.InitializeFabricWithPtrTable(
             1024,
-            MINIMUM_BRANCH_CAPACITY,
+            MINIMUM_APC_CAPACITY,
             APCDataStructure::BRANCH_VERSION,
             DEFAULT_THREAD_TABLE_CAPACITY))
     {

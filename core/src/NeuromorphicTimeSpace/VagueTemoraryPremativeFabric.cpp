@@ -19,7 +19,7 @@ namespace PredictedAdaptedEncoding
         if (
             !FabricInitialized_.load(MoLoad_) ||
             !SlabBasePtr_ || 
-            PerAPCRuntimeCellCount_ < MINIMUM_BRANCH_CAPACITY ||
+            PerAPCRuntimeCellCount_ < MINIMUM_APC_CAPACITY ||
             CountOfAPC_ == UNSIGNED_ZERO ||
             CountOfAPC_ >= PackedCell64_t::BIT_FAMILY_48_SENTINAL
         )

@@ -349,7 +349,7 @@ struct CompleteAPCNodeRegionsLayout
         if (
             payload_end <= payload_begain || 
             !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) || 
-            total_span < MINIMUM_BRANCH_CAPACITY
+            total_span < MINIMUM_APC_CAPACITY
         )
         {
             return;
@@ -445,7 +445,7 @@ struct LayoutBuilderAndValidator
             a_layout.BeginIndex <= a_layout.EndIndex &&
             PageNodeOrchestrator::IsValidLayoutNode(a_layout.LayoutIdentity)
         )
-        {   
+        {   a_layout.IsValid = true;
             return true;
         }
         a_layout.IsValid = false;
@@ -531,11 +531,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
     };
 
 
-    static constexpr LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_PERCENTAGE{};
+    static constexpr LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_WEIGHT{};
 
     static constexpr std::optional<uint16_t> GetDefaultInitialPercentage(
         APCPagedNodeSegmentClasses layout_class,
-        const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_PERCENTAGE
+        const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
         if (!PageNodeOrchestrator::IsValidLayoutNode(layout_class))
@@ -699,8 +699,9 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 {
 
-    /// @brief ///////////////////////////////
     static constexpr uint8_t LEN_OF_LAYOUT_BUFFER = PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader() + 1;
+    static constexpr uint8_t VALIDATION_INDEX_OF_LAYOUT_BUFFER = LEN_OF_LAYOUT_BUFFER - 1;
+    static constexpr uint64_t VALIDATION_LAYOUT_BUFFER_MARK = 11111;
     using LayoutBufferOfAPC = std::array<packed64_t, LEN_OF_LAYOUT_BUFFER>;
 
 
@@ -722,6 +723,19 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
         const uint8_t start_idx = static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
         return static_cast<uint8_t>(static_cast<uint8_t>(a_valid_layout.LayoutIdentity) - start_idx);
     }
+
+    static constexpr APCPagedNodeSegmentClasses GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
+    {
+        if (buffer_idx > PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader())
+        {
+            return APCPagedNodeSegmentClasses::NULLNAN;
+        }
+        return static_cast<APCPagedNodeSegmentClasses>(
+            static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE) +
+            buffer_idx
+        );
+    }
+
 
     static constexpr bool InsertALayoutCellInBuffer(
         LayoutBufferOfAPC& layout_buffer,
@@ -746,39 +760,152 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
         return true;
     }
 
+    static constexpr bool ValidateALayoutBuffer(
+        LayoutBufferOfAPC& a_layout_buffer,
+        uint16_t capacity_of_the_apc,
+        bool is_claimed_valid = true
+    ) noexcept
+    {
+        if (!APCDataStructure::IsCapacityOfAPCValid(capacity_of_the_apc))
+        {
+            return false;
+        }
 
-    // static constexpr bool BuildInitialLayoutBuffer(
-    //     LayoutBufferOfAPC& return_buffer,
-    //     uint16_t capacity_of_the_apc,
-    //     uint8_t desired_version = APCDataStructure::BRANCH_VERSION
-    // ) noexcept
-    // {
-    //     BuildNullLayoutBuffer(return_buffer);
-    //     if (
-    //         capacity_of_the_apc < MINIMUM_BRANCH_CAPACITY ||
-    //         !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
-    //         !APCDataStructure::ThisVersionValid(desired_version)
-    //     )
-    //     {
-    //         return false;
-    //     }
+        const uint16_t payload_begin = static_cast<uint16_t>(APCDataStructure::METACELL_COUNT);
+        const uint16_t payload_end = capacity_of_the_apc;
+        const uint16_t payload_span = payload_end - payload_begin;
 
-    //     const uint16_t payload_begin = static_cast<uint16_t>(APCDataStructure::METACELL_COUNT);
-    //     const uint16_t payload_span = capacity_of_the_apc - payload_begin;
+        if (payload_span == UNSIGNED_ZERO)
+        {
+            return false;
+        }
 
+        uint16_t expected_begin = payload_begin;
+        uint8_t expected_version = UINT8_MAX;
 
+        for (uint8_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            const packed64_t current_packed_cell = a_layout_buffer[i];
+            LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(current_packed_cell, is_claimed_valid);
+            if (!current_layout.IsValid)
+            {
+                return false;
+            }
 
+            const std::optional<uint8_t> maybe_current_idx = GetBufferIndexForALayout(current_layout);
+            if (!maybe_current_idx.has_value() || maybe_current_idx.value() != i)
+            {
+                return false;
+            }
 
+            if (expected_version == UINT8_MAX)
+            {
+                expected_version = current_layout.Version;
+            }
+            else if (current_layout.Version != expected_version)
+            {
+                return false;
+            }
+            
+
+            if (
+                current_layout.BeginIndex != expected_begin ||
+                current_layout.EndIndex < current_layout.BeginIndex ||
+                current_layout.EndIndex > payload_end
+            )
+            {
+                return false;
+            }
+            
+            expected_begin = current_layout.EndIndex;
+        }
+
+        if (
+            expected_begin != payload_end ||
+            !APCDataStructure::IsThisIndexValidForAPC(expected_version)
+        )
+        {
+            return false;
+        }
         
-    // }
+        a_layout_buffer[VALIDATION_INDEX_OF_LAYOUT_BUFFER] = VALIDATION_LAYOUT_BUFFER_MARK;
+        return true;
+    }
 
-    // static constexpr bool ValidateALayoutBuffer(
-    //     LayoutBufferOfAPC& return_buffer,
-    //     uint32_t capacity_of_the_apc
-    // ) noexcept
-    // {
 
-    // }
+    static constexpr bool IsLayouBufferValidationMarked(const LayoutBufferOfAPC& a_layout_buffer) noexcept
+    {
+        if (a_layout_buffer[VALIDATION_INDEX_OF_LAYOUT_BUFFER] == VALIDATION_LAYOUT_BUFFER_MARK)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    static constexpr bool BuildInitialLayoutBuffer(
+        LayoutBufferOfAPC& return_buffer,
+        uint16_t capacity_of_the_apc,
+        const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_LAYOUT_WEIGHT,
+        uint8_t desired_version = APCDataStructure::BRANCH_VERSION
+    ) noexcept
+    {
+        BuildNullLayoutBuffer(return_buffer);
+        if (
+            capacity_of_the_apc < MINIMUM_APC_CAPACITY ||
+            !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
+            !APCDataStructure::ThisVersionValid(desired_version)
+        )
+        {
+            return false;
+        }
+
+        const uint16_t payload_begin = static_cast<uint16_t>(APCDataStructure::METACELL_COUNT);
+        const uint16_t payload_span = capacity_of_the_apc - payload_begin;
+
+        if (capacity_of_the_apc == UNSIGNED_ZERO)
+        {
+            return false;
+        }
+
+        LayoutSpanAndPercentageCarrier normalized_layout = provided_layout_weight;
+        if (!NormalizeLayoutPercentageToPayloadSpan(normalized_layout, payload_span))
+        {
+            BuildNullLayoutBuffer(return_buffer);
+            return false;
+        }
+
+        uint16_t cursor = payload_begin;
+        for (uint8_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        {
+            const APCPagedNodeSegmentClasses layout_class = GetOriginForLayoutClassByBufferIdx(i);
+            const std::optional<uint16_t> maybe_span = GetDefaultInitialPercentage(layout_class, normalized_layout);
+
+            if (
+                !maybe_span.has_value() ||
+                maybe_span.value() > (capacity_of_the_apc - cursor)
+            )
+            {
+                BuildNullLayoutBuffer(return_buffer);
+                return false;
+            }
+
+            LayoutCarrier current_layout{};
+            current_layout.BeginIndex = cursor;
+            current_layout.EndIndex = static_cast<uint16_t>(cursor + maybe_span.value());
+            current_layout.Version = desired_version;
+            current_layout.LayoutIdentity = layout_class;
+            current_layout.LocalityOfLayout = LocalityPolicy::PUBLISHED;
+
+            if (!InsertALayoutCellInBuffer(return_buffer, current_layout))
+            {
+                BuildNullLayoutBuffer(return_buffer);
+                return false;
+            }
+            cursor = current_layout.EndIndex;
+        }
+
+        return ValidateALayoutBuffer(return_buffer, capacity_of_the_apc, false);
+    }
 
     static constexpr bool MutateAPCLayout() noexcept;
 

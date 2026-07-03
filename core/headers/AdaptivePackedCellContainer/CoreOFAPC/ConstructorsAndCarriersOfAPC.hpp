@@ -40,6 +40,12 @@ struct APCDataStructure
         return false;
     }
 
+    static constexpr bool IsCapacityOfAPCValid(uint16_t capacity) noexcept
+    {
+        return capacity > MINIMUM_APC_CAPACITY &&
+            IsThisIndexValidForAPC(capacity);
+    }
+
 
     static constexpr uint64_t AutoExtractDataOfAValidAPCCell(
         packed64_t packed_cell, 
