@@ -148,7 +148,7 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
                 !FabricBackend_ || 
                 !BackingPtr || 
                 capacity != CapacityOfThisAPC_ || 
-                !OccupancyOrchestrator::IsCapacityOfAPCLegal(capacity)
+                !OccupancyBuilderAndValidator::IsCapacityOfAPCLegal(capacity)
             )
             {
                 return false;

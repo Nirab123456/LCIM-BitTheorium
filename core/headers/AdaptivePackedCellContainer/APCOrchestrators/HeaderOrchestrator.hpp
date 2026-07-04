@@ -1,6 +1,6 @@
 #pragma once
 #include <functional>
-#include "LayoutBoundsOrchestrator.hpp"
+#include "OccupancyOrchestrator.hpp"
 
 namespace PredictedAdaptedEncoding
 {

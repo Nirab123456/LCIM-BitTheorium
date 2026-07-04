@@ -148,9 +148,8 @@ namespace PredictedAdaptedEncoding
             {
                 return false;
             }
-            const packed64_t wanted_cell = OccupancyOrchestrator::ComposeAPCOwned16x3Model_48t(
+            const packed64_t wanted_cell = OccupancyBuilderAndValidator::ComposeAPCOwned16x3Model_48t(
                 published, claimed, faulty,
-                APCPagedNodeSegmentClasses::META_HEADER,
                 LocalityPolicy::PUBLISHED
             );
             BackingPtr[static_cast<size_t>(meta_idx)].store(wanted_cell, MoStoreSeq_);

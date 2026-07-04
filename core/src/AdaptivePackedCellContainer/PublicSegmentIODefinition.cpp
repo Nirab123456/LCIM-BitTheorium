@@ -10,7 +10,7 @@ namespace PredictedAdaptedEncoding
             std::min<size_t>(GetTotalCapacityForThisAPC(), APC_ALL_INDEX_LIMIT)
         );
 
-        const std::optional<uint16_t> desired_occupancy = OccupancyOrchestrator::GetOccuupancyFromPackedCellMode48(
+        const std::optional<uint16_t> desired_occupancy = OccupancyBuilderAndValidator::GetOccuupancyFromPackedCellMode48(
                 ReadCentralAPCOccupancyCellForThisPagedNode(),
                 locality_type,
                 total_capacity
@@ -423,9 +423,8 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            const packed64_t desired_cell = OccupancyOrchestrator::ComposeAPCOwned16x3Model_48t(
+            const packed64_t desired_cell = OccupancyBuilderAndValidator::ComposeAPCOwned16x3Model_48t(
                 published_count, claimed_count, faulty_count, 
-                APCPagedNodeSegmentClasses::META_HEADER,
                 control_or_meta_cells_own_locality
             );
 
@@ -521,7 +520,7 @@ namespace PredictedAdaptedEncoding
         const packed64_t packed_cell = page_class != APCPagedNodeSegmentClasses::NULLNAN ?
             ReadRegionOccupancyCombinedCell(page_class) : ReadCentralAPCOccupancyCellForThisPagedNode();
 
-        const uint16_t full_combined_occupancy = OccupancyOrchestrator::GetTootalOccupancyFromPackedCell(packed_cell);
+        const uint16_t full_combined_occupancy = OccupancyBuilderAndValidator::GetTootalOccupancyFromPackedCell(packed_cell);
         return full_combined_occupancy;
     }
 }

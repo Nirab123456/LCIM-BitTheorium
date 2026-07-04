@@ -1,7 +1,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "OccupancyOrchestrator.hpp"
+#include "../CoreOFAPC/PageAndNodeDef.hpp"
 
 namespace PredictedAdaptedEncoding
 {

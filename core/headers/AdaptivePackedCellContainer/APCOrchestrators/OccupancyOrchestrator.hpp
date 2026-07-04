@@ -1,12 +1,100 @@
 #pragma once
-#include "../CoreOFAPC/PageAndNodeDef.hpp"
+#include "LayoutBoundsOrchestrator.hpp"
 
 namespace PredictedAdaptedEncoding
 {
 
 
-struct OccupancyOrchestrator 
+struct OccupancyBuilderAndValidator 
 {
+    struct OccupancyCarrier
+    {
+        uint16_t IdleOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
+        uint16_t ClaimedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
+        uint16_t PublishedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
+        APCPagedNodeSegmentClasses OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN;
+        LocalityPolicy localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
+        bool IsValid = false;
+    };
+    static_assert(sizeof(OccupancyCarrier) <= 2 * sizeof(packed64_t));
+
+    static constexpr packed64_t CreateAPCOccupancyCell(
+        OccupancyCarrier& desired_carrier
+    ) noexcept
+    {   
+        if (!desired_carrier.IsValid)
+        {
+            return PackedCell64_t::PACKED_CELL_SENTINAL;
+        }
+        
+        const uint64_t raw_48 =  Subdevision16x3InternalMode48CellModel::PackUnsigned16x3ToMode48_(
+            desired_carrier.PublishedOccupancy,
+            desired_carrier.ClaimedOccupancy,
+            desired_carrier.IdleOccupancy
+        );
+
+        return PackedCell64_t::MakeModeledAPCValidPackedCell(
+            ModelFamily::MODEL48,
+            static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
+            APCPagedNodeSegmentClasses::META_HEADER,
+            desired_carrier.localityOfThisOccupancy,
+            InternalDataTypePolicy ::UnsignedPCellDataType,
+            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            raw_48
+        );
+    }
+
+    static constexpr bool ValidateAnOccupancyCarrier(OccupancyCarrier& a_occupancy_carrier) noexcept
+    {
+        if (
+            APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.IdleOccupancy) &&
+            APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.ClaimedOccupancy) &&
+            APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.PublishedOccupancy) &&
+            PageNodeOrchestrator::IsValidLayoutNode(a_occupancy_carrier.OccupancyOrigin) &&
+            a_occupancy_carrier.localityOfThisOccupancy != LocalityPolicy::UNASSIGNED_UNUSED_NANNULL
+        )
+        {
+            a_occupancy_carrier.IsValid = true;
+            return true;
+        }
+
+        a_occupancy_carrier.IsValid = false;
+        return false;
+    }
+
+
+    static constexpr OccupancyCarrier GetAnOccupancyCarrierFromValidOccupancyCell(packed64_t packed_cell) noexcept
+    {
+        OccupancyCarrier return_occupancy{};
+        const PackedCell64_t::AuthoritiveCellView desired_auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
+        
+        if (
+            !PageNodeOrchestrator::IsValidAPCHeaderCell(desired_auth_view) ||
+            desired_auth_view.SubClassOfModel48 != Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL
+        )
+        {
+            return return_occupancy;
+        }
+
+        return_occupancy.IsValid = Subdevision16x3InternalMode48CellModel::ExtractLowMidHighFromMode48_(
+            desired_auth_view.Raw48BitInCellData,
+            return_occupancy.PublishedOccupancy,
+            return_occupancy.ClaimedOccupancy,
+            return_occupancy.IdleOccupancy
+        );
+
+        ValidateAnOccupancyCarrier(return_occupancy);
+
+        return return_occupancy;
+    }
+
+
+    static constexpr bool IsCapacityOfAPCLegal(size_t total_capacity) noexcept
+    {
+        return total_capacity > APCDataStructure::METACELL_COUNT && APCDataStructure::IsThisIndexValidForAPC(static_cast<uint32_t>(total_capacity));
+    }
+
+
 
         /// @brief USES: Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL & CREATS: Occupancy cell OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER  [LocalityPolicy::PUBLISHED | LocalityPolicy::CLAIMED | LocalityPolicy::FAULTY]
         /// @param published_count LOWEST: uint16_t in PackUnsigned16x3ToMode48_
@@ -17,7 +105,6 @@ struct OccupancyOrchestrator
             uint16_t published_count,
             uint16_t claimed_count,
             uint16_t faulty_count,
-            APCPagedNodeSegmentClasses page_class,
             LocalityPolicy locality = LocalityPolicy::PUBLISHED
         ) noexcept
         {   
@@ -31,7 +118,7 @@ struct OccupancyOrchestrator
             return PackedCell64_t::MakeModeledAPCValidPackedCell(
                 ModelFamily::MODEL48,
                 static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
-                page_class,
+                APCPagedNodeSegmentClasses::META_HEADER,
                 locality,
                 InternalDataTypePolicy ::UnsignedPCellDataType,
                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
@@ -85,11 +172,6 @@ struct OccupancyOrchestrator
                 return UNSIGNED_ZERO;
             }
             return published + claimed + faulty;
-        }
-
-        static constexpr bool IsCapacityOfAPCLegal(size_t total_capacity) noexcept
-        {
-            return total_capacity > APCDataStructure::METACELL_COUNT && APCDataStructure::IsThisIndexValidForAPC(static_cast<uint32_t>(total_capacity));
         }
 
 protected:

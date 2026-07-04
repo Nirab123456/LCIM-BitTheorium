@@ -42,6 +42,7 @@ namespace PredictedAdaptedEncoding
     static constexpr unsigned MINIMUM_APC_CAPACITY = 256u;
     static constexpr uint32_t BIT_FAMILY_32_SENTINAL = UINT32_MAX;
     static constexpr uint16_t META_16_SENTINAL = UINT16_MAX;
+    static constexpr uint8_t EIGHT_BIT_SENTINAL = UINT8_MAX;
 
     static constexpr uint8_t SIZE_OF_MODE_48 = 6u;
 

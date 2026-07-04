@@ -68,6 +68,9 @@ namespace PredictedAdaptedEncoding
         {
             if (raw48 >= PackedCell64_t::BIT_FAMILY_48_SENTINAL)
             {
+                low = PackedCell64_t::CLOCK_16_SENTINAL;
+                mid = PackedCell64_t::CLOCK_16_SENTINAL;
+                high = PackedCell64_t::CLOCK_16_SENTINAL;
                 return false;
             }
             low = ExtractLow16FromUnsigned48_(raw48);
@@ -159,6 +162,10 @@ namespace PredictedAdaptedEncoding
         {
             if (raw48 == PackedCell64_t::PACKED_CELL_SENTINAL)
             {
+                lowest_16bit_0 = PackedCell64_t::CLOCK_16_SENTINAL;
+                low_16bit_1 = PackedCell64_t::CLOCK_16_SENTINAL;
+                high_8bit_2 = EIGHT_BIT_SENTINAL;
+                highest_8bit_3 = EIGHT_BIT_SENTINAL;
                 return false;
             }
             lowest_16bit_0 = ExtractLowestFirstLow16Bit0_(raw48);
