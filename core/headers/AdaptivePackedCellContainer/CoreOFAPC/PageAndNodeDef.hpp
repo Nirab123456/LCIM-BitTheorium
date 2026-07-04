@@ -113,6 +113,18 @@ namespace PredictedAdaptedEncoding
 
 struct MetaIdxOrchestrator
 {
+    static constexpr bool IsValidTrackedAPCNode(APCPagedNodeSegmentClasses layout_node) noexcept
+    {
+        if (
+            layout_node > APCPagedNodeSegmentClasses::NONE &&
+            layout_node < APCPagedNodeSegmentClasses::META_HEADER
+        )
+        {
+            return true;
+        }
+        return false;
+    }
+
     static constexpr uint8_t LayoutBufferBegainInMetaIndecies() noexcept
     {
         return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS_VERSION);
@@ -135,7 +147,7 @@ struct MetaIdxOrchestrator
 
     static constexpr std::optional<MetaIndexOfAPCNode>OccupancyMetaIdxFromNodeClass(APCPagedNodeSegmentClasses node_class) noexcept
     {
-        if (!PageNodeOrchestrator::IsValidTrackedAPCNode(node_class))
+        if (!IsValidTrackedAPCNode(node_class))
         {
             return std::nullopt;
         }
@@ -170,18 +182,6 @@ struct PageNodeOrchestrator : public MetaIdxOrchestrator
     static constexpr uint8_t TrackedAPCNodeLen() noexcept
     {
         return static_cast<uint8_t>(APCPagedNodeSegmentClasses::META_HEADER) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
-    }
-
-    static constexpr bool IsValidTrackedAPCNode(APCPagedNodeSegmentClasses layout_node) noexcept
-    {
-        if (
-            layout_node > APCPagedNodeSegmentClasses::NONE &&
-            layout_node < APCPagedNodeSegmentClasses::META_HEADER
-        )
-        {
-            return true;
-        }
-        return false;
     }
 
 

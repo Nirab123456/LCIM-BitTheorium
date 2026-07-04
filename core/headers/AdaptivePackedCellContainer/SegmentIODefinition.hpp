@@ -117,8 +117,6 @@ public:
     ) noexcept;
 
     bool RefreshReadyBitForRegionFromOccupancy(APCPagedNodeSegmentClasses page_class) noexcept;
-
-    uint16_t ReadTotalOccuPancyOfAnyPageClass(APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::NULLNAN) noexcept;
     
     bool ForceAutoReplaceAPCMetaCellValue(MetaIndexOfAPCNode idx, uint64_t value) noexcept;
 
@@ -151,7 +149,7 @@ public:
 
     packed64_t ReadCentralAPCOccupancyCellForThisPagedNode() noexcept
     {
-        return ReadFullMetaCell(MetaIndexOfAPCNode::COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48);
+        return CapacityOfThisAPC_;
     }
     
     packed64_t ReadRegionOccupancyCombinedCell(APCPagedNodeSegmentClasses page_class) noexcept

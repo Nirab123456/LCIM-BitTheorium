@@ -145,7 +145,6 @@ namespace PredictedAdaptedEncoding
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::BRANCH_PRIORITY, UNSIGNED_ZERO);
         
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CURRENT_ACTIVE_THREADS, UNSIGNED_ZERO);
-        WrireAPCMetaModel_48t(MetaIndexOfAPCNode::COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT, safe_capacity);                                                                                        
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::PAGED_NODE_READY_BIT, UNSIGNED_ZERO);
         InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::DEFINED_MODE_OF_CURRENT_APC, static_cast<uint32_t>(container_configuration.InitialMode));
@@ -290,159 +289,6 @@ namespace PredictedAdaptedEncoding
         }
     }
 
-    bool SegmentIODefinition::CasUpdateOccupancy3x16ThreeSubdivisionCell__(
-        LocalityPolicy from_locality,
-        LocalityPolicy to_locality,
-        std::optional<APCPagedNodeSegmentClasses> page_class,
-        LocalityPolicy control_or_meta_cells_own_locality,
-        bool is_this_cell_central_occupancy_counter
-    ) noexcept
-    {
-        if (from_locality == to_locality)
-        {
-            return true;
-        }
-
-        if (is_this_cell_central_occupancy_counter)
-        {
-            if (page_class.has_value())
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if (!page_class.has_value() || !APCAndPagedNodeHelpers::IsTrackedOccupancyPageClass(*page_class))
-            {
-                return false;
-            }
-        }
-        const MetaIndexOfAPCNode meta_idx = page_class.has_value() ? APCAndPagedNodeHelpers::GetOccupancyMetIndexByRegionClass(*page_class) : MetaIndexOfAPCNode::COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48;
-
-        if (!ValidMetaIdx(meta_idx))
-        {
-            return false;
-        }
-        
-        packed64_t observed_cell = ReadFullMetaCell(meta_idx);
-        while (true)
-        {
-
-            const PackedCell64_t::AuthoritiveCellView occupancy_cell_view = PackedCell64_t::GetAuthoritiveViewsForACell(observed_cell);
-
-            if (!APCAndPagedNodeHelpers::DoseThisCellUpdateableAsOccupancy16x3(occupancy_cell_view))
-            {
-                return false;
-            }
-
-            //return addresses
-            uint16_t published_count = UNSIGNED_ZERO;
-            uint16_t claimed_count = UNSIGNED_ZERO;
-            uint16_t faulty_count = UNSIGNED_ZERO;
-            //
-
-            const uint64_t raw48 = APCDataStructure::AutoExtractDataOfAValidAPCCell(observed_cell);
-
-            if (!Subdevision16x3InternalMode48CellModel::ExtractLowMidHighFromMode48_(raw48, published_count, claimed_count, faulty_count))
-            {
-                return false;
-            }
-
-            auto DecrementLocalityCount = [&](LocalityPolicy locality) noexcept->bool
-            {
-                switch (locality)
-                {
-                case LocalityPolicy::IDLE :
-                    return true;
-
-                case LocalityPolicy::PUBLISHED :
-                    if (published_count > UNSIGNED_ZERO)
-                    {
-                        --published_count;
-                        return true;
-                    }
-                    return false;
-
-                case LocalityPolicy::CLAIMED :
-                    if (claimed_count > UNSIGNED_ZERO)
-                    {
-                        --claimed_count;
-                        return true;
-                    }
-                    return false;
-
-                case LocalityPolicy::FAULTY :
-                    if (faulty_count > UNSIGNED_ZERO)
-                    {
-                        --faulty_count;
-                        return true;
-                    }
-                    return false;
-                    
-                default:
-                    return false;
-                }
-            };
-
-            auto IncrementLocalityCount = [&](LocalityPolicy locality) noexcept
-            {
-                switch (locality)
-                {
-                case LocalityPolicy::IDLE :
-                    return true;
-                case LocalityPolicy::PUBLISHED :
-                    if (published_count < APC_ALL_INDEX_LIMIT)
-                    {
-                        published_count++;
-                        return true;
-                    }
-                    return false;
-                case LocalityPolicy::CLAIMED :
-                    if (claimed_count < APC_ALL_INDEX_LIMIT)
-                    {
-                        claimed_count++;
-                        return true;
-                    }
-                    return false;
-                case LocalityPolicy::FAULTY :
-                    if (faulty_count < APC_ALL_INDEX_LIMIT)
-                    {
-                        faulty_count++;
-                        return true;
-                    }
-                    return false;
-                default:
-                    return false;
-                }
-            };
-
-            const bool decrement_ok = DecrementLocalityCount(from_locality);
-            const bool increment_ok = IncrementLocalityCount(to_locality);
-            if (!increment_ok || !decrement_ok)
-            {
-                return false;
-            }
-
-            const packed64_t desired_cell = OccupancyBuilderAndValidator::ComposeAPCOwned16x3Model_48t(
-                published_count, claimed_count, faulty_count, 
-                control_or_meta_cells_own_locality
-            );
-
-            packed64_t expected_cell = observed_cell;
-
-            if (BackingPtr[static_cast<size_t>(meta_idx)].compare_exchange_strong(expected_cell, desired_cell, OnExchangeSuccess, OnExchangeFailure))
-            {
-                BackingPtr[static_cast<size_t>(meta_idx)].notify_all();
-                return true;
-            }
-            observed_cell = expected_cell;
-
-            std::this_thread::yield();
-            
-        }
-        
-    }
-
     bool SegmentIODefinition::ApplyCentralAndRegionOccupancyTransitionCell(
         packed64_t old_cell,
         packed64_t new_cell,
@@ -514,13 +360,4 @@ namespace PredictedAdaptedEncoding
         return UNSIGNED_ZERO;
     }
 
-    uint16_t SegmentIODefinition::ReadTotalOccuPancyOfAnyPageClass(APCPagedNodeSegmentClasses page_class) noexcept
-    {
-
-        const packed64_t packed_cell = page_class != APCPagedNodeSegmentClasses::NULLNAN ?
-            ReadRegionOccupancyCombinedCell(page_class) : ReadCentralAPCOccupancyCellForThisPagedNode();
-
-        const uint16_t full_combined_occupancy = OccupancyBuilderAndValidator::GetTootalOccupancyFromPackedCell(packed_cell);
-        return full_combined_occupancy;
-    }
 }

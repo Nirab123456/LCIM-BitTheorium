@@ -63,7 +63,6 @@ namespace PredictedAdaptedEncoding
         PAIRED_PTR_OCC = 38,
         FREE_OCC = 39,
         UNDEFINED_OCC = 40,
-        COMBINED_OCCUPANCY_PUBLISHED_CLAIMED_FAULTY_3x16_48 = 41,
 
 
 
@@ -92,7 +91,8 @@ namespace PredictedAdaptedEncoding
         ///
 
 
-        EOF_APC_HEADER = 95
+        EOF_APC_HEADER = 95,
+        UNASSIGNED_UNUSED_NANNULL = 96
     };
 
     struct APCSegmentPoolRange

@@ -183,10 +183,10 @@ namespace
         return out;
     }
 
-    static uint16_t HeaderUsedSum(AdaptivePackedCellContainer& apc)
-    {
-        return apc.ReadTotalOccuPancyOfAnyPageClass();
-    }
+    // static uint16_t HeaderUsedSum(AdaptivePackedCellContainer& apc)
+    // {
+    //     return apc.ReadTotalOccuPancyOfAnyPageClass();
+    // }
 
     static uint32_t HeaderLocalitySum(AdaptivePackedCellContainer& apc)
     {
@@ -218,7 +218,7 @@ namespace
             apc.ReadCentralAPCOccupancyOfALocality(LocalityPolicy::FAULTY);
 
         const uint32_t header_sum = HeaderLocalitySum(apc);
-        const uint32_t header_used = HeaderUsedSum(apc);
+        // const uint32_t header_used = HeaderUsedSum(apc);
         const uint32_t payload = static_cast<uint32_t>(apc.PayloadCapacityFromHeader());
 
         std::cout << "\n[" << name << "]\n";
@@ -240,7 +240,7 @@ namespace
                 << " pub=" << header_pub
                 << " claim=" << header_claim
                 << " faulty=" << header_fault
-                << " used=" << header_used
+                // << " used=" << header_used
                 << " sum=" << header_sum
                 << " invariant=" << (header_sum == header_idle + header_pub + header_claim + header_fault ? "OK" : "BAD")
                 << "\n";

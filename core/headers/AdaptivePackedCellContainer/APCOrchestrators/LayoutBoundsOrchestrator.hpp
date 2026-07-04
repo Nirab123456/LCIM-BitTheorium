@@ -101,6 +101,19 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
         return return_carrier;
     }
 
+    static constexpr std::optional<uint16_t> SpanOflayoutFromPackedCell(
+        packed64_t packed_cell,
+        bool caller_holds_claim_guard = false
+    ) noexcept
+    {
+        const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(packed_cell, caller_holds_claim_guard);
+        if (!desired_layout_files.IsValid)
+        {
+            return std::nullopt;
+        }
+        return static_cast<uint16_t>(desired_layout_files.EndIndex - desired_layout_files.BeginIndex);
+    }
+
 
 };
 
