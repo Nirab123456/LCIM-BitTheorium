@@ -141,12 +141,12 @@ struct PageNodeOrchestrator
         return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_BOUNDS_VERSION);
     }
 
-    static constexpr uint8_t GetLenOfLayoutConstructorInAPCHeader() noexcept
+    static constexpr uint8_t TrackedAPCNodeLen() noexcept
     {
-        return GetEndIndexOfLayouyBufferOfAPC() - GetBeginIndexOfLayoutBufferOfAPC() + 1;
+        return static_cast<uint8_t>(APCPagedNodeSegmentClasses::META_HEADER) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
     }
 
-    static constexpr bool IsValidLayoutNode(APCPagedNodeSegmentClasses layout_node) noexcept
+    static constexpr bool IsValidTrackedAPCNode(APCPagedNodeSegmentClasses layout_node) noexcept
     {
         if (
             layout_node > APCPagedNodeSegmentClasses::NONE &&
@@ -180,6 +180,21 @@ struct PageNodeOrchestrator
         
     }
 
+};
+
+struct TrackingBufferConf
+{
+    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = PageNodeOrchestrator::TrackedAPCNodeLen() + 1;
+    static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
+    using TrackingBufferOfAPC = std::array<packed64_t, LEN_OF_APC_TRACKING_BUFFER>;
+
+    static constexpr void BuildNullTrackingBuffer(TrackingBufferOfAPC& a_layout_buffer) noexcept
+    {
+        for (size_t i = 0; i < a_layout_buffer.size(); i++)
+        {
+            a_layout_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+        }
+    }
 };
 
 

@@ -50,7 +50,7 @@ struct OccupancyBuilderAndValidator
             APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.IdleOccupancy) &&
             APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.ClaimedOccupancy) &&
             APCDataStructure::IsThisIndexValidForAPC(a_occupancy_carrier.PublishedOccupancy) &&
-            PageNodeOrchestrator::IsValidLayoutNode(a_occupancy_carrier.OccupancyOrigin) &&
+            PageNodeOrchestrator::IsValidTrackedAPCNode(a_occupancy_carrier.OccupancyOrigin) &&
             a_occupancy_carrier.localityOfThisOccupancy != LocalityPolicy::UNASSIGNED_UNUSED_NANNULL
         )
         {
@@ -199,5 +199,12 @@ protected:
         }
     
 };
+
+
+// struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
+// {
+//     static constexpr 
+// };
+
 
 }

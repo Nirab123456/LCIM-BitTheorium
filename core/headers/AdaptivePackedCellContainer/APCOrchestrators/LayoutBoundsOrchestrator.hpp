@@ -6,7 +6,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-struct LayoutBuilderAndValidator
+struct LayoutBuilderAndValidator : public TrackingBufferConf
 {
     struct LayoutCarrier
     {
@@ -38,7 +38,7 @@ struct LayoutBuilderAndValidator
             APCDataStructure::IsThisIndexValidForAPC(a_layout.EndIndex) &&
             APCDataStructure::ThisVersionValid(a_layout.Version) &&
             a_layout.BeginIndex <= a_layout.EndIndex &&
-            PageNodeOrchestrator::IsValidLayoutNode(a_layout.LayoutIdentity)
+            PageNodeOrchestrator::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
         )
         {   a_layout.IsValid = true;
             return true;
@@ -133,7 +133,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
-        if (!PageNodeOrchestrator::IsValidLayoutNode(layout_class))
+        if (!PageNodeOrchestrator::IsValidTrackedAPCNode(layout_class))
         {
             return std::nullopt;
         }
@@ -185,7 +185,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint16_t*, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> layout_fields_array
+        std::array<uint16_t*, PageNodeOrchestrator::TrackedAPCNodeLen()> layout_fields_array
         {
             &user_defined_percentage.FeedForward,
             &user_defined_percentage.FeedBackward,
@@ -203,7 +203,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         };
 
         uint32_t total_weight = UNSIGNED_ZERO;
-        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (size_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             total_weight += static_cast<uint32_t>(*layout_fields_array[i]);
         }
@@ -213,11 +213,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint16_t, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> normalize_counts_array{};
-        std::array<uint32_t, PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader()> reminders_array{};
+        std::array<uint16_t, PageNodeOrchestrator::TrackedAPCNodeLen()> normalize_counts_array{};
+        std::array<uint32_t, PageNodeOrchestrator::TrackedAPCNodeLen()> reminders_array{};
 
         uint32_t assigned_count = UNSIGNED_ZERO;
-        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (size_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             const uint32_t weight = static_cast<uint32_t>(*layout_fields_array[i]);
             const uint32_t scaled = weight * static_cast<uint32_t>(payload_span);
@@ -239,15 +239,15 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
         while (remaining_cells > UNSIGNED_ZERO)
         {
-            size_t best_idx = PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader();
+            size_t best_idx = PageNodeOrchestrator::TrackedAPCNodeLen();
             uint32_t best_reminder = UNSIGNED_ZERO;
-            for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+            for (size_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
             {
                 if (
                     reminders_array[i] > best_reminder ||
                     (
                         reminders_array[i] == best_reminder && 
-                        best_idx == PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader() &&
+                        best_idx == PageNodeOrchestrator::TrackedAPCNodeLen() &&
                         *layout_fields_array[i]
                     )
                 )
@@ -257,7 +257,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
                 }
             }
 
-            if (best_idx == PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader())
+            if (best_idx == PageNodeOrchestrator::TrackedAPCNodeLen())
             {
                 return false;
             }
@@ -268,7 +268,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         
         uint32_t final_sum = UNSIGNED_ZERO;
 
-        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (size_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             final_sum += normalize_counts_array[i];
         }
@@ -279,7 +279,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         }
         
         
-        for (size_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (size_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             *layout_fields_array[i] = normalize_counts_array[i];
         }
@@ -289,24 +289,9 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
 };
 
-
-
 struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 {
-
-    static constexpr uint8_t LEN_OF_LAYOUT_BUFFER = PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader() + 1;
-    static constexpr uint8_t VALIDATION_INDEX_OF_LAYOUT_BUFFER = LEN_OF_LAYOUT_BUFFER - 1;
     static constexpr uint64_t VALIDATION_LAYOUT_BUFFER_MARK = 11111;
-    using LayoutBufferOfAPC = std::array<packed64_t, LEN_OF_LAYOUT_BUFFER>;
-
-
-    static constexpr void BuildNullLayoutBuffer(LayoutBufferOfAPC& a_layout_buffer) noexcept
-    {
-        for (size_t i = 0; i < a_layout_buffer.size(); i++)
-        {
-            a_layout_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
-        }
-    }
 
     static constexpr std::optional<uint8_t> GetBufferIndexForALayout(LayoutCarrier& a_valid_layout) noexcept
     {
@@ -321,7 +306,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 
     static constexpr APCPagedNodeSegmentClasses GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx > PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader())
+        if (buffer_idx > PageNodeOrchestrator::TrackedAPCNodeLen())
         {
             return APCPagedNodeSegmentClasses::NULLNAN;
         }
@@ -333,7 +318,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 
 
     static constexpr bool InsertALayoutCellInBuffer(
-        LayoutBufferOfAPC& layout_buffer,
+        TrackingBufferOfAPC& layout_buffer,
         LayoutCarrier& a_valid_layout_carrier
     ) noexcept
     {
@@ -356,7 +341,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
     }
 
     static constexpr bool ValidateALayoutBuffer(
-        LayoutBufferOfAPC& a_layout_buffer,
+        TrackingBufferOfAPC& a_layout_buffer,
         uint16_t capacity_of_the_apc,
         bool is_claimed_valid = true
     ) noexcept
@@ -378,7 +363,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
         uint16_t expected_begin = payload_begin;
         uint8_t expected_version = UINT8_MAX;
 
-        for (uint8_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             const packed64_t current_packed_cell = a_layout_buffer[i];
             LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(current_packed_cell, is_claimed_valid);
@@ -423,14 +408,14 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             return false;
         }
         
-        a_layout_buffer[VALIDATION_INDEX_OF_LAYOUT_BUFFER] = VALIDATION_LAYOUT_BUFFER_MARK;
+        a_layout_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_LAYOUT_BUFFER_MARK;
         return true;
     }
 
 
-    static constexpr bool IsLayouBufferValidationMarked(const LayoutBufferOfAPC& a_layout_buffer) noexcept
+    static constexpr bool IsLayouBufferValidationMarked(const TrackingBufferOfAPC& a_layout_buffer) noexcept
     {
-        if (a_layout_buffer[VALIDATION_INDEX_OF_LAYOUT_BUFFER] == VALIDATION_LAYOUT_BUFFER_MARK)
+        if (a_layout_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_LAYOUT_BUFFER_MARK)
         {
             return true;
         }
@@ -438,13 +423,13 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
     }
 
     static constexpr bool BuildInitialLayoutBuffer(
-        LayoutBufferOfAPC& return_buffer,
+        TrackingBufferOfAPC& return_buffer,
         uint16_t capacity_of_the_apc,
         const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_LAYOUT_WEIGHT,
         uint8_t desired_version = APCDataStructure::BRANCH_VERSION
     ) noexcept
     {
-        BuildNullLayoutBuffer(return_buffer);
+        BuildNullTrackingBuffer(return_buffer);
         if (
             capacity_of_the_apc < MINIMUM_APC_CAPACITY ||
             !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
@@ -465,12 +450,12 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
         LayoutSpanAndPercentageCarrier normalized_layout = provided_layout_weight;
         if (!NormalizeLayoutPercentageToPayloadSpan(normalized_layout, payload_span))
         {
-            BuildNullLayoutBuffer(return_buffer);
+            BuildNullTrackingBuffer(return_buffer);
             return false;
         }
 
         uint16_t cursor = payload_begin;
-        for (uint8_t i = 0; i < PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(); i++)
+        for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             const APCPagedNodeSegmentClasses layout_class = GetOriginForLayoutClassByBufferIdx(i);
             const std::optional<uint16_t> maybe_span = GetDefaultInitialPercentage(layout_class, normalized_layout);
@@ -480,7 +465,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
                 maybe_span.value() > (capacity_of_the_apc - cursor)
             )
             {
-                BuildNullLayoutBuffer(return_buffer);
+                BuildNullTrackingBuffer(return_buffer);
                 return false;
             }
 
@@ -493,7 +478,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 
             if (!InsertALayoutCellInBuffer(return_buffer, current_layout))
             {
-                BuildNullLayoutBuffer(return_buffer);
+                BuildNullTrackingBuffer(return_buffer);
                 return false;
             }
             cursor = current_layout.EndIndex;

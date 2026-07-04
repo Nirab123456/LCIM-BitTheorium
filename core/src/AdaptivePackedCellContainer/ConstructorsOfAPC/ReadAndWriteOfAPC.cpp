@@ -21,7 +21,7 @@ namespace PredictedAdaptedEncoding
     }
 
     bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer(
-        LayoutBoundsOrchestrator::LayoutBufferOfAPC& a_layout_buffer,
+        LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
         bool is_claimed_required
     ) noexcept
     {
@@ -29,14 +29,14 @@ namespace PredictedAdaptedEncoding
         {
             return ClaimAndCopyToAPCFromBuffer(
                 PageNodeOrchestrator::GetBeginIndexOfLayoutBufferOfAPC(),
-                PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(),
+                PageNodeOrchestrator::TrackedAPCNodeLen(),
                 a_layout_buffer.data()
             );
         }
         
         return ForceCopyToAPCFromBuffer(
             PageNodeOrchestrator::GetBeginIndexOfLayoutBufferOfAPC(),
-            PageNodeOrchestrator::GetLenOfLayoutConstructorInAPCHeader(),
+            PageNodeOrchestrator::TrackedAPCNodeLen(),
             a_layout_buffer.data()
         );
     }

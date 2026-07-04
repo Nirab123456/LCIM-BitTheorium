@@ -14,12 +14,12 @@ namespace PredictedAdaptedEncoding
         bool ReadCompleateMetaHeaderDirectlyNonAtomic(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept;
 
         bool ReadCompleatLayoutBuffer(
-            LayoutBoundsOrchestrator::LayoutBufferOfAPC& a_layout_buffer,
+            LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
             bool is_claimed_required = false
         ) noexcept;
 
         bool UpdateCompleateLayoutOfAPCFromBuffer(
-            const LayoutBoundsOrchestrator::LayoutBufferOfAPC& a_valid_layout_buffer,
+            const LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_valid_layout_buffer,
             bool caller_holds_the_flag = false
         ) noexcept;
 
