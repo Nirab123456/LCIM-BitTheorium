@@ -104,8 +104,6 @@ public:
 
     bool TrySetLayoutMutationInFlight() noexcept;
 
-    bool TryExtendInternalPagedNode(APCPagedNodeSegmentClasses desired_rel_mask, uint32_t wanted_amount, APCGroupReserver::APCInitialIdentityStruct::APCSegmentExtendOrder desired_apc_order) noexcept;
-
     clk16_t ReadLastAcceptedClok16ForThisSegment(APCPagedNodeSegmentClasses region_kind) noexcept;
     clk16_t ReadLastEmittedClok16ForThisSegment(APCPagedNodeSegmentClasses region_kind) noexcept;
     size_t PayloadCapacityFromHeader() noexcept;

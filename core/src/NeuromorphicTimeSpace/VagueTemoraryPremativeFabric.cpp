@@ -214,7 +214,7 @@ namespace PredictedAdaptedEncoding
         a_initial_acp_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
 
 
-        if (a_initial_acp_conf.HorizontalSharedState != APCGroupReserver::APCIdentityDef::INVALID)
+        if (a_initial_acp_conf.HorizontalSharedState != APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL)
         {
             a_initial_acp_conf.SharedHashKey = HashIdConstructror::MakeGroupAccessKey48(a_initial_acp_conf.SharedID, UNSIGNED_ZERO);
 

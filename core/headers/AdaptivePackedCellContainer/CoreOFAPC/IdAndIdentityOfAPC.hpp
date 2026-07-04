@@ -155,7 +155,7 @@ struct APCGroupReserver
 {
     enum class APCIdentityDef : uint8_t
     {
-        INVALID = 0,
+        UNASSIGNED_UNUSED_NANNULL = 0,
         ROOT = 1,
         CHILD = 2,
         DEFAULT_ASSIGNMENT = 3,
@@ -184,34 +184,43 @@ struct APCGroupReserver
         uint16_t LogicalSequentalCount = APCDataStructure::APC_INDEX_SENTINAL;
 
         bool IsAssignable = false;
-        APCIdentityDef HorizontalSharedState = APCIdentityDef::INVALID;
-        APCIdentityDef VarticalLogicState  = APCIdentityDef::INVALID;
+        APCIdentityDef HorizontalSharedState = APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
+        APCIdentityDef VarticalLogicState  = APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
         bool IsAPCRootOfThisLocic = false;
-
-
-        enum class APCSegmentExtendOrder : uint8_t
-        {
-            FIFO = 0,
-            PRIORITY = 1,
-            RANDOM = 2
-        };
     };
 
-    static constexpr bool IsMinimalValidAxis(const APCInitialIdentityStruct& a_initial_apc_conf) noexcept
+    static constexpr bool IsRequestedAxisValid(APCIdentityDef desired_axis) noexcept
     {
-        return a_initial_apc_conf.HorizontalSharedState != APCIdentityDef::INVALID &&
-            a_initial_apc_conf.VarticalLogicState != APCIdentityDef::INVALID;
+        return desired_axis != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
     }
 
-    static constexpr bool IsMinimalValidIdentity(APCInitialIdentityStruct& a_initial_apc_conf) noexcept
+    static constexpr bool IfSystemDefinedAxis(APCIdentityDef desired_axis) noexcept
     {
-        a_initial_apc_conf.IsAssignable = a_initial_apc_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
-            HashIdConstructror::IsValidAPCSlotIdx(a_initial_apc_conf.APCSlotIndex) &&
-            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.BranchID) &&
-            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.AccessPassword) &&
-            IsMinimalValidAxis(a_initial_apc_conf);
-        
-        return a_initial_apc_conf.IsAssignable;
+        return desired_axis == APCIdentityDef::ROOT ||
+            desired_axis == APCIdentityDef::CHILD ||
+            desired_axis == APCIdentityDef::NULL_USER_INSTRUCTION;
+    }
+
+    static constexpr bool IsMinimalValidCreateRequestOfAPC(const APCInitialIdentityStruct& requested_conf) noexcept
+    {
+        return requested_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
+            IsRequestedAxisValid(requested_conf.HorizontalSharedState) &&
+            IsRequestedAxisValid(requested_conf.VarticalLogicState);
+    }
+
+    static constexpr bool IfSystemResolvedIdentityValid(APCInitialIdentityStruct& requested_conf) noexcept
+    {
+        requested_conf.IsAssignable = requested_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
+            HashIdConstructror::IsValidAPCSlotIdx(requested_conf.APCSlotIndex) &&
+            HashIdConstructror::IsValidAPCId48(requested_conf.BranchID) &&
+            HashIdConstructror::IsValidHashHandle(
+                HashIdConstructror::APCSlotIdxToHashTableHandler(requested_conf.APCSlotIndex)
+            ) &&
+            HashIdConstructror::IsValidAPCId48(requested_conf.AccessPassword) &&
+            IfSystemDefinedAxis(requested_conf.HorizontalSharedState) &&
+            IfSystemDefinedAxis(requested_conf.VarticalLogicState);
+
+        return requested_conf.IsAssignable;
     }
 
     static constexpr APCInitialIdentityStruct MakeDefaultIdentityForAPC(PackedMode initial_mode) noexcept
@@ -229,33 +238,42 @@ struct APCGroupReserver
         uint64_t logical_id
     ) noexcept
     {
-        APCInitialIdentityStruct requested_identgity{};
 
-        requested_identgity.InitialMode = initial_mode;
+        APCInitialIdentityStruct user_defined_identity = MakeDefaultIdentityForAPC(initial_mode);
 
         if (HashIdConstructror::IsValidAPCId48(shared_id))
         {
-            requested_identgity.SharedID = shared_id;
-            requested_identgity.HorizontalSharedState = APCIdentityDef::DEFAULT_ASSIGNMENT;
-        }
-        else
-        {
-            requested_identgity.HorizontalSharedState = APCIdentityDef::NULL_USER_INSTRUCTION;
+            user_defined_identity.SharedID = shared_id;
+            user_defined_identity.HorizontalSharedState = APCIdentityDef::DEFAULT_ASSIGNMENT;
         }
 
         if (HashIdConstructror::IsValidAPCId48(logical_id))
         {
-            requested_identgity.LogicalId = logical_id;
-            requested_identgity.VarticalLogicState = APCIdentityDef::DEFAULT_ASSIGNMENT;
+            user_defined_identity.LogicalId = logical_id;
+            user_defined_identity.VarticalLogicState = APCIdentityDef::DEFAULT_ASSIGNMENT;
         }
-        else
-        {
-            requested_identgity.VarticalLogicState = APCIdentityDef::NULL_USER_INSTRUCTION;
-        }
-        
-        return requested_identgity;
-        
+        return user_defined_identity;
     }
+
+    /// ///////////////////////////////////
+
+    static constexpr bool IsMinimalValidAxis(const APCInitialIdentityStruct& a_initial_apc_conf) noexcept
+    {
+        return a_initial_apc_conf.HorizontalSharedState != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL &&
+            a_initial_apc_conf.VarticalLogicState != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
+    }
+
+    static constexpr bool IsMinimalValidIdentity(APCInitialIdentityStruct& a_initial_apc_conf) noexcept
+    {
+        a_initial_apc_conf.IsAssignable = a_initial_apc_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
+            HashIdConstructror::IsValidAPCSlotIdx(a_initial_apc_conf.APCSlotIndex) &&
+            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.BranchID) &&
+            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.AccessPassword) &&
+            IsMinimalValidAxis(a_initial_apc_conf);
+        
+        return a_initial_apc_conf.IsAssignable;
+    }
+
 
     // static constexpr bool ValidateKeyIdPairs(APCInitialIdentityStruct& identinty_struct) noexcept;
     // static constexpr bool IsIdentityRoot(APCInitialIdentityStruct& idintity_struct, FabricTableSegmentClasses hash_table) noexcept;
