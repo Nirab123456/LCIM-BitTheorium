@@ -319,7 +319,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 
     static constexpr APCPagedNodeSegmentClasses GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx > PageNodeOrchestrator::TrackedAPCNodeLen())
+        if (buffer_idx >= PageNodeOrchestrator::TrackedAPCNodeLen())
         {
             return APCPagedNodeSegmentClasses::NULLNAN;
         }

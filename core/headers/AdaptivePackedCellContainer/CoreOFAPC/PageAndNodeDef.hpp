@@ -153,7 +153,7 @@ struct MetaIdxOrchestrator
         }
         
         return static_cast<MetaIndexOfAPCNode>(
-            static_cast<size_t>(MetaIndexOfAPCNode::FEEDBACKWARD_OCC) +
+            static_cast<size_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC) +
             (static_cast<uint8_t>(node_class) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE))
             );
     }
@@ -167,7 +167,7 @@ struct MetaIdxOrchestrator
         )
         {
             return static_cast<APCPagedNodeSegmentClasses>(
-                meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE)
+                meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE)
             );
         }
     }

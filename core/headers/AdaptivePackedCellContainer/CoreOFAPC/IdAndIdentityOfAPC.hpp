@@ -254,30 +254,6 @@ struct APCGroupReserver
         }
         return user_defined_identity;
     }
-
-    /// ///////////////////////////////////
-
-    static constexpr bool IsMinimalValidAxis(const APCInitialIdentityStruct& a_initial_apc_conf) noexcept
-    {
-        return a_initial_apc_conf.HorizontalSharedState != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL &&
-            a_initial_apc_conf.VarticalLogicState != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-    }
-
-    static constexpr bool IsMinimalValidIdentity(APCInitialIdentityStruct& a_initial_apc_conf) noexcept
-    {
-        a_initial_apc_conf.IsAssignable = a_initial_apc_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
-            HashIdConstructror::IsValidAPCSlotIdx(a_initial_apc_conf.APCSlotIndex) &&
-            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.BranchID) &&
-            HashIdConstructror::IsValidAPCId48(a_initial_apc_conf.AccessPassword) &&
-            IsMinimalValidAxis(a_initial_apc_conf);
-        
-        return a_initial_apc_conf.IsAssignable;
-    }
-
-
-    // static constexpr bool ValidateKeyIdPairs(APCInitialIdentityStruct& identinty_struct) noexcept;
-    // static constexpr bool IsIdentityRoot(APCInitialIdentityStruct& idintity_struct, FabricTableSegmentClasses hash_table) noexcept;
-    
 };
 
 

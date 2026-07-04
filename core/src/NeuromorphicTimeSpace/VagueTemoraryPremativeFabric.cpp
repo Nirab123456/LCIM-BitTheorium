@@ -203,13 +203,13 @@ namespace PredictedAdaptedEncoding
         APCGroupReserver::APCInitialIdentityStruct& a_initial_acp_conf
     ) noexcept
     {
-        if (!APCGroupReserver::IsMinimalValidIdentity(a_initial_acp_conf) || a_initial_acp_conf.APCSlotIndex >= CountOfAPC_)
+        if (!APCGroupReserver::IsMinimalValidCreateRequestOfAPC(a_initial_acp_conf) || a_initial_acp_conf.APCSlotIndex >= CountOfAPC_)
         {
             a_initial_acp_conf.IsAssignable = false;
             return false;
         }
 
-        APCGroupReserver::IsMinimalValidIdentity(a_initial_acp_conf);
+        APCGroupReserver::IsMinimalValidCreateRequestOfAPC(a_initial_acp_conf);
 
         a_initial_acp_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
 
