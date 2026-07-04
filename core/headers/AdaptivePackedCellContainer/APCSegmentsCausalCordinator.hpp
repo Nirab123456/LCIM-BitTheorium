@@ -88,20 +88,5 @@ public:
         bool drop_older = false
     ) noexcept;
 
-    uint32_t CountPublishedInRegion(APCPagedNodeSegmentClasses region) noexcept
-    {
-        uint32_t count = 0;
-        for (size_t i = PayloadBegin(); i < GetTotalCapacityForThisAPC(); ++i)
-        {
-            packed64_t cell = BackingPtr[i].load(MoLoad_);
-            if (APCAndPagedNodeHelpers::CanCellBeConsumedForThisRegion(cell, region))
-            {
-                ++count;
-            }
-        }
-        return count;
-    }
-
-    bool HasAnyPublishedInChain(APCPagedNodeSegmentClasses region, AdaptivePackedCellContainer& apc) noexcept;
 };
 }

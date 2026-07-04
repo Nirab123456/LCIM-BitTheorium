@@ -8,7 +8,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    enum class MetaIndexOfAPCNode : size_t
+    enum class MetaIndexOfAPCNode : uint8_t
     {
         // identity
         MAGIC_ID = 0,

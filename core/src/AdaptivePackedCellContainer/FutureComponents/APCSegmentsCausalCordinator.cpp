@@ -54,18 +54,4 @@ namespace PredictedAdaptedEncoding
         return std::nullopt;  // drop budget exhausted — caller should back off
     }
 
-
-    bool APCSegmentsCausalCordinator::HasAnyPublishedInChain(APCPagedNodeSegmentClasses region, AdaptivePackedCellContainer& apc) noexcept
-    {
-        AdaptivePackedCellContainer* current = apc.FindSharedRootOrThis();
-        while (current)
-        {
-            if (CountPublishedInRegion(region) > 0)
-            {
-                return true;
-            }
-            current = current->GetNextSharedSegment();
-        }
-        return false;
-    }
 }

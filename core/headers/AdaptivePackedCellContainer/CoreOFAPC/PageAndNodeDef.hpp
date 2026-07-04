@@ -29,13 +29,6 @@ namespace PredictedAdaptedEncoding
             return (1u << rel_class);
         }
 
-
-        static constexpr bool CanCellBeConsumedForThisRegion(packed64_t packed_cell, APCPagedNodeSegmentClasses region_kind) noexcept
-        {
-            return PackedCell64_t::ExtractLocalityPolicy(packed_cell) == LocalityPolicy::PUBLISHED &&
-                PackedCell64_t::ExtractAPCPagedNodeSegmentClasse(packed_cell) == region_kind;        
-        }
-
         static constexpr MetaIndexOfAPCNode GetOccupancyMetIndexByRegionClass(
             APCPagedNodeSegmentClasses desired_region_class
         )noexcept
@@ -44,16 +37,6 @@ namespace PredictedAdaptedEncoding
                 static_cast<size_t>(MetaIndexOfAPCNode::FEEDBACKWARD_OCC) +
                 (static_cast<uint8_t>(desired_region_class) & HIGH_FOUR_NIBBLE)
                 );
-        }
-
-        static constexpr bool IsEmbededControlCell(const PackedCell64_t::AuthoritiveCellView& a_cell_view) noexcept
-        {
-            if (a_cell_view.PageClass == APCPagedNodeSegmentClasses::META_HEADER)
-            {
-                return true;
-            }
-            
-            return false;
         }
 
         static constexpr bool IsEmbededTimerCell(const PackedCell64_t::AuthoritiveCellView& a_cell_view) noexcept
@@ -128,18 +111,61 @@ namespace PredictedAdaptedEncoding
 
 };
 
-
-struct PageNodeOrchestrator
+struct MetaIdxOrchestrator
 {
-    static constexpr uint8_t GetBeginIndexOfLayoutBufferOfAPC() noexcept
+    static constexpr uint8_t LayoutBufferBegainInMetaIndecies() noexcept
     {
         return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS_VERSION);
     }
 
-    static constexpr uint8_t GetEndIndexOfLayouyBufferOfAPC() noexcept
+    static constexpr uint8_t LayoutBufferEndInMetaIndecies() noexcept
     {
         return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_BOUNDS_VERSION);
     }
+
+    static constexpr uint8_t OccupencyBufferBegainInMetaIndecies() noexcept
+    {
+        return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC);
+    }
+
+    static constexpr uint8_t OccupancyBufferEndInMetaIndecies() noexcept
+    {
+        return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_OCC);
+    }
+
+    static constexpr std::optional<MetaIndexOfAPCNode>OccupancyMetaIdxFromNodeClass(APCPagedNodeSegmentClasses node_class) noexcept
+    {
+        if (!PageNodeOrchestrator::IsValidTrackedAPCNode(node_class))
+        {
+            return std::nullopt;
+        }
+        
+        return static_cast<MetaIndexOfAPCNode>(
+            static_cast<size_t>(MetaIndexOfAPCNode::FEEDBACKWARD_OCC) +
+            (static_cast<uint8_t>(node_class) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE))
+            );
+    }
+
+    static constexpr std::optional<APCPagedNodeSegmentClasses>GetNodeClassForOccupancyMetaIdx(MetaIndexOfAPCNode meta_index) noexcept
+    {
+        const uint8_t meta_index_u = static_cast<uint8_t>(meta_index);
+        if (
+            meta_index_u >= OccupencyBufferBegainInMetaIndecies() &&
+            meta_index_u <= OccupancyBufferEndInMetaIndecies()
+        )
+        {
+            return static_cast<APCPagedNodeSegmentClasses>(
+                meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE)
+            );
+        }
+    }
+
+};
+
+
+
+struct PageNodeOrchestrator : public MetaIdxOrchestrator
+{
 
     static constexpr uint8_t TrackedAPCNodeLen() noexcept
     {
@@ -158,11 +184,22 @@ struct PageNodeOrchestrator
         return false;
     }
 
+
+    static constexpr bool IsThisCellAPCMetaHeader(APCPagedNodeSegmentClasses page_class) noexcept
+    {
+        if (page_class == APCPagedNodeSegmentClasses::META_HEADER)
+        {
+            return true;
+        }
+        
+        return false;
+    }
+
     static constexpr bool IsValidAPCHeaderCell(const PackedCell64_t::AuthoritiveCellView a_auth_view) noexcept
     {
         if (
             !a_auth_view.IsCellValid || 
-            a_auth_view.PageClass != APCPagedNodeSegmentClasses::META_HEADER
+            !IsThisCellAPCMetaHeader(a_auth_view.PageClass)
         )
         {
             return false;

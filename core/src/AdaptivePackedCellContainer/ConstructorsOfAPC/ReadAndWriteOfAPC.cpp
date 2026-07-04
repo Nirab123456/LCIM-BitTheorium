@@ -28,14 +28,14 @@ namespace PredictedAdaptedEncoding
         if (is_claimed_required)
         {
             return ClaimAndCopyToAPCFromBuffer(
-                PageNodeOrchestrator::GetBeginIndexOfLayoutBufferOfAPC(),
+                PageNodeOrchestrator::LayoutBufferBegainInMetaIndecies(),
                 PageNodeOrchestrator::TrackedAPCNodeLen(),
                 a_layout_buffer.data()
             );
         }
         
         return ForceCopyToAPCFromBuffer(
-            PageNodeOrchestrator::GetBeginIndexOfLayoutBufferOfAPC(),
+            PageNodeOrchestrator::LayoutBufferBegainInMetaIndecies(),
             PageNodeOrchestrator::TrackedAPCNodeLen(),
             a_layout_buffer.data()
         );

@@ -5,19 +5,25 @@ namespace PredictedAdaptedEncoding
 {
 
 
-struct OccupancyBuilderAndValidator 
+struct OccupancyBuilderAndValidator : public TrackingBufferConf
 {
     struct OccupancyCarrier
     {
         uint16_t IdleOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
         uint16_t ClaimedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
         uint16_t PublishedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
-        APCPagedNodeSegmentClasses OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN;
+        APCPagedNodeSegmentClasses OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN; ////
+        MetaIndexOfAPCNode MetaIndexForThis = MetaIndexOfAPCNode::EOF_APC_HEADER;
         LocalityPolicy localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
     static_assert(sizeof(OccupancyCarrier) <= 2 * sizeof(packed64_t));
 
+    /// @brief USES: Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL & CREATS: Occupancy cell OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER  [LocalityPolicy::PUBLISHED | LocalityPolicy::CLAIMED | LocalityPolicy::FAULTY]
+    /// @param PublishedOccupancy LOWEST: uint16_t in PackUnsigned16x3ToMode48_
+    /// @param ClaimedOccupancy MID: uint16_t in PackUnsigned16x3ToMode48_
+    /// @param IdleOccupancy HIGHIEST: uint16_t in PackUnsigned16x3ToMode48_
+    /// @return 
     static constexpr packed64_t CreateAPCOccupancyCell(
         OccupancyCarrier& desired_carrier
     ) noexcept
@@ -95,6 +101,7 @@ struct OccupancyBuilderAndValidator
     }
 
 
+//////////////////////////////////////////////////////////////////////////
 
         /// @brief USES: Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL & CREATS: Occupancy cell OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER  [LocalityPolicy::PUBLISHED | LocalityPolicy::CLAIMED | LocalityPolicy::FAULTY]
         /// @param published_count LOWEST: uint16_t in PackUnsigned16x3ToMode48_
@@ -201,10 +208,10 @@ protected:
 };
 
 
-// struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
-// {
-//     static constexpr 
-// };
+
+struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
+{
+};
 
 
 }
