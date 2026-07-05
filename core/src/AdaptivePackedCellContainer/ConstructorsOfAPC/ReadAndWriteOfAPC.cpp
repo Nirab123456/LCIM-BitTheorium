@@ -6,8 +6,7 @@ namespace PredictedAdaptedEncoding
 
     bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderDirectlyNonAtomic(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
     {
-        APCSegmentPoolRange range_of_this_apc{};
-        if (!GetThisAPCRangeInSlab_(range_of_this_apc, UNSIGNED_ZERO, APCDataStructure::METACELL_COUNT))
+        if (!RangeOfThisAPCInSlab_.IsVAlid)
         {
             return false;
         }
@@ -40,16 +39,6 @@ namespace PredictedAdaptedEncoding
             a_layout_buffer.data()
         );
     }
-
-    packed64_t ReadAndWriteOfAPC::ReadFullMetaCell(MetaIndexOfAPCNode idx) noexcept
-    {
-        if (ValidMetaIdx(idx))
-        {
-            return BackingPtr[static_cast<size_t>(idx)].load(MoLoad_);
-        }
-        return PACKED_CELL_SENTENAL;
-    }
-
 
     bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
         uint16_t total_capacity,

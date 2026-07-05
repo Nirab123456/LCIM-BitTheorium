@@ -8,6 +8,20 @@ static_assert(__cpp_lib_atomic_wait, "C++ must suppoet atomic wait/notify");
 
 class AdaptivePackedCellContainer : public FabricToAPCLinker
 {
+public:
+    constexpr bool IsThisAPCValid() noexcept
+    {
+        if (
+            FabricBackend_ &&
+            HashIdConstructror::IsValidAPCId48(IdxOfThisAPCInFabric_) &&
+            RangeOfThisAPCInSlab_.IsVAlid &&
+            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_)
+        )
+        {
+            return true;
+        }
+        return false;
+    }
 
 };
 

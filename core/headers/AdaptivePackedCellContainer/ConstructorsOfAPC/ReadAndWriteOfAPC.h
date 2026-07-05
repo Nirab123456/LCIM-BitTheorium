@@ -28,7 +28,6 @@ namespace PredictedAdaptedEncoding
             APCGroupReserver::APCInitialIdentityStruct& container_configuration
         ) noexcept;
 
-        packed64_t ReadFullMetaCell(MetaIndexOfAPCNode idx) noexcept;
     };
     
     

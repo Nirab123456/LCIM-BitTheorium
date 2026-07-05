@@ -11,7 +11,7 @@ namespace PredictedAdaptedEncoding
         APCGroupReserver::APCInitialIdentityStruct& container_conf
     ) noexcept
     {
-        if (desired_apc.IfAPCBranchValid())
+        if (desired_apc.IsThisAPCValid())
         {
             return std::nullopt;
         }
@@ -104,7 +104,7 @@ namespace PredictedAdaptedEncoding
 
         if (!desired_apc.BindExternalRawFabricBacking_(
             raw_apc_segment_ptr,
-            PerAPCRuntimeCellCount_,
+            static_cast<uint16_t>(PerAPCRuntimeCellCount_),
             this,
             desired_apc_slot,
             false
@@ -237,7 +237,7 @@ namespace PredictedAdaptedEncoding
 
             const uint64_t root_apc_slot_idx = HashIdConstructror::HashTableHandlerToAPCSlotIdx(*maybe_root_branch_handle);
             AdaptivePackedCellContainer* root_apc = GetAPCRuntimePtr(root_apc_slot_idx);
-            if (!root_apc || !root_apc->IfAPCBranchValid())
+            if (!root_apc || !root_apc->IsThisAPCValid())
             {
                 return false;  ///////????
             }

@@ -242,7 +242,6 @@
 
 //         for (size_t i = apc.PayloadBegin(); i < apc.GetTotalCapacityForThisAPC(); ++i)
 //         {
-//             const packed64_t cell = apc.BackingPtr[i].load(MoLoad_);
 //             const auto view = PackedCell64_t::GetAuthoritiveViewsForACell(cell);
 
 //             if (!view.IsCellValid)
