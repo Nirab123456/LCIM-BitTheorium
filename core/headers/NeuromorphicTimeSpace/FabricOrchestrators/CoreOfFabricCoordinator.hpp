@@ -1,10 +1,9 @@
 #pragma once 
-#include "../../AdaptivePackedCellContainer/SegmentIODefinition.hpp"
+#include "../../AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 
 namespace PredictedAdaptedEncoding
 {
 
-    class AdaptivePackedCellContainer;
     static constexpr uint64_t APC_FABRIC_INDEX_SENTINAL = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
 
 

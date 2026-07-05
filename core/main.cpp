@@ -1,10 +1,8 @@
-#include "TestFiles/ThroughputTest.hpp"
-#include "TestFiles/APCTest.hpp"
+#include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
 
 
 int main()
 {
-    // APCTest();
-    ThroughputTest();
+
     return 0;
 }

@@ -58,10 +58,10 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = fabric_owner;
     }
 
-    bool FabricToAPCLinker::IsThisAPCValidRange_(
+    bool FabricToAPCLinker::GetThisAPCRangeInSlab_(
+        APCSegmentPoolRange& return_range,
         size_t starting_idx_in_apc,
-        size_t width,  
-        APCSegmentPoolRange* return_range
+        size_t width
     ) noexcept
     {
         if (!FabricOwnerPtr_)
@@ -81,10 +81,7 @@ namespace PredictedAdaptedEncoding
         }
         
 
-        if (return_range)
-        {
-            *return_range = range_of_this_apc;
-        }
+        return_range = range_of_this_apc;
 
         return range_of_this_apc.IsVAlid && range_of_this_apc.BeginIndex + starting_idx_in_apc + width <= range_of_this_apc.EndIndex;
     }
@@ -97,7 +94,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
+        if (!GetThisAPCRangeInSlab_(range_of_this_apc, starting_idx_in_apc, sequential_number_of_cells) || source_cells == nullptr)
         {
             return false;
         }
@@ -117,7 +114,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || source_cells == nullptr)
+        if (!GetThisAPCRangeInSlab_(range_of_this_apc, starting_idx_in_apc, sequential_number_of_cells) || source_cells == nullptr)
         {
             return false;
         }
@@ -137,7 +134,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         APCSegmentPoolRange range_of_this_apc{};
-        if (!IsThisAPCValidRange_(starting_idx_in_apc, sequential_number_of_cells, &range_of_this_apc) || return_buffer == nullptr)
+        if (!GetThisAPCRangeInSlab_(range_of_this_apc, starting_idx_in_apc, sequential_number_of_cells) || return_buffer == nullptr)
         {
             return false;
         }
