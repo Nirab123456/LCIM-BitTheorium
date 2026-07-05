@@ -25,7 +25,10 @@ namespace PredictedAdaptedEncoding
 
         bool InitiateAPCMetaHeader(
             uint16_t total_capacity,
-            APCGroupReserver::APCInitialIdentityStruct& container_configuration
+            APCGroupReserver::APCInitialIdentityStruct& container_configuration,
+            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
+            uint8_t version = APCDataStructure::BRANCH_VERSION,
+            LocalityPolicy locality = LocalityPolicy::PUBLISHED
         ) noexcept;
 
     };

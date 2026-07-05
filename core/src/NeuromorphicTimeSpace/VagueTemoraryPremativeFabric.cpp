@@ -8,7 +8,10 @@ namespace PredictedAdaptedEncoding
 
     std::optional<uint64_t> VagueTemoraryPremativeFabric::ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
-        APCGroupReserver::APCInitialIdentityStruct& container_conf
+        APCGroupReserver::APCInitialIdentityStruct& container_conf,
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight,
+        uint8_t version,
+        LocalityPolicy locality
     ) noexcept
     {
         if (desired_apc.IsThisAPCValid())

@@ -75,7 +75,10 @@ public:
 
     std::optional<uint64_t> ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
-        APCGroupReserver::APCInitialIdentityStruct& container_conf
+        APCGroupReserver::APCInitialIdentityStruct& container_conf,
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
+        uint8_t version = APCDataStructure::BRANCH_VERSION,
+        LocalityPolicy locality = LocalityPolicy::PUBLISHED
     ) noexcept;
 
     bool InitializeFabricWithPtrTable(
