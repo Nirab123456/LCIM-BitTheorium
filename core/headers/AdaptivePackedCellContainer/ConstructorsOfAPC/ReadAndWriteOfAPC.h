@@ -23,6 +23,11 @@ namespace PredictedAdaptedEncoding
             bool caller_holds_the_flag = false
         ) noexcept;
 
+        bool InitiateAPCMetaHeader(
+            uint16_t total_capacity,
+            APCGroupReserver::APCInitialIdentityStruct& container_configuration
+        ) noexcept;
+
         packed64_t ReadFullMetaCell(MetaIndexOfAPCNode idx) noexcept;
     };
     

@@ -272,6 +272,8 @@ struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
         const TrackingBufferOfAPC& a_valid_layout_buffer
     ) noexcept
     {
+        BuildNullTrackingBuffer(return_occupancy_buffer);
+
         if (!LayoutBoundsOrchestrator::IsLayouBufferValidationMarked(a_valid_layout_buffer))
         {
             return false;
@@ -279,28 +281,32 @@ struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
 
         OccupancyCarrier occupancy_files_buffer{};
 
-        for (uint8_t i = 0; i < LEN_OF_APC_TRACKING_BUFFER; i++)
+        for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             RestOccupancyCarrier(occupancy_files_buffer);
 
             const std::optional<uint16_t> maybe_occupancy_span = LayoutBoundsOrchestrator::SpanOflayoutFromPackedCell(a_valid_layout_buffer[i]);
             if (!maybe_occupancy_span.has_value())
             {
+                BuildNullTrackingBuffer(return_occupancy_buffer);
                 return false;
             }
-            occupancy_files_buffer.IdleOccupancy = maybe_occupancy_span.value() + 1;
-            occupancy_files_buffer.ClaimedOccupancy = UNSIGNED_ZERO;
-            occupancy_files_buffer.PublishedOccupancy = UNSIGNED_ZERO;
             const APCPagedNodeSegmentClasses current_layout_class = LayoutBoundsOrchestrator::GetOriginForLayoutClassByBufferIdx(i);
             if (current_layout_class == APCPagedNodeSegmentClasses::NULLNAN)
             {
+                BuildNullTrackingBuffer(return_occupancy_buffer);
                 return false;
             }
+            occupancy_files_buffer.IdleOccupancy = maybe_occupancy_span.value();
+            occupancy_files_buffer.ClaimedOccupancy = UNSIGNED_ZERO;
+            occupancy_files_buffer.PublishedOccupancy = UNSIGNED_ZERO;
             occupancy_files_buffer.OccupancyOrigin = current_layout_class;
+            occupancy_files_buffer.localityOfThisOccupancy = LocalityPolicy::PUBLISHED;
             
             bool ok = InsertAOccupacncyInBuffer(return_occupancy_buffer, occupancy_files_buffer);
             if (!ok)
             {
+                BuildNullTrackingBuffer(return_occupancy_buffer);
                 return false;
             }
             

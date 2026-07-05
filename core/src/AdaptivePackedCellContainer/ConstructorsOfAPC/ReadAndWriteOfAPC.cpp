@@ -49,4 +49,34 @@ namespace PredictedAdaptedEncoding
         }
         return PACKED_CELL_SENTENAL;
     }
+
+
+    bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
+        uint16_t total_capacity,
+        APCGroupReserver::APCInitialIdentityStruct& container_configuration
+    ) noexcept
+    {
+        HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
+
+        if (!HeaderOrchestrator::InitializeDefaultHeaderBuffer(
+            header_meta_buffer,
+            container_configuration,
+            total_capacity
+        ))
+        {
+            return false;
+        }
+        
+        if (!HeaderOrchestrator::IsHeaderBufferValidationMarked(header_meta_buffer))
+        {
+            return false;
+        }
+
+        return ForceCopyToAPCFromBuffer(
+            UNSIGNED_ZERO,
+            APCDataStructure::METACELL_COUNT,
+            header_meta_buffer.data()
+        );
+        
+    }
 }

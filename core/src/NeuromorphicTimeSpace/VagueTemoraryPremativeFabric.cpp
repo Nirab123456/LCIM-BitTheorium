@@ -118,7 +118,7 @@ namespace PredictedAdaptedEncoding
         const uint64_t final_shared_id = 0000000;
 
         if (!desired_apc.InitOnFabricBackingAfterBind(
-            capacity,
+            static_cast<uint16_t>(capacity),
             container_conf
         ))
         {

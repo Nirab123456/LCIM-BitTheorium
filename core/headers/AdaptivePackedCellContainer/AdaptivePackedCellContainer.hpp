@@ -140,7 +140,7 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
         }
 
         bool InitOnFabricBackingAfterBind(
-            size_t capacity,
+            uint16_t capacity,
             APCGroupReserver::APCInitialIdentityStruct container_cfg
         ) noexcept
         {
@@ -148,20 +148,25 @@ class AdaptivePackedCellContainer : public APCSegmentsCausalCordinator
                 !FabricBackend_ || 
                 !BackingPtr || 
                 capacity != CapacityOfThisAPC_ || 
-                !OccupancyBuilderAndValidator::IsCapacityOfAPCLegal(capacity)
+                !OccupancyBuilderAndValidator::IsCapacityOfAPCLegal(capacity) ||
+                !APCGroupReserver::IfSystemResolvedIdentityValid(container_cfg)
             )
             {
                 return false;
             }
             
             const packed64_t default_idle_cell = PackedCell64_t::MakeDefaultAPCPayloadCellOnMode(container_cfg.InitialMode);
-
+            if (default_idle_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
+            {
+                return false;
+            }
+            
             for (size_t i = 0; i < capacity; i++)
             {
                 BackingPtr[i].store(default_idle_cell, MoStoreSeq_);
             }
 
-            InitRootOrChildBranch(
+            InitiateAPCMetaHeader(
                 capacity,
                 container_cfg
             );

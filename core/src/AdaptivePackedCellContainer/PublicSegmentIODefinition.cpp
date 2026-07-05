@@ -127,46 +127,6 @@ namespace PredictedAdaptedEncoding
         
     }
 
-
-    void SegmentIODefinition::InitRootOrChildBranch(
-        size_t total_capacity,
-        const APCGroupReserver::APCInitialIdentityStruct& container_configuration
-    ) noexcept
-    {
-        if (!IsBound())
-        {
-            return;
-        }
-
-        const uint64_t safe_capacity = static_cast<uint16_t>(std::min<size_t>(total_capacity, APC_ALL_INDEX_LIMIT));
-        
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::MAGIC_ID, BRANCH_MAGIC);
-
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::BRANCH_PRIORITY, UNSIGNED_ZERO);
-        
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CURRENT_ACTIVE_THREADS, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT, safe_capacity);                                                                                        
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::PAGED_NODE_READY_BIT, UNSIGNED_ZERO);
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::DEFINED_MODE_OF_CURRENT_APC, static_cast<uint32_t>(container_configuration.InitialMode));
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::PRODUCER_CURSOR_PLACEMENT, static_cast<uint32_t>(METACELL_COUNT));
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::CONSUMER_CURSORE_PLACEMENT, static_cast<uint32_t>(METACELL_COUNT));
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH, UNSIGNED_ZERO);
-
-        ConfigureThisAPCIdentity(container_configuration);
-        for (uint8_t i = 0; i < APCAndPagedNodeHelpers::SIZE_OF_APCPagedNodeRelMaskClasses; i++)
-        {
-            InsertTypedValue48MetaCellOfAPC_(
-                static_cast<MetaIndexOfAPCNode>(static_cast<size_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC) + i), 
-                UNSIGNED_ZERO
-            );
-        }
-
-        ResetALLOccupancy16x3ModelToZero_();
-        
-        InsertTypedValue48MetaCellOfAPC_(MetaIndexOfAPCNode::EOF_APC_HEADER, EOF_HEADER);
-
-    }
-
     bool SegmentIODefinition::TryIncrementOrDecrementActiveThreadCount(int8_t change_count) noexcept
     {
         ///for now

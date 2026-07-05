@@ -79,11 +79,6 @@ public:
         const APCGroupReserver::APCInitialIdentityStruct& container_configuration
     ) noexcept;
 
-    void InitRootOrChildBranch(
-        size_t total_capacity,
-        const APCGroupReserver::APCInitialIdentityStruct& container_configuration
-    ) noexcept;
-
     uint64_t ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode idx) noexcept;
 
     void TouchLocalMetaClock48() noexcept;

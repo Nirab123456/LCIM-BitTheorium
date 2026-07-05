@@ -170,6 +170,8 @@ struct MetaIdxOrchestrator
                 meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE)
             );
         }
+
+        return std::nullopt;
     }
 
 };

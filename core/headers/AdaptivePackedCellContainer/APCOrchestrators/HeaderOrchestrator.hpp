@@ -9,7 +9,10 @@ namespace PredictedAdaptedEncoding
     struct HeaderOrchestrator
     {
         #define MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY 32
+
+        static constexpr uint64_t COMPLETE_HEADER_VALIDATION_MARK = 3333;
         static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT + 1;
+        static constexpr uint8_t VALIDATION_INDEX_OF_HEADER_BUFFER = LEN_OF_APC_META_BUFFER_OR_COUNT - 1;
 
 
         using DefaultMemCopyBuffer = std::array<packed64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
@@ -86,10 +89,112 @@ namespace PredictedAdaptedEncoding
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::ACCESS_PASSWORD, identity_cfg.AccessPassword, a_header_buffer, locality);
         }
 
+        static constexpr bool InitiateLayoutThenOccupencyInHeaderBuffer(
+            APCMetaBuffer& return_buffer,
+            uint16_t capacity_of_apc,
+            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
+            uint8_t version = APCDataStructure::BRANCH_VERSION
+        ) noexcept
+        {
+            TrackingBufferConf::TrackingBufferOfAPC layout_buffer{};
+            TrackingBufferConf::TrackingBufferOfAPC occupancy_buffer{};
 
-        static constexpr void InitializeDefaultHeaderBuffer(APCGroupReserver::APCIdentityDef& required_identity);
+            bool layout_build_ok = LayoutBoundsOrchestrator::BuildInitialLayoutBuffer(
+                layout_buffer,
+                capacity_of_apc,
+                user_defined_weight,
+                version
+            );
+            if (!layout_build_ok)
+            {
+                return false;
+            }
 
-        static constexpr bool ValidateAHeaderBuffer(APCMetaBuffer& a_header_buffer) noexcept;
+            bool occupancy_buffer_ok = OccupancyOrchestrator::BuildInitialOccupancyBuffer(occupancy_buffer, layout_buffer);
+
+            if (!occupancy_buffer_ok)
+            {
+                return false;
+            }
+
+            const uint8_t layout_begin = PageNodeOrchestrator::LayoutBufferBegainInMetaIndecies();
+            const uint8_t occupancy_begin = PageNodeOrchestrator::OccupencyBufferBegainInMetaIndecies();
+
+            for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
+            {
+                return_buffer[layout_begin + i] = layout_buffer[i];
+                return_buffer[occupancy_begin + i] = occupancy_buffer[i];
+            };
+            
+            return true;
+        }
+
+        static constexpr bool InitializeDefaultHeaderBuffer(
+            APCMetaBuffer& return_buffer,
+            APCGroupReserver::APCInitialIdentityStruct& provided_identity_cfg,
+            uint16_t capacity_of_apc,
+            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
+            uint8_t version = APCDataStructure::BRANCH_VERSION,
+            LocalityPolicy locality = LocalityPolicy::PUBLISHED
+        ) noexcept
+        {
+            ConstructNullHeaderBuffer(return_buffer);
+
+            if (
+                !APCGroupReserver::IfSystemResolvedIdentityValid(provided_identity_cfg) ||
+                !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
+                !APCDataStructure::ThisVersionValid(version)
+            )
+            {
+                return false;
+            }
+
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::MAGIC_ID, APCDataStructure::BRANCH_MAGIC, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS, UNSIGNED_ZERO, return_buffer, locality);
+            ConfigureThisMetaBufferIdentity(provided_identity_cfg, return_buffer, locality);
+
+            if (!InitiateLayoutThenOccupencyInHeaderBuffer(
+                return_buffer,
+                capacity_of_apc,
+                user_defined_weight,
+                version
+            ))
+            {
+                return false;
+            }
+
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::BRANCH_PRIORITY, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::SEGMENT_CONF_FLAGS, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::SPLIT_THRESHOLD_PERCENTAGE, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_CAPACITY_OF_THIS_SEGEMENT, capacity_of_apc, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PAGED_NODE_READY_BIT, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::DEFINED_MODE_OF_CURRENT_APC, static_cast<uint64_t>(provided_identity_cfg.InitialMode), return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PRODUCER_CURSOR_PLACEMENT, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::CONSUMER_CURSORE_PLACEMENT, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NODE_GROUP_SIZE, 1u, return_buffer, locality);
+
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LOCAL_CLOCK48, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LAST_ACCEPTED_FEED_FORWARD_CLOCK16, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LAST_EMITTED_FEED_FORWARD_CLOCK16, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LAST_ACCEPTED_FEED_BACKWARD_CLOCK16, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LAST_EMITTED_FEED_BACKWARD_CLOCK16, UNSIGNED_ZERO, return_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::EOF_APC_HEADER, APCDataStructure::EOF_HEADER, return_buffer, locality);
+
+            return_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] = COMPLETE_HEADER_VALIDATION_MARK;            
+            return true;
+        }
+
+
+        static constexpr bool IsHeaderBufferValidationMarked(const APCMetaBuffer& a_buffer) noexcept
+        {
+            if (a_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] == COMPLETE_HEADER_VALIDATION_MARK)
+            {
+                return true;
+            }
+            return false;
+        }
+
 
 
 
