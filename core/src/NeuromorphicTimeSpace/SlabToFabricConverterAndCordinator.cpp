@@ -425,4 +425,58 @@ namespace PredictedAdaptedEncoding
         ResetScalarsofTheFabric_();
     }
 
+
+    /// @brief //////////// have to fix
+    bool SlabToFabricConverterAndCordinator::ResolveIDConfOfAPC(
+        APCGroupReserver::APCInitialIdentityStruct& container_initial_conf
+    ) noexcept
+    {
+        if (
+            !APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf) || 
+            container_initial_conf.APCSlotIndex >= CountOfAPC_ 
+        )
+        {
+            container_initial_conf.IsAssignable = false;
+            return false;
+        }
+
+        const uint64_t handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex);
+        if (!HashIdConstructror::IsValidHashHandle(handle))
+        {
+            container_initial_conf.IsAssignable = false;
+            return false;
+        }
+
+        container_initial_conf.BranchID = MakeUniqueBranchIdForHashAndAPC();
+        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandom48bitValue();
+        if (
+            !HashIdConstructror::IsValidAPCId48(container_initial_conf.BranchID) ||
+            !HashIdConstructror::IsValidAPCId48(container_initial_conf.AccessPassword)
+        )
+        {
+            container_initial_conf.IsAssignable = false;
+            return false;
+        }
+
+        return true;
+    }
+
+
+    uint64_t SlabToFabricConverterAndCordinator::MakeUniqueBranchIdForHashAndAPC() noexcept
+    {
+        for (size_t i = 0; i < DEFAULT_MAX_TRIES; i++)
+        {
+            const uint64_t random_bid = HashIdConstructror::MakeARandom48bitValue();
+            if (
+                HashIdConstructror::IsValidAPCId48(random_bid) && 
+                !FindHashValue48_(FabricTableSegmentClasses::BRANCH_HASH, random_bid).has_value()
+            )
+            {
+                return random_bid;
+            }
+        }
+        return PackedCell64_t::PACKED_CELL_SENTINAL;
+    }
+
+
 }

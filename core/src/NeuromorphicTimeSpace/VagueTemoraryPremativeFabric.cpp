@@ -88,7 +88,7 @@ namespace PredictedAdaptedEncoding
         }
         
         container_conf.APCSlotIndex = desired_apc_slot.value();
-        if (!ResolveIDConfOfAPC(container_conf))
+        if (!ResolveBothAxis_(container_conf))
         {
             return std::nullopt;
         }
@@ -157,84 +157,58 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    /// @brief //////////// have to fix
-    bool VagueTemoraryPremativeFabric::ResolveIDConfOfAPC(
-        APCGroupReserver::APCInitialIdentityStruct& container_initial_conf
-    ) noexcept
+    bool VagueTemoraryPremativeFabric::ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept
     {
+        if (!ResolveIDConfOfAPC(container_cfg))
+        {
+            return false;
+        }
+        
+        const APCGroupReserver::APCIdentityDef horizontal_identity_s = APCGroupReserver::RuntimeAxisIdentityResolved(
+            APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED,
+            container_cfg
+        );
+
+        const APCGroupReserver::APCIdentityDef vartical_identity_l = APCGroupReserver::RuntimeAxisIdentityResolved(
+            APCGroupReserver::BidirectionalAxis::VARTICAL_LOGICAL,
+            container_cfg
+        );
+
         if (
-            !APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf) || 
-            container_initial_conf.APCSlotIndex >= CountOfAPC_ 
+            horizontal_identity_s == APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL || 
+            vartical_identity_l == APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL
         )
         {
-            container_initial_conf.IsAssignable = false;
             return false;
         }
 
-        const uint64_t handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex);
-        if (!HashIdConstructror::IsValidHashHandle(handle))
+        bool horizontal_initiated = false;
+        if (horizontal_identity_s != APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION)
         {
-            container_initial_conf.IsAssignable = false;
+            horizontal_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED);
+        }
+        else
+        {
+            horizontal_initiated = true;
+        }
+
+        bool vartical_initiated = false;
+        if (vartical_identity_l != APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION)
+        {
+            vartical_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::VARTICAL_LOGICAL);
+        }
+        else
+        {
+            vartical_initiated = true;
+        }
+        
+        if (!horizontal_initiated || !vartical_initiated)
+        {
             return false;
         }
-
-        container_initial_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
-        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandom48bitValue();
-        if (
-            !HashIdConstructror::IsValidAPCId48(container_initial_conf.BranchID) ||
-            !HashIdConstructror::IsValidAPCId48(container_initial_conf.AccessPassword)
-        )
-        {
-            container_initial_conf.IsAssignable = false;
-            return false;
-        }
-
-        
-        
-        
-
-        APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf);
-
-        container_initial_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
-
-
-        if (container_initial_conf.HorizontalSharedState != APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL)
-        {
-            container_initial_conf.SharedHashKey = HashIdConstructror::MakeGroupAccessKey48(container_initial_conf.SharedID, UNSIGNED_ZERO);
-
-            const std::optional<uint64_t> maybe_root_branch_handle = FindHashValue48_(FabricTableSegmentClasses::SHARED_HASH, container_initial_conf.SharedHashKey);
-            if (!maybe_root_branch_handle.has_value())
-            {
-                if (!InsertOrUpdateRobinHoodHash48_(
-                    FabricTableSegmentClasses::SHARED_HASH,
-                    container_initial_conf.SharedHashKey, 
-                    HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex)
-                ))
-                {
-                    return false;
-                }
-
-                container_initial_conf.SharedPreviousId = UNSIGNED_ZERO;
-                container_initial_conf.SharedNextId = UNSIGNED_ZERO;
-                container_initial_conf.HorizontalSharedState = APCGroupReserver::APCIdentityDef::ROOT;
-            }
-
-            const uint64_t root_apc_slot_idx = HashIdConstructror::HashTableHandlerToAPCSlotIdx(*maybe_root_branch_handle);
-            AdaptivePackedCellContainer* root_apc = GetAPCRuntimePtr(root_apc_slot_idx);
-            if (!root_apc || !root_apc->IsThisAPCValid())
-            {
-                return false;  ///////????
-            }
-            
-            
-
-        }
-
-
-
         
         return true;
+        
     }
-
 
 }

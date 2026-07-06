@@ -26,60 +26,9 @@ private:
         APCGroupReserver::BidirectionalAxis desired_axis
     ) noexcept;
 
-    bool ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept
-    {
-        const APCGroupReserver::APCIdentityDef horizontal_identity_s = APCGroupReserver::RuntimeAxisIdentityResolved(
-            APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED,
-            container_cfg
-        );
-
-        const APCGroupReserver::APCIdentityDef vartical_identity_l = APCGroupReserver::RuntimeAxisIdentityResolved(
-            APCGroupReserver::BidirectionalAxis::VARTICAL_LOGICAL,
-            container_cfg
-        );
-
-        if (
-            horizontal_identity_s == APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL || 
-            vartical_identity_l == APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL
-        )
-        {
-            return false;
-        }
-
-        bool horizontal_initiated = false;
-        if (horizontal_identity_s != APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION)
-        {
-            horizontal_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED);
-        }
-        else
-        {
-            horizontal_initiated = true;
-        }
-
-        bool vartical_initiated = false;
-        if (vartical_identity_l != APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION)
-        {
-            vartical_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::VARTICAL_LOGICAL);
-        }
-        else
-        {
-            vartical_initiated = true;
-        }
-        
-        if (!horizontal_initiated || !vartical_initiated)
-        {
-            return false;
-        }
-        
-        return true;
-        
-    }
+    bool ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept;
 
 public:
-
-    bool ResolveIDConfOfAPC(
-        APCGroupReserver::APCInitialIdentityStruct& a_initial_acp_conf
-    ) noexcept;
 
     std::optional<uint64_t> ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
