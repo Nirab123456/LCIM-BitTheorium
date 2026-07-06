@@ -48,6 +48,15 @@ namespace PredictedAdaptedEncoding
         /// @param apc_description_index 
         /// @return 
         DescriptionOfAPC::DescriptorSaftyFiles OneShotTryReadingDescriptionState_(uint64_t apc_description_index) noexcept;
+
+
+        bool SwitchOwnershipOfAReadyDescription(
+            uint64_t description_idx,
+            OwnershipPolicy updated_owner,
+            DescriptionOfAPC::StateOfSingleAPCDescription updated_state
+        ) noexcept;
+
+        std::optional<uint64_t> GetASlotForNewAPCLink() noexcept;
         
     };
 

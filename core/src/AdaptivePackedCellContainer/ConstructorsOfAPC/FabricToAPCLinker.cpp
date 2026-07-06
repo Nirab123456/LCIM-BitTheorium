@@ -22,13 +22,11 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        ////
         const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolBegainEndForSingleAPCDescription(fabric_slot_idx);
         if (!range_of_this_apc.IsVAlid)
         {
             return false;
         }
-        ////
         RangeOfThisAPCInSlab_ = range_of_this_apc;
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;

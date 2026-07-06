@@ -281,7 +281,7 @@ namespace PredictedAdaptedEncoding
         }
 
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
-        PerAPCRuntimeCellCount_ = static_cast<uint64_t>(slot_cell_count);
+        PerAPCRuntimeCellCount_ = static_cast<uint16_t>(slot_cell_count);
         SlabId_ = slab_id == UNSIGNED_ZERO ? APCDataStructure::BRANCH_VERSION : slab_id;
         ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 

@@ -168,4 +168,96 @@ namespace PredictedAdaptedEncoding
     }
 
 
+    bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
+        uint64_t description_idx,
+        OwnershipPolicy updated_owner,
+        DescriptionOfAPC::StateOfSingleAPCDescription updated_state
+    ) noexcept
+    {
+        DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desired_apc_description_buffer{};
+        
+        const bool buffer_ok = ReadACompleateAPCDescriptorBuffer(
+            description_idx, 
+            desired_apc_description_buffer, 
+            false, 
+            OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC
+        );
+        if (!buffer_ok)
+        {
+            return false;
+        }
+
+        const packed64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
+            desired_apc_description_buffer[static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY)],
+            updated_state,
+            updated_owner
+        );
+
+        const bool update_ok_safty = DescriptionOfAPC::SetStateSaftyCellInBuffer(desired_apc_description_buffer, updated_safty);
+        if (!update_ok_safty)
+        {
+            return false;
+        }
+
+        const bool claimed_descripor_for_caller = OneShotUpdateAPCDescriptor(desired_apc_description_buffer, true);
+        if (!claimed_descripor_for_caller)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    std::optional<uint64_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink() noexcept
+    {
+        if (
+            !FabricInitialized_.load(MoLoad_) ||
+            !SlabBasePtr_ || 
+            APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
+            !HashIdConstructror::IsValidAPCId48(CountOfAPC_)
+        )
+        {
+            return std::nullopt;
+        }
+
+        uint64_t desired_apc_slot = PackedCell64_t::PACKED_CELL_SENTINAL;
+
+        for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
+        {
+            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = OneShotTryReadingDescriptionState_(description_idx);
+            if (
+                desired_files.IsValid && 
+                desired_files.WidthOfAPC == PerAPCRuntimeCellCount_ &&
+                desired_files.LocalityOfTheDescription ==LocalityPolicy::PUBLISHED && 
+                desired_files.WhoHoldsTheAcess != OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER &&  
+                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL &&
+                ClaimACompleateAPCDescriptorCells(description_idx)
+            )
+            {
+                desired_apc_slot = description_idx;
+                break;
+            }
+        }
+
+        if (desired_apc_slot >= CountOfAPC_)
+        {
+            return std::nullopt;
+        }
+
+        bool switch_ok = SwitchOwnershipOfAReadyDescription(
+            desired_apc_slot, 
+            OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER, 
+            DescriptionOfAPC::StateOfSingleAPCDescription::OWNED_BY_APC
+        );
+
+        if (!switch_ok)
+        {
+            return std::nullopt;
+        }
+        
+        return desired_apc_slot;
+    }
+
+
 }

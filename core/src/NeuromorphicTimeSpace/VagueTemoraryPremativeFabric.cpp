@@ -6,6 +6,60 @@
 namespace PredictedAdaptedEncoding
 {
 
+    bool VagueTemoraryPremativeFabric::BuildAPCRuntimePtrTable_() noexcept
+    {
+        if (CountOfAPC_ == UNSIGNED_ZERO)
+        {
+            return false;
+        }
+        APCRuntimePtrTable_.reset(new (std::nothrow) std::atomic<AdaptivePackedCellContainer*>[static_cast<size_t>(CountOfAPC_)]);
+
+        if (!APCRuntimePtrTable_)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
+        {
+            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
+        }
+        
+        return true;
+    }
+
+    void VagueTemoraryPremativeFabric::ClearAPCRuntimePtrTable_() noexcept
+    {
+        if (!APCRuntimePtrTable_)
+        {
+            return;
+        }
+        for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
+        {
+            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
+        }
+    }
+
+    bool VagueTemoraryPremativeFabric::StoreAPCRuntimePtr(size_t apc_idx, AdaptivePackedCellContainer* apc_ptr) noexcept
+    {
+        if (!APCRuntimePtrTable_ || apc_idx >= CountOfAPC_)
+        {
+            return false;
+        }
+
+        APCRuntimePtrTable_[apc_idx].store(apc_ptr, MoStoreSeq_);
+        return true;
+    }
+
+    AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::GetAPCRuntimePtr(size_t apc_idx) noexcept
+    {
+        if (!APCRuntimePtrTable_ || apc_idx >= CountOfAPC_)
+        {
+            return nullptr;
+        }
+
+        return APCRuntimePtrTable_[apc_idx].load(MoLoad_);
+    }
+
     std::optional<uint64_t> VagueTemoraryPremativeFabric::ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
         APCGroupReserver::APCInitialIdentityStruct& container_conf,
@@ -14,83 +68,14 @@ namespace PredictedAdaptedEncoding
         LocalityPolicy locality
     ) noexcept
     {
-        if (desired_apc.IsThisAPCValid())
-        {
-            return std::nullopt;
-        }
 
-        if (
-            !FabricInitialized_.load(MoLoad_) ||
-            !SlabBasePtr_ || 
-            PerAPCRuntimeCellCount_ < MINIMUM_APC_CAPACITY ||
-            CountOfAPC_ == UNSIGNED_ZERO ||
-            CountOfAPC_ >= PackedCell64_t::BIT_FAMILY_48_SENTINAL
-        )
-        {
-            return std::nullopt;
-        }
-
-        uint64_t desired_apc_slot = PackedCell64_t::PACKED_CELL_SENTINAL;
-
-        for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
-        {
-            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = OneShotTryReadingDescriptionState_(description_idx);
-            if (
-                desired_files.IsValid && 
-                desired_files.WidthOfAPC == PerAPCRuntimeCellCount_ &&
-                desired_files.LocalityOfTheDescription ==LocalityPolicy::PUBLISHED && 
-                desired_files.WhoHoldsTheAcess != OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER &&  
-                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL
-            )
-            {
-                if (ClaimACompleateAPCDescriptorCells(description_idx))
-                {
-                    desired_apc_slot = description_idx;
-                    break;
-                }
-            }
-        }
-
-        if (desired_apc_slot >= CountOfAPC_)
-        {
-            return std::nullopt;
-        }
-
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desired_apc_description_buffer{};
-        
-        const bool buffer_ok = ReadACompleateAPCDescriptorBuffer(
-            desired_apc_slot, 
-            desired_apc_description_buffer, 
-            false, 
-            OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
-            DescriptionOfAPC::StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL,
-            std::nullopt
-        );
-        if (!buffer_ok)
-        {
-            return std::nullopt;
-        }
-
-        const packed64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
-            desired_apc_description_buffer[static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY)],
-            DescriptionOfAPC::StateOfSingleAPCDescription::OWNED_BY_APC,
-            OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER
-        );
-
-        const bool update_ok_safty = DescriptionOfAPC::SetStateSaftyCellInBuffer(desired_apc_description_buffer, updated_safty);
-        if (!update_ok_safty)
-        {
-            return std::nullopt;
-        }
-
-
-        const bool claimed_descripor_for_caller = OneShotUpdateAPCDescriptor(desired_apc_description_buffer, true);
-        if (!claimed_descripor_for_caller)
+        std::optional<uint64_t> desired_apc_slot = GetASlotForNewAPCLink();
+        if (!desired_apc_slot.has_value())
         {
             return std::nullopt;
         }
         
-        APCSegmentPoolRange desired_apc_segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desired_apc_slot);
+        APCSegmentPoolRange desired_apc_segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desired_apc_slot.value());
         if (!desired_apc_segment_pool_range.IsVAlid)
         {
             return std::nullopt;
@@ -102,74 +87,44 @@ namespace PredictedAdaptedEncoding
             return std::nullopt;
         }
         
-
+        container_conf.APCSlotIndex = desired_apc_slot.value();
+        if (!ResolveIDConfOfAPC(container_conf))
+        {
+            return std::nullopt;
+        }
+        
         packed64_t* raw_apc_segment_ptr = &SlabBasePtr_[desired_apc_segment_pool_range.BeginIndex];
 
         if (!desired_apc.BindExternalRawFabricBacking_(
             raw_apc_segment_ptr,
             static_cast<uint16_t>(PerAPCRuntimeCellCount_),
             this,
-            desired_apc_slot,
+            desired_apc_slot.value(),
             false
         ))
         {
             return std::nullopt;
         }
 
-        const uint64_t branch_id = HashIdConstructror::MakeARandom48bitValue();
-        const uint64_t final_logical_id = 000000;
-        const uint64_t final_shared_id = 0000000;
-
-        if (!desired_apc.InitOnFabricBackingAfterBind(
+        if (!desired_apc.InitiateAPCMetaHeader(
             static_cast<uint16_t>(capacity),
-            container_conf
+            container_conf,
+            user_defined_weight,
+            version,
+            locality
         ))
         {
             desired_apc.FreeAll();
             return std::nullopt;
         }
         
-
-        if (!StoreAPCRuntimePtr(desired_apc_slot, &desired_apc))
+        if (!StoreAPCRuntimePtr(desired_apc_slot.value(), &desired_apc))
         {
             desired_apc.FreeAll();
             return std::nullopt;
         }
-
-
-        const uint64_t branch_retire_lock = 00000000000000;
-        if (branch_retire_lock == UNSIGNED_ZERO || branch_retire_lock >= PackedCell64_t::BIT_FAMILY_48_SENTINAL)
-        {
-            desired_apc.FreeAll();
-            return std::nullopt;
-        }
-        
-        const bool branch_ok = InsertOrUpdateRobinHoodHash48_(FabricTableSegmentClasses::BRANCH_HASH, branch_id, branch_retire_lock);
-        const bool logical_ok = InsertOrUpdateRobinHoodHash48_(FabricTableSegmentClasses::LOGICAL_HASH, final_logical_id, branch_id);
-        const bool shared_ok = InsertOrUpdateRobinHoodHash48_(FabricTableSegmentClasses::SHARED_HASH, final_shared_id, branch_id);
-
-        packed64_t current_apc_count_cell = AtomicallyLoadReadCompletePackedCell(static_cast<size_t>(FabricMetaIndicies::TOTAL_APC_IN_USE));
-
-        const packed64_t updated_apc_count_cell = CoreOfFabricCoordinator::UpdateACountMetaCell(
-            current_apc_count_cell,
-            FabricMetaIndicies::TOTAL_APC_IN_USE,
-            1u
-        );
-
-        if (!branch_ok || !logical_ok || !shared_ok || updated_apc_count_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
-        {
-            StoreAPCRuntimePtr(desired_apc_slot, nullptr);
-            desired_apc.FreeAll();
-            return std::nullopt;
-        }
-        
-        CompareExchangeStrongFromFabric(
-            static_cast<size_t>(FabricMetaIndicies::TOTAL_APC_IN_USE),
-            current_apc_count_cell,
-            updated_apc_count_cell
-        );
-
-        return desired_apc_slot;
+    
+        return desired_apc_slot.value();
     }
 
     bool VagueTemoraryPremativeFabric::InitializeFabricWithPtrTable(
@@ -202,40 +157,66 @@ namespace PredictedAdaptedEncoding
     }
 
 
+    /// @brief //////////// have to fix
     bool VagueTemoraryPremativeFabric::ResolveIDConfOfAPC(
-        APCGroupReserver::APCInitialIdentityStruct& a_initial_acp_conf
+        APCGroupReserver::APCInitialIdentityStruct& container_initial_conf
     ) noexcept
     {
-        if (!APCGroupReserver::IsMinimalValidCreateRequestOfAPC(a_initial_acp_conf) || a_initial_acp_conf.APCSlotIndex >= CountOfAPC_)
+        if (
+            !APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf) || 
+            container_initial_conf.APCSlotIndex >= CountOfAPC_ 
+        )
         {
-            a_initial_acp_conf.IsAssignable = false;
+            container_initial_conf.IsAssignable = false;
             return false;
         }
 
-        APCGroupReserver::IsMinimalValidCreateRequestOfAPC(a_initial_acp_conf);
-
-        a_initial_acp_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
-
-
-        if (a_initial_acp_conf.HorizontalSharedState != APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL)
+        const uint64_t handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex);
+        if (!HashIdConstructror::IsValidHashHandle(handle))
         {
-            a_initial_acp_conf.SharedHashKey = HashIdConstructror::MakeGroupAccessKey48(a_initial_acp_conf.SharedID, UNSIGNED_ZERO);
+            container_initial_conf.IsAssignable = false;
+            return false;
+        }
 
-            const std::optional<uint64_t> maybe_root_branch_handle = FindHashValue48_(FabricTableSegmentClasses::SHARED_HASH, a_initial_acp_conf.SharedHashKey);
+        container_initial_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
+        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandom48bitValue();
+        if (
+            !HashIdConstructror::IsValidAPCId48(container_initial_conf.BranchID) ||
+            !HashIdConstructror::IsValidAPCId48(container_initial_conf.AccessPassword)
+        )
+        {
+            container_initial_conf.IsAssignable = false;
+            return false;
+        }
+
+        
+        
+        
+
+        APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf);
+
+        container_initial_conf.BranchID = HashIdConstructror::MakeARandom48bitValue();
+
+
+        if (container_initial_conf.HorizontalSharedState != APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL)
+        {
+            container_initial_conf.SharedHashKey = HashIdConstructror::MakeGroupAccessKey48(container_initial_conf.SharedID, UNSIGNED_ZERO);
+
+            const std::optional<uint64_t> maybe_root_branch_handle = FindHashValue48_(FabricTableSegmentClasses::SHARED_HASH, container_initial_conf.SharedHashKey);
             if (!maybe_root_branch_handle.has_value())
             {
                 if (!InsertOrUpdateRobinHoodHash48_(
                     FabricTableSegmentClasses::SHARED_HASH,
-                    a_initial_acp_conf.SharedHashKey, 
-                    HashIdConstructror::APCSlotIdxToHashTableHandler(a_initial_acp_conf.APCSlotIndex)
+                    container_initial_conf.SharedHashKey, 
+                    HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex)
                 ))
                 {
                     return false;
                 }
 
-                a_initial_acp_conf.SharedPreviousId = UNSIGNED_ZERO;
-                a_initial_acp_conf.SharedNextId = UNSIGNED_ZERO;
-                a_initial_acp_conf.HorizontalSharedState = APCGroupReserver::APCIdentityDef::ROOT;
+                container_initial_conf.SharedPreviousId = UNSIGNED_ZERO;
+                container_initial_conf.SharedNextId = UNSIGNED_ZERO;
+                container_initial_conf.HorizontalSharedState = APCGroupReserver::APCIdentityDef::ROOT;
             }
 
             const uint64_t root_apc_slot_idx = HashIdConstructror::HashTableHandlerToAPCSlotIdx(*maybe_root_branch_handle);

@@ -203,7 +203,11 @@ struct DescriptionOfAPC
     ) noexcept
     {
         const DescriptorSaftyFiles current_safty_files = ReadFilesFromStateSaftyofADescriptor(packed_cell);
-
+        if (current_safty_files.IsValid)
+        {
+            return PackedCell64_t::PACKED_CELL_SENTINAL;
+        }
+        
         const StateOfSingleAPCDescription state_value = desired_state == StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL ? current_safty_files.StateOfTheAPC : desired_state;
         const OwnershipPolicy owner = desired_owner_of_apc == OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL ? current_safty_files.WhoHoldsTheAcess : desired_owner_of_apc;
         const uint8_t version = desired_version == UNSIGNED_ZERO ? current_safty_files.Version : desired_version;
@@ -219,8 +223,8 @@ struct DescriptionOfAPC
 
     struct DescriptorSaftyFiles
     {
-        uint16_t WidthOfAPC = UNSIGNED_ZERO;
-        uint8_t Version = UNSIGNED_ZERO;
+        uint16_t WidthOfAPC = APCDataStructure::APC_INDEX_SENTINAL;
+        uint8_t Version = UINT8_MAX;
         StateOfSingleAPCDescription StateOfTheAPC = StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL;
         OwnershipPolicy WhoHoldsTheAcess = OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL;
         LocalityPolicy LocalityOfTheDescription = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;

@@ -13,59 +13,15 @@ private:
     std::unique_ptr<std::atomic<AdaptivePackedCellContainer*>[]> APCRuntimePtrTable_{nullptr};
     std::vector<std::unique_ptr<AdaptivePackedCellContainer>> FabricOwnedAPCViews_{};
 
-    bool BuildAPCRuntimePtrTable_() noexcept
-    {
-        if (CountOfAPC_ == UNSIGNED_ZERO)
-        {
-            return false;
-        }
-        APCRuntimePtrTable_.reset(new (std::nothrow) std::atomic<AdaptivePackedCellContainer*>[static_cast<size_t>(CountOfAPC_)]);
+    bool BuildAPCRuntimePtrTable_() noexcept;
 
-        if (!APCRuntimePtrTable_)
-        {
-            return false;
-        }
+    void ClearAPCRuntimePtrTable_() noexcept;
 
-        for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
-        {
-            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
-        }
-        
-        return true;
-    }
+    bool StoreAPCRuntimePtr(size_t apc_idx, AdaptivePackedCellContainer* apc_ptr) noexcept;
 
-    void ClearAPCRuntimePtrTable_() noexcept
-    {
-        if (!APCRuntimePtrTable_)
-        {
-            return;
-        }
-        for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
-        {
-            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
-        }
-    }
+    AdaptivePackedCellContainer* GetAPCRuntimePtr(size_t apc_idx) noexcept;
 
-    bool StoreAPCRuntimePtr(size_t apc_idx, AdaptivePackedCellContainer* apc_ptr) noexcept
-    {
-        if (!APCRuntimePtrTable_ || apc_idx >= CountOfAPC_)
-        {
-            return false;
-        }
-
-        APCRuntimePtrTable_[apc_idx].store(apc_ptr, MoStoreSeq_);
-        return true;
-    }
-
-    AdaptivePackedCellContainer* GetAPCRuntimePtr(size_t apc_idx) noexcept
-    {
-        if (!APCRuntimePtrTable_ || apc_idx >= CountOfAPC_)
-        {
-            return nullptr;
-        }
-
-        return APCRuntimePtrTable_[apc_idx].load(MoLoad_);
-    }
+    bool ResolveBidirectionalAxis(const APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept;
 
 public:
 
