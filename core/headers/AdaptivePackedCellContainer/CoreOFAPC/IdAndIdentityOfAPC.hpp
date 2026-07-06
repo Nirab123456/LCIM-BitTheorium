@@ -151,7 +151,50 @@ struct HashIdConstructror
 
 };
 
-struct APCGroupReserver
+struct AxisConstructor
+{
+    enum class BidirectionalAxis : uint8_t
+    {
+        HORIZONTAL_SHARED = 1,
+        VARTICAL_LOGICAL = 2
+    };
+
+    struct AxisConstructionMap
+    {
+        FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
+        MetaIndexOfAPCNode CountTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
+        MetaIndexOfAPCNode PreviousTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
+        MetaIndexOfAPCNode NextTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
+        bool IsValid = false;
+    };
+    static_assert(sizeof(AxisConstructionMap) <= sizeof(packed64_t));
+
+    static constexpr AxisConstructionMap ConstructAxisMap(BidirectionalAxis desired_axis) noexcept
+    {
+        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        {
+            return AxisConstructionMap{
+                FabricTableSegmentClasses::SHARED_HASH,
+                MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S,
+                MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_S,
+                MetaIndexOfAPCNode::NEXT_HORIZONTAL_S,
+                true
+            };
+        }
+
+        return AxisConstructionMap{
+            FabricTableSegmentClasses::LOGICAL_HASH,
+            MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L,
+            MetaIndexOfAPCNode::PREVIOUS_VERTICAL_L,
+            MetaIndexOfAPCNode::NEXT_VERTICAL_L,
+            true
+        };
+    }
+
+};
+
+
+struct APCGroupReserver : public AxisConstructor
 {
     enum class APCIdentityDef : uint8_t
     {
@@ -254,17 +297,71 @@ struct APCGroupReserver
         }
         return user_defined_identity;
     }
+
+    static constexpr APCIdentityDef RuntimeAxisIdentityResolved(BidirectionalAxis desired_axis, APCInitialIdentityStruct a_runtime_identity) noexcept
+    {
+        if (
+            !IsMinimalValidCreateRequestOfAPC(a_runtime_identity) ||
+            !HashIdConstructror::IsValidAPCId48(a_runtime_identity.BranchID)
+        )
+        {
+            return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
+        }
+        
+        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        {
+            if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
+            {
+                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                return APCIdentityDef::DEFAULT_ASSIGNMENT;
+            }
+
+            switch (a_runtime_identity.HorizontalSharedState)
+            {
+            case APCIdentityDef::DEFAULT_ASSIGNMENT:
+                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                return APCIdentityDef::DEFAULT_ASSIGNMENT;
+
+            case APCIdentityDef::NULL_USER_INSTRUCTION:
+                return APCIdentityDef::NULL_USER_INSTRUCTION;
+                        
+            default:
+                if (!HashIdConstructror::IsValidAPCId48(a_runtime_identity.SharedID))
+                {
+                    return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
+                }
+                return a_runtime_identity.HorizontalSharedState;
+            }
+        }
+        else
+        {
+            if (a_runtime_identity.VarticalLogicState == APCIdentityDef::DEFAULT_ASSIGNMENT)
+            {
+                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                return APCIdentityDef::DEFAULT_ASSIGNMENT;
+            }
+
+            switch (a_runtime_identity.VarticalLogicState)
+            {
+            case APCIdentityDef::DEFAULT_ASSIGNMENT:
+                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                return APCIdentityDef::DEFAULT_ASSIGNMENT;
+
+            case APCIdentityDef::NULL_USER_INSTRUCTION:
+                return APCIdentityDef::NULL_USER_INSTRUCTION;
+                        
+            default:
+                if (!HashIdConstructror::IsValidAPCId48(a_runtime_identity.LogicalId))
+                {
+                    return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
+                }
+                return a_runtime_identity.HorizontalSharedState;
+            }
+        }  
+    }
 };
 
 
-
-
-
-struct PublishResult
-{
-    PublishStatus ResultStatus{PublishStatus::INVALID};
-    size_t Index{APCDataStructure::APC_SIZE_SENTINAL};
-};
 
 
 
