@@ -5,8 +5,8 @@ namespace PredictedAdaptedEncoding
     void FabricConstructor::MakeAndStoreFabricMetaValue48_(
         FabricMetaIndicies fabric_meta_idx, 
         uint64_t value, 
-        LocalityPolicy cell_locality,
         AccessContractOfValue access_contract,
+        LocalityPolicy cell_locality,
         AttributePolicy attribute
     )noexcept
     {

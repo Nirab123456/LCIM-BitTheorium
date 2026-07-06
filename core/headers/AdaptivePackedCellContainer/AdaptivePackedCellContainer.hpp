@@ -14,7 +14,7 @@ public:
         if (
             FabricBackend_ &&
             HashIdConstructror::IsValidAPCId48(IdxOfThisAPCInFabric_) &&
-            RangeOfThisAPCInSlab_.IsVAlid &&
+            RangeOfThisAPCInSlab_.IsValid &&
             APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_)
         )
         {

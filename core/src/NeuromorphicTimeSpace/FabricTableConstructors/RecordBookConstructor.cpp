@@ -164,13 +164,13 @@ namespace PredictedAdaptedEncoding
 
         if (!bounds_ok)
         {
-            return_APC_handle_description_range.IsVAlid = false;
+            return_APC_handle_description_range.IsValid = false;
             return false;
         }
 
         return_APC_handle_description_range.BeginIndex = return_bounds.BeginIndex;
         return_APC_handle_description_range.EndIndex = return_bounds.EndIndex;
-        return_APC_handle_description_range.IsVAlid = return_bounds.IsValid;
+        return_APC_handle_description_range.IsValid = return_bounds.IsValid;
 
         return return_bounds.IsValid;
     }

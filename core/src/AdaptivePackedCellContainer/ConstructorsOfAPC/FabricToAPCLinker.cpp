@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolBegainEndForSingleAPCDescription(fabric_slot_idx);
-        if (!range_of_this_apc.IsVAlid)
+        if (!range_of_this_apc.IsValid)
         {
             return false;
         }
@@ -60,7 +60,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         if (
-            !RangeOfThisAPCInSlab_.IsVAlid ||
+            !RangeOfThisAPCInSlab_.IsValid ||
             starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
         )
         {
@@ -82,7 +82,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         if (
-            !RangeOfThisAPCInSlab_.IsVAlid ||
+            !RangeOfThisAPCInSlab_.IsValid ||
             starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
         )
         {
@@ -104,7 +104,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         if (
-            !RangeOfThisAPCInSlab_.IsVAlid ||
+            !RangeOfThisAPCInSlab_.IsValid ||
             starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
         )
         {

@@ -27,7 +27,7 @@ namespace PredictedAdaptedEncoding
             desired_segment_pool_range.EndIndex <= SlabCellCount_
         )
         {
-            desired_segment_pool_range.IsVAlid = true;
+            desired_segment_pool_range.IsValid = true;
         }
 
         return desired_segment_pool_range;
@@ -48,7 +48,7 @@ namespace PredictedAdaptedEncoding
 
         desired_slot_of_apc_descriptor.BeginIndex = probable_full_range_of_apc_descriptor.BeginIndex + static_cast<size_t>(apc_slot_index) * APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX;
         desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX;
-        desired_slot_of_apc_descriptor.IsVAlid = true;
+        desired_slot_of_apc_descriptor.IsValid = true;
         return desired_slot_of_apc_descriptor;
     }
 
@@ -71,7 +71,7 @@ namespace PredictedAdaptedEncoding
 
         const APCDescriptorRange this_apc_descriptor_range = ReadARangeOfAPCDescription_(apc_description_index);
 
-        if (!this_apc_descriptor_range.IsVAlid)
+        if (!this_apc_descriptor_range.IsValid)
         {
             return false;
         }
@@ -101,7 +101,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const APCDescriptorRange this_apc_descriptor_range = ReadARangeOfAPCDescription_(apc_description_idx);
-        if (!this_apc_descriptor_range.IsVAlid)
+        if (!this_apc_descriptor_range.IsValid)
         {
             return false;
         }
@@ -123,7 +123,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const APCDescriptorRange desired_descriptor_range = ReadARangeOfAPCDescription_(current_descriptor_idx.value());
-        if (!desired_descriptor_range.IsVAlid)
+        if (!desired_descriptor_range.IsValid)
         {
             return false;
         }
@@ -156,7 +156,7 @@ namespace PredictedAdaptedEncoding
         }
         
         const APCDescriptorRange desired_description_range = ReadARangeOfAPCDescription_(apc_description_index);
-        if (!desired_description_range.IsVAlid)
+        if (!desired_description_range.IsValid)
         {
             return return_files;
         }

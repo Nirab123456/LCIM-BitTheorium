@@ -11,7 +11,6 @@ private:
 
     /// @brief IN FUTURE EITHER GET RID OF THE TABLE OR: STORE INSIDE FABRICE BY USING  AttributePolicy::INSTRUCTION_RAW64_NEXT
     std::unique_ptr<std::atomic<AdaptivePackedCellContainer*>[]> APCRuntimePtrTable_{nullptr};
-    std::vector<std::unique_ptr<AdaptivePackedCellContainer>> FabricOwnedAPCViews_{};
 
     bool BuildAPCRuntimePtrTable_() noexcept;
 
@@ -25,7 +24,7 @@ private:
         APCGroupReserver::APCInitialIdentityStruct& container_cfg,
         APCGroupReserver::BidirectionalAxis desired_axis
     ) noexcept;
-
+    
     bool ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept;
 
 public:
@@ -47,20 +46,9 @@ public:
 
     void ShutDownFabricWithPtrTable() noexcept
     {
-        FabricOwnedAPCViews_.clear();
         ClearAPCRuntimePtrTable_();
         APCRuntimePtrTable_.reset();
         ShutDownFabric();
-    }
-
-    AdaptivePackedCellContainer* GetAPCRuntimePtrByBranchId(uint64_t apc_slot_idx) noexcept
-    {
-        if (apc_slot_idx == UNSIGNED_ZERO || apc_slot_idx >= PackedCell64_t::BIT_FAMILY_48_SENTINAL)
-        {
-            return nullptr;
-        }
-        
-        return GetAPCRuntimePtr(apc_slot_idx);
     }
 
 };

@@ -191,6 +191,16 @@ struct AxisConstructor
         };
     }
 
+
+    static constexpr bool IsHorizontalSharedAxis(BidirectionalAxis desired_axis) noexcept
+    {
+        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        {
+            return true;
+        }
+        return false;
+    }
+
 };
 
 

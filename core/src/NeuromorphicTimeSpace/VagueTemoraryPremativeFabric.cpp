@@ -76,7 +76,7 @@ namespace PredictedAdaptedEncoding
         }
         
         APCSegmentPoolRange desired_apc_segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desired_apc_slot.value());
-        if (!desired_apc_segment_pool_range.IsVAlid)
+        if (!desired_apc_segment_pool_range.IsValid)
         {
             return std::nullopt;
         }
@@ -209,6 +209,123 @@ namespace PredictedAdaptedEncoding
         
         return true;
         
+    }
+
+
+
+    bool VagueTemoraryPremativeFabric::InitiateABidirectionalAxis_(
+        APCGroupReserver::APCInitialIdentityStruct& container_cfg,
+        APCGroupReserver::BidirectionalAxis desired_axis
+    ) noexcept
+    {
+        const APCGroupReserver::AxisConstructionMap desired_axis_map = APCGroupReserver::ConstructAxisMap(desired_axis);
+
+        APCGroupReserver::APCIdentityDef& desired_state = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ? 
+            container_cfg.HorizontalSharedState : container_cfg.VarticalLogicState
+        );
+
+        uint64_t& current_group_id = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
+            container_cfg.SharedID : container_cfg.LogicalId
+        );
+
+        uint64_t& current_group_key = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
+            container_cfg.SharedHashKey : container_cfg.LogicalHashKey
+        );
+
+        uint64_t& previous_index = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
+            container_cfg.SharedPreviousId : container_cfg.LogicalPreviousId
+        );
+
+        uint64_t& next_index = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
+            container_cfg.SharedNextId : container_cfg.LogicalNextId
+        );
+
+        uint16_t& current_sequential_count = (
+            APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
+            container_cfg.SharedSequentialCount : container_cfg.SharedSequentialCount
+        );
+
+        if (
+            desired_state == APCGroupReserver::APCIdentityDef::UNASSIGNED_UNUSED_NANNULL ||
+            desired_state == APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION
+        )
+        {
+            return false;
+        }
+
+        const uint64_t probable_root_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, UNSIGNED_ZERO);
+        const uint64_t this_handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_cfg.APCSlotIndex);
+        if (
+            !HashIdConstructror::IsValidAPCId48(probable_root_key) ||
+            !HashIdConstructror::IsValidAPCId48(this_handle)
+        )
+        {
+            return false;
+        }
+
+        const std::optional<uint64_t> maybe_root_handle = FindHashValue48_(desired_axis_map.HashTable, probable_root_key);
+        if (!maybe_root_handle.has_value())
+        {
+            if (!InsertOrUpdateRobinHoodHash48_(desired_axis_map.HashTable, probable_root_key, this_handle))
+            {
+                return false;
+            }
+
+            desired_state = APCGroupReserver::APCIdentityDef::ROOT;
+            current_group_key = probable_root_key;
+            previous_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+            next_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+            current_sequential_count = UNSIGNED_ZERO;
+            return true;
+        }
+
+
+        AdaptivePackedCellContainer* root_apc = GetAPCRuntimePtr(HashIdConstructror::HashTableHandlerToAPCSlotIdx(maybe_root_handle.value()));
+
+        if (!root_apc || !root_apc->IsThisAPCValid())
+        {
+            return false;
+        }
+        
+        uint64_t new_sequense_count = root_apc->AtomicallyUpdateMetaCellCounter(desired_axis_map.CountTarget, 1);
+
+        const uint64_t next_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, static_cast<uint16_t>(new_sequense_count));
+        const uint64_t previous_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, static_cast<uint16_t>(new_sequense_count - 1));
+
+        if (
+            !HashIdConstructror::IsValidAPCId48(next_key) ||
+            !HashIdConstructror::IsValidAPCId48(previous_key)
+        )
+        {
+            return false;
+        }
+        
+        const std::optional<uint64_t> maybe_previous_handle = FindHashValue48_(desired_axis_map.HashTable, previous_key);
+        if (
+            !maybe_previous_handle.has_value() ||
+            !HashIdConstructror::IsValidAPCId48(maybe_previous_handle.value())
+        )
+        {
+            return false;
+        }
+        
+        if (!InsertOrUpdateRobinHoodHash48_(desired_axis_map.HashTable, next_key, this_handle))
+        {
+            return false;
+        }
+        
+        desired_state = APCGroupReserver::APCIdentityDef::CHILD;
+        current_group_key = next_key;
+        previous_index = maybe_previous_handle.value();
+        next_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+        current_sequential_count = static_cast<uint16_t>(new_sequense_count);
+
+        return true; 
     }
 
 }

@@ -8,7 +8,7 @@ struct APCDescriptorRange
 {
     size_t BeginIndex = UNSIGNED_ZERO;
     size_t EndIndex = UNSIGNED_ZERO;
-    bool IsVAlid = false;
+    bool IsValid = false;
 };
 static_assert(sizeof(APCDescriptorRange) == RECORD_BOOK_WIDTH * sizeof(packed64_t));
 static_assert(alignof(APCDescriptorRange) == alignof(packed64_t));

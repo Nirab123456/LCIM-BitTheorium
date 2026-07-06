@@ -40,14 +40,15 @@ namespace PredictedAdaptedEncoding
             MetaIndexOfAPCNode meta_idx, 
             uint64_t value48,
             APCMetaBuffer& a_header_buffer,
-            LocalityPolicy locality = LocalityPolicy::IDLE
+            LocalityPolicy locality = LocalityPolicy::IDLE,
+            AccessContractOfValue contract = AccessContractOfValue::CAS_RMW
         ) noexcept
         {
             const size_t idx_of_meta = static_cast<size_t>(meta_idx);
 
             const packed64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
                 TypeFamily::VALUE48,
-                AccessContractOfValue::CAS_RMW,
+                contract,
                 APCPagedNodeSegmentClasses::META_HEADER,
                 locality,
                 InternalDataTypePolicy::UnsignedPCellDataType,
@@ -83,8 +84,8 @@ namespace PredictedAdaptedEncoding
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_VERTICAL_L, identity_cfg.LogicalNextId, a_header_buffer, locality);
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_VERTICAL_L, identity_cfg.LogicalPreviousId, a_header_buffer, locality);
 
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S, identity_cfg.SharedSequentialCount, a_header_buffer, locality);
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L, identity_cfg.LogicalSequentalCount, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S, identity_cfg.SharedSequentialCount, a_header_buffer, locality, AccessContractOfValue::ATOMIC_SLNAPSHOT);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L, identity_cfg.LogicalSequentalCount, a_header_buffer, locality, AccessContractOfValue::ATOMIC_SLNAPSHOT);
             
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::ACCESS_PASSWORD, identity_cfg.AccessPassword, a_header_buffer, locality);
         }

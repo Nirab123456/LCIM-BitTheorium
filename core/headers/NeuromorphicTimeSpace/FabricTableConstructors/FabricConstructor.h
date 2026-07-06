@@ -39,8 +39,8 @@ namespace PredictedAdaptedEncoding
         /// @brief ONLY: Use for Initialiazation ONLY
         void MakeAndStoreFabricMetaValue48_(
             FabricMetaIndicies fabric_meta_idx, uint64_t value, 
-            LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
             AccessContractOfValue access_contract = AccessContractOfValue::CAS_RMW,
+            LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
             AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
         )noexcept;
 
