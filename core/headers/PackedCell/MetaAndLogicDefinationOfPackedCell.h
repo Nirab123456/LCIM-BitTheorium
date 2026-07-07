@@ -143,13 +143,13 @@ namespace PredictedAdaptedEncoding {
     /// @param RAW_PRIVATE Caller owns range/cell; init/shutdown/private APC segment. 
     /// @param BOUNDED_RETRY_CAS_NO_CLAIMED Atomic load/store whole 64-bit cell. Multiple writers are allowed only if last-writer-wins is acceptable.
     /// @param CLAIMED_GURDED Exclusive mutation. After claim, writer may raw-store companion cells, then publish with release store.
-    /// @param LAST_WRITIER_WIN_CAS_RMW For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.
+    /// @param LAST_WRITIER_WIN_NO_CAS_RMW For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.
     enum class ContractOfConcurrency : tag8_t
     {
         RAW_PRIVATE = 0,
         BOUNDED_RETRY_CAS_NO_CLAIMED = 1,
         CLAIMED_GURDED = 2,
-        LAST_WRITIER_WIN_CAS_RMW = 3,
+        LAST_WRITIER_WIN_NO_CAS_RMW = 3,
         UNASSIGNED_UNUSED_NANNULL = 4
     };
 

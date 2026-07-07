@@ -25,10 +25,11 @@ namespace PredictedAdaptedEncoding
             //LINKED SEQUENTIAL CHAIN
             TOTAL_HORIZONTAL_COUNT_S = 8,
             TOTAL_VERTICAL_COUNT_L = 9,
-            PREVIOUS_HORIZONTAL_S = 10,
-            NEXT_HORIZONTAL_S = 11,
-            NEXT_VERTICAL_L = 12,
-            PREVIOUS_VERTICAL_L = 13,
+            
+            PREVIOUS_HORIZONTAL_HANDLE = 10,
+            NEXT_HORIZONTAL_HANDLE = 11,
+            NEXT_VERTICAL_HANDLE = 12,
+            PREVIOUS_VERTICAL_HANDLE = 13,
         ACCESS_PASSWORD = 14,
         ///
 

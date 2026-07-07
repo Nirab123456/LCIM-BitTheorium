@@ -6,8 +6,45 @@
 
 namespace PredictedAdaptedEncoding
 {
+    struct MutationContract
+    {
+    protected:
+        static constexpr bool IsCellABoundedRetryCandidate_(const PackedCell64_t::AuthoritiveCellView& auth_view) noexcept
+        {
+            if (
+                !auth_view.IsCellValid || 
+                auth_view.ContractOfValue != ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED
+            )
+            {
+                return false;
+            }
+            return true;
+        }
 
-    struct Mutation64_t
+        static constexpr bool IsCellAtomicUpdateCapable_(
+            const PackedCell64_t::AuthoritiveCellView& auth_view,
+            bool caller_holds_claim = false
+        ) noexcept
+        {
+            if (
+                !auth_view.IsCellValid ||
+                auth_view.ContractOfValue != ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW
+            )
+            {
+                return false;
+            }
+
+            if (!caller_holds_claim && auth_view.LocalityOfCell == LocalityPolicy::CLAIMED)
+            {
+                return false;
+            }
+            
+            return true;
+        }
+    };
+    
+
+    struct Mutation64_t : public MutationContract
     {
         static constexpr packed64_t AddDeltaInAtomicUnsignedCell(
             uint32_t delta, 
@@ -17,8 +54,7 @@ namespace PredictedAdaptedEncoding
         {
             const PackedCell64_t::AuthoritiveCellView auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
             if (
-                !auth_view.IsCellValid || 
-                auth_view.ContractOfValue != ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED ||
+                !IsCellABoundedRetryCandidate_(auth_view) ||
                 auth_view.CellValueDataType != InternalDataTypePolicy::UnsignedPCellDataType
             )
             {

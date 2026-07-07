@@ -47,6 +47,7 @@ struct APCDataStructure
     }
 
 
+    /// @brief Will return PACKED_CELL_SENTINAL if SUBCLASS SUBDIVISION EXIST 
     static constexpr uint64_t AutoExtractDataOfAValidAPCCell(
         packed64_t packed_cell, 
         bool is_claimed_cell_valid = false,
@@ -78,14 +79,25 @@ struct APCDataStructure
             return desired_auth_view.Raw48BitInCellData;
 
         case PackedMode::MODEL32:
-            if (desired_auth_view.SubClassOfModel32 == Model32Subclass::SELF_CLASS && desired_auth_view.Attribute == AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL)
+            if (
+                desired_auth_view.SubClassOfModel32 == Model32Subclass::SELF_CLASS && 
+                desired_auth_view.Attribute == AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+            )
             {
                 return desired_auth_view.Raw32BitInCellData;
             }
             return PackedCell64_t::PACKED_CELL_SENTINAL;
 
         case PackedMode::MODEL48:
+            if (
+                desired_auth_view.SubClassOfModel48 == Model48Subclass::SELF_CLASS && 
+                desired_auth_view.Attribute == AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+            )
+            {
                 return desired_auth_view.Raw48BitInCellData;
+            }
+            return PackedCell64_t::PACKED_CELL_SENTINAL;
+
         default:
             return PackedCell64_t::PACKED_CELL_SENTINAL;
         }

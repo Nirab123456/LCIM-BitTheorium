@@ -176,8 +176,8 @@ struct AxisConstructor
             return AxisConstructionMap{
                 FabricTableSegmentClasses::SHARED_HASH,
                 MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S,
-                MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_S,
-                MetaIndexOfAPCNode::NEXT_HORIZONTAL_S,
+                MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_HANDLE,
+                MetaIndexOfAPCNode::NEXT_HORIZONTAL_HANDLE,
                 true
             };
         }
@@ -185,8 +185,8 @@ struct AxisConstructor
         return AxisConstructionMap{
             FabricTableSegmentClasses::LOGICAL_HASH,
             MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L,
-            MetaIndexOfAPCNode::PREVIOUS_VERTICAL_L,
-            MetaIndexOfAPCNode::NEXT_VERTICAL_L,
+            MetaIndexOfAPCNode::PREVIOUS_VERTICAL_HANDLE,
+            MetaIndexOfAPCNode::NEXT_VERTICAL_HANDLE,
             true
         };
     }
@@ -228,10 +228,10 @@ struct APCGroupReserver : public AxisConstructor
         uint64_t SharedHashKey = PackedCell64_t::PACKED_CELL_SENTINAL;
         uint64_t LogicalHashKey = PackedCell64_t::PACKED_CELL_SENTINAL;
 
-        uint64_t SharedPreviousId = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t SharedNextId = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalPreviousId = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalNextId = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t SharedPreviousHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t SharedNextHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t LogicalPreviousHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t LogicalNextHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
 
         uint16_t SharedSequentialCount = APCDataStructure::APC_INDEX_SENTINAL;
         uint16_t LogicalSequentalCount = APCDataStructure::APC_INDEX_SENTINAL;

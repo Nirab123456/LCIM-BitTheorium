@@ -18,7 +18,8 @@ private:
 
     bool StoreAPCRuntimePtr(size_t apc_idx, AdaptivePackedCellContainer* apc_ptr) noexcept;
 
-    AdaptivePackedCellContainer* GetAPCRuntimePtr(size_t apc_idx) noexcept;
+    AdaptivePackedCellContainer* GetAPCRuntimePtrBySlotIndex_(size_t apc_idx) noexcept;
+    AdaptivePackedCellContainer* HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept;
 
     bool InitiateABidirectionalAxis_(
         APCGroupReserver::APCInitialIdentityStruct& container_cfg,
@@ -26,6 +27,11 @@ private:
     ) noexcept;
     
     bool ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept;
+
+    bool InstallAxisMirrorLinksAfterPublish_(
+        const APCGroupReserver::APCInitialIdentityStruct& complete_cfg,
+        APCGroupReserver::BidirectionalAxis desired_axis
+    ) noexcept;
 
 public:
 

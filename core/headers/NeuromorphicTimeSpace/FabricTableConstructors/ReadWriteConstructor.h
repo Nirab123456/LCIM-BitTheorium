@@ -28,7 +28,7 @@ namespace PredictedAdaptedEncoding
         /// @brief ONLY: Use for Initialiazation ONLY
         void MakeAndStoreFabricMetaValue48_(
             FabricMetaIndicies fabric_meta_idx, uint64_t value, 
-            ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_CAS_RMW,
+            ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW,
             LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
             AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
         )noexcept;

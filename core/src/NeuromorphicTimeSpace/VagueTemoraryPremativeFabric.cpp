@@ -50,7 +50,7 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-    AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::GetAPCRuntimePtr(size_t apc_idx) noexcept
+    AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_(size_t apc_idx) noexcept
     {
         if (!APCRuntimePtrTable_ || apc_idx >= CountOfAPC_)
         {
@@ -59,6 +59,17 @@ namespace PredictedAdaptedEncoding
 
         return APCRuntimePtrTable_[apc_idx].load(MoLoad_);
     }
+
+    AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept
+    {
+        if (!HashIdConstructror::IsValidHashHandle(apc_handle))
+        {
+            return nullptr;
+        }
+        const size_t apc_idx = HashIdConstructror::HashTableHandlerToAPCSlotIdx(apc_handle);
+        return GetAPCRuntimePtrBySlotIndex_(apc_idx);
+    }
+
 
     std::optional<uint64_t> VagueTemoraryPremativeFabric::ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
@@ -234,19 +245,19 @@ namespace PredictedAdaptedEncoding
             container_cfg.SharedHashKey : container_cfg.LogicalHashKey
         );
 
-        uint64_t& previous_index = (
+        uint64_t& previous_handle = (
             APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
-            container_cfg.SharedPreviousId : container_cfg.LogicalPreviousId
+            container_cfg.SharedPreviousHandle : container_cfg.LogicalPreviousHandle
         );
 
-        uint64_t& next_index = (
+        uint64_t& next_handle = (
             APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
-            container_cfg.SharedNextId : container_cfg.LogicalNextId
+            container_cfg.SharedNextHandle : container_cfg.LogicalNextHandle
         );
 
         uint16_t& current_sequential_count = (
             APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
-            container_cfg.SharedSequentialCount : container_cfg.SharedSequentialCount
+            container_cfg.SharedSequentialCount : container_cfg.LogicalSequentalCount
         );
 
         if (
@@ -277,14 +288,13 @@ namespace PredictedAdaptedEncoding
 
             desired_state = APCGroupReserver::APCIdentityDef::ROOT;
             current_group_key = probable_root_key;
-            previous_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
-            next_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+            previous_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+            next_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
             current_sequential_count = UNSIGNED_ZERO;
             return true;
         }
 
-
-        AdaptivePackedCellContainer* root_apc = GetAPCRuntimePtr(HashIdConstructror::HashTableHandlerToAPCSlotIdx(maybe_root_handle.value()));
+        AdaptivePackedCellContainer* root_apc = HandleBasedAPCPtrRetrival_(maybe_root_handle.value());
 
         if (!root_apc || !root_apc->IsThisAPCValid())
         {
@@ -320,11 +330,47 @@ namespace PredictedAdaptedEncoding
         
         desired_state = APCGroupReserver::APCIdentityDef::CHILD;
         current_group_key = next_key;
-        previous_index = maybe_previous_handle.value();
-        next_index = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+        previous_handle = maybe_previous_handle.value();
+        next_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
         current_sequential_count = static_cast<uint16_t>(new_sequense_count);
 
         return true; 
     }
+
+    // bool VagueTemoraryPremativeFabric::InstallAxisMirrorLinksAfterPublish_(
+    //     const APCGroupReserver::APCInitialIdentityStruct& complete_cfg,
+    //     APCGroupReserver::BidirectionalAxis desired_axis
+    // ) noexcept
+    // {
+    //     const APCGroupReserver::AxisConstructionMap desired_axis_map = APCGroupReserver::ConstructAxisMap(desired_axis);
+    //     const bool is_horizontal = APCGroupReserver::IsHorizontalSharedAxis(desired_axis);
+
+    //     const APCGroupReserver::APCIdentityDef desired_state = is_horizontal ? complete_cfg.HorizontalSharedState : complete_cfg.VarticalLogicState;
+
+    //     if (
+    //         desired_state == APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION ||
+    //         desired_state == APCGroupReserver::APCIdentityDef::ROOT
+    //     )
+    //     {
+    //         return true;
+    //     }
+
+    //     const uint64_t this_handle = HashIdConstructror::APCSlotIdxToHashTableHandler(complete_cfg.APCSlotIndex);
+    //     const uint64_t previous_handle = is_horizontal ? complete_cfg.SharedPreviousHandle : complete_cfg.LogicalPreviousHandle;
+
+    //     AdaptivePackedCellContainer* previous_grouped_apc = HandleBasedAPCPtrRetrival_(previous_handle);
+    //     if (
+    //         !previous_grouped_apc ||
+    //         !previous_grouped_apc->IsThisAPCValid() ||
+    //         !HashIdConstructror::IsValidHashHandle(this_handle)
+    //     )
+    //     {
+    //         return false;
+    //     }
+
+
+        
+        
+    // }
 
 }

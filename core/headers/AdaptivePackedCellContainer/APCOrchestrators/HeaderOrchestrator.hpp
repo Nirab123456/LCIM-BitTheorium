@@ -41,7 +41,7 @@ namespace PredictedAdaptedEncoding
             uint64_t value48,
             APCMetaBuffer& a_header_buffer,
             LocalityPolicy locality = LocalityPolicy::IDLE,
-            ContractOfConcurrency contract = ContractOfConcurrency::LAST_WRITIER_WIN_CAS_RMW
+            ContractOfConcurrency contract = ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW
         ) noexcept
         {
             const size_t idx_of_meta = static_cast<size_t>(meta_idx);
@@ -79,10 +79,10 @@ namespace PredictedAdaptedEncoding
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::SHARED_ID_HASH_KEY, identity_cfg.SharedHashKey, a_header_buffer, locality);
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::LOGICAL_ID_HASH_KEY, identity_cfg.LogicalHashKey, a_header_buffer, locality);
 
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_HORIZONTAL_S, identity_cfg.SharedNextId, a_header_buffer, locality);
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_S, identity_cfg.SharedPreviousId, a_header_buffer, locality);
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_VERTICAL_L, identity_cfg.LogicalNextId, a_header_buffer, locality);
-            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_VERTICAL_L, identity_cfg.LogicalPreviousId, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_HORIZONTAL_HANDLE, identity_cfg.SharedNextHandle, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_HANDLE, identity_cfg.SharedPreviousHandle, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::NEXT_VERTICAL_HANDLE, identity_cfg.LogicalNextHandle, a_header_buffer, locality);
+            InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::PREVIOUS_VERTICAL_HANDLE, identity_cfg.LogicalPreviousHandle, a_header_buffer, locality);
 
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S, identity_cfg.SharedSequentialCount, a_header_buffer, locality, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
             InsertTypedValue48MetaInBuffer(MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L, identity_cfg.LogicalSequentalCount, a_header_buffer, locality, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);

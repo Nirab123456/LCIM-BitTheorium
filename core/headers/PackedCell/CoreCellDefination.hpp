@@ -85,7 +85,7 @@ namespace PredictedAdaptedEncoding
                     case ContractOfConcurrency::RAW_PRIVATE:
                     case ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED:
                     case ContractOfConcurrency::CLAIMED_GURDED:
-                    case ContractOfConcurrency::LAST_WRITIER_WIN_CAS_RMW:
+                    case ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW:
                         return true;
                     default:
                         return false;
