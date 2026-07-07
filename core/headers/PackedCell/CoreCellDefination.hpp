@@ -4,7 +4,103 @@
 namespace PredictedAdaptedEncoding
 {
 
-    struct PackedCell64_t  : public PackedCellSetters
+    struct CoreCellDefinationn : public PackedCellSetters
+    {
+
+        static constexpr bool IsCellClaimableFromThisCaller(packed64_t packed_cell) noexcept
+        {
+            const LocalityPolicy locality = ExtractLocalityPolicy(packed_cell);
+            
+            return locality != LocalityPolicy::CLAIMED;
+        }
+        
+        /// @brief Should be improved
+        static constexpr packed64_t MakeFaultyCell() noexcept
+        {
+            return MakeAnUncheckedCell_(
+                PackedMode::MODEL32,
+                BIT_FAMILY_32_SENTINAL,
+                UINT16_MAX,
+                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
+                LocalityPolicy::FAULTY
+            );
+        }
+
+        static constexpr packed64_t Compose32BitFamilyPackedCell(val32_t in_cell_value, clk16_t clock16, meta16_t meta16) noexcept
+        {
+            const PackedMode packed_mode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
+            if(
+                packed_mode != PackedMode::MODEL32 && packed_mode != PackedMode::VALUE32 
+            )
+            {
+                return MakeFaultyCell();
+            }
+            packed64_t packed_cell = (packed64_t(in_cell_value) & MaskLowNBits(VALBITS));
+            packed_cell = SetMETA16InPacked(packed_cell, clock16);
+            packed_cell = SetMETA16InPacked(packed_cell, meta16);
+            return packed_cell;
+        }
+
+        static constexpr packed64_t Compose48BitFamilyPackedCell(uint64_t clockor_value48, meta16_t meta16) noexcept
+        {
+            const PackedMode packed_mode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
+            if(packed_mode != PackedMode::MODEL48 && packed_mode != PackedMode::VALUE48)
+            {
+                return MakeFaultyCell();
+            }
+            packed64_t packed_cell = (packed64_t(clockor_value48) & MaskLowNBits(FAMILY_48_BIT_LEN));
+            packed_cell = SetMETA16InPacked(packed_cell, meta16);
+            return packed_cell;
+        }
+
+    protected:
+        /// @brief Can be used to create every type of Packed Cell
+        static constexpr packed64_t MakeAnUncheckedCell_(
+            PackedMode cell_mode,
+            uint64_t cell_value = UNSIGNED_ZERO,
+            clk16_t clock16 = UNSIGNED_ZERO,
+            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            OwnershipPolicy cell_ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
+            LocalityPolicy cell_locality = LocalityPolicy::IDLE, 
+            tag8_t cell_class = UNSIGNED_ZERO,
+            tag8_t sub_class = UNSIGNED_ZERO,
+            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UnsignedPCellDataType
+        ) noexcept
+        {
+            const meta16_t desired_meta16 =  MakeInCellMeta_16t(
+                cell_mode,
+                cell_locality,
+                cell_ownership,
+                cell_data_type,
+                cell_class,
+                sub_class,
+                static_cast<tag8_t>(cell_attribute)
+            );
+
+            if (desired_meta16 == META_16_SENTINAL)
+            {
+                return PACKED_CELL_SENTINAL;
+            }
+            
+
+            if (cell_mode == PackedMode::MODEL32 || cell_mode == PackedMode::VALUE32)
+            {
+                return Compose32BitFamilyPackedCell(
+                    static_cast<val32_t>(cell_value),
+                    clock16,
+                    desired_meta16
+                );
+            }
+            else
+            {
+                return Compose48BitFamilyPackedCell(cell_value, desired_meta16);
+            }
+        }
+    };
+    
+
+    struct PackedCell64_t  : public CoreCellDefinationn
     {
         static constexpr uint64_t BIT_FAMILY_48_SENTINAL = 0xFFFFFFFFFFFF;
         static constexpr uint64_t APC_FABRIC_SLOT_LIMIT = BIT_FAMILY_48_SENTINAL - 1;
@@ -244,47 +340,6 @@ namespace PredictedAdaptedEncoding
         static_assert(std::is_trivially_copyable_v<AuthoritiveCellView>);
         static_assert(std::is_standard_layout_v<AuthoritiveCellView>);
         static_assert(std::is_trivially_destructible_v<AuthoritiveCellView>);
-
-
-        /// @brief Should be improved
-        static constexpr packed64_t MakeFaultyCell() noexcept
-        {
-            return MakeAnUncheckedCell_(
-                PackedMode::MODEL32,
-                BIT_FAMILY_32_SENTINAL,
-                UINT16_MAX,
-                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
-                OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-                LocalityPolicy::FAULTY
-            );
-        }
-
-        static constexpr packed64_t Compose32BitFamilyPackedCell(val32_t in_cell_value, clk16_t clock16, meta16_t meta16) noexcept
-        {
-            const PackedMode packed_mode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
-            if(
-                packed_mode != PackedMode::MODEL32 && packed_mode != PackedMode::VALUE32 
-            )
-            {
-                return MakeFaultyCell();
-            }
-            packed64_t packed_cell = (packed64_t(in_cell_value) & MaskLowNBits(VALBITS));
-            packed_cell = SetMETA16InPacked(packed_cell, clock16);
-            packed_cell = SetMETA16InPacked(packed_cell, meta16);
-            return packed_cell;
-        }
-
-        static constexpr packed64_t Compose48BitFamilyPackedCell(uint64_t clockor_value48, meta16_t meta16) noexcept
-        {
-            const PackedMode packed_mode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
-            if(packed_mode != PackedMode::MODEL48 && packed_mode != PackedMode::VALUE48)
-            {
-                return MakeFaultyCell();
-            }
-            packed64_t packed_cell = (packed64_t(clockor_value48) & MaskLowNBits(FAMILY_48_BIT_LEN));
-            packed_cell = SetMETA16InPacked(packed_cell, meta16);
-            return packed_cell;
-        }
 
         /// @brief DEFAULTS 
         /// @param ContractOfConcurrency::CLAIMED_GURDED
@@ -587,58 +642,6 @@ namespace PredictedAdaptedEncoding
             return out_packed_cell_view;      
         }
 
-
-        static constexpr bool IsCellClaimableFromThisCaller(packed64_t packed_cell) noexcept
-        {
-            const LocalityPolicy locality = ExtractLocalityPolicy(packed_cell);
-            
-            return locality != LocalityPolicy::CLAIMED;
-        }
-
-    private:
-
-        /// @brief Can be used to create every type of Packed Cell
-        static constexpr packed64_t MakeAnUncheckedCell_(
-            PackedMode cell_mode,
-            uint64_t cell_value = UNSIGNED_ZERO,
-            clk16_t clock16 = UNSIGNED_ZERO,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
-            OwnershipPolicy cell_ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-            LocalityPolicy cell_locality = LocalityPolicy::IDLE, 
-            tag8_t cell_class = UNSIGNED_ZERO,
-            tag8_t sub_class = UNSIGNED_ZERO,
-            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UnsignedPCellDataType
-        ) noexcept
-        {
-            const meta16_t desired_meta16 =  MakeInCellMeta_16t(
-                cell_mode,
-                cell_locality,
-                cell_ownership,
-                cell_data_type,
-                cell_class,
-                sub_class,
-                static_cast<tag8_t>(cell_attribute)
-            );
-
-            if (desired_meta16 == META_16_SENTINAL)
-            {
-                return PACKED_CELL_SENTINAL;
-            }
-            
-
-            if (cell_mode == PackedMode::MODEL32 || cell_mode == PackedMode::VALUE32)
-            {
-                return Compose32BitFamilyPackedCell(
-                    static_cast<val32_t>(cell_value),
-                    clock16,
-                    desired_meta16
-                );
-            }
-            else
-            {
-                return Compose48BitFamilyPackedCell(cell_value, desired_meta16);
-            }
-        }
 
 
     };
