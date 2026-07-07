@@ -1,9 +1,9 @@
 #pragma once 
-#include "FabricConstructor.h"
+#include "ReadWriteConstructor.h"
 
 namespace PredictedAdaptedEncoding
 {
-    class RecordBookConstructor : public FabricConstructor
+    class RecordBookConstructor : public ReadWriteConstructor
     {
         
     protected:

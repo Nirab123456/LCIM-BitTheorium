@@ -112,7 +112,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        return FabricOwnerPtr_->ReadASnapShotFromSlab_(
+        return FabricOwnerPtr_->ReadASnapShotFromSlab(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
             return_buffer

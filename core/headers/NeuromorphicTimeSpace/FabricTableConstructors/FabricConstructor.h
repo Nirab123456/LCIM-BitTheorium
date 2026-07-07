@@ -30,20 +30,6 @@ namespace PredictedAdaptedEncoding
         std::atomic<bool> InitializationInProgress_{false};
         RawPackedCellAllocator AllocatorOfFabric_{};
 
-        static constexpr size_t DefaultFabricAlignment16Cell_(size_t value) noexcept
-        {
-            const uint8_t alignment_value_15 = 16 - 1;
-            return (value + alignment_value_15) & ~static_cast<size_t>(alignment_value_15);
-        }
-
-        /// @brief ONLY: Use for Initialiazation ONLY
-        void MakeAndStoreFabricMetaValue48_(
-            FabricMetaIndicies fabric_meta_idx, uint64_t value, 
-            ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_CAS_RMW,
-            LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
-            AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
-        )noexcept;
-
     private:
 
         template <size_t EXTENT>
@@ -153,23 +139,10 @@ protected:
             std::memory_order mem_order_failure = MoLoad_
         ) noexcept;
 
-        JustifyClaimCas TryClaimACellInSlab(PackedCell64_t::AuthoritiveCellView& expected_cell_auth_view, packed64_t* desired_packed_cell = nullptr) noexcept;
-
         std::optional<uint64_t> ReadOccupancyApproxFromPairedIfValid(
             LocalityPolicy desired_occupancy_class,
             PackedCell64_t::AuthoritiveCellView* low_half_view_ptr = nullptr,
             PackedCell64_t::AuthoritiveCellView* high_half_view_ptr = nullptr
-        ) noexcept;
-
-        /// @brief UPDATES OR: Initializes PAIRED: Occupancy | Why PAIRED ? To Potentially Justify by Version OR: Internal CLOCK16 How Much Accumulatiom Diffarence Between Total and the DISTANCE: By Version or CLOCK16 
-        /// @param candidate_to_update DESIRED: LocalityPolicy -> Count Want TO Be Updated | GETS TRANSLETED: To -> FabricMetaIndicies BY: CoreOfFabricCoordinator::GetDesiredLowIdxOfOccupancyPairFromLocality
-        /// @param desired_occupancy_value IF: desired_occupancy_value <= UINT32_MAX ONLY -> USED: FabricMetaIndicies::FABRIC_OCCUPANCY_APPROXIMATION_LOCALITY_LOW32 || BOTH: LOW32 + HIGH32
-        /// @param force_update DO NOT CHANGE TO: true untill Understand USE: IF: false -> CAS: Update || true -> ATOMIC STORE: 
-        /// @return 
-        bool UpdateValidPairedOccupancyApproxAtomically(
-            LocalityPolicy candidate_to_update, uint64_t desired_occupancy_value,
-            bool force_update = false,
-            clk16_t pair_version = UNSIGNED_ZERO
         ) noexcept;
 
 
@@ -194,12 +167,6 @@ protected:
             bool force_update = false
         ) noexcept;
 
-        bool ReadASnapShotFromSlab_(
-            size_t slab_starting_idx, 
-            size_t sequential_number_of_cells, 
-            const packed64_t* return_buffer
-        ) noexcept;
-
         constexpr bool IsDesiredIndexValidInSLab(size_t desired_idx) noexcept
         {
             if (SlabBasePtr_ && desired_idx < SlabCellCount_)
@@ -207,32 +174,6 @@ protected:
                 return true;
             }
             return false;
-        }
-
-
-        uint64_t UpdateACounterAtomically(size_t desired_idx, uint32_t delta) noexcept
-        {
-            if (!IsDesiredIndexValidInSLab(desired_idx))
-            {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
-            }
-
-            for (size_t tries = 0; tries < DEFAULT_MAX_TRIES; tries++)
-            {
-                packed64_t expected_cell = AtomicallyLoadReadCompletePackedCell(desired_idx);
-                uint64_t updated_count = UNSIGNED_ZERO;
-                const packed64_t updated_cell = Mutation64_t::AddDeltaInAtomicUnsignedCell(delta, expected_cell, &updated_count);
-                if (updated_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
-                {
-                    return PackedCell64_t::PACKED_CELL_SENTINAL;
-                }
-                
-                if (CompareExchangeStrongFromFabric(desired_idx, expected_cell, updated_cell, MoClaimSuccess, MoClaimFailure))
-                {
-                    return updated_count;
-                }
-            }
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
         }
 
     };

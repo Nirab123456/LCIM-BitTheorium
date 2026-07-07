@@ -4,7 +4,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderDirectlyNonAtomic(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
+    bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderDirectlyNonAtomic_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
     {
         if (!RangeOfThisAPCInSlab_.IsValid)
         {
@@ -19,7 +19,7 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-    bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer(
+    bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer_(
         LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
         bool is_claimed_required
     ) noexcept

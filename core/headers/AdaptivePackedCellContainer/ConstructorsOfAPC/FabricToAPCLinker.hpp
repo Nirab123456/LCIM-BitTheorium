@@ -16,11 +16,8 @@ protected:
     uint64_t IdxOfThisAPCInFabric_{PackedCell64_t::PACKED_CELL_SENTINAL};
     bool FabricBackend_{false};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
-
-/// UPDATE Candidates
     uint16_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     Timer48 LocalTimer48_;
-///
 
     void ReleseFabricBindingOnly_() noexcept;
 
