@@ -100,28 +100,28 @@ namespace PredictedAdaptedEncoding
 
         Zero4LocalityBasedOccupancyOfFabric_();
 
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::CAS_FAILURE_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::ERROR_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::LIVE_SLOT_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_TOMBSTONE_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_COMPACTION_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::CAS_FAILURE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::ERROR_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::LIVE_SLOT_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_TOMBSTONE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_COMPACTION_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
 
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_OCCUPANCY, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::READY_QUEUE_OCCUPANCY, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_SPIN_LIMIT, 16u, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_YIELD_LIMIT, 64u, AccessContractOfValue::ATOMIC_SLNAPSHOT);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_OCCUPANCY, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::READY_QUEUE_OCCUPANCY, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_SPIN_LIMIT, 16u, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_YIELD_LIMIT, 64u, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
 
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::INITIALIZATION_STATE, static_cast<uint64_t>(LocalityPolicy::PUBLISHED));
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HAS_COMPACTION_INFLIGHT, UNSIGNED_ZERO);
 
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_RECLAIM_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_DROPPED_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_RECLAIM_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_DROPPED_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_TABLE_CAPACITY, ThreadTableCapacity_);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_ACTIVE_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_REGISTRATION_FAILURE, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_TOMBSTONE_COUNT, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_UNLINK_FAILURES, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_CLAIM_FAILURES, UNSIGNED_ZERO, AccessContractOfValue::ATOMIC_SLNAPSHOT);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_ACTIVE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_REGISTRATION_FAILURE, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_TOMBSTONE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_UNLINK_FAILURES, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
+        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_CLAIM_FAILURES, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::EOF_FABRIC_HEADER, CoreOfFabricCoordinator::FABRIC_META_EOF);
     }
 
@@ -180,7 +180,7 @@ namespace PredictedAdaptedEncoding
         const uint8_t version = APCDataStructure::BRANCH_VERSION;
         const packed64_t idle_apc_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
             TypeFamily::VALUE32,
-            AccessContractOfValue::CLAIMED_GURDED,
+            ContractOfConcurrency::CLAIMED_GURDED,
             APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy::IDLE,
             InternalDataTypePolicy::UnsignedPCellDataType,
@@ -358,7 +358,7 @@ namespace PredictedAdaptedEncoding
 
         const packed64_t valu48_raw_fabric_global_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48,
-            AccessContractOfValue::RAW_PRIVATE,
+            ContractOfConcurrency::RAW_PRIVATE,
             FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy::IDLE,
             InternalDataTypePolicy::UNASSIGNED_UNUSED_NANNULL,

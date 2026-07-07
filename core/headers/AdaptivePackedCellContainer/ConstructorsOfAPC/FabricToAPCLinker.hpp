@@ -15,7 +15,6 @@ protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
     uint64_t IdxOfThisAPCInFabric_{PackedCell64_t::PACKED_CELL_SENTINAL};
     bool FabricBackend_{false};
-    bool FabricObjectOwnedByFabric_{false};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
 
 /// UPDATE Candidates
@@ -32,20 +31,20 @@ public:
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
     bool ClaimAndCopyToAPCFromBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         const packed64_t* source_cells
     ) noexcept;
 
     bool ForceCopyToAPCFromBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         const packed64_t* source_cells
     ) noexcept;
 
     bool CopyFromAPCToBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         packed64_t* return_buffer
     ) noexcept;
 
@@ -53,8 +52,7 @@ public:
         packed64_t* raw_cells_ptr,
         uint16_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
-        uint64_t fabric_slot_idx,
-        bool object_owned_by_fabric
+        uint64_t fabric_slot_idx
     ) noexcept;
 
     bool IsFabricBackend() const noexcept
@@ -81,6 +79,16 @@ public:
     {
         return METACELL_COUNT;
     }
+
+    constexpr bool IsValidAPCRange(size_t starting_idx_in_slab, uint16_t sequential_number_of_cells) noexcept
+    {
+        return RangeOfThisAPCInSlab_.IsValid && 
+            FabricOwnerPtr_ &&
+            sequential_number_of_cells != UNSIGNED_ZERO &&
+            starting_idx_in_slab <= CapacityOfThisAPC_ &&
+            sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
+    }
+
 
 
 };

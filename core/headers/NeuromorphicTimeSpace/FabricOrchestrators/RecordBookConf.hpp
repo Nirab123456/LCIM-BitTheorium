@@ -46,7 +46,7 @@ struct RecordBookConf
         switch (a_cell_view.CellMode)
         {
         case PackedMode::VALUE48:
-            return a_cell_view.ContractOfValue != AccessContractOfValue::UNASSIGNED_UNUSED_NANNULL &&
+            return a_cell_view.ContractOfValue != ContractOfConcurrency::UNASSIGNED_UNUSED_NANNULL &&
                 a_cell_view.Raw48BitInCellData < PackedCell64_t::BIT_FAMILY_48_SENTINAL;
         case PackedMode::MODEL32:
 
@@ -161,7 +161,7 @@ struct RecordBookConf
     {
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48,
-            AccessContractOfValue::RAW_PRIVATE,
+            ContractOfConcurrency::RAW_PRIVATE,
             FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES,
             cell_locality,
             InternalDataTypePolicy::UnsignedPCellDataType,

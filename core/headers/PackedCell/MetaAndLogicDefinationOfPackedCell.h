@@ -114,11 +114,11 @@ namespace PredictedAdaptedEncoding {
 
     };
 
-    /// @brief HIGHEST_TRUTH of Packed Cell
+    /// @brief HIGHEST_TRUTH of Packed Cell / ALL MODEL CELLS ARE DEFAULT ->ContractOfConcurrency::CLAIMED_GURDED
     /// @param MODEL32 -> Model32Subclass
     /// @param MODEL48 -> Model48Subclass
-    /// @param VALUE32 -> AccessContractOfValue
-    /// @param VALUE48 -> AccessContractOfValue
+    /// @param VALUE32 -> ContractOfConcurrency
+    /// @param VALUE48 -> ContractOfConcurrency
     enum class PackedMode : tag8_t
     {
         MODEL32 = 0,
@@ -141,15 +141,15 @@ namespace PredictedAdaptedEncoding {
     };
 
     /// @param RAW_PRIVATE Caller owns range/cell; init/shutdown/private APC segment. 
-    /// @param ATOMIC_SLNAPSHOT Atomic load/store whole 64-bit cell. Multiple writers are allowed only if last-writer-wins is acceptable.
+    /// @param BOUNDED_RETRY_CAS_NO_CLAIMED Atomic load/store whole 64-bit cell. Multiple writers are allowed only if last-writer-wins is acceptable.
     /// @param CLAIMED_GURDED Exclusive mutation. After claim, writer may raw-store companion cells, then publish with release store.
-    /// @param CAS_RMW For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.
-    enum class AccessContractOfValue : tag8_t
+    /// @param LAST_WRITIER_WIN_CAS_RMW For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.
+    enum class ContractOfConcurrency : tag8_t
     {
         RAW_PRIVATE = 0,
-        ATOMIC_SLNAPSHOT = 1,
+        BOUNDED_RETRY_CAS_NO_CLAIMED = 1,
         CLAIMED_GURDED = 2,
-        CAS_RMW = 3,
+        LAST_WRITIER_WIN_CAS_RMW = 3,
         UNASSIGNED_UNUSED_NANNULL = 4
     };
 

@@ -96,7 +96,7 @@ struct DescriptionOfAPC
         {
 
         case PackedMode::VALUE48:
-            return desired_auth_view.ContractOfValue == AccessContractOfValue::CLAIMED_GURDED;
+            return desired_auth_view.ContractOfValue == ContractOfConcurrency::CLAIMED_GURDED;
         
         case PackedMode::MODEL48:
             return desired_auth_view.SubClassOfModel48 == Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL;
@@ -118,7 +118,7 @@ struct DescriptionOfAPC
     {
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48,
-            AccessContractOfValue::CLAIMED_GURDED,
+            ContractOfConcurrency::CLAIMED_GURDED,
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality,
             InternalDataTypePolicy ::UnsignedPCellDataType,

@@ -5,13 +5,16 @@ namespace PredictedAdaptedEncoding
     void FabricConstructor::MakeAndStoreFabricMetaValue48_(
         FabricMetaIndicies fabric_meta_idx, 
         uint64_t value, 
-        AccessContractOfValue access_contract,
+        ContractOfConcurrency access_contract,
         LocalityPolicy cell_locality,
         AttributePolicy attribute
     )noexcept
     {
         const size_t slab_index = static_cast<size_t>(fabric_meta_idx);
-        if (slab_index >= APCDataStructure::METACELL_COUNT || !SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (
+            slab_index >= APCDataStructure::METACELL_COUNT || 
+            !IsDesiredIndexValidInSLab(slab_index)
+        )
         {
             return;
         }
@@ -153,7 +156,7 @@ namespace PredictedAdaptedEncoding
 
     packed64_t FabricConstructor::ReadCompletePackedCellDirectly(size_t slab_index) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return PackedCell64_t::PACKED_CELL_SENTINAL;
         }
@@ -164,7 +167,7 @@ namespace PredictedAdaptedEncoding
 
     constexpr packed64_t FabricConstructor::AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return PackedCell64_t::PACKED_CELL_SENTINAL;
         }
@@ -176,7 +179,7 @@ namespace PredictedAdaptedEncoding
 
     constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, packed64_t packed_cell) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return;
         }
@@ -188,7 +191,7 @@ namespace PredictedAdaptedEncoding
         std::memory_order mem_order
     ) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return;
         }
@@ -205,7 +208,7 @@ namespace PredictedAdaptedEncoding
         std::memory_order mem_order_failure
     ) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return false;
         }
@@ -221,7 +224,7 @@ namespace PredictedAdaptedEncoding
         std::memory_order mem_order_failure
     ) noexcept
     {
-        if (!SlabBasePtr_ || slab_index >= SlabCellCount_)
+        if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return false;
         }
@@ -277,7 +280,10 @@ namespace PredictedAdaptedEncoding
     bool FabricConstructor::ReadFabricMetaCellViewAtomically(FabricMetaIndicies fabric_meta_idx, PackedCell64_t::AuthoritiveCellView& meta_cell_view_address) noexcept
     {
         const size_t meta_index_in_slab = static_cast<size_t>(fabric_meta_idx);
-        if (meta_index_in_slab >= APCDataStructure::METACELL_COUNT || !SlabBasePtr_ || meta_index_in_slab >= SlabCellCount_)
+        if (
+            meta_index_in_slab >= APCDataStructure::METACELL_COUNT ||
+            !IsDesiredIndexValidInSLab(meta_index_in_slab)
+        )
         {
             return false;
         }
@@ -331,8 +337,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         if (
-            !SlabBasePtr_ ||
-            claim_starting_idx_in_slab > SlabCellCount_ ||
+            !IsDesiredIndexValidInSLab(claim_starting_idx_in_slab)||
             claim_order_cell_count == UNSIGNED_ZERO || 
             claim_order_cell_count > MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY ||
             claim_order_cell_count > SlabCellCount_ - claim_starting_idx_in_slab
@@ -375,17 +380,13 @@ namespace PredictedAdaptedEncoding
         {
             for (uint8_t recover_idx = 0; recover_idx < changed_amount; recover_idx++)
             {
-                const size_t current_recover_slab_idx = static_cast<size_t>(claim_starting_idx_in_slab + recover_idx);
-
-                const packed64_t original_cell = packed_cell_buffer[recover_idx];
-
-                StorePackedCellUncheckedDirectly(current_recover_slab_idx, original_cell);
+                StorePackedCellUncheckedDirectly(claim_starting_idx_in_slab + recover_idx, packed_cell_buffer[recover_idx]);
             }
 
-            return true;
+            return false;
         }
         
-        return false;
+        return true;
     }
 
 
@@ -397,9 +398,8 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         if (
-            !SlabBasePtr_ ||
+            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
             !desired_cells ||
-            slab_starting_idx >= SlabCellCount_ ||
             number_of_cells == UNSIGNED_ZERO ||
             number_of_cells > SlabCellCount_ - slab_starting_idx
         )
@@ -425,28 +425,26 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-    template<size_t NUMBER_OF_CELLS>
     bool FabricConstructor::ReadASnapShotFromSlab_(
-        size_t slab_starting_idx,
-        size_t sequential_count,
-        std::array<packed64_t, NUMBER_OF_CELLS>& return_buffer
+        size_t slab_starting_idx, 
+        size_t sequential_number_of_cells, 
+        const packed64_t* return_buffer
     ) noexcept
     {
         if (
-            !SlabBasePtr_ ||
-            return_buffer.size() < sequential_count ||
-            slab_starting_idx >= SlabCellCount_ ||
-            sequential_count == UNSIGNED_ZERO ||
-            sequential_count > SlabCellCount_ - slab_starting_idx
+            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
+            !return_buffer ||
+            sequential_number_of_cells == UNSIGNED_ZERO ||
+            sequential_number_of_cells > SlabCellCount_ - slab_starting_idx
         )
         {
             return false;
         }
 
         std::memcpy(
-            return_buffer,
+            &return_buffer,
             &SlabBasePtr_[slab_starting_idx],
-            sequential_count * sizeof(packed64_t)
+            sequential_number_of_cells * sizeof(packed64_t)
         );
 
         return true;

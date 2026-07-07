@@ -9,21 +9,24 @@ namespace PredictedAdaptedEncoding
         packed64_t* raw_cells_ptr,
         uint16_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
-        uint64_t fabric_slot_idx,
-        bool object_owned_by_fabric
+        uint64_t fabric_slot_idx
     ) noexcept
     {
         if (
             !raw_cells_ptr ||
-            cell_count < MINIMUM_APC_CAPACITY ||
             !fabric_owner ||
-            APCDataStructure::IsCapacityOfAPCValid(cell_count)
+            !APCDataStructure::IsCapacityOfAPCValid(cell_count) ||
+            !HashIdConstructror::IsValidAPCSlotIdx(fabric_slot_idx)
         )
         {
             return false;
         }
+
         const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolBegainEndForSingleAPCDescription(fabric_slot_idx);
-        if (!range_of_this_apc.IsValid)
+        if (
+            !range_of_this_apc.IsValid ||
+            range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != cell_count
+        )
         {
             return false;
         }
@@ -32,7 +35,6 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = fabric_owner;
         IdxOfThisAPCInFabric_ = fabric_slot_idx;
         FabricBackend_ = true;
-        FabricObjectOwnedByFabric_ = object_owned_by_fabric;
         return true;
     }
 
@@ -45,7 +47,6 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = nullptr;
         IdxOfThisAPCInFabric_ = APCDataStructure::APC_SIZE_SENTINAL;
         FabricBackend_ = false;
-        FabricObjectOwnedByFabric_ = false;
     }
 
     void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept
@@ -54,14 +55,14 @@ namespace PredictedAdaptedEncoding
     }
 
     bool FabricToAPCLinker::ClaimAndCopyToAPCFromBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         const packed64_t* source_cells
     ) noexcept
     {
         if (
             !RangeOfThisAPCInSlab_.IsValid ||
-            starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
+            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
         )
         {
             return false;
@@ -76,14 +77,14 @@ namespace PredictedAdaptedEncoding
     }
 
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         const packed64_t* source_cells
     ) noexcept
     {
         if (
             !RangeOfThisAPCInSlab_.IsValid ||
-            starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
+            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
         )
         {
             return false;
@@ -98,24 +99,23 @@ namespace PredictedAdaptedEncoding
     }
 
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
-        size_t starting_idx_in_apc,
-        size_t sequential_number_of_cells,
+        uint16_t starting_idx_in_apc,
+        uint16_t sequential_number_of_cells,
         packed64_t* return_buffer
     ) noexcept
     {
         if (
             !RangeOfThisAPCInSlab_.IsValid ||
-            starting_idx_in_apc + sequential_number_of_cells >= CapacityOfThisAPC_
+            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
         )
         {
             return false;
         }
         
-        return FabricOwnerPtr_->ForceNxLenMemCopy(
+        return FabricOwnerPtr_->ReadASnapShotFromSlab_(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
-            return_buffer,
-            true
+            return_buffer
         );
     }
 }

@@ -32,7 +32,7 @@ HIGH bits                                              LOW bits
 |   `0` | `RAW_PRIVATE`             | No                                       | Caller owns range/cell; init/shutdown/private APC segment.                                                |
 |   `1` | `ATOMIC_SNAPSHOT`         | No CAS                                   | Atomic load/store whole 64-bit cell. Multiple writers are allowed only if last-writer-wins is acceptable. |
 |   `2` | `CLAIMED_GUARDED`         | Yes, but only `IDLE/PUBLISHED → CLAIMED` | Exclusive mutation. After claim, writer may raw-store companion cells, then publish with release store.   |
-|   `3` | `CAS_RMW`                 | Yes, CAS loop or fetch-op                | For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.   |
+|   `3` | `LAST_WRITIER_WIN_CAS_RMW`                 | Yes, CAS loop or fetch-op                | For counters, cursors, epochs, clocks, version increments, occupancy deltas. No `CLAIMED` state needed.   |
 
 
 ---
@@ -109,7 +109,7 @@ release store final PUBLISHED or IDLE
 
 This is main APC/NSTFC mutation protocol.
 
-## `CAS_RMW`
+## `LAST_WRITIER_WIN_CAS_RMW`
 
 CAS loop or atomic fetch operation.
 
@@ -145,9 +145,9 @@ For `VALUE32` / `VALUE48`:
 | slot state                               | `CLAIMED_GUARDED`                                                      | Yes                   |
 | hash key                                 | `CLAIMED_GUARDED`                                                      | Yes                   |
 | hash value handle                        | `RAW_PRIVATE` while key claimed; `ATOMIC_SNAPSHOT` after key published | Usually no            |
-| cursor                                   | `CAS_RMW`                                                              | Yes loop or fetch-add |
-| counter                                  | `CAS_RMW`                                                              | Yes loop or fetch-add |
-| epoch                                    | `CAS_RMW`                                                              | Yes                   |
+| cursor                                   | `LAST_WRITIER_WIN_CAS_RMW`                                                              | Yes loop or fetch-add |
+| counter                                  | `LAST_WRITIER_WIN_CAS_RMW`                                                              | Yes loop or fetch-add |
+| epoch                                    | `LAST_WRITIER_WIN_CAS_RMW`                                                              | Yes                   |
 | simple last-writer-wins config           | `ATOMIC_SNAPSHOT`                                                      | No                    |
 | tensor value compacted for device        | `RAW_PRIVATE` in device view, then scatter through fabric protocol     | Usually no direct CAS |
 
@@ -166,8 +166,8 @@ For `MODEL32` / `MODEL48`, the subclass defines structure, not automatically CAS
 | `MODEL32::HIGH_OF_PAIRED_VERSIONED_CELL`                | high half of pair            | paired atomic snapshot/version check                               | staged update, usually claim parent/control                     |
 | `MODEL32::SUBDIVISION_NO_CLOCK16_32BIT_META_1x8PLUS2x4` | handle/meta subdivision      | atomic snapshot for handle, claimed guarded if hash key/slot state | depends on use                                                  |
 | `MODEL48::PURE_TIMER_48`                                | 48-bit clock/timer           | atomic snapshot                                                    | atomic store or RMW if incrementing                             |
-| `MODEL48::SUBDIVISION16x3_INTERNAL_CELL_MODEL`          | packed occupancy/counters    | atomic snapshot for read                                           | `CAS_RMW` CAS loop                                              |
-| `MODEL48::FOUR_SUBDIVISION_2x16_AND_2x8`                | packed multi-field model     | atomic snapshot/versioned validation                               | usually `CLAIMED_GUARDED` or `CAS_RMW` depending on mutation    |
+| `MODEL48::SUBDIVISION16x3_INTERNAL_CELL_MODEL`          | packed occupancy/counters    | atomic snapshot for read                                           | `LAST_WRITIER_WIN_CAS_RMW` CAS loop                                              |
+| `MODEL48::FOUR_SUBDIVISION_2x16_AND_2x8`                | packed multi-field model     | atomic snapshot/versioned validation                               | usually `CLAIMED_GUARDED` or `LAST_WRITIER_WIN_CAS_RMW` depending on mutation    |
 
 ---
 
@@ -240,8 +240,8 @@ reader load PUBLISHED:
 
 | PackedMode | Subclass field means    | CAS policy                                            |
 | ---------- | ----------------------- | ----------------------------------------------------- |
-| `VALUE32`  | `GenericAccessContract` | only if subclass is `CLAIMED_GUARDED` or `CAS_RMW`    |
-| `VALUE48`  | `GenericAccessContract` | only if subclass is `CLAIMED_GUARDED` or `CAS_RMW`    |
+| `VALUE32`  | `GenericAccessContract` | only if subclass is `CLAIMED_GUARDED` or `LAST_WRITIER_WIN_CAS_RMW`    |
+| `VALUE48`  | `GenericAccessContract` | only if subclass is `CLAIMED_GUARDED` or `LAST_WRITIER_WIN_CAS_RMW`    |
 | `MODEL32`  | `Model32Subclass`       | determined by model + cell role                       |
 | `MODEL48`  | `Model48Subclass`       | determined by model + cell role                       |
 
@@ -251,12 +251,12 @@ So for generic cells:
 VALUE32 + RAW_PRIVATE      = no atomic, no CAS
 VALUE32 + ATOMIC_SNAPSHOT  = atomic load/store, no CAS
 VALUE32 + CLAIMED_GUARDED  = CAS only claim/release protocol
-VALUE32 + CAS_RMW       = CAS loop/fetch operation
+VALUE32 + LAST_WRITIER_WIN_CAS_RMW       = CAS loop/fetch operation
 
 VALUE48 + RAW_PRIVATE      = no atomic, no CAS
 VALUE48 + ATOMIC_SNAPSHOT  = atomic load/store, no CAS
 VALUE48 + CLAIMED_GUARDED  = CAS only claim/release protocol
-VALUE48 + CAS_RMW       = CAS loop/fetch operation
+VALUE48 + LAST_WRITIER_WIN_CAS_RMW       = CAS loop/fetch operation
 ```
 
 ---
@@ -273,12 +273,12 @@ For NSTFC :
 | branch/logical/shared hash key | `MODEL32 handle/meta + CLAIMED_GUARDED`                           |
 | hash value handle              | `MODEL32 handle + ATOMIC_SNAPSHOT` after key published            |
 | ready/work queue record        | `VALUE32/VALUE48 + CLAIMED_GUARDED`                               |
-| queue cursors                  | `VALUE48 + CAS_RMW`                                            |
-| fabric counters                | `VALUE48 + CAS_RMW`                                            |
+| queue cursors                  | `VALUE48 + LAST_WRITIER_WIN_CAS_RMW`                                            |
+| fabric counters                | `VALUE48 + LAST_WRITIER_WIN_CAS_RMW`                                            |
 | relation record state          | `MODEL32 + CLAIMED_GUARDED`                                       |
 | relation fields                | raw while record claimed, snapshot after publication              |
 | device view descriptor         | claimed guarded while building, snapshot after publication        |
-| occupancy approximation        | `MODEL32` pair or `MODEL48` packed model, `CAS_RMW` on update  |
+| occupancy approximation        | `MODEL32` pair or `MODEL48` packed model, `LAST_WRITIER_WIN_CAS_RMW` on update  |
 
 This matches the earlier NSTFC fix-guide direction: raw slab ownership, `atomic_ref` only for hot state transitions, slot directory authority, hash table cells, and no external `TableCache_`. 
 

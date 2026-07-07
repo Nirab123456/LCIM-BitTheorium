@@ -39,7 +39,7 @@ namespace PredictedAdaptedEncoding
         /// @brief ONLY: Use for Initialiazation ONLY
         void MakeAndStoreFabricMetaValue48_(
             FabricMetaIndicies fabric_meta_idx, uint64_t value, 
-            AccessContractOfValue access_contract = AccessContractOfValue::CAS_RMW,
+            ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_CAS_RMW,
             LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
             AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
         )noexcept;
@@ -119,13 +119,6 @@ protected:
             );
         }
 
-        template<size_t NUMBER_OF_CELLS>
-        bool ReadASnapShotFromSlab_(
-            size_t slab_starting_idx,
-            size_t sequential_count,
-            std::array<packed64_t, NUMBER_OF_CELLS>& return_buffer
-        ) noexcept;
-
     public:
 
         packed64_t ReadCompletePackedCellDirectly(size_t slab_index) noexcept;
@@ -200,6 +193,47 @@ protected:
             const packed64_t* desired_cells,
             bool force_update = false
         ) noexcept;
+
+        bool ReadASnapShotFromSlab_(
+            size_t slab_starting_idx, 
+            size_t sequential_number_of_cells, 
+            const packed64_t* return_buffer
+        ) noexcept;
+
+        constexpr bool IsDesiredIndexValidInSLab(size_t desired_idx) noexcept
+        {
+            if (SlabBasePtr_ && desired_idx < SlabCellCount_)
+            {
+                return true;
+            }
+            return false;
+        }
+
+
+        uint64_t UpdateACounterAtomically(size_t desired_idx, uint32_t delta) noexcept
+        {
+            if (!IsDesiredIndexValidInSLab(desired_idx))
+            {
+                return PackedCell64_t::PACKED_CELL_SENTINAL;
+            }
+
+            for (size_t tries = 0; tries < DEFAULT_MAX_TRIES; tries++)
+            {
+                packed64_t expected_cell = AtomicallyLoadReadCompletePackedCell(desired_idx);
+                uint64_t updated_count = UNSIGNED_ZERO;
+                const packed64_t updated_cell = Mutation64_t::AddDeltaInAtomicUnsignedCell(delta, expected_cell, &updated_count);
+                if (updated_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
+                {
+                    return PackedCell64_t::PACKED_CELL_SENTINAL;
+                }
+                
+                if (CompareExchangeStrongFromFabric(desired_idx, expected_cell, updated_cell, MoClaimSuccess, MoClaimFailure))
+                {
+                    return updated_count;
+                }
+            }
+            return PackedCell64_t::PACKED_CELL_SENTINAL;
+        }
 
     };
 

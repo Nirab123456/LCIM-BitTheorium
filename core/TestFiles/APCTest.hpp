@@ -214,7 +214,7 @@
 
 //         return PackedCell64_t::MakeTypedAPCValidPackedCell(
 //             static_cast<TypeFamily>(mode),
-//             AccessContractOfValue::CLAIMED_GURDED,
+//             ContractOfConcurrency::CLAIMED_GURDED,
 //             page_class,
 //             LocalityPolicy::PUBLISHED,
 //             InternalDataTypePolicy::FloatPCellDataType,

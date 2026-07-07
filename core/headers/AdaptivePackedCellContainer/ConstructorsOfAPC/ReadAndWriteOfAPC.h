@@ -34,8 +34,8 @@ namespace PredictedAdaptedEncoding
         ////// SINGLE READ WRITE/////
 
 
-        /// @return The Update only AccessContractOfValue::ATOMIC_SLNAPSHOT
-        uint64_t AtomicallyUpdateACounter(uint16_t desired_idx, uint32_t delta) noexcept;
+        /// @return The Update only ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED
+        uint64_t AtomicallyUpdateACounterFromAPC(uint16_t desired_idx, uint32_t delta) noexcept;
         uint64_t AtomicallyUpdateMetaCellCounter(MetaIndexOfAPCNode meta_idx, uint32_t delta) noexcept;
 
 

@@ -99,8 +99,7 @@ namespace PredictedAdaptedEncoding
             raw_apc_segment_ptr,
             static_cast<uint16_t>(PerAPCRuntimeCellCount_),
             this,
-            desired_apc_slot.value(),
-            false
+            desired_apc_slot.value()
         ))
         {
             return std::nullopt;

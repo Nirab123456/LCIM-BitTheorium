@@ -149,7 +149,7 @@ struct HashTableConf : public HashHelpers
 
 
 
-    /// @brief Cell DEFAULTS: TypeFamily::VALUE48 + AccessContractOfValue::CLAIMED_GURDED + AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL
+    /// @brief Cell DEFAULTS: TypeFamily::VALUE48 + ContractOfConcurrency::CLAIMED_GURDED + AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL
     /// @return VALID -> Packed Cell -> OR: UINT64_MAX:: if FabricTableSegmentClasses dosent belong  BRANCH_HASH, SHARED_HASH, LOGICAL_HASH
     static constexpr packed64_t MakeAHashValueCell(
         uint64_t hash_handle,
@@ -169,7 +169,7 @@ struct HashTableConf : public HashHelpers
         
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48, 
-            AccessContractOfValue::CLAIMED_GURDED, 
+            ContractOfConcurrency::CLAIMED_GURDED, 
             hash_table_class, 
             locality,
             InternalDataTypePolicy::UnsignedPCellDataType, 
@@ -223,7 +223,7 @@ struct HashTableConf : public HashHelpers
         
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48, 
-            AccessContractOfValue::CLAIMED_GURDED, 
+            ContractOfConcurrency::CLAIMED_GURDED, 
             hash_table, 
             locality,
             InternalDataTypePolicy::UnsignedPCellDataType, 

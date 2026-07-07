@@ -18,7 +18,7 @@ namespace PredictedAdaptedEncoding
             const PackedCell64_t::AuthoritiveCellView auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
             if (
                 !auth_view.IsCellValid || 
-                auth_view.ContractOfValue != AccessContractOfValue::ATOMIC_SLNAPSHOT ||
+                auth_view.ContractOfValue != ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED ||
                 auth_view.CellValueDataType != InternalDataTypePolicy::UnsignedPCellDataType
             )
             {
