@@ -183,7 +183,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency::CLAIMED_GURDED,
             APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy::IDLE,
-            InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             UNSIGNED_ZERO,
             UNSIGNED_ZERO

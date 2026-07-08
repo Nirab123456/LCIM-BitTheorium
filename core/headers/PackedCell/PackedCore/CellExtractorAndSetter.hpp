@@ -226,7 +226,7 @@ protected:
             Model48Subclass sub_class = Model48Subclass::SELF_CLASS,
             AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UnsignedPCellDataType
+            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
         {
             return MakeInCellMeta_16t(
@@ -249,7 +249,7 @@ protected:
             Model32Subclass sub_class = Model32Subclass::SELF_CLASS,
             AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UnsignedPCellDataType
+            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
         {
             return MakeInCellMeta_16t(

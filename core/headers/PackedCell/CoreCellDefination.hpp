@@ -66,7 +66,7 @@ namespace PredictedAdaptedEncoding
             LocalityPolicy cell_locality = LocalityPolicy::IDLE, 
             tag8_t cell_class = UNSIGNED_ZERO,
             tag8_t sub_class = UNSIGNED_ZERO,
-            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UnsignedPCellDataType
+            InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
         {
             const meta16_t desired_meta16 =  MakeInCellMeta_16t(
@@ -141,7 +141,7 @@ namespace PredictedAdaptedEncoding
 
             Model48Subclass SubClassOfModel48{Model48Subclass::UNASSIGNED_UNUSED_NANNULL};
 
-            InternalDataTypePolicy CellValueDataType{InternalDataTypePolicy::UnsignedPCellDataType};
+            InternalDataTypePolicy CellValueDataType{InternalDataTypePolicy::UNSIGNED};
 
             clk16_t InCellClock16{CLOCK_16_SENTINAL};
 
@@ -249,7 +249,7 @@ namespace PredictedAdaptedEncoding
                         {
                             return false;
                         }
-                        if (SubClassOfModel48 != Model48Subclass::SELF_CLASS  && CellValueDataType != InternalDataTypePolicy::UnsignedPCellDataType)
+                        if (SubClassOfModel48 != Model48Subclass::SELF_CLASS  && CellValueDataType != InternalDataTypePolicy::UNSIGNED)
                         {
                             return false;
                         }
@@ -294,7 +294,7 @@ namespace PredictedAdaptedEncoding
         static constexpr packed64_t MakeDefaultAPCPayloadCellOnMode(
             PackedMode mode,
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
-            InternalDataTypePolicy dtype = InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy dtype = InternalDataTypePolicy::UNSIGNED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             uint64_t value = UNSIGNED_ZERO,
             clk16_t cell_clock16 = UNSIGNED_ZERO
@@ -356,7 +356,7 @@ namespace PredictedAdaptedEncoding
             tag8_t sub_class = static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
             AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
@@ -382,7 +382,7 @@ namespace PredictedAdaptedEncoding
             tag8_t sub_class = static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
             AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
@@ -435,7 +435,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency sub_class = ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED,
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
             AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
@@ -459,7 +459,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency sub_class = ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED,
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
-            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
             AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO

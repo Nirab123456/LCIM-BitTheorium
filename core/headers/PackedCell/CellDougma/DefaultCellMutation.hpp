@@ -38,7 +38,7 @@ namespace PredictedAdaptedEncoding
             const PackedCell64_t::AuthoritiveCellView auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
             if (
                 !IsCellABoundedRetryCandidate_(auth_view) ||
-                auth_view.CellValueDataType != InternalDataTypePolicy::UnsignedPCellDataType
+                auth_view.CellValueDataType != InternalDataTypePolicy::UNSIGNED
             )
             {
                 return false;

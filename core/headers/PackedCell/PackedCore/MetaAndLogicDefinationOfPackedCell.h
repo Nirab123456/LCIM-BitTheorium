@@ -23,7 +23,7 @@
 #if defined(_MSC_VER)
     #include <intrin.h>
 #endif
-// META16 / PNLTCOD:
+// META16:
 // [ attribute:2 | node_authority:2 | locality:2 | cell_mode:2 | cell_class:4 | mode_subclass:2 | dtype:2 ]
 // shifts:
 // attribute=14, node_authority=12, locality=10, cell_mode= 8, cell_class=4, mode_subclass=2, dtype=0
@@ -106,10 +106,10 @@ namespace PredictedAdaptedEncoding {
     /// @brief HIGHEST_TRUTH of Packed Cell
     enum class InternalDataTypePolicy : tag8_t
     {
-        CharPCellDataType = 0,
-        IntPCellDataType = 1,
-        FloatPCellDataType = 2,
-        UnsignedPCellDataType = 3,
+        CHAR = 0,
+        INT = 1,
+        FLOAT = 2,
+        UNSIGNED = 3,
         UNASSIGNED_UNUSED_NANNULL = 4
 
     };
@@ -261,11 +261,11 @@ namespace PredictedAdaptedEncoding {
 
 
         static constexpr InternalDataTypePolicy DType  = 
-            IS_FLOAT_LIKE           ? InternalDataTypePolicy::FloatPCellDataType    :
-            IS_SIGNED_LIKE          ? InternalDataTypePolicy::IntPCellDataType      :
-            IS_UNSIGNED_LIKE        ? InternalDataTypePolicy::UnsignedPCellDataType :
-            IS_CHAR_LIKE            ? InternalDataTypePolicy::CharPCellDataType     :
-                                    InternalDataTypePolicy::UnsignedPCellDataType   ;
+            IS_FLOAT_LIKE           ? InternalDataTypePolicy::FLOAT    :
+            IS_SIGNED_LIKE          ? InternalDataTypePolicy::INT      :
+            IS_UNSIGNED_LIKE        ? InternalDataTypePolicy::UNSIGNED :
+            IS_CHAR_LIKE            ? InternalDataTypePolicy::CHAR     :
+                                    InternalDataTypePolicy::UNSIGNED   ;
         static constexpr bool FITS_MODE_32 = (sizeof(Decayed) <= sizeof(val32_t));
         static constexpr bool FITS_MODE_48 = (sizeof(Decayed) <= SIZE_OF_MODE_48);
         static constexpr bool IS_SUPPORTED_TYPE = IS_FLOAT_LIKE || IS_SIGNED_LIKE || IS_UNSIGNED_LIKE || IS_CHAR_LIKE;

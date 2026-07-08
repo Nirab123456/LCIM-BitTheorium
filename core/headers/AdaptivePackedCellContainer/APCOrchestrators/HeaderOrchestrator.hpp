@@ -51,7 +51,7 @@ namespace PredictedAdaptedEncoding
                 contract,
                 APCPagedNodeSegmentClasses::META_HEADER,
                 locality,
-                InternalDataTypePolicy::UnsignedPCellDataType,
+                InternalDataTypePolicy::UNSIGNED,
                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
                 value48,
                 UNSIGNED_ZERO

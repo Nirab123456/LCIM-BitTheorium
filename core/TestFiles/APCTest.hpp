@@ -204,7 +204,7 @@
 //             return PackedCell64_t::MakeModeledAPCValidPackedCell(
 //                 static_cast<ModelFamily>(mode),
 //                 UNSIGNED_ZERO, page_class, LocalityPolicy::PUBLISHED,
-//                 InternalDataTypePolicy::FloatPCellDataType,
+//                 InternalDataTypePolicy::FLOAT,
 //                 attribute,
 //                 bits,
 //                 now_16
@@ -217,7 +217,7 @@
 //             ContractOfConcurrency::CLAIMED_GURDED,
 //             page_class,
 //             LocalityPolicy::PUBLISHED,
-//             InternalDataTypePolicy::FloatPCellDataType,
+//             InternalDataTypePolicy::FLOAT,
 //             attribute,
 //             bits,
 //             now_16

@@ -23,10 +23,10 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsKnownDataType(InternalDataTypePolicy dtype) noexcept
         {
-            return dtype == InternalDataTypePolicy::CharPCellDataType ||
-                   dtype == InternalDataTypePolicy::IntPCellDataType ||
-                   dtype == InternalDataTypePolicy::FloatPCellDataType ||
-                   dtype == InternalDataTypePolicy::UnsignedPCellDataType;
+            return dtype == InternalDataTypePolicy::CHAR ||
+                   dtype == InternalDataTypePolicy::INT ||
+                   dtype == InternalDataTypePolicy::FLOAT ||
+                   dtype == InternalDataTypePolicy::UNSIGNED;
         }
 
         static constexpr bool IsKnownAttribute(AttributePolicy attribute) noexcept

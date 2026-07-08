@@ -121,7 +121,7 @@ struct DescriptionOfAPC
             ContractOfConcurrency::CLAIMED_GURDED,
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality,
-            InternalDataTypePolicy ::UnsignedPCellDataType,
+            InternalDataTypePolicy ::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             cell_value
         );
@@ -152,7 +152,7 @@ struct DescriptionOfAPC
             static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality,
-            InternalDataTypePolicy ::UnsignedPCellDataType,
+            InternalDataTypePolicy ::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             raw_48
         );
@@ -185,7 +185,7 @@ struct DescriptionOfAPC
             ModelFamily::MODEL32,
             static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
-            locality, InternalDataTypePolicy::UnsignedPCellDataType,
+            locality, InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
             apc_width,
             state_version_ownership

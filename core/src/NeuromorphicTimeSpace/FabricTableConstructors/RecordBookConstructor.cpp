@@ -17,7 +17,7 @@ namespace PredictedAdaptedEncoding
         const packed64_t idle_table_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED,
             table_class, LocalityPolicy::IDLE,
-            InternalDataTypePolicy::UnsignedPCellDataType
+            InternalDataTypePolicy::UNSIGNED
         );
 
         for (size_t idx = return_bounds.BeginIndex; idx < return_bounds.EndIndex; idx++)

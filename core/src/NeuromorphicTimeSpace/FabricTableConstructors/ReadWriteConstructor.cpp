@@ -25,7 +25,7 @@ namespace PredictedAdaptedEncoding
             TypeFamily::VALUE48, access_contract,
             FabricTableSegmentClasses::GENERIC_CONTROL,
             cell_locality,
-            InternalDataTypePolicy ::UnsignedPCellDataType,
+            InternalDataTypePolicy ::UNSIGNED,
             attribute,
             value
         );

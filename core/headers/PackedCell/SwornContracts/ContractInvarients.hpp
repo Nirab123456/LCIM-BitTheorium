@@ -250,7 +250,7 @@ namespace PredictedAdaptedEncoding
         }
 
 
-        static constexpr Meta16Files APCValueKey(
+        static constexpr Meta16Files APCValueKeyConstruction(
             APCPagedNodeSegmentClasses region,
             PackedMode mode,
             ContractOfConcurrency concurrency,

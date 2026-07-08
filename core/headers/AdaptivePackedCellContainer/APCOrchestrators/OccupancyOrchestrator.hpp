@@ -112,7 +112,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
             static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
             APCPagedNodeSegmentClasses::META_HEADER,
             valid_occupancy_carrier.localityOfThisOccupancy,
-            InternalDataTypePolicy ::UnsignedPCellDataType,
+            InternalDataTypePolicy ::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             raw_48
         );

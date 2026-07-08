@@ -164,7 +164,7 @@ struct RecordBookConf
             ContractOfConcurrency::RAW_PRIVATE,
             FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES,
             cell_locality,
-            InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             value 
         );
@@ -200,7 +200,7 @@ struct RecordBookConf
         return PackedCell64_t::MakeModeledFabricValidPackedCell(ModelFamily::MODEL32,
             static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES,
-            locality, InternalDataTypePolicy::UnsignedPCellDataType,
+            locality, InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
             masked_width,
             version_origin_slabid

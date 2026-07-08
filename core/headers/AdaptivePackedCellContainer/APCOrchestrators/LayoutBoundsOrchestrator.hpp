@@ -68,7 +68,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
             static_cast<tag8_t>(Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8),
             APCPagedNodeSegmentClasses::META_HEADER,
             a_layout.LocalityOfLayout,
-            InternalDataTypePolicy ::UnsignedPCellDataType,
+            InternalDataTypePolicy ::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             raw48_layout
         );

@@ -172,7 +172,7 @@ struct HashTableConf : public HashHelpers
             ContractOfConcurrency::CLAIMED_GURDED, 
             hash_table_class, 
             locality,
-            InternalDataTypePolicy::UnsignedPCellDataType, 
+            InternalDataTypePolicy::UNSIGNED, 
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             hash_handle
         );
@@ -214,7 +214,7 @@ struct HashTableConf : public HashHelpers
                 static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
                 hash_table,
                 locality,
-                InternalDataTypePolicy ::UnsignedPCellDataType,
+                InternalDataTypePolicy ::UNSIGNED,
                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
                 prefix_32.value(),
                 sequential_index.value()
@@ -226,7 +226,7 @@ struct HashTableConf : public HashHelpers
             ContractOfConcurrency::CLAIMED_GURDED, 
             hash_table, 
             locality,
-            InternalDataTypePolicy::UnsignedPCellDataType, 
+            InternalDataTypePolicy::UNSIGNED, 
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             key48
         );
@@ -280,7 +280,7 @@ struct HashTableConf : public HashHelpers
             static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
             hash_table,
             locality,
-            InternalDataTypePolicy::UnsignedPCellDataType,
+            InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
             desired_prob_distance_lock
         );
