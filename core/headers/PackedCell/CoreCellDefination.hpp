@@ -1,10 +1,11 @@
 #pragma once
 
-#include "CellExtractorAndSetter.hpp"
+#include "SwornContracts/CellContracts.hpp"
+
 namespace PredictedAdaptedEncoding
 {
 
-    struct CoreCellDefinationn : public PackedCellSetters
+    struct CoreCellDefinationn : public CellValidators
     {
 
         static constexpr bool IsCellClaimableFromThisCaller(packed64_t packed_cell) noexcept
