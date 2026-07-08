@@ -81,7 +81,7 @@ struct RecordBookConf
 
         RecordBookTablesBoundsCarrier return_bounds{};
 
-        if (!PackedCell64_t::IsValidFabricTable(origin_table_segment_class))
+        if (!PackedCell64_t::IsKnownFabricRegion(origin_table_segment_class))
         {
             return return_bounds;
         }

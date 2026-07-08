@@ -32,7 +32,7 @@ namespace PredictedAdaptedEncoding
         RecordBookTablesBoundsCarrier& return_bounds
     ) noexcept
     {
-        if (!PackedCell64_t::IsValidFabricTable(table_class))
+        if (!PackedCell64_t::IsKnownFabricRegion(table_class))
         {
             return false;
         }
@@ -74,7 +74,7 @@ namespace PredictedAdaptedEncoding
         uint8_t slab_id
     ) noexcept
     {
-        if (!SlabBasePtr_ || !PackedCell64_t::IsValidFabricTable(table_class))
+        if (!SlabBasePtr_ || !PackedCell64_t::IsKnownFabricRegion(table_class))
         {
             return;
         }
@@ -135,7 +135,7 @@ namespace PredictedAdaptedEncoding
         OriginOfRecord table_class
     ) noexcept
     {
-        if (!PackedCell64_t::IsValidFabricTable(table_class))
+        if (!PackedCell64_t::IsKnownFabricRegion(table_class))
         {
             return APCDataStructure::APC_SIZE_SENTINAL;
         }

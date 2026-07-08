@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SwornContracts/CellContracts.hpp"
+#include "SwornContracts/ContractConstructor.hpp"
 
 namespace PredictedAdaptedEncoding
 {
@@ -117,12 +117,6 @@ namespace PredictedAdaptedEncoding
             return true;
         }
 
-        static constexpr bool IsValidFabricTable(FabricTableSegmentClasses table_class) noexcept
-        {
-            return table_class > FabricTableSegmentClasses::NONE &&
-                table_class < FabricTableSegmentClasses::NULLNAN;
-        }
-
         struct alignas(16) AuthoritiveCellView
         {
             packed64_t RawCell{0};
@@ -169,60 +163,11 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
 
-                auto IsKnownAPCClass  = [](APCPagedNodeSegmentClasses page_class) constexpr noexcept -> bool
-                {
-                    return page_class > APCPagedNodeSegmentClasses::NONE &&
-                        page_class <= APCPagedNodeSegmentClasses::NULLNAN;
-                };
-
-                auto IsKnownValueContract = [](ContractOfConcurrency contract) constexpr noexcept -> bool
-                {
-                    switch (contract)
-                    {
-                    case ContractOfConcurrency::RAW_PRIVATE:
-                    case ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED:
-                    case ContractOfConcurrency::CLAIMED_GURDED:
-                    case ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW:
-                        return true;
-                    default:
-                        return false;
-                    }
-                };
-
-                auto IsKnownModel32Subclass = [](Model32Subclass sub_class) constexpr noexcept -> bool
-                {
-                    switch (sub_class)
-                    {
-                    case Model32Subclass::SELF_CLASS:
-                    case Model32Subclass::LOW_OF_PAIRED_VERSIONED_CELL:
-                    case Model32Subclass::HIGH_OF_PAIRED_VERSIONED_CELL:
-                    case Model32Subclass::UNCLOCKED_1x8_PLUS_2x4:
-                        return true;
-                    default:
-                        return false;
-                    }
-                };
-
-                auto IsKnownModel48Subclass = [](Model48Subclass sub_class) constexpr noexcept -> bool
-                {
-                    switch (sub_class)
-                    {
-                    case Model48Subclass::SELF_CLASS:
-                    case Model48Subclass::PURE_TIMER_48:
-                    case Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL:
-                    case Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8:
-                        return true;
-                    default:
-                        return false;
-                    }
-                };
-
-
                 switch (CellOwnership)
                 {
                 case OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER:
                     if (
-                        !IsKnownAPCClass(PageClass) ||
+                        !IsKnowAPCRegion(PageClass) ||
                         PageClass == APCPagedNodeSegmentClasses::NONE ||
                         PageClass == APCPagedNodeSegmentClasses::NULLNAN ||
                         FabricTableSegmentClass != FabricTableSegmentClasses::NONE
@@ -234,7 +179,7 @@ namespace PredictedAdaptedEncoding
                 
                 case OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC:
                     if (
-                        !IsValidFabricTable(FabricTableSegmentClass) ||
+                        !IsKnownFabricRegion(FabricTableSegmentClass) ||
                         FabricTableSegmentClass == FabricTableSegmentClasses::NONE ||
                         PageClass != APCPagedNodeSegmentClasses::NONE
                     )
@@ -286,7 +231,7 @@ namespace PredictedAdaptedEncoding
                             return false;
                         }
                         
-                        if (!IsKnownValueContract(ContractOfValue))
+                        if (!IsKnownConcurrencyContractForValue(ContractOfValue))
                         {
                             return false;
                         }
@@ -318,7 +263,7 @@ namespace PredictedAdaptedEncoding
                             return false;
                         }
 
-                        if (!IsKnownValueContract(ContractOfValue))
+                        if (!IsKnownConcurrencyContractForValue(ContractOfValue))
                         {
                             return false;
                         }
@@ -615,11 +560,11 @@ namespace PredictedAdaptedEncoding
             {
                 if (out_packed_cell_view.CellMode == PackedMode::MODEL32)
                 {
-                    out_packed_cell_view.SubClassOfModel32 = static_cast<Model32Subclass>(ExtractSubClassOrContractFromMETA16_U_(meta16));
+                    out_packed_cell_view.SubClassOfModel32 = static_cast<Model32Subclass>(ExtractSubClassOrContractFromMeta16_(meta16));
                 }
                 else
                 {
-                    out_packed_cell_view.ContractOfValue = static_cast<ContractOfConcurrency>(ExtractSubClassOrContractFromMETA16_U_(meta16));
+                    out_packed_cell_view.ContractOfValue = static_cast<ContractOfConcurrency>(ExtractSubClassOrContractFromMeta16_(meta16));
                 }
                 out_packed_cell_view.InCellClock16 = ExtractClk16(packed_cell);
                 out_packed_cell_view.Raw32BitInCellData = ExtractRaw32FamilyBits(packed_cell);
@@ -628,11 +573,11 @@ namespace PredictedAdaptedEncoding
             {
                 if (out_packed_cell_view.CellMode == PackedMode::MODEL48)
                 {
-                    out_packed_cell_view.SubClassOfModel48 = static_cast<Model48Subclass>(ExtractSubClassOrContractFromMETA16_U_(meta16));
+                    out_packed_cell_view.SubClassOfModel48 = static_cast<Model48Subclass>(ExtractSubClassOrContractFromMeta16_(meta16));
                 }
                 else
                 {
-                    out_packed_cell_view.ContractOfValue = static_cast<ContractOfConcurrency>(ExtractSubClassOrContractFromMETA16_U_(meta16));
+                    out_packed_cell_view.ContractOfValue = static_cast<ContractOfConcurrency>(ExtractSubClassOrContractFromMeta16_(meta16));
                 }
 
                 out_packed_cell_view.Raw48BitInCellData = ExtractRaw48FamilyBits(packed_cell);

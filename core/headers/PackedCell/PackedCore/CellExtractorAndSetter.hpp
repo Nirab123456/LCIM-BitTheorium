@@ -86,12 +86,12 @@ namespace PredictedAdaptedEncoding
 
         static constexpr Model32Subclass ExtractModel32Subclass(packed64_t packed_cell) noexcept
         {
-            return static_cast<Model32Subclass>(ExtractSubClassOrContractFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<Model32Subclass>(ExtractSubClassOrContractFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr Model48Subclass ExtractModel48Subclass(packed64_t packed_cell) noexcept
         {
-            return static_cast<Model48Subclass>(ExtractSubClassOrContractFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<Model48Subclass>(ExtractSubClassOrContractFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr InternalDataTypePolicy ExtractInternalDataTypePolicy(packed64_t packed_cell) noexcept
@@ -202,7 +202,7 @@ protected:
             return static_cast<tag8_t>((meta16 >> REGION_CLASS_SHIFT) & REGION_CLASS_MASK);
         }
 
-        static constexpr tag8_t ExtractSubClassOrContractFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractSubClassOrContractFromMeta16_(meta16_t meta16) noexcept
         {
             return static_cast<tag8_t>((meta16 >> SUBCLASS_SHIFT) & SUBCLASS_MASK);
         }

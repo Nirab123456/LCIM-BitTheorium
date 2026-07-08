@@ -37,7 +37,7 @@ namespace PredictedAdaptedEncoding
                    attribute == AttributePolicy::INSTRUCTION_RAW64_EOF;
         }
 
-        static constexpr bool IsKnownValueContract(ContractOfConcurrency contract) noexcept
+        static constexpr bool IsKnownConcurrencyContractForValue(ContractOfConcurrency contract) noexcept
         {
             return contract == ContractOfConcurrency::RAW_PRIVATE ||
                    contract == ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED ||
