@@ -68,20 +68,20 @@ namespace PredictedAdaptedEncoding {
     //shifts 
     static constexpr unsigned PCELL_DETATYPE_SHIFT = 0u;
     static constexpr unsigned SUBCLASS_SHIFT = PCELL_DETATYPE_SHIFT + CELL_INTERNAL_DATA_TYPE_LEN;
-    static constexpr unsigned CELL_CLASS_SHIFT = SUBCLASS_SHIFT + SUB_CLASS_OF_CELL_MODE_LEN;
-    static constexpr unsigned CELL_MODE_SHIFT = CELL_CLASS_SHIFT + CELL_CLASS_LEN;
+    static constexpr unsigned REGION_CLASS_SHIFT = SUBCLASS_SHIFT + SUB_CLASS_OF_CELL_MODE_LEN;
+    static constexpr unsigned CELL_MODE_SHIFT = REGION_CLASS_SHIFT + CELL_CLASS_LEN;
     static constexpr unsigned LOCALITY_SHIFT = CELL_MODE_SHIFT + CELL_MODE_LEN;
-    static constexpr unsigned NODE_AUTH_SHIFT = LOCALITY_SHIFT + LOCALITY_LEN;
-    static constexpr unsigned PRIORITY_SHIFT = NODE_AUTH_SHIFT + NODE_AUTH_LEN;
-    static_assert(PRIORITY_SHIFT + PRIO_LEN == META16_B16, "PNLTCOD must be 16 bits");
+    static constexpr unsigned OWNERSHIP_SHIFT = LOCALITY_SHIFT + LOCALITY_LEN;
+    static constexpr unsigned ATTRIBUTE_SHIFT = OWNERSHIP_SHIFT + NODE_AUTH_LEN;
+    static_assert(ATTRIBUTE_SHIFT + PRIO_LEN == META16_B16, "PNLTCOD must be 16 bits");
     //mask
     static constexpr tag8_t CELL_INTERNAL_DATA_TYPE_MASK = static_cast<tag8_t>((1u << CELL_INTERNAL_DATA_TYPE_LEN) - 1u);
     static constexpr tag8_t SUBCLASS_MASK = static_cast<tag8_t>((1u << SUB_CLASS_OF_CELL_MODE_LEN) - 1u);
-    static constexpr tag8_t CELL_CLASS_MASK = static_cast<tag8_t>((1u << CELL_CLASS_LEN) - 1u);
+    static constexpr tag8_t REGION_CLASS_MASK = static_cast<tag8_t>((1u << CELL_CLASS_LEN) - 1u);
     static constexpr tag8_t CELL_MODE_MASK = static_cast<tag8_t>((1u << CELL_MODE_LEN) - 1u);
     static constexpr tag8_t LOCALITY_MASK = static_cast<tag8_t>((1u << LOCALITY_LEN) - 1u);
-    static constexpr tag8_t NODE_AUTH_MASK = static_cast<tag8_t>((1u << NODE_AUTH_LEN) - 1u);
-    static constexpr tag8_t PRIORITY_MASK = static_cast<tag8_t>((1u << PRIO_LEN) - 1u);
+    static constexpr tag8_t OWNERSHIP_MASK = static_cast<tag8_t>((1u << NODE_AUTH_LEN) - 1u);
+    static constexpr tag8_t ATTRIBUTE_MASK = static_cast<tag8_t>((1u << PRIO_LEN) - 1u);
     
     /// @brief HIGHEST_TRUTH of Packed Cell
     enum class LocalityPolicy : tag8_t

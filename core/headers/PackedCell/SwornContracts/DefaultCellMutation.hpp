@@ -6,9 +6,17 @@
 
 namespace PredictedAdaptedEncoding
 {
-    struct MutationContract
+    struct DefaultCellMutation
     {
-    protected:
+
+
+
+    };
+    
+
+    struct Mutation64_t : public DefaultCellMutation
+    {
+
         static constexpr bool IsCellABoundedRetryCandidate_(const PackedCell64_t::AuthoritiveCellView& auth_view) noexcept
         {
             if (
@@ -20,32 +28,7 @@ namespace PredictedAdaptedEncoding
             }
             return true;
         }
-
-        static constexpr bool IsCellAtomicUpdateCapable_(
-            const PackedCell64_t::AuthoritiveCellView& auth_view,
-            bool caller_holds_claim = false
-        ) noexcept
-        {
-            if (
-                !auth_view.IsCellValid ||
-                auth_view.ContractOfValue != ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW
-            )
-            {
-                return false;
-            }
-
-            if (!caller_holds_claim && auth_view.LocalityOfCell == LocalityPolicy::CLAIMED)
-            {
-                return false;
-            }
-            
-            return true;
-        }
-    };
-    
-
-    struct Mutation64_t : public MutationContract
-    {
+        
         static constexpr packed64_t AddDeltaInAtomicUnsignedCell(
             uint32_t delta, 
             packed64_t packed_cell,
@@ -85,7 +68,7 @@ namespace PredictedAdaptedEncoding
             default:
                 return PackedCell64_t::PACKED_CELL_SENTINAL;
             }
-        }    
+        }
     };
     
 

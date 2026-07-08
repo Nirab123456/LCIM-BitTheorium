@@ -66,7 +66,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr AttributePolicy ExtractPriorityPolicy(packed64_t packed_cell) noexcept
         {
-            return static_cast<AttributePolicy>(ExtractPriorityFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<AttributePolicy>(ExtractAttributeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr LocalityPolicy ExtractLocalityPolicy(packed64_t packed_cell) noexcept
@@ -76,12 +76,12 @@ namespace PredictedAdaptedEncoding
 
         static constexpr OwnershipPolicy ExtractOwnershipPolicy(packed64_t packed_cell) noexcept
         {
-            return static_cast<OwnershipPolicy>(ExtractCellLocalNodeAuthotityFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr APCPagedNodeSegmentClasses ExtractAPCPagedNodeSegmentClasse(packed64_t packed_cell) noexcept
         {
-            return static_cast<APCPagedNodeSegmentClasses>(ExtractRelMaskFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<APCPagedNodeSegmentClasses>(ExtractRegionFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr Model32Subclass ExtractModel32Subclass(packed64_t packed_cell) noexcept
@@ -141,11 +141,11 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
 
-            meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attribute) & PRIORITY_MASK);
-            meta16_t cell_authority = static_cast<meta16_t>(static_cast<tag8_t>(cell_ownership) & NODE_AUTH_MASK); 
+            meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attribute) & ATTRIBUTE_MASK);
+            meta16_t cell_authority = static_cast<meta16_t>(static_cast<tag8_t>(cell_ownership) & OWNERSHIP_MASK); 
             meta16_t cell_locality = static_cast<meta16_t>(static_cast<tag8_t>(locality) & LOCALITY_MASK);
             meta16_t cell_mode = static_cast<meta16_t>(static_cast<tag8_t>(mode) & CELL_MODE_MASK);
-            meta16_t cell_class = static_cast<meta16_t>(class_of_cell & CELL_CLASS_MASK);
+            meta16_t cell_class = static_cast<meta16_t>(class_of_cell & REGION_CLASS_MASK);
             meta16_t cell_sub_class = static_cast<meta16_t>(static_cast<tag8_t>(sub_class) & SUBCLASS_MASK);
             meta16_t cell_data_type = static_cast<meta16_t>(static_cast<unsigned>(data_type) & CELL_INTERNAL_DATA_TYPE_MASK);
 
@@ -163,11 +163,11 @@ namespace PredictedAdaptedEncoding
             
 
             meta16_t cell_meta = static_cast<meta16_t>(
-                (cell_attribute  << (PRIORITY_SHIFT))
-                | (cell_authority << (NODE_AUTH_SHIFT))
+                (cell_attribute  << (ATTRIBUTE_SHIFT))
+                | (cell_authority << (OWNERSHIP_SHIFT))
                 | (cell_locality << LOCALITY_SHIFT)
                 | (cell_mode << CELL_MODE_SHIFT)
-                | (cell_class << CELL_CLASS_SHIFT)
+                | (cell_class << REGION_CLASS_SHIFT)
                 | (cell_sub_class << SUBCLASS_SHIFT)
                 | cell_data_type
             );
@@ -177,14 +177,14 @@ namespace PredictedAdaptedEncoding
 
 protected:
 
-        static constexpr tag8_t ExtractPriorityFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractAttributeFromMeta16_(meta16_t meta16) noexcept
         {
-            return static_cast<tag8_t>((meta16 >> PRIORITY_SHIFT) & PRIORITY_MASK);
+            return static_cast<tag8_t>((meta16 >> ATTRIBUTE_SHIFT) & ATTRIBUTE_MASK);
         }
 
-        static constexpr tag8_t ExtractCellLocalNodeAuthotityFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractOwnershipFromMeta16_(meta16_t meta16) noexcept
         {
-            return static_cast<tag8_t>((meta16 >> NODE_AUTH_SHIFT ) & NODE_AUTH_MASK);
+            return static_cast<tag8_t>((meta16 >> OWNERSHIP_SHIFT ) & OWNERSHIP_MASK);
         }
         
         static constexpr tag8_t ExtractLocalityFromMETA16_U_(meta16_t meta16) noexcept
@@ -197,9 +197,9 @@ protected:
             return static_cast<tag8_t>((meta16 >> CELL_MODE_SHIFT) & CELL_MODE_MASK);
         }
 
-        static constexpr tag8_t ExtractRelMaskFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractRegionFromMeta16_(meta16_t meta16) noexcept
         {
-            return static_cast<tag8_t>((meta16 >> CELL_CLASS_SHIFT) & CELL_CLASS_MASK);
+            return static_cast<tag8_t>((meta16 >> REGION_CLASS_SHIFT) & REGION_CLASS_MASK);
         }
 
         static constexpr tag8_t ExtractSubClassOrContractFromMETA16_U_(meta16_t meta16) noexcept
@@ -323,8 +323,8 @@ protected:
         {
             return SetIndicatedMetaInMeta16(
                 meta16,
-                PRIORITY_SHIFT,
-                PRIORITY_MASK,
+                ATTRIBUTE_SHIFT,
+                ATTRIBUTE_MASK,
                 static_cast<tag8_t>(attribute)
             );
         }
@@ -336,8 +336,8 @@ protected:
         {
             return SetIndicatedMetaInMeta16(
                 meta16,
-                NODE_AUTH_SHIFT,
-                NODE_AUTH_MASK,
+                OWNERSHIP_SHIFT,
+                OWNERSHIP_MASK,
                 static_cast<tag8_t>(cell_ownership)
             );
         }
@@ -375,8 +375,8 @@ protected:
         {
             return SetIndicatedMetaInMeta16(
                 meta16,
-                CELL_CLASS_SHIFT,
-                CELL_CLASS_MASK,
+                REGION_CLASS_SHIFT,
+                REGION_CLASS_MASK,
                 static_cast<tag8_t>(page_class)
             );
         }

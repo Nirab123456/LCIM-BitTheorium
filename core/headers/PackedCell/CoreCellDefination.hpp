@@ -594,18 +594,18 @@ namespace PredictedAdaptedEncoding
             const meta16_t meta16 = ExtractMeta16fromPackedCell(packed_cell);
             out_packed_cell_view.RawCell = packed_cell;
             out_packed_cell_view.InCellMeta16 = meta16;
-            out_packed_cell_view.Attribute = static_cast<AttributePolicy>(ExtractPriorityFromMETA16_U_(meta16));
-            out_packed_cell_view.CellOwnership =  static_cast<OwnershipPolicy>(ExtractCellLocalNodeAuthotityFromMETA16_U_(meta16));
+            out_packed_cell_view.Attribute = static_cast<AttributePolicy>(ExtractAttributeFromMeta16_(meta16));
+            out_packed_cell_view.CellOwnership =  static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
             out_packed_cell_view.LocalityOfCell = static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(meta16));
             out_packed_cell_view.CellMode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
 
             if (out_packed_cell_view.CellOwnership == OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER)
             {
-                out_packed_cell_view.PageClass = static_cast<APCPagedNodeSegmentClasses>(ExtractRelMaskFromMETA16_U_(meta16));
+                out_packed_cell_view.PageClass = static_cast<APCPagedNodeSegmentClasses>(ExtractRegionFromMeta16_(meta16));
             }
             else
             {
-                out_packed_cell_view.FabricTableSegmentClass = static_cast<FabricTableSegmentClasses>(ExtractRelMaskFromMETA16_U_(meta16));
+                out_packed_cell_view.FabricTableSegmentClass = static_cast<FabricTableSegmentClasses>(ExtractRegionFromMeta16_(meta16));
             }
 
             if (out_packed_cell_view.CellMode == PackedMode::MODEL32 || 
