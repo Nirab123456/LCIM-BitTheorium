@@ -113,7 +113,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
             APCPagedNodeSegmentClasses::META_HEADER,
             valid_occupancy_carrier.localityOfThisOccupancy,
             InternalDataTypePolicy ::UNSIGNED,
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             raw_48
         );
     }

@@ -92,7 +92,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency Concurrency = ContractOfConcurrency::UNASSIGNED_UNUSED_NANNULL;
 
             InternalDataTypePolicy DataType = InternalDataTypePolicy::UNASSIGNED_UNUSED_NANNULL;
-            AttributePolicy Attribute = AttributePolicy::UNASSIGNED_UNUSED_NANNULL;
+            WildCardOfPackedCell Attribute = WildCardOfPackedCell::UNASSIGNED_UNUSED_NANNULL;
             LocalityPolicy Locality = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
             bool StructurallyValid = false;
         };
@@ -168,7 +168,7 @@ namespace PredictedAdaptedEncoding
             contract_key.Owner = static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
             contract_key.CellMode = static_cast<PackedMode>(ExtractModeOfPackedCellFromPacked(meta16));
             contract_key.DataType = static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(meta16));
-            contract_key.Attribute = static_cast<AttributePolicy>(ExtractAttributeFromMeta16_(meta16));
+            contract_key.Attribute = static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(meta16));
             contract_key.Locality = static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(meta16));
 
             if(
@@ -259,7 +259,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency concurrency,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{
@@ -283,7 +283,7 @@ namespace PredictedAdaptedEncoding
             Model32Subclass model32,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{
@@ -306,7 +306,7 @@ namespace PredictedAdaptedEncoding
             Model48Subclass model48,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{
@@ -330,7 +330,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency concurrency,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{
@@ -355,7 +355,7 @@ namespace PredictedAdaptedEncoding
             Model32Subclass model32,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{
@@ -379,7 +379,7 @@ namespace PredictedAdaptedEncoding
             Model48Subclass model48,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
-            AttributePolicy attribute 
+            WildCardOfPackedCell attribute 
         ) noexcept
         {
             return Meta16Files{

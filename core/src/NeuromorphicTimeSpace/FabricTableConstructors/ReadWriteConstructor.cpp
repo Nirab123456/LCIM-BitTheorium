@@ -9,7 +9,7 @@ namespace PredictedAdaptedEncoding
         uint64_t value, 
         ContractOfConcurrency access_contract,
         LocalityPolicy cell_locality,
-        AttributePolicy attribute
+        WildCardOfPackedCell attribute
     )noexcept
     {
         const size_t slab_index = static_cast<size_t>(fabric_meta_idx);

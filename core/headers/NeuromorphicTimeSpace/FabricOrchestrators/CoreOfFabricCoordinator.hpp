@@ -292,7 +292,7 @@ namespace PredictedAdaptedEncoding
             if (
                 !CommonValidityCheckOfFabricCellsTableSegmentClasses(auth_view_of_the_cell) ||
                 auth_view_of_the_cell.CellMode != PackedMode::VALUE48 ||
-                auth_view_of_the_cell.Attribute != AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL ||
+                auth_view_of_the_cell.Attribute != WildCardOfPackedCell::PACKED_CELL ||
                 auth_view_of_the_cell.CellValueDataType != InternalDataTypePolicy::UNSIGNED ||
                 !IsThisFebricMetaIdxAValidIncrementalCountType(user_validation)
             )

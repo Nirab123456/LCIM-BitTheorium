@@ -64,9 +64,9 @@ namespace PredictedAdaptedEncoding
             return static_cast<uint64_t>(packed_cell & MaskLowNBits(FAMILY_48_BIT_LEN));
         }
 
-        static constexpr AttributePolicy ExtractPriorityPolicy(packed64_t packed_cell) noexcept
+        static constexpr WildCardOfPackedCell ExtractPriorityPolicy(packed64_t packed_cell) noexcept
         {
-            return static_cast<AttributePolicy>(ExtractAttributeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr LocalityPolicy ExtractLocalityPolicy(packed64_t packed_cell) noexcept
@@ -164,12 +164,12 @@ namespace PredictedAdaptedEncoding
 
             meta16_t cell_meta = static_cast<meta16_t>(
                 (cell_attribute  << (ATTRIBUTE_SHIFT))
+                | (cell_data_type << (DATA_TYPE_SHIFT))
                 | (cell_authority << (OWNERSHIP_SHIFT))
                 | (cell_locality << LOCALITY_SHIFT)
                 | (cell_mode << CELL_MODE_SHIFT)
                 | (cell_class << REGION_CLASS_SHIFT)
                 | (cell_sub_class << SUBCLASS_SHIFT)
-                | cell_data_type
             );
             return cell_meta;
         }
@@ -209,7 +209,7 @@ protected:
 
         static constexpr tag8_t ExtractValueDataTypeFromMETA16_U_(meta16_t meta16) noexcept
         {
-            return static_cast<tag8_t>((meta16 >> PCELL_DETATYPE_SHIFT) & CELL_INTERNAL_DATA_TYPE_MASK);
+            return static_cast<tag8_t>((meta16 >> DATA_TYPE_SHIFT) & CELL_INTERNAL_DATA_TYPE_MASK);
         }
     };
     
@@ -224,7 +224,7 @@ protected:
             OwnershipPolicy ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             tag8_t cell_class = static_cast<tag8_t>(APCPagedNodeSegmentClasses::FREE_SLOT),
             Model48Subclass sub_class = Model48Subclass::SELF_CLASS,
-            AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL, 
+            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
@@ -247,7 +247,7 @@ protected:
             OwnershipPolicy ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             tag8_t cell_class = static_cast<tag8_t>(APCPagedNodeSegmentClasses::FREE_SLOT),
             Model32Subclass sub_class = Model32Subclass::SELF_CLASS,
-            AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL, 
+            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
@@ -271,7 +271,24 @@ protected:
             return packed_cell;
         }
 
-        static constexpr packed64_t SetPriorityInPacked(packed64_t packed_cell, AttributePolicy attribute) noexcept
+        static constexpr packed64_t SetClock16InPacked(packed64_t packed_cell, clk16_t value16) noexcept
+        {
+            if (!IsPackedCellFrom32BitFamily(packed_cell))
+            {
+                return PACKED_CELL_SENTINAL;
+            }
+            
+            constexpr packed64_t clock16_mask = static_cast<packed64_t>(MaskLowNBits(LOW16_BIT_LEN) << VALBITS);
+            packed_cell &= ~clock16_mask;
+
+            packed_cell |= (
+                static_cast<packed64_t>(value16) & static_cast<packed64_t>(MaskLowNBits(LOW16_BIT_LEN))
+            ) << VALBITS;
+
+            return packed_cell;
+        }
+
+        static constexpr packed64_t SetPriorityInPacked(packed64_t packed_cell, WildCardOfPackedCell attribute) noexcept
         {
             const meta16_t new_desired_meta = SetPriorityInMETA16(ExtractMeta16fromPackedCell(packed_cell), attribute);
             return SetMETA16InPacked(packed_cell, new_desired_meta);
@@ -318,7 +335,7 @@ protected:
 
         static  constexpr meta16_t SetPriorityInMETA16(
             meta16_t meta16,
-            AttributePolicy attribute
+            WildCardOfPackedCell attribute
         ) noexcept
         {
             return SetIndicatedMetaInMeta16(
@@ -402,7 +419,7 @@ protected:
         {
             return SetIndicatedMetaInMeta16(
                 meta16,
-                PCELL_DETATYPE_SHIFT,
+                DATA_TYPE_SHIFT,
                 CELL_INTERNAL_DATA_TYPE_MASK,
                 static_cast<tag8_t>(cell_data_type)
             );

@@ -97,7 +97,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::META_HEADER, TypeFamily::VALUE48,
                         ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW, LocalityPolicy::IDLE,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::MEM_ORDER_RELESE
                 ),//1
@@ -106,7 +106,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::META_HEADER, TypeFamily::VALUE48,
                         ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW, LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::MEM_ORDER_RELESE
                 ),//2
@@ -116,7 +116,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::META_HEADER, TypeFamily::VALUE48,
                         ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED, LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::CAS_LOOP_RMW
                 ),//3
@@ -127,7 +127,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::WILD_CARD_ALL_REGION_CONTRACT, TypeFamily::VALUE32,
                         ContractOfConcurrency::CLAIMED_GURDED,  LocalityPolicy::IDLE,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD
                 ),//4
@@ -137,7 +137,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::WILD_CARD_ALL_REGION_CONTRACT, TypeFamily::VALUE32,
                         ContractOfConcurrency::CLAIMED_GURDED,  LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD
                 ),//5
@@ -147,7 +147,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::WILD_CARD_ALL_REGION_CONTRACT, TypeFamily::VALUE48,
                         ContractOfConcurrency::CLAIMED_GURDED,  LocalityPolicy::IDLE,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD
                 ),//6
@@ -157,7 +157,7 @@ namespace PredictedAdaptedEncoding
                     APCValueKeyConstruction(
                         APCPagedNodeSegmentClasses::WILD_CARD_ALL_REGION_CONTRACT, TypeFamily::VALUE48,
                         ContractOfConcurrency::CLAIMED_GURDED,  LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD
                 ),//7
@@ -168,7 +168,7 @@ namespace PredictedAdaptedEncoding
                     APCModel48KeyConstruction(
                         APCPagedNodeSegmentClasses::META_HEADER, Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8,
                         LocalityPolicy::PUBLISHED, InternalDataTypePolicy::UNSIGNED,
-                        AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD,
                     RelationKernel::LAYOUT_BUFFER_LOCAL
@@ -180,7 +180,7 @@ namespace PredictedAdaptedEncoding
                     APCModel48KeyConstruction(
                         APCPagedNodeSegmentClasses::META_HEADER, Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8,
                         LocalityPolicy::PUBLISHED, InternalDataTypePolicy::UNSIGNED,
-                        AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::CAS_LOOP_RMW,
                     RelationKernel::OCCUPANCY_BUFFER_LOCAL
@@ -192,7 +192,7 @@ namespace PredictedAdaptedEncoding
                     FabricAnyValueKeyConstruction(
                         FabricTableSegmentClasses::CONTROL_HEADER, TypeFamily::VALUE48,
                         ContractOfConcurrency::CLAIMED_GURDED, LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::MEM_ORDER_RELESE
                 ),//10
@@ -201,7 +201,7 @@ namespace PredictedAdaptedEncoding
                     FabricAnyValueKeyConstruction(
                         FabricTableSegmentClasses::SLAB_RECORD_MAP, TypeFamily::VALUE48,
                         ContractOfConcurrency::RAW_PRIVATE, LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::MUTATION_PROHIBATED
                 ),//11
@@ -210,7 +210,7 @@ namespace PredictedAdaptedEncoding
                     FabricAnyValueKeyConstruction(
                         FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, TypeFamily::VALUE48,
                         ContractOfConcurrency::CLAIMED_GURDED, LocalityPolicy::PUBLISHED,
-                        InternalDataTypePolicy::UNSIGNED, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                        InternalDataTypePolicy::UNSIGNED, WildCardOfPackedCell::PACKED_CELL
                     ),
                     MutationOparations::RELESE_CLAIM_GUARD
                 )

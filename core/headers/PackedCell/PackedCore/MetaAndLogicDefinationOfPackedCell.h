@@ -23,11 +23,14 @@
 #if defined(_MSC_VER)
     #include <intrin.h>
 #endif
-// META16:
-// [ attribute:2 | node_authority:2 | locality:2 | cell_mode:2 | cell_class:4 | mode_subclass:2 | dtype:2 ]
-// shifts:
-// attribute=14, node_authority=12, locality=10, cell_mode= 8, cell_class=4, mode_subclass=2, dtype=0
 
+// [15..14] WildCard
+// [13..12] dtype
+// [11..10] ownership
+// [09..08] locality
+// [07..06] packed mode
+// [05..02] APC/Fabric class
+// [01..00] subclass_or_contract
 
 namespace PredictedAdaptedEncoding {
     using packed64_t = uint64_t;
@@ -57,31 +60,31 @@ namespace PredictedAdaptedEncoding {
 
     static constexpr uint8_t DEFAULT_META16_INDEXING_LIMIT_2BIT = 3;
 
-    static constexpr unsigned PRIO_LEN = 2u;
-    static constexpr unsigned NODE_AUTH_LEN = 2u;
+    static constexpr unsigned ATTRIBUTE_LEN = 2u;
+    static constexpr unsigned CELL_INTERNAL_DATA_TYPE_LEN = 2u;
+    static constexpr unsigned OWNERSHIP_LEN = 2u;
     static constexpr unsigned LOCALITY_LEN = 2u;// will be 2u
     static constexpr unsigned CELL_MODE_LEN = 2u;
     static constexpr unsigned CELL_CLASS_LEN = 4u;
     static constexpr unsigned SUB_CLASS_OF_CELL_MODE_LEN = 2u;
-    static constexpr unsigned CELL_INTERNAL_DATA_TYPE_LEN = 2u;
 
     //shifts 
-    static constexpr unsigned PCELL_DETATYPE_SHIFT = 0u;
-    static constexpr unsigned SUBCLASS_SHIFT = PCELL_DETATYPE_SHIFT + CELL_INTERNAL_DATA_TYPE_LEN;
+    static constexpr unsigned SUBCLASS_SHIFT = 0;
     static constexpr unsigned REGION_CLASS_SHIFT = SUBCLASS_SHIFT + SUB_CLASS_OF_CELL_MODE_LEN;
     static constexpr unsigned CELL_MODE_SHIFT = REGION_CLASS_SHIFT + CELL_CLASS_LEN;
     static constexpr unsigned LOCALITY_SHIFT = CELL_MODE_SHIFT + CELL_MODE_LEN;
     static constexpr unsigned OWNERSHIP_SHIFT = LOCALITY_SHIFT + LOCALITY_LEN;
-    static constexpr unsigned ATTRIBUTE_SHIFT = OWNERSHIP_SHIFT + NODE_AUTH_LEN;
-    static_assert(ATTRIBUTE_SHIFT + PRIO_LEN == META16_B16, "PNLTCOD must be 16 bits");
+    static constexpr unsigned DATA_TYPE_SHIFT = OWNERSHIP_SHIFT + OWNERSHIP_LEN;
+    static constexpr unsigned ATTRIBUTE_SHIFT = DATA_TYPE_SHIFT + CELL_INTERNAL_DATA_TYPE_LEN;
+    static_assert(ATTRIBUTE_SHIFT + ATTRIBUTE_LEN == META16_B16, "PNLTCOD must be 16 bits");
     //mask
     static constexpr tag8_t CELL_INTERNAL_DATA_TYPE_MASK = static_cast<tag8_t>((1u << CELL_INTERNAL_DATA_TYPE_LEN) - 1u);
     static constexpr tag8_t SUBCLASS_MASK = static_cast<tag8_t>((1u << SUB_CLASS_OF_CELL_MODE_LEN) - 1u);
     static constexpr tag8_t REGION_CLASS_MASK = static_cast<tag8_t>((1u << CELL_CLASS_LEN) - 1u);
     static constexpr tag8_t CELL_MODE_MASK = static_cast<tag8_t>((1u << CELL_MODE_LEN) - 1u);
     static constexpr tag8_t LOCALITY_MASK = static_cast<tag8_t>((1u << LOCALITY_LEN) - 1u);
-    static constexpr tag8_t OWNERSHIP_MASK = static_cast<tag8_t>((1u << NODE_AUTH_LEN) - 1u);
-    static constexpr tag8_t ATTRIBUTE_MASK = static_cast<tag8_t>((1u << PRIO_LEN) - 1u);
+    static constexpr tag8_t OWNERSHIP_MASK = static_cast<tag8_t>((1u << OWNERSHIP_LEN) - 1u);
+    static constexpr tag8_t ATTRIBUTE_MASK = static_cast<tag8_t>((1u << ATTRIBUTE_LEN) - 1u);
     
     /// @brief HIGHEST_TRUTH of Packed Cell
     enum class LocalityPolicy : tag8_t
@@ -172,16 +175,16 @@ namespace PredictedAdaptedEncoding {
     };
 
     /// @brief Describs Attribute OF: Packed Cell & Why it exist
-    /// @param SELF_CONTAINED_DATA_OR_MODEL VALUE OR: MODEL -> Itself Carry The Whole Message
-    /// @param DEPENDENT_OR_INSTRUCTION_CELL VALUE OR: MODEL -> Describs ANY: Kind OF: Instruction TO: Closeby PackedCell
-    /// @param INSTRUCTION_RAW64_NEXT INSTRUCTIONS: If Cells Are Raw64 how TO: Read and Write Them & SEQUENTIAL: N * INSTRUCTION_RAW64_NEXT (N  AMOUNT: Can be used to describe the Meta)
-    /// @param INSTRUCTION_RAW64_EOF INSTRUCTIONS: Defines Its the end Raw64 and LATER ON: Cells Are Packed Cell
-    enum class AttributePolicy : tag8_t
+    /// @param PACKED_CELL VALUE OR: MODEL -> Itself Carry The Whole Message
+    /// @param RAW_60BIT VALUE OR: MODEL -> Describs ANY: Kind OF: Instruction TO: Closeby PackedCell
+    /// @param RAW_30x2BIT INSTRUCTIONS: If Cells Are Raw64 how TO: Read and Write Them & SEQUENTIAL: N * RAW_30x2BIT (N  AMOUNT: Can be used to describe the Meta)
+    /// @param RAW_15x4BIT INSTRUCTIONS: Defines Its the end Raw64 and LATER ON: Cells Are Packed Cell
+    enum class WildCardOfPackedCell : tag8_t
     {
-        SELF_CONTAINED_DATA_OR_MODEL = 0,
-        DEPENDENT_OR_INSTRUCTION_CELL = 1,
-        INSTRUCTION_RAW64_NEXT = 2,
-        INSTRUCTION_RAW64_EOF = 3,
+        PACKED_CELL = 0,
+        RAW_60BIT = 1,
+        RAW_30x2BIT = 2,
+        RAW_15x4BIT = 3,
         UNASSIGNED_UNUSED_NANNULL = 4
     };
 

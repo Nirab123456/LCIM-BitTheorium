@@ -30,7 +30,7 @@ namespace PredictedAdaptedEncoding
             FabricMetaIndicies fabric_meta_idx, uint64_t value, 
             ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW,
             LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
-            AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL
         )noexcept;
 
         JustifyClaimCas TryClaimACellInSlab(PackedCell64_t::AuthoritiveCellView& expected_cell_auth_view, packed64_t* desired_packed_cell = nullptr) noexcept;

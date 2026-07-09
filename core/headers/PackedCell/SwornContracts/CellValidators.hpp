@@ -29,12 +29,12 @@ namespace PredictedAdaptedEncoding
                    dtype == InternalDataTypePolicy::UNSIGNED;
         }
 
-        static constexpr bool IsKnownAttribute(AttributePolicy attribute) noexcept
+        static constexpr bool IsKnownAttribute(WildCardOfPackedCell attribute) noexcept
         {
-            return attribute == AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL ||
-                   attribute == AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL ||
-                   attribute == AttributePolicy::INSTRUCTION_RAW64_NEXT ||
-                   attribute == AttributePolicy::INSTRUCTION_RAW64_EOF;
+            return attribute == WildCardOfPackedCell::PACKED_CELL ||
+                   attribute == WildCardOfPackedCell::RAW_60BIT ||
+                   attribute == WildCardOfPackedCell::RAW_30x2BIT ||
+                   attribute == WildCardOfPackedCell::RAW_15x4BIT;
         }
 
         static constexpr bool IsKnownConcurrencyContractForValue(ContractOfConcurrency contract) noexcept

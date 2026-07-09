@@ -75,7 +75,7 @@ namespace PredictedAdaptedEncoding
             clk16_t version,
             LocalityPolicy locality = LocalityPolicy::IDLE,
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::META_HEADER,
-            AttributePolicy attribute_policy = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+            WildCardOfPackedCell attribute_policy = WildCardOfPackedCell::PACKED_CELL
         ) noexcept
         {
             const std::pair<packed64_t, packed64_t> lowf_highs = GetPairOfLow32FAndHigh32SFromUnsigned64_(
@@ -104,7 +104,7 @@ namespace PredictedAdaptedEncoding
                 locality, 
                 OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
                 static_cast<tag8_t>(fabric_segment_class), 
-                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+                WildCardOfPackedCell::PACKED_CELL
             );
 
             if (fabric_segment_class != FabricTableSegmentClasses::GLOBAL_AND_CONFIG && value <= BIT_FAMILY_32_SENTINAL)
@@ -168,7 +168,7 @@ private:
             LocalityPolicy locality,
             OwnershipPolicy ownership,
             tag8_t page_class,
-            AttributePolicy attribute_policy = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+            WildCardOfPackedCell attribute_policy = WildCardOfPackedCell::PACKED_CELL
         ) noexcept
         {
             const uint32_t low_half32 = static_cast<uint32_t>(value & MaskLowNBits(VALBITS));

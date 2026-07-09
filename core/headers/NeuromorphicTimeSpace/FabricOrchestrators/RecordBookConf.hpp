@@ -165,7 +165,7 @@ struct RecordBookConf
             FabricTableSegmentClasses::SLAB_RECORD_MAP,
             cell_locality,
             InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             value 
         );
 
@@ -201,7 +201,7 @@ struct RecordBookConf
             static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::SLAB_RECORD_MAP,
             locality, InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             masked_width,
             version_origin_slabid
         );

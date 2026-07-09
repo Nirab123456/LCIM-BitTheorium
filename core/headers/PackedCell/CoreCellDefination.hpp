@@ -22,7 +22,7 @@ namespace PredictedAdaptedEncoding
                 PackedMode::MODEL32,
                 BIT_FAMILY_32_SENTINAL,
                 UINT16_MAX,
-                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                WildCardOfPackedCell::PACKED_CELL,
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
                 LocalityPolicy::FAULTY
             );
@@ -38,7 +38,7 @@ namespace PredictedAdaptedEncoding
                 return MakeFaultyCell();
             }
             packed64_t packed_cell = (packed64_t(in_cell_value) & MaskLowNBits(VALBITS));
-            packed_cell = SetMETA16InPacked(packed_cell, clock16);
+            packed_cell = SetClock16InPacked(packed_cell, clock16);
             packed_cell = SetMETA16InPacked(packed_cell, meta16);
             return packed_cell;
         }
@@ -61,7 +61,7 @@ namespace PredictedAdaptedEncoding
             PackedMode cell_mode,
             uint64_t cell_value = UNSIGNED_ZERO,
             clk16_t clock16 = UNSIGNED_ZERO,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             OwnershipPolicy cell_ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE, 
             tag8_t cell_class = UNSIGNED_ZERO,
@@ -123,7 +123,7 @@ namespace PredictedAdaptedEncoding
 
             meta16_t  InCellMeta16{0};
 
-            AttributePolicy Attribute{AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL};
+            WildCardOfPackedCell Attribute{WildCardOfPackedCell::PACKED_CELL};
 
             OwnershipPolicy CellOwnership{OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER};
 
@@ -308,7 +308,7 @@ namespace PredictedAdaptedEncoding
                     ContractOfConcurrency::CLAIMED_GURDED,
                     page_class,
                     cell_locality,
-                    dtype, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                    dtype, WildCardOfPackedCell::PACKED_CELL,
                     value, cell_clock16
                 );
             
@@ -318,7 +318,7 @@ namespace PredictedAdaptedEncoding
                     ContractOfConcurrency::CLAIMED_GURDED,
                     page_class,
                     cell_locality,
-                    dtype, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                    dtype, WildCardOfPackedCell::PACKED_CELL,
                     value
                 );
 
@@ -328,7 +328,7 @@ namespace PredictedAdaptedEncoding
                     static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
                     page_class,
                     cell_locality,
-                    dtype, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                    dtype, WildCardOfPackedCell::PACKED_CELL,
                     value,
                     cell_clock16
                 );
@@ -339,7 +339,7 @@ namespace PredictedAdaptedEncoding
                     static_cast<tag8_t>(Model48Subclass::SELF_CLASS),
                     page_class,
                     cell_locality,
-                    dtype, AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                    dtype, WildCardOfPackedCell::PACKED_CELL,
                     value
                 );
             default:
@@ -357,7 +357,7 @@ namespace PredictedAdaptedEncoding
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
 
@@ -383,7 +383,7 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
 
@@ -411,7 +411,7 @@ namespace PredictedAdaptedEncoding
             InternalDataTypePolicy in_cell_value_data_type,
             uint64_t in_cell_value,
             clk16_t in_cell_clk16,
-            AttributePolicy cell_attribute,
+            WildCardOfPackedCell cell_attribute,
             tag8_t sub_class
         ) noexcept
         {
@@ -436,7 +436,7 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
         ) noexcept
@@ -460,7 +460,7 @@ namespace PredictedAdaptedEncoding
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy cell_attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
         ) noexcept
@@ -540,7 +540,7 @@ namespace PredictedAdaptedEncoding
             const meta16_t meta16 = ExtractMeta16fromPackedCell(packed_cell);
             out_packed_cell_view.RawCell = packed_cell;
             out_packed_cell_view.InCellMeta16 = meta16;
-            out_packed_cell_view.Attribute = static_cast<AttributePolicy>(ExtractAttributeFromMeta16_(meta16));
+            out_packed_cell_view.Attribute = static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(meta16));
             out_packed_cell_view.CellOwnership =  static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
             out_packed_cell_view.LocalityOfCell = static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(meta16));
             out_packed_cell_view.CellMode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));

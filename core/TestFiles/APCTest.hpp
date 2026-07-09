@@ -191,7 +191,7 @@
 //         MasterClockConf& clock,
 //         float value,
 //         APCPagedNodeSegmentClasses page_class,
-//         AttributePolicy attribute = AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+//         WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL,
 //         PackedMode mode = PackedMode::VALUE32
 //     )
 //     {
@@ -653,7 +653,7 @@
 //                         clock,
 //                         value,
 //                         APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
-//                         AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                         WildCardOfPackedCell::PACKED_CELL
 //                     ),
 //                     manager,
 //                     growth_counter,
@@ -685,7 +685,7 @@
 //                         clock,
 //                         prediction,
 //                         APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
-//                         AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                         WildCardOfPackedCell::PACKED_CELL
 //                     ),
 //                     manager,
 //                     growth_counter,
@@ -907,7 +907,7 @@
 //                 clock,
 //                 state,
 //                 APCPagedNodeSegmentClasses::STATE_SLOT,
-//                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
 //             grow_integrator,
@@ -921,7 +921,7 @@
 //                 clock,
 //                 error,
 //                 APCPagedNodeSegmentClasses::ERROR_SLOT,
-//                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
 //             grow_integrator,
@@ -981,7 +981,7 @@
 //                 clock,
 //                 motor,
 //                 APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
-//                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
 //             grow_motor,
@@ -995,7 +995,7 @@
 //                 clock,
 //                 feedback,
 //                 APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
-//                 AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
+//                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
 //             grow_predictor,

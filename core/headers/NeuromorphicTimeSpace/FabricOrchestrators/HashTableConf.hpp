@@ -149,7 +149,7 @@ struct HashTableConf : public HashHelpers
 
 
 
-    /// @brief Cell DEFAULTS: TypeFamily::VALUE48 + ContractOfConcurrency::CLAIMED_GURDED + AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL
+    /// @brief Cell DEFAULTS: TypeFamily::VALUE48 + ContractOfConcurrency::CLAIMED_GURDED + WildCardOfPackedCell::RAW_60BIT
     /// @return VALID -> Packed Cell -> OR: UINT64_MAX:: if FabricTableSegmentClasses dosent belong  BRANCH_HASH, SHARED_HASH, LOGICAL_HASH
     static constexpr packed64_t MakeAHashValueCell(
         uint64_t hash_handle,
@@ -173,7 +173,7 @@ struct HashTableConf : public HashHelpers
             hash_table_class, 
             locality,
             InternalDataTypePolicy::UNSIGNED, 
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             hash_handle
         );
     }
@@ -215,7 +215,7 @@ struct HashTableConf : public HashHelpers
                 hash_table,
                 locality,
                 InternalDataTypePolicy ::UNSIGNED,
-                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+                WildCardOfPackedCell::PACKED_CELL,
                 prefix_32.value(),
                 sequential_index.value()
             );
@@ -227,7 +227,7 @@ struct HashTableConf : public HashHelpers
             hash_table, 
             locality,
             InternalDataTypePolicy::UNSIGNED, 
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             key48
         );
 
@@ -281,7 +281,7 @@ struct HashTableConf : public HashHelpers
             hash_table,
             locality,
             InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
+            WildCardOfPackedCell::PACKED_CELL,
             desired_prob_distance_lock
         );
     }
