@@ -281,7 +281,7 @@ struct HashTableConf : public HashHelpers
             hash_table,
             locality,
             InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
+            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             desired_prob_distance_lock
         );
     }

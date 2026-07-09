@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
 
         const packed64_t desired_packed_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48, access_contract,
-            FabricTableSegmentClasses::GENERIC_CONTROL,
+            FabricTableSegmentClasses::CONTROL_HEADER,
             cell_locality,
             InternalDataTypePolicy ::UNSIGNED,
             attribute,
@@ -152,7 +152,7 @@ namespace PredictedAdaptedEncoding
         const std::pair<packed64_t, packed64_t> low32_and_probable_high32 = PairedVersionedCellModelOfMode32::GetPairOfLow32FAndHigh32SFromUnsigned64ForFabric(
             desired_occupancy_value, pair_version,
             LocalityPolicy::PUBLISHED,
-            FabricTableSegmentClasses::GENERIC_CONTROL
+            FabricTableSegmentClasses::CONTROL_HEADER
         );
 
         auto ForceUpdate = [&](){

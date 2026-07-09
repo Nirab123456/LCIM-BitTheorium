@@ -37,7 +37,7 @@ struct RecordBookConf
             return false;
         }
         
-        if (a_cell_view.FabricTableSegmentClass != FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES)
+        if (a_cell_view.FabricTableSegmentClass != FabricTableSegmentClasses::SLAB_RECORD_MAP)
         {
             return false;
         }
@@ -162,7 +162,7 @@ struct RecordBookConf
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48,
             ContractOfConcurrency::RAW_PRIVATE,
-            FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES,
+            FabricTableSegmentClasses::SLAB_RECORD_MAP,
             cell_locality,
             InternalDataTypePolicy::UNSIGNED,
             AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
@@ -199,9 +199,9 @@ struct RecordBookConf
 
         return PackedCell64_t::MakeModeledFabricValidPackedCell(ModelFamily::MODEL32,
             static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
-            FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES,
+            FabricTableSegmentClasses::SLAB_RECORD_MAP,
             locality, InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
+            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             masked_width,
             version_origin_slabid
         );

@@ -7,7 +7,7 @@ namespace PredictedAdaptedEncoding
     {
         
     protected:
-        /// @brief Only Reads Valid FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES -> Cells
+        /// @brief Only Reads Valid FabricTableSegmentClasses::SLAB_RECORD_MAP -> Cells
         /// @param desired_table OriginOfRecord == FabricTableSegmentClasses -> Used Rename fore Ease of Developement
         /// @return VALID: Index / INVALID: SIZE_MAX
         constexpr size_t ReadOriginIndexBeginOfRecordBookOfFabricTableSegmentClasses_(OriginOfRecord desired_table) noexcept;
@@ -24,7 +24,7 @@ namespace PredictedAdaptedEncoding
         /// @param table_class Desired FabricTableSegmentClasses You want Idle
         void IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept;
 
-        /// @brief WRITES: A Single Entry OF: FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES == (2xPackedMode::VALUE48 + 1xPackedMode::Model32)
+        /// @brief WRITES: A Single Entry OF: FabricTableSegmentClasses::SLAB_RECORD_MAP == (2xPackedMode::VALUE48 + 1xPackedMode::Model32)
         /// @param table_class Desired FabricTableSegmentClasses == OriginOfRecord
         /// @param begin Begin Index OF: FabricTableSegmentClasses -> Record
         /// @param end End Index OF: FabricTableSegmentClasses -> Record

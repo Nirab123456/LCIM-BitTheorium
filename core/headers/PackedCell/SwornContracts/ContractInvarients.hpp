@@ -22,13 +22,16 @@ namespace PredictedAdaptedEncoding
         enum class MutationOparations : tag8_t
         {
             VALIDATE_ONLY = 0,
-            READ_ONLY_CONSUME = 1,
-            RAW_STORE_ONLY = 2,
-            RELEASE_STORE_ONLY = 3,
-            CLAIM_THEN_PUBLISH = 4,
-            WHOLE_CELL_CAS = 5,
-            CAS_LOOP_RMW = 6,
-            INVALID = 7
+            DIRECT_READ = 1,
+            MUTATION_PROHIBATED = 2,
+            MEM_ORDER_ACQUIRE = 3,
+            MEM_ORDER_RELESE = 4,
+            ACQUIRE_CLAIM_GUARD = 5,
+            RELESE_CLAIM_GUARD = 6,
+            WHOLE_CELL_CAS = 7,
+            CAS_LOOP_RMW = 8,
+            DIRECT_STORE = 9,
+            INVALID = 10
         };
 
         enum class FailureReasonOfContract : tag8_t
@@ -58,9 +61,9 @@ namespace PredictedAdaptedEncoding
         enum class listOfContract : tag8_t
         {
             APC_META_VALUE_RELESE = 0,
-            APC_COUNTER_VALUE_48_CAS = 1,
-            APC_PAYLOAD_VALUE32_CLAIMED = 2,
-            APC_PAYLOAD_VALUE48_CLAIMED = 3,
+            COUNTER_VALUE_48_CAS = 1,
+            PAYLOAD_VALUE32_CLAIMED = 2,
+            PAYLOAD_VALUE48_CLAIMED = 3,
             APC_PAYLOA_FLOAT32_CLAIMED = 4,
             APC_RAW64_INSTRUCTION_VALUE48 = 5,
             APC_LAYOUT_MODEL48 = 6,
@@ -252,7 +255,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr Meta16Files APCValueKeyConstruction(
             APCPagedNodeSegmentClasses region,
-            PackedMode mode,
+            TypeFamily mode,
             ContractOfConcurrency concurrency,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
@@ -261,7 +264,7 @@ namespace PredictedAdaptedEncoding
         {
             return Meta16Files{
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-                mode,
+                static_cast<PackedMode>(mode),
                 FabricTableSegmentClasses::NONE,
                 region,
                 Model32Subclass::UNASSIGNED_UNUSED_NANNULL,
@@ -298,9 +301,8 @@ namespace PredictedAdaptedEncoding
             };
         }
 
-        static constexpr Meta16Files APCModel48Key(
+        static constexpr Meta16Files APCModel48KeyConstruction(
             APCPagedNodeSegmentClasses region,
-            PackedMode mode,
             Model48Subclass model48,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
@@ -309,7 +311,7 @@ namespace PredictedAdaptedEncoding
         {
             return Meta16Files{
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-                mode,
+                PackedMode::MODEL48,
                 FabricTableSegmentClasses::NONE,
                 region,
                 Model32Subclass::UNASSIGNED_UNUSED_NANNULL,
@@ -322,9 +324,9 @@ namespace PredictedAdaptedEncoding
             };
         }
 
-        static constexpr Meta16Files FabricValueKey(
+        static constexpr Meta16Files FabricAnyValueKeyConstruction(
             FabricTableSegmentClasses region,
-            PackedMode mode,
+            TypeFamily mode,
             ContractOfConcurrency concurrency,
             LocalityPolicy locality,
             InternalDataTypePolicy dtype,
@@ -333,7 +335,7 @@ namespace PredictedAdaptedEncoding
         {
             return Meta16Files{
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
-                mode,
+                static_cast<PackedMode>(mode),
                 region,
                 APCPagedNodeSegmentClasses::NONE,
                 Model32Subclass::UNASSIGNED_UNUSED_NANNULL,

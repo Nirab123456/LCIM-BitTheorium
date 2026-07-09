@@ -205,24 +205,25 @@ namespace PredictedAdaptedEncoding {
         FREE_SLOT     = 0xC,
         UNDEFINED = 0xD,
         META_HEADER = 0xE,
-        NULLNAN     = 0xF
+        NULLNAN     = 0xF,
+        WILD_CARD_ALL_REGION_CONTRACT = 20
     };
 
     /// @brief Name Of Each Segment On Fabric
     /// @param NONE It is the lower guard prevents a Packed Cell to be ever 0
     /// @param GLOBAL_AND_CONFIG USED:FOR: Everything else after @param THREAD_TABLE
-    /// @param RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES STORES:All Begin & End Pair of indicies for every class of FabricTableSegmentClasses
+    /// @param SLAB_RECORD_MAP STORES:All Begin & End Pair of indicies for every class of FabricTableSegmentClasses
     /// @param APC_HANDLE_DESCRIPTOR HOLDS:Each APC x RECORD:APCDescriptorCellType -> DESCRIBS: Initial Fundamental Meta for An APC When Created 
     /// @param BRANCH_HASH
     /// @param LOGICAL_HASH
     /// @param SHARED_HASH
-    /// @param GENERIC_CONTROL USED:FOR: first 96 FabricMetaIndicies
+    /// @param CONTROL_HEADER USED:FOR: first 96 FabricMetaIndicies
     /// @param NULLNAN Uppper Guard Prevents Pack-ed Cell to be VALID: UINT64_MAX
     enum class FabricTableSegmentClasses : tag8_t
     {
         NONE = 0,
         GLOBAL_AND_CONFIG = 1,
-        RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES = 2,
+        SLAB_RECORD_MAP = 2,
         APC_HANDLE_DESCRIPTOR = 3,
         BRANCH_HASH = 4,
         LOGICAL_HASH = 5,
@@ -234,8 +235,9 @@ namespace PredictedAdaptedEncoding {
         DEVICE_VIEW_TABLE = 11,
         THREAD_TABLE  = 12,
         SEGMENT_POOL = 13,
-        GENERIC_CONTROL = 14,
+        CONTROL_HEADER = 14,
         NULLNAN = 15,
+        WILD_CARD_ALL_REGION_CONTRACT = 20
     };
 
     using OriginOfRecord = FabricTableSegmentClasses;

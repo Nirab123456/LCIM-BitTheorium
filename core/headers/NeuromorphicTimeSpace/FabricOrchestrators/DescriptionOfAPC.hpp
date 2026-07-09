@@ -186,7 +186,7 @@ struct DescriptionOfAPC
             static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality, InternalDataTypePolicy::UNSIGNED,
-            AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL,
+            AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL,
             apc_width,
             state_version_ownership
         );

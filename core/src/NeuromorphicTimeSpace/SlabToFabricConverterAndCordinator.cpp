@@ -373,7 +373,7 @@ namespace PredictedAdaptedEncoding
         InitializeCompleateFabricMetaIndices_(record_book_begin, record_book_end);
 
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES, record_book_begin, record_book_end, SlabId_);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SLAB_RECORD_MAP, record_book_begin, record_book_end, SlabId_);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end, SlabId_);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_begin, branch_hash_end, SlabId_);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::LOGICAL_HASH, logical_hash_begin, logical_hash_end, SlabId_);
@@ -385,7 +385,7 @@ namespace PredictedAdaptedEncoding
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end, SlabId_);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::THREAD_TABLE, thread_table_begin, thread_table_end, SlabId_);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_, SlabId_);
-        //ENTRIES:: END ::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES
+        //ENTRIES:: END ::SLAB_RECORD_MAP
 
         //IDLE UNUSED FabricTableSegmentClasses
         IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::EDGE_TABLE);

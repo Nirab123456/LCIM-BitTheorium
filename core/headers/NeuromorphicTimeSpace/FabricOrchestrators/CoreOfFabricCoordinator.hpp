@@ -206,7 +206,7 @@ namespace PredictedAdaptedEncoding
         {
             switch (table_idintity)
             {
-            case FabricTableSegmentClasses::RECORD_BOOK_OF_TABLE_SEGMENT_CLASSES:
+            case FabricTableSegmentClasses::SLAB_RECORD_MAP:
                 return static_cast<uint8_t>(RECORD_BOOK_WIDTH);
             
             case FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR:
@@ -329,7 +329,7 @@ namespace PredictedAdaptedEncoding
             if (
                 !a_cell_view.IsCellValid ||
                 a_cell_view.CellOwnership != OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC ||
-                a_cell_view.FabricTableSegmentClass != FabricTableSegmentClasses::GENERIC_CONTROL
+                a_cell_view.FabricTableSegmentClass != FabricTableSegmentClasses::CONTROL_HEADER
             )
             {
                 return false;

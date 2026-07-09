@@ -104,7 +104,7 @@ namespace PredictedAdaptedEncoding
                 locality, 
                 OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
                 static_cast<tag8_t>(fabric_segment_class), 
-                AttributePolicy::DEPENDENT_OR_INSTRUCTION_CELL
+                AttributePolicy::SELF_CONTAINED_DATA_OR_MODEL
             );
 
             if (fabric_segment_class != FabricTableSegmentClasses::GLOBAL_AND_CONFIG && value <= BIT_FAMILY_32_SENTINAL)
