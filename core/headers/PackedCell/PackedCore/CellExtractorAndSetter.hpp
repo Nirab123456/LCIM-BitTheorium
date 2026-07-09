@@ -17,14 +17,14 @@ namespace PredictedAdaptedEncoding
             return static_cast<meta16_t>((packed_cell >> TOTAL_LOW) & MaskLowNBits(META16_B16));
         }
 
-        static constexpr PackedMode ExtractModeOfPackedCellFromPacked(packed64_t packed_cell) noexcept
+        static constexpr PackedMode ExtractModeFromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         static constexpr  bool IsPackedCellFrom32BitFamily(packed64_t packed_cell) noexcept
         {
-            const PackedMode packed_mode = ExtractModeOfPackedCellFromPacked(packed_cell);
+            const PackedMode packed_mode = ExtractModeFromCell(packed_cell);
 
             if (packed_mode == PackedMode::MODEL32 || packed_mode == PackedMode::VALUE32)
             {
@@ -64,46 +64,46 @@ namespace PredictedAdaptedEncoding
             return static_cast<uint64_t>(packed_cell & MaskLowNBits(FAMILY_48_BIT_LEN));
         }
 
-        static constexpr WildCardOfPackedCell ExtractPriorityPolicy(packed64_t packed_cell) noexcept
+        static constexpr WildCardOfPackedCell ExtractWildCardFromCell(packed64_t packed_cell) noexcept
         {
-            return static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr LocalityPolicy ExtractLocalityPolicy(packed64_t packed_cell) noexcept
+        static constexpr LocalityPolicy ExtractLocalityFromCell(packed64_t packed_cell) noexcept
         {
-            return static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<LocalityPolicy>(ExtractLocalityFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr OwnershipPolicy ExtractOwnershipPolicy(packed64_t packed_cell) noexcept
+        static constexpr OwnershipPolicy ExtractOwnershipFromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr APCPagedNodeSegmentClasses ExtractAPCPagedNodeSegmentClasse(packed64_t packed_cell) noexcept
+        static constexpr APCPagedNodeSegmentClasses ExtractAPCRegionFromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<APCPagedNodeSegmentClasses>(ExtractRegionFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr Model32Subclass ExtractModel32Subclass(packed64_t packed_cell) noexcept
+        static constexpr Model32Subclass ExtractSubclass32FromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<Model32Subclass>(ExtractSubClassOrContractFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr Model48Subclass ExtractModel48Subclass(packed64_t packed_cell) noexcept
+        static constexpr Model48Subclass ExtractSubclass48FromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<Model48Subclass>(ExtractSubClassOrContractFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
-        static constexpr InternalDataTypePolicy ExtractInternalDataTypePolicy(packed64_t packed_cell) noexcept
+        static constexpr InternalDataTypePolicy ExtractDataTypeFromCell(packed64_t packed_cell) noexcept
         {
-            return static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         template <typename PCDT>
         static constexpr std::optional<PCDT> ExtractAnyPackedValueX(packed64_t packed_cell)
         {
             constexpr InternalDataTypePolicy expected_dtype = BridgeOfPackedCellDataType_v<PCDT>;
-            if(ExtractInternalDataTypePolicy(packed_cell) != expected_dtype)
+            if(ExtractDataTypeFromCell(packed_cell) != expected_dtype)
             {
                 return std::nullopt;
             }
@@ -140,30 +140,36 @@ namespace PredictedAdaptedEncoding
             tag8_t attribute
         ) noexcept
         {
-
-            meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attribute) & ATTRIBUTE_MASK);
-            meta16_t cell_authority = static_cast<meta16_t>(static_cast<tag8_t>(cell_ownership) & OWNERSHIP_MASK); 
-            meta16_t cell_locality = static_cast<meta16_t>(static_cast<tag8_t>(locality) & LOCALITY_MASK);
-            meta16_t cell_mode = static_cast<meta16_t>(static_cast<tag8_t>(mode) & CELL_MODE_MASK);
-            meta16_t cell_class = static_cast<meta16_t>(class_of_cell & REGION_CLASS_MASK);
-            meta16_t cell_sub_class = static_cast<meta16_t>(static_cast<tag8_t>(sub_class) & SUBCLASS_MASK);
-            meta16_t cell_data_type = static_cast<meta16_t>(static_cast<unsigned>(data_type) & CELL_INTERNAL_DATA_TYPE_MASK);
-
+            const tag8_t attr_raw = static_cast<tag8_t>(attribute);
+            const tag8_t owner_raw = static_cast<tag8_t>(cell_ownership);
+            const tag8_t locality_raw = static_cast<tag8_t>(locality);
+            const tag8_t mode_raw = static_cast<tag8_t>(mode);
+            const tag8_t region_raw = static_cast<tag8_t>(class_of_cell);
+            const tag8_t subclass_raw = static_cast<tag8_t>(sub_class);
+            const tag8_t dtype_raw = static_cast<tag8_t>(data_type);
             if (
-                cell_attribute > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
-                cell_authority > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
-                cell_locality > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
-                cell_mode > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
-                cell_sub_class > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
-                cell_data_type > DEFAULT_META16_INDEXING_LIMIT_2BIT
+                attr_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                owner_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                locality_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                mode_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                subclass_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                dtype_raw > DEFAULT_META16_INDEXING_LIMIT_2BIT ||
+                region_raw > static_cast<tag8_t>(APCPagedNodeSegmentClasses::NULLNAN)
             )
             {
                 return META_16_SENTINAL;
             }
             
+            const meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attribute) & WILD_CARD_MASK);
+            const meta16_t cell_authority = static_cast<meta16_t>(static_cast<tag8_t>(cell_ownership) & OWNERSHIP_MASK); 
+            const meta16_t cell_locality = static_cast<meta16_t>(static_cast<tag8_t>(locality) & LOCALITY_MASK);
+            const meta16_t cell_mode = static_cast<meta16_t>(static_cast<tag8_t>(mode) & CELL_MODE_MASK);
+            const meta16_t cell_class = static_cast<meta16_t>(class_of_cell & REGION_CLASS_MASK);
+            const meta16_t cell_sub_class = static_cast<meta16_t>(static_cast<tag8_t>(sub_class) & SUBCLASS_MASK);
+            const meta16_t cell_data_type = static_cast<meta16_t>(static_cast<unsigned>(data_type) & CELL_INTERNAL_DATA_TYPE_MASK);
 
             meta16_t cell_meta = static_cast<meta16_t>(
-                (cell_attribute  << (ATTRIBUTE_SHIFT))
+                (cell_attribute  << (WILD_CARD_SHIFT))
                 | (cell_data_type << (DATA_TYPE_SHIFT))
                 | (cell_authority << (OWNERSHIP_SHIFT))
                 | (cell_locality << LOCALITY_SHIFT)
@@ -177,9 +183,9 @@ namespace PredictedAdaptedEncoding
 
 protected:
 
-        static constexpr tag8_t ExtractAttributeFromMeta16_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractWildCardFromMeta16_(meta16_t meta16) noexcept
         {
-            return static_cast<tag8_t>((meta16 >> ATTRIBUTE_SHIFT) & ATTRIBUTE_MASK);
+            return static_cast<tag8_t>((meta16 >> WILD_CARD_SHIFT) & WILD_CARD_MASK);
         }
 
         static constexpr tag8_t ExtractOwnershipFromMeta16_(meta16_t meta16) noexcept
@@ -187,7 +193,7 @@ protected:
             return static_cast<tag8_t>((meta16 >> OWNERSHIP_SHIFT ) & OWNERSHIP_MASK);
         }
         
-        static constexpr tag8_t ExtractLocalityFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractLocalityFromMeta16_(meta16_t meta16) noexcept
         {
             return static_cast<tag8_t>((meta16 >> LOCALITY_SHIFT) & LOCALITY_MASK);
         }
@@ -207,7 +213,7 @@ protected:
             return static_cast<tag8_t>((meta16 >> SUBCLASS_SHIFT) & SUBCLASS_MASK);
         }
 
-        static constexpr tag8_t ExtractValueDataTypeFromMETA16_U_(meta16_t meta16) noexcept
+        static constexpr tag8_t ExtractDataTypeFromMeta16_(meta16_t meta16) noexcept
         {
             return static_cast<tag8_t>((meta16 >> DATA_TYPE_SHIFT) & CELL_INTERNAL_DATA_TYPE_MASK);
         }
@@ -340,8 +346,8 @@ protected:
         {
             return SetIndicatedMetaInMeta16(
                 meta16,
-                ATTRIBUTE_SHIFT,
-                ATTRIBUTE_MASK,
+                WILD_CARD_SHIFT,
+                WILD_CARD_MASK,
                 static_cast<tag8_t>(attribute)
             );
         }

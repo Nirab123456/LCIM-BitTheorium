@@ -10,7 +10,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsCellClaimableFromThisCaller(packed64_t packed_cell) noexcept
         {
-            const LocalityPolicy locality = ExtractLocalityPolicy(packed_cell);
+            const LocalityPolicy locality = ExtractLocalityFromCell(packed_cell);
             
             return locality != LocalityPolicy::CLAIMED;
         }
@@ -492,7 +492,7 @@ namespace PredictedAdaptedEncoding
                 return MakeFaultyCell();
             }
 
-            if (static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(meta16))!= BridgeOfPackedCellDataType_v<PCDT> )
+            if (static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(meta16))!= BridgeOfPackedCellDataType_v<PCDT> )
             {
                 return MakeFaultyCell();
             }
@@ -516,7 +516,7 @@ namespace PredictedAdaptedEncoding
                 return MakeFaultyCell();
             }
 
-            if (static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(meta16)) != BridgeOfPackedCellDataType_v<PCDT> )
+            if (static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(meta16)) != BridgeOfPackedCellDataType_v<PCDT> )
             {
                 return MakeFaultyCell();
             }
@@ -540,9 +540,9 @@ namespace PredictedAdaptedEncoding
             const meta16_t meta16 = ExtractMeta16fromPackedCell(packed_cell);
             out_packed_cell_view.RawCell = packed_cell;
             out_packed_cell_view.InCellMeta16 = meta16;
-            out_packed_cell_view.Attribute = static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(meta16));
+            out_packed_cell_view.Attribute = static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(meta16));
             out_packed_cell_view.CellOwnership =  static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
-            out_packed_cell_view.LocalityOfCell = static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(meta16));
+            out_packed_cell_view.LocalityOfCell = static_cast<LocalityPolicy>(ExtractLocalityFromMeta16_(meta16));
             out_packed_cell_view.CellMode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));
 
             if (out_packed_cell_view.CellOwnership == OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER)
@@ -583,7 +583,7 @@ namespace PredictedAdaptedEncoding
                 out_packed_cell_view.Raw48BitInCellData = ExtractRaw48FamilyBits(packed_cell);
             }
 
-            out_packed_cell_view.CellValueDataType = static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(meta16));
+            out_packed_cell_view.CellValueDataType = static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(meta16));
             out_packed_cell_view.IsThisPackedCellValidInRuntime();
             return out_packed_cell_view;      
         }

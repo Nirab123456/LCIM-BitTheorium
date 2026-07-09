@@ -60,31 +60,31 @@ namespace PredictedAdaptedEncoding {
 
     static constexpr uint8_t DEFAULT_META16_INDEXING_LIMIT_2BIT = 3;
 
-    static constexpr unsigned ATTRIBUTE_LEN = 2u;
+    static constexpr unsigned WILD_CARD_LEN = 2u;
     static constexpr unsigned CELL_INTERNAL_DATA_TYPE_LEN = 2u;
     static constexpr unsigned OWNERSHIP_LEN = 2u;
     static constexpr unsigned LOCALITY_LEN = 2u;// will be 2u
     static constexpr unsigned CELL_MODE_LEN = 2u;
-    static constexpr unsigned CELL_CLASS_LEN = 4u;
+    static constexpr unsigned REGION_LEN = 4u;
     static constexpr unsigned SUB_CLASS_OF_CELL_MODE_LEN = 2u;
 
     //shifts 
     static constexpr unsigned SUBCLASS_SHIFT = 0;
     static constexpr unsigned REGION_CLASS_SHIFT = SUBCLASS_SHIFT + SUB_CLASS_OF_CELL_MODE_LEN;
-    static constexpr unsigned CELL_MODE_SHIFT = REGION_CLASS_SHIFT + CELL_CLASS_LEN;
+    static constexpr unsigned CELL_MODE_SHIFT = REGION_CLASS_SHIFT + REGION_LEN;
     static constexpr unsigned LOCALITY_SHIFT = CELL_MODE_SHIFT + CELL_MODE_LEN;
     static constexpr unsigned OWNERSHIP_SHIFT = LOCALITY_SHIFT + LOCALITY_LEN;
     static constexpr unsigned DATA_TYPE_SHIFT = OWNERSHIP_SHIFT + OWNERSHIP_LEN;
-    static constexpr unsigned ATTRIBUTE_SHIFT = DATA_TYPE_SHIFT + CELL_INTERNAL_DATA_TYPE_LEN;
-    static_assert(ATTRIBUTE_SHIFT + ATTRIBUTE_LEN == META16_B16, "PNLTCOD must be 16 bits");
+    static constexpr unsigned WILD_CARD_SHIFT = DATA_TYPE_SHIFT + CELL_INTERNAL_DATA_TYPE_LEN;
+    static_assert(WILD_CARD_SHIFT + WILD_CARD_LEN == META16_B16, "PNLTCOD must be 16 bits");
     //mask
     static constexpr tag8_t CELL_INTERNAL_DATA_TYPE_MASK = static_cast<tag8_t>((1u << CELL_INTERNAL_DATA_TYPE_LEN) - 1u);
     static constexpr tag8_t SUBCLASS_MASK = static_cast<tag8_t>((1u << SUB_CLASS_OF_CELL_MODE_LEN) - 1u);
-    static constexpr tag8_t REGION_CLASS_MASK = static_cast<tag8_t>((1u << CELL_CLASS_LEN) - 1u);
+    static constexpr tag8_t REGION_CLASS_MASK = static_cast<tag8_t>((1u << REGION_LEN) - 1u);
     static constexpr tag8_t CELL_MODE_MASK = static_cast<tag8_t>((1u << CELL_MODE_LEN) - 1u);
     static constexpr tag8_t LOCALITY_MASK = static_cast<tag8_t>((1u << LOCALITY_LEN) - 1u);
     static constexpr tag8_t OWNERSHIP_MASK = static_cast<tag8_t>((1u << OWNERSHIP_LEN) - 1u);
-    static constexpr tag8_t ATTRIBUTE_MASK = static_cast<tag8_t>((1u << ATTRIBUTE_LEN) - 1u);
+    static constexpr tag8_t WILD_CARD_MASK = static_cast<tag8_t>((1u << WILD_CARD_LEN) - 1u);
     
     /// @brief HIGHEST_TRUTH of Packed Cell
     enum class LocalityPolicy : tag8_t
@@ -174,11 +174,7 @@ namespace PredictedAdaptedEncoding {
         UNASSIGNED_UNUSED_NANNULL = 4
     };
 
-    /// @brief Describs Attribute OF: Packed Cell & Why it exist
-    /// @param PACKED_CELL VALUE OR: MODEL -> Itself Carry The Whole Message
-    /// @param RAW_60BIT VALUE OR: MODEL -> Describs ANY: Kind OF: Instruction TO: Closeby PackedCell
-    /// @param RAW_30x2BIT INSTRUCTIONS: If Cells Are Raw64 how TO: Read and Write Them & SEQUENTIAL: N * RAW_30x2BIT (N  AMOUNT: Can be used to describe the Meta)
-    /// @param RAW_15x4BIT INSTRUCTIONS: Defines Its the end Raw64 and LATER ON: Cells Are Packed Cell
+    /// @brief Describs Attribute OF: IS This Packed Cell Or the View 
     enum class WildCardOfPackedCell : tag8_t
     {
         PACKED_CELL = 0,

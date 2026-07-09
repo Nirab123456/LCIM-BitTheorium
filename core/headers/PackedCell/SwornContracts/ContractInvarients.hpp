@@ -166,10 +166,10 @@ namespace PredictedAdaptedEncoding
                 return contract_key;
             }
             contract_key.Owner = static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
-            contract_key.CellMode = static_cast<PackedMode>(ExtractModeOfPackedCellFromPacked(meta16));
-            contract_key.DataType = static_cast<InternalDataTypePolicy>(ExtractValueDataTypeFromMETA16_U_(meta16));
-            contract_key.Attribute = static_cast<WildCardOfPackedCell>(ExtractAttributeFromMeta16_(meta16));
-            contract_key.Locality = static_cast<LocalityPolicy>(ExtractLocalityFromMETA16_U_(meta16));
+            contract_key.CellMode = static_cast<PackedMode>(ExtractModeFromCell(meta16));
+            contract_key.DataType = static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(meta16));
+            contract_key.Attribute = static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(meta16));
+            contract_key.Locality = static_cast<LocalityPolicy>(ExtractLocalityFromMeta16_(meta16));
 
             if(
                 !IsKnownOwner(contract_key.Owner) ||
