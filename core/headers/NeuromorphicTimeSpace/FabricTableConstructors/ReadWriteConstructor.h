@@ -29,8 +29,7 @@ namespace PredictedAdaptedEncoding
         void MakeAndStoreFabricMetaValue48_(
             FabricMetaIndicies fabric_meta_idx, uint64_t value, 
             ContractOfConcurrency access_contract = ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW,
-            LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED,
-            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL
+            LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED
         )noexcept;
 
         JustifyClaimCas TryClaimACellInSlab(PackedCell64_t::AuthoritiveCellView& expected_cell_auth_view, packed64_t* desired_packed_cell = nullptr) noexcept;

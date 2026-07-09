@@ -74,16 +74,14 @@ namespace PredictedAdaptedEncoding
             uint64_t value, 
             clk16_t version,
             LocalityPolicy locality = LocalityPolicy::IDLE,
-            APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::META_HEADER,
-            WildCardOfPackedCell attribute_policy = WildCardOfPackedCell::PACKED_CELL
+            APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::META_HEADER
         ) noexcept
         {
             const std::pair<packed64_t, packed64_t> lowf_highs = GetPairOfLow32FAndHigh32SFromUnsigned64_(
                 value, version, 
                 locality, 
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER, 
-                static_cast<tag8_t>(page_class),
-                attribute_policy
+                static_cast<tag8_t>(page_class)
             );
 
             if (page_class == APCPagedNodeSegmentClasses::META_HEADER && value <= BIT_FAMILY_32_SENTINAL)
@@ -103,8 +101,7 @@ namespace PredictedAdaptedEncoding
                 value, version, 
                 locality, 
                 OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
-                static_cast<tag8_t>(fabric_segment_class), 
-                WildCardOfPackedCell::PACKED_CELL
+                static_cast<tag8_t>(fabric_segment_class)
             );
 
             if (fabric_segment_class != FabricTableSegmentClasses::GLOBAL_AND_CONFIG && value <= BIT_FAMILY_32_SENTINAL)
@@ -167,8 +164,7 @@ private:
             uint64_t value, clk16_t version,
             LocalityPolicy locality,
             OwnershipPolicy ownership,
-            tag8_t page_class,
-            WildCardOfPackedCell attribute_policy = WildCardOfPackedCell::PACKED_CELL
+            tag8_t page_class
         ) noexcept
         {
             const uint32_t low_half32 = static_cast<uint32_t>(value & MaskLowNBits(VALBITS));
@@ -177,14 +173,12 @@ private:
             const packed64_t low_half_packed_cell = PackedCell64_t::MakeInitialValidGeneralPackedCell(
                 PackedMode::MODEL32, locality, ownership, page_class,
                 InternalDataTypePolicy::UNSIGNED, low_half32, version,
-                attribute_policy, 
                 static_cast<tag8_t>(Model32Subclass::LOW_OF_PAIRED_VERSIONED_CELL)
             );
     
             const packed64_t high_half_packed_cell = PackedCell64_t::MakeInitialValidGeneralPackedCell(
                 PackedMode::MODEL32, locality, ownership, page_class,
                 InternalDataTypePolicy::UNSIGNED, high_half32, version,
-                attribute_policy, 
                 static_cast<tag8_t>(Model32Subclass::HIGH_OF_PAIRED_VERSIONED_CELL)
             );
 

@@ -22,7 +22,6 @@ namespace PredictedAdaptedEncoding
                 PackedMode::MODEL32,
                 BIT_FAMILY_32_SENTINAL,
                 UINT16_MAX,
-                WildCardOfPackedCell::PACKED_CELL,
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
                 LocalityPolicy::FAULTY
             );
@@ -61,7 +60,6 @@ namespace PredictedAdaptedEncoding
             PackedMode cell_mode,
             uint64_t cell_value = UNSIGNED_ZERO,
             clk16_t clock16 = UNSIGNED_ZERO,
-            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             OwnershipPolicy cell_ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE, 
             tag8_t cell_class = UNSIGNED_ZERO,
@@ -75,8 +73,7 @@ namespace PredictedAdaptedEncoding
                 cell_ownership,
                 cell_data_type,
                 cell_class,
-                sub_class,
-                static_cast<tag8_t>(cell_attribute)
+                sub_class
             );
 
             if (desired_meta16 == META_16_SENTINAL)
@@ -308,7 +305,7 @@ namespace PredictedAdaptedEncoding
                     ContractOfConcurrency::CLAIMED_GURDED,
                     page_class,
                     cell_locality,
-                    dtype, WildCardOfPackedCell::PACKED_CELL,
+                    dtype,
                     value, cell_clock16
                 );
             
@@ -318,7 +315,7 @@ namespace PredictedAdaptedEncoding
                     ContractOfConcurrency::CLAIMED_GURDED,
                     page_class,
                     cell_locality,
-                    dtype, WildCardOfPackedCell::PACKED_CELL,
+                    dtype,
                     value
                 );
 
@@ -328,7 +325,7 @@ namespace PredictedAdaptedEncoding
                     static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
                     page_class,
                     cell_locality,
-                    dtype, WildCardOfPackedCell::PACKED_CELL,
+                    dtype,
                     value,
                     cell_clock16
                 );
@@ -339,7 +336,7 @@ namespace PredictedAdaptedEncoding
                     static_cast<tag8_t>(Model48Subclass::SELF_CLASS),
                     page_class,
                     cell_locality,
-                    dtype, WildCardOfPackedCell::PACKED_CELL,
+                    dtype,
                     value
                 );
             default:
@@ -357,7 +354,6 @@ namespace PredictedAdaptedEncoding
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
 
@@ -369,7 +365,7 @@ namespace PredictedAdaptedEncoding
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER, 
                 static_cast<tag8_t>(page_class),
                 in_cell_value_data_type, in_cell_value, in_cell_clk16,
-                cell_attribute, sub_class
+                sub_class
             );
         }
 
@@ -383,7 +379,6 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
 
@@ -395,7 +390,7 @@ namespace PredictedAdaptedEncoding
                 OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
                 static_cast<tag8_t>(table_class),
                 in_cell_value_data_type, in_cell_value, in_cell_clk16,
-                cell_attribute, sub_class
+                sub_class
             );
         }
 
@@ -411,13 +406,12 @@ namespace PredictedAdaptedEncoding
             InternalDataTypePolicy in_cell_value_data_type,
             uint64_t in_cell_value,
             clk16_t in_cell_clk16,
-            WildCardOfPackedCell cell_attribute,
             tag8_t sub_class
         ) noexcept
         {
             const packed64_t requested_cell = MakeAnUncheckedCell_(
                 cell_mode, in_cell_value, in_cell_clk16,
-                cell_attribute, cell_ownership, cell_locality,
+                cell_ownership, cell_locality,
                 cell_class, sub_class,
                 in_cell_value_data_type
             );
@@ -436,7 +430,6 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses table_class = FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
         ) noexcept
@@ -447,7 +440,7 @@ namespace PredictedAdaptedEncoding
                 OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC, 
                 static_cast<tag8_t>(table_class),
                 in_cell_value_data_type, in_cell_value, 
-                in_cell_clk16, cell_attribute, 
+                in_cell_clk16,
                 static_cast<tag8_t>(sub_class)
             );
         }
@@ -460,7 +453,6 @@ namespace PredictedAdaptedEncoding
             APCPagedNodeSegmentClasses page_class = APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy cell_locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy in_cell_value_data_type = InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell cell_attribute = WildCardOfPackedCell::PACKED_CELL,
             uint64_t in_cell_value = UNSIGNED_ZERO,
             clk16_t in_cell_clk16 = UNSIGNED_ZERO
         ) noexcept
@@ -471,7 +463,7 @@ namespace PredictedAdaptedEncoding
                 OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER, 
                 static_cast<tag8_t>(page_class),
                 in_cell_value_data_type, in_cell_value, 
-                in_cell_clk16, cell_attribute, 
+                in_cell_clk16,
                 static_cast<tag8_t>(sub_class)
             );
         }

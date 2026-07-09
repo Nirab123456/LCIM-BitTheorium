@@ -69,7 +69,6 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
             APCPagedNodeSegmentClasses::META_HEADER,
             a_layout.LocalityOfLayout,
             InternalDataTypePolicy ::UNSIGNED,
-            WildCardOfPackedCell::PACKED_CELL,
             raw48_layout
         );
 

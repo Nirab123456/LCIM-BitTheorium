@@ -184,7 +184,6 @@ namespace PredictedAdaptedEncoding
             APCPagedNodeSegmentClasses::UNDEFINED,
             LocalityPolicy::IDLE,
             InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell::PACKED_CELL,
             UNSIGNED_ZERO,
             UNSIGNED_ZERO
         );
@@ -362,7 +361,6 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
             LocalityPolicy::IDLE,
             InternalDataTypePolicy::UNASSIGNED_UNUSED_NANNULL,
-            WildCardOfPackedCell::PACKED_CELL,
             UNSIGNED_ZERO
         );
         for (size_t idx = 0; idx < SlabCellCount_; idx++)

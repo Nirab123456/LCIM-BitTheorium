@@ -52,7 +52,6 @@ namespace PredictedAdaptedEncoding
                 APCPagedNodeSegmentClasses::META_HEADER,
                 locality,
                 InternalDataTypePolicy::UNSIGNED,
-                WildCardOfPackedCell::PACKED_CELL,
                 value48,
                 UNSIGNED_ZERO
             );

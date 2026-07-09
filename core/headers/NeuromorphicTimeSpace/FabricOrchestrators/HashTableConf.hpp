@@ -173,7 +173,6 @@ struct HashTableConf : public HashHelpers
             hash_table_class, 
             locality,
             InternalDataTypePolicy::UNSIGNED, 
-            WildCardOfPackedCell::PACKED_CELL,
             hash_handle
         );
     }
@@ -215,7 +214,6 @@ struct HashTableConf : public HashHelpers
                 hash_table,
                 locality,
                 InternalDataTypePolicy ::UNSIGNED,
-                WildCardOfPackedCell::PACKED_CELL,
                 prefix_32.value(),
                 sequential_index.value()
             );
@@ -227,7 +225,6 @@ struct HashTableConf : public HashHelpers
             hash_table, 
             locality,
             InternalDataTypePolicy::UNSIGNED, 
-            WildCardOfPackedCell::PACKED_CELL,
             key48
         );
 
@@ -281,7 +278,6 @@ struct HashTableConf : public HashHelpers
             hash_table,
             locality,
             InternalDataTypePolicy::UNSIGNED,
-            WildCardOfPackedCell::PACKED_CELL,
             desired_prob_distance_lock
         );
     }

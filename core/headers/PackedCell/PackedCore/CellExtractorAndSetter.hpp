@@ -136,11 +136,10 @@ namespace PredictedAdaptedEncoding
             OwnershipPolicy cell_ownership,
             InternalDataTypePolicy data_type,
             tag8_t class_of_cell, 
-            tag8_t sub_class, 
-            tag8_t attribute
+            tag8_t sub_class
         ) noexcept
         {
-            const tag8_t attr_raw = static_cast<tag8_t>(attribute);
+            const tag8_t attr_raw = static_cast<tag8_t>(WildCardOfPackedCell::PACKED_CELL);
             const tag8_t owner_raw = static_cast<tag8_t>(cell_ownership);
             const tag8_t locality_raw = static_cast<tag8_t>(locality);
             const tag8_t mode_raw = static_cast<tag8_t>(mode);
@@ -160,7 +159,7 @@ namespace PredictedAdaptedEncoding
                 return META_16_SENTINAL;
             }
             
-            const meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attribute) & WILD_CARD_MASK);
+            const meta16_t cell_attribute = static_cast<meta16_t>(static_cast<tag8_t>(attr_raw) & WILD_CARD_MASK);
             const meta16_t cell_authority = static_cast<meta16_t>(static_cast<tag8_t>(cell_ownership) & OWNERSHIP_MASK); 
             const meta16_t cell_locality = static_cast<meta16_t>(static_cast<tag8_t>(locality) & LOCALITY_MASK);
             const meta16_t cell_mode = static_cast<meta16_t>(static_cast<tag8_t>(mode) & CELL_MODE_MASK);
@@ -230,7 +229,6 @@ protected:
             OwnershipPolicy ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             tag8_t cell_class = static_cast<tag8_t>(APCPagedNodeSegmentClasses::FREE_SLOT),
             Model48Subclass sub_class = Model48Subclass::SELF_CLASS,
-            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
@@ -241,8 +239,7 @@ protected:
                 ownership,
                 cell_data_type,
                 static_cast<tag8_t>(cell_class),
-                static_cast<tag8_t>(sub_class),
-                static_cast<tag8_t>(attribute)
+                static_cast<tag8_t>(sub_class)
             );
         }
 
@@ -253,7 +250,6 @@ protected:
             OwnershipPolicy ownership = OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER,
             tag8_t cell_class = static_cast<tag8_t>(APCPagedNodeSegmentClasses::FREE_SLOT),
             Model32Subclass sub_class = Model32Subclass::SELF_CLASS,
-            WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL, 
             LocalityPolicy locality = LocalityPolicy::IDLE,
             InternalDataTypePolicy cell_data_type = InternalDataTypePolicy::UNSIGNED
         ) noexcept
@@ -264,8 +260,7 @@ protected:
                 ownership,
                 cell_data_type,
                 static_cast<tag8_t>(cell_class),
-                static_cast<tag8_t>(sub_class),
-                static_cast<tag8_t>(attribute)
+                static_cast<tag8_t>(sub_class)
             );
         }
 
@@ -292,12 +287,6 @@ protected:
             ) << VALBITS;
 
             return packed_cell;
-        }
-
-        static constexpr packed64_t SetPriorityInPacked(packed64_t packed_cell, WildCardOfPackedCell attribute) noexcept
-        {
-            const meta16_t new_desired_meta = SetPriorityInMETA16(ExtractMeta16fromPackedCell(packed_cell), attribute);
-            return SetMETA16InPacked(packed_cell, new_desired_meta);
         }
 
         static constexpr packed64_t SetLocalityInPacked(packed64_t packed_cell, LocalityPolicy local_state) noexcept
@@ -339,7 +328,7 @@ protected:
 
     protected:
 
-        static  constexpr meta16_t SetPriorityInMETA16(
+        static  constexpr meta16_t SetWildCardImMeta16_(
             meta16_t meta16,
             WildCardOfPackedCell attribute
         ) noexcept

@@ -8,8 +8,7 @@ namespace PredictedAdaptedEncoding
         FabricMetaIndicies fabric_meta_idx, 
         uint64_t value, 
         ContractOfConcurrency access_contract,
-        LocalityPolicy cell_locality,
-        WildCardOfPackedCell attribute
+        LocalityPolicy cell_locality
     )noexcept
     {
         const size_t slab_index = static_cast<size_t>(fabric_meta_idx);
@@ -26,7 +25,6 @@ namespace PredictedAdaptedEncoding
             FabricTableSegmentClasses::CONTROL_HEADER,
             cell_locality,
             InternalDataTypePolicy ::UNSIGNED,
-            attribute,
             value
         );
 

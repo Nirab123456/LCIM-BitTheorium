@@ -80,8 +80,7 @@ struct APCDataStructure
 
         case PackedMode::MODEL32:
             if (
-                desired_auth_view.SubClassOfModel32 == Model32Subclass::SELF_CLASS && 
-                desired_auth_view.Attribute == WildCardOfPackedCell::PACKED_CELL
+                desired_auth_view.SubClassOfModel32 == Model32Subclass::SELF_CLASS
             )
             {
                 return desired_auth_view.Raw32BitInCellData;
@@ -90,8 +89,7 @@ struct APCDataStructure
 
         case PackedMode::MODEL48:
             if (
-                desired_auth_view.SubClassOfModel48 == Model48Subclass::SELF_CLASS && 
-                desired_auth_view.Attribute == WildCardOfPackedCell::PACKED_CELL
+                desired_auth_view.SubClassOfModel48 == Model48Subclass::SELF_CLASS
             )
             {
                 return desired_auth_view.Raw48BitInCellData;
