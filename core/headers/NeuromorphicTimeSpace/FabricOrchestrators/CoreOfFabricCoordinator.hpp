@@ -306,7 +306,7 @@ namespace PredictedAdaptedEncoding
                 return PackedCell64_t::PACKED_CELL_SENTINAL;
             }
 
-            const uint64_t desired_count = static_cast<uint64_t>(updated_count) & MaskLowNBits(FAMILY_48_BIT_LEN);
+            const uint64_t desired_count = static_cast<uint64_t>(updated_count) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
             
             return PackedCell64_t::SetMETA16InPacked(desired_count, auth_view_of_the_cell.InCellMeta16);
 

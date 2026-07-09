@@ -9,7 +9,7 @@ namespace PredictedAdaptedEncoding
 
     struct Subdevision16x3InternalMode48CellModel
     {
-        static constexpr uint64_t MASK_LOW_16 = MaskLowNBits(16);
+        static constexpr uint64_t MASK_LOW_16 = MaskLeftOverBitsUntil64(16);
         static constexpr unsigned PACK3XU16TOMODE48_SHIFT_LOW = 0u;
         static constexpr unsigned PACK3XU16TOMODE48_SHIFT_MID = 16u;
         static constexpr unsigned PACK3XU16TOMODE48_SHIFT_HIGH = 32u;
@@ -22,7 +22,7 @@ namespace PredictedAdaptedEncoding
             meta16_t meta16
         ) noexcept
         {
-            const uint64_t raw48 = (PackUnsigned16x3ToMode48_(low16_bits, mid_16_bits, high_16_bits) & MaskLowNBits(FAMILY_48_BIT_LEN));
+            const uint64_t raw48 = (PackUnsigned16x3ToMode48_(low16_bits, mid_16_bits, high_16_bits) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN));
             return PackedCell64_t::Compose48BitFamilyPackedCell(raw48, meta16);
         }
 
@@ -39,7 +39,7 @@ namespace PredictedAdaptedEncoding
         {
             return ((uint64_t{low16_bits} << PACK3XU16TOMODE48_SHIFT_LOW)    |
                 (uint64_t{mid_16_bits} << PACK3XU16TOMODE48_SHIFT_MID)      |
-                (uint64_t(high_16_bits) << PACK3XU16TOMODE48_SHIFT_HIGH)) & MaskLowNBits(FAMILY_48_BIT_LEN);
+                (uint64_t(high_16_bits) << PACK3XU16TOMODE48_SHIFT_HIGH)) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
         }
 
         static constexpr uint16_t ExtractLow16FromUnsigned48_(uint64_t raw48) noexcept
@@ -88,7 +88,7 @@ namespace PredictedAdaptedEncoding
         static constexpr unsigned FIRST_8BIT_SHIFT_2 = 24u;
         static constexpr unsigned SECOND_8BIT_SHIFT_3 = 32u;
 
-        static constexpr uint64_t MASK_LOW_8 = MaskLowNBits(8);
+        static constexpr uint64_t MASK_LOW_8 = MaskLeftOverBitsUntil64(8);
 
 
         static constexpr packed64_t Compose4Unsigned16x2Plus8x2IndependendentInMode48(
@@ -103,7 +103,7 @@ namespace PredictedAdaptedEncoding
                 Pack2x16Plus2x8UnsignedSubdivision_(
                     lowest_16bit_0, low_16bit_1,
                     high_8bit_2, highest_8bit_3
-                ) & MaskLowNBits(FAMILY_48_BIT_LEN)
+                ) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN)
             );
             const packed64_t compressed_packed_cell = PackedCell64_t::Compose48BitFamilyPackedCell(raw48, meta16);
             if (!IsThisCellAFourSubdevision_48t(compressed_packed_cell))

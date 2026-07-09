@@ -92,7 +92,7 @@ namespace PredictedAdaptedEncoding
             ContractOfConcurrency Concurrency = ContractOfConcurrency::UNASSIGNED_UNUSED_NANNULL;
 
             InternalDataTypePolicy DataType = InternalDataTypePolicy::UNASSIGNED_UNUSED_NANNULL;
-            WildCardOfPackedCell Attribute = WildCardOfPackedCell::UNASSIGNED_UNUSED_NANNULL;
+            WildCardOfPackedCell WildCard = WildCardOfPackedCell::UNASSIGNED_UNUSED_NANNULL;
             LocalityPolicy Locality = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
             bool StructurallyValid = false;
         };
@@ -168,13 +168,11 @@ namespace PredictedAdaptedEncoding
             contract_key.Owner = static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
             contract_key.CellMode = static_cast<PackedMode>(ExtractModeFromCell(meta16));
             contract_key.DataType = static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(meta16));
-            contract_key.Attribute = static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(meta16));
             contract_key.Locality = static_cast<LocalityPolicy>(ExtractLocalityFromMeta16_(meta16));
 
             if(
                 !IsKnownOwner(contract_key.Owner) ||
                 !IsKnownDataType(contract_key.DataType) ||
-                !IsKnownAttribute(contract_key.Attribute) ||
                 !IsKnownLocality(contract_key.Locality)
             )
             {
@@ -249,6 +247,10 @@ namespace PredictedAdaptedEncoding
 
         static constexpr Meta16Files FileBookFromPackedCell(packed64_t packed_cell) noexcept
         {
+            if (IsRawCell(packed_cell))
+            {
+                return Meta16Files{};
+            }
             return FileBookFromMeta16(ExtractMeta16fromPackedCell(packed_cell));
         }
 

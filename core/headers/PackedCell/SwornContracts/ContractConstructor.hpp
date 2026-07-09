@@ -39,7 +39,8 @@ namespace PredictedAdaptedEncoding
                 expected.Owner != got.Owner ||
                 expected.CellMode != got.CellMode ||
                 !SameRegionDomainNode(expected, got) ||
-                expected.Attribute != got.Attribute ||
+                !HasPackedCellWildCard(expected.WildCard)||
+                !HasPackedCellWildCard(got.WildCard)||
                 expected.Locality != got.Locality ||
                 expected.Concurrency != got.Concurrency
             )
@@ -67,6 +68,7 @@ namespace PredictedAdaptedEncoding
                 contract.IdOfContract != listOfContract::INVALID &&
                 contract.Mutation != MutationOparations::INVALID &&
                 contract.KeyOfContract.StructurallyValid &&
+                HasPackedCellWildCard(contract.KeyOfContract.WildCard) &&
                 IsKnownOwner(contract.KeyOfContract.Owner) &&
                 contract.KeyOfContract.CellMode != PackedMode::UNASSIGNED_UNUSED_NANNULL;
         }

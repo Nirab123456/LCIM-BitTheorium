@@ -51,14 +51,14 @@ struct HashHelpers
     /// @return 
     static constexpr uint64_t HashUnsigned48_(uint64_t given_value) noexcept
     {
-        given_value = given_value & MaskLowNBits(FAMILY_48_BIT_LEN);
+        given_value = given_value & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
         given_value ^= given_value >> HASH_SHIFT_1;
         given_value *= DEFAULT_HAS_CONST_1;
         given_value ^= given_value >> HASH_SHIFT_2;
         given_value *= DEFAULT_HAS_CONST_2;
         given_value ^=  given_value >> HASH_SHIFT_3;
 
-        given_value = given_value & MaskLowNBits(FAMILY_48_BIT_LEN);
+        given_value = given_value & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
 
         return given_value == UNSIGNED_ZERO ? 1u : given_value;
     }
@@ -263,8 +263,8 @@ struct HashTableConf : public HashHelpers
             }
         }
 
-        const uint16_t mid_Lock_key_low16 = static_cast<uint16_t>(key48 & MaskLowNBits(LOW16_BIT_LEN));
-        const uint16_t high_lock_hash_low_16 = static_cast<uint16_t>(value48 & MaskLowNBits(LOW16_BIT_LEN));
+        const uint16_t mid_Lock_key_low16 = static_cast<uint16_t>(key48 & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
+        const uint16_t high_lock_hash_low_16 = static_cast<uint16_t>(value48 & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
 
         const uint64_t desired_prob_distance_lock = Subdevision16x3InternalMode48CellModel::PackUnsigned16x3ToMode48_(
             prob_distance,
@@ -371,8 +371,8 @@ public:
             return invalid_value;
         }
         
-        const uint16_t key_low16 = static_cast<uint16_t>(maybe_rebuilded_key48 & MaskLowNBits(LOW16_BIT_LEN));
-        const uint16_t value_low16 = static_cast<uint16_t>(value_handle_48 & MaskLowNBits(LOW16_BIT_LEN));
+        const uint16_t key_low16 = static_cast<uint16_t>(maybe_rebuilded_key48 & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
+        const uint16_t value_low16 = static_cast<uint16_t>(value_handle_48 & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
 
 
         if (

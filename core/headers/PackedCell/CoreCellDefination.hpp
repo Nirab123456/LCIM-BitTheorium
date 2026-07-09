@@ -36,7 +36,7 @@ namespace PredictedAdaptedEncoding
             {
                 return MakeFaultyCell();
             }
-            packed64_t packed_cell = (packed64_t(in_cell_value) & MaskLowNBits(VALBITS));
+            packed64_t packed_cell = (packed64_t(in_cell_value) & MaskLeftOverBitsUntil64(VALBITS));
             packed_cell = SetClock16InPacked(packed_cell, clock16);
             packed_cell = SetMETA16InPacked(packed_cell, meta16);
             return packed_cell;
@@ -49,7 +49,7 @@ namespace PredictedAdaptedEncoding
             {
                 return MakeFaultyCell();
             }
-            packed64_t packed_cell = (packed64_t(clockor_value48) & MaskLowNBits(FAMILY_48_BIT_LEN));
+            packed64_t packed_cell = (packed64_t(clockor_value48) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN));
             packed_cell = SetMETA16InPacked(packed_cell, meta16);
             return packed_cell;
         }
@@ -120,7 +120,7 @@ namespace PredictedAdaptedEncoding
 
             meta16_t  InCellMeta16{0};
 
-            WildCardOfPackedCell Attribute{WildCardOfPackedCell::PACKED_CELL};
+            WildCardOfPackedCell WildCard{WildCardOfPackedCell::PACKED_CELL};
 
             OwnershipPolicy CellOwnership{OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER};
 
@@ -155,7 +155,10 @@ namespace PredictedAdaptedEncoding
             {
                 ValidatedView = true;
                 IsCellValid = false;
-                if (LocalityOfCell == LocalityPolicy::FAULTY)
+                if (
+                    LocalityOfCell == LocalityPolicy::FAULTY ||
+                    !HasPackedCellWildCard(WildCard)
+                )
                 {
                     return false;
                 }
@@ -513,7 +516,7 @@ namespace PredictedAdaptedEncoding
                 return MakeFaultyCell();
             }
             uint64_t value_casted_bit = BitCastMaybe<uint64_t>(value_clock48);
-            return Compose48BitFamilyPackedCell(value_casted_bit & MaskLowNBits(FAMILY_48_BIT_LEN), meta16);
+            return Compose48BitFamilyPackedCell(value_casted_bit & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN), meta16);
             
         }
 
@@ -532,7 +535,7 @@ namespace PredictedAdaptedEncoding
             const meta16_t meta16 = ExtractMeta16fromPackedCell(packed_cell);
             out_packed_cell_view.RawCell = packed_cell;
             out_packed_cell_view.InCellMeta16 = meta16;
-            out_packed_cell_view.Attribute = static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(meta16));
+            out_packed_cell_view.WildCard = static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(meta16));
             out_packed_cell_view.CellOwnership =  static_cast<OwnershipPolicy>(ExtractOwnershipFromMeta16_(meta16));
             out_packed_cell_view.LocalityOfCell = static_cast<LocalityPolicy>(ExtractLocalityFromMeta16_(meta16));
             out_packed_cell_view.CellMode = static_cast<PackedMode>(ExtractCellModeFromMETA16_U_(meta16));

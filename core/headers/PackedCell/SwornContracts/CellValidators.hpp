@@ -5,7 +5,8 @@
 
 namespace PredictedAdaptedEncoding
 {
-    struct CellValidators : public PackedCellSetters
+
+    struct Meta16Validators : public PackedCellSetters
     {
         static constexpr bool IsKnownOwner(OwnershipPolicy owner) noexcept
         {
@@ -35,6 +36,11 @@ namespace PredictedAdaptedEncoding
                    attribute == WildCardOfPackedCell::RAW_60BIT ||
                    attribute == WildCardOfPackedCell::RAW_30x2BIT ||
                    attribute == WildCardOfPackedCell::RAW_15x4BIT;
+        }
+        
+        static constexpr bool HasPackedCellWildCard(WildCardOfPackedCell wild_card) noexcept
+        {
+            return wild_card == WildCardOfPackedCell::PACKED_CELL;
         }
 
         static constexpr bool IsKnownConcurrencyContractForValue(ContractOfConcurrency contract) noexcept
@@ -69,6 +75,14 @@ namespace PredictedAdaptedEncoding
         static constexpr bool IsKnownFabricRegion(FabricTableSegmentClasses region) noexcept
         {
             return region > FabricTableSegmentClasses::NONE && region < FabricTableSegmentClasses::NULLNAN;
+        }
+    };
+    
+    struct CellValidators : public Meta16Validators
+    {
+        static constexpr bool IsRawCell(packed64_t cell) noexcept
+        {
+            return !HasPackedCellWildCard(ExtractWildCardFromCell_(cell));
         }
     };
     

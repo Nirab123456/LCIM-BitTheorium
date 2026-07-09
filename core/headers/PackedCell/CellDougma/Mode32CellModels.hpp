@@ -167,8 +167,8 @@ private:
             tag8_t page_class
         ) noexcept
         {
-            const uint32_t low_half32 = static_cast<uint32_t>(value & MaskLowNBits(VALBITS));
-            const uint32_t high_half32 = static_cast<uint32_t>((value >> VALBITS) & MaskLowNBits(VALBITS));
+            const uint32_t low_half32 = static_cast<uint32_t>(value & MaskLeftOverBitsUntil64(VALBITS));
+            const uint32_t high_half32 = static_cast<uint32_t>((value >> VALBITS) & MaskLeftOverBitsUntil64(VALBITS));
 
             const packed64_t low_half_packed_cell = PackedCell64_t::MakeInitialValidGeneralPackedCell(
                 PackedMode::MODEL32, locality, ownership, page_class,

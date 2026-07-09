@@ -135,7 +135,7 @@ struct HashIdConstructror
         for (uint32_t attempt = 0; attempt < 8u; attempt++)
         {
             random_seed = SplitMix64(random_seed);
-            const uint64_t seed48 = random_seed & MaskLowNBits(TOTAL_LOW);
+            const uint64_t seed48 = random_seed & MaskLeftOverBitsUntil64(TOTAL_LOW);
 
             if (seed48 != UNSIGNED_ZERO && seed48 < PackedCell64_t::BIT_FAMILY_48_SENTINAL)
             {
@@ -143,7 +143,7 @@ struct HashIdConstructror
             }
         }
         
-        const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel)) & MaskLowNBits(TOTAL_LOW);
+        const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel)) & MaskLeftOverBitsUntil64(TOTAL_LOW);
 
         return fallback!= UNSIGNED_ZERO && fallback < PackedCell64_t::BIT_FAMILY_48_SENTINAL ? fallback : PackedCell64_t::PACKED_CELL_SENTINAL;
 

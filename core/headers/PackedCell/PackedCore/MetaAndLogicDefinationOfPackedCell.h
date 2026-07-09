@@ -85,6 +85,10 @@ namespace PredictedAdaptedEncoding {
     static constexpr tag8_t LOCALITY_MASK = static_cast<tag8_t>((1u << LOCALITY_LEN) - 1u);
     static constexpr tag8_t OWNERSHIP_MASK = static_cast<tag8_t>((1u << OWNERSHIP_LEN) - 1u);
     static constexpr tag8_t WILD_CARD_MASK = static_cast<tag8_t>((1u << WILD_CARD_LEN) - 1u);
+    //
+    static constexpr unsigned RAW_BODY_SHIFT = BIT_LENGTH_OF_A_PACKED_CELL - (WILD_CARD_LEN + CELL_INTERNAL_DATA_TYPE_LEN);
+    static constexpr unsigned RAW_DTYPE_SHIFT = TOTAL_LOW + DATA_TYPE_SHIFT;
+    static constexpr unsigned RAW_WILD_CARD_SHIFT = TOTAL_LOW + WILD_CARD_SHIFT;
     
     /// @brief HIGHEST_TRUTH of Packed Cell
     enum class LocalityPolicy : tag8_t
@@ -174,7 +178,7 @@ namespace PredictedAdaptedEncoding {
         UNASSIGNED_UNUSED_NANNULL = 4
     };
 
-    /// @brief Describs Attribute OF: IS This Packed Cell Or the View 
+    /// @brief Describs WildCard OF: IS This Packed Cell Or the View 
     enum class WildCardOfPackedCell : tag8_t
     {
         PACKED_CELL = 0,
@@ -242,7 +246,7 @@ namespace PredictedAdaptedEncoding {
     using OriginOfRecord = FabricTableSegmentClasses;
 
 
-    static  constexpr packed64_t MaskLowNBits(unsigned n) noexcept
+    static  constexpr packed64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return packed64_t(0);
         if (n >= BIT_LENGTH_OF_A_PACKED_CELL) return ~packed64_t(0);

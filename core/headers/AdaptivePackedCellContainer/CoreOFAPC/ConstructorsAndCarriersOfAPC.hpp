@@ -119,7 +119,7 @@ struct APCDataStructure
         switch (desired_cell_auth_view.CellMode)
         {
         case PackedMode::VALUE32:
-            return PackedCell64_t::Compose32BitFamilyPackedCell(static_cast<uint32_t>(desired_value) & MaskLowNBits(VALBITS), desired_cell_auth_view.InCellClock16, desired_cell_auth_view.InCellMeta16);
+            return PackedCell64_t::Compose32BitFamilyPackedCell(static_cast<uint32_t>(desired_value) & MaskLeftOverBitsUntil64(VALBITS), desired_cell_auth_view.InCellClock16, desired_cell_auth_view.InCellMeta16);
 
         case PackedMode::VALUE48:
             return PackedCell64_t::Compose48BitFamilyPackedCell(desired_cell_auth_view.Raw48BitInCellData, desired_cell_auth_view.InCellMeta16);
@@ -288,12 +288,12 @@ struct Timer48
         using  cns = std::chrono::nanoseconds;
         auto d = std::chrono::steady_clock::now().time_since_epoch();
         uint64_t ns_count = static_cast<uint64_t>(std::chrono::duration_cast<cns>(d).count());
-        return ns_count & MaskLowNBits(FAMILY_48_BIT_LEN);
+        return ns_count & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
     }
 
     static uint16_t NowClock16() noexcept
     {
-        return static_cast<uint16_t>(NowTicks() & MaskLowNBits(LOW16_BIT_LEN));
+        return static_cast<uint16_t>(NowTicks() & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
     }
 };
 

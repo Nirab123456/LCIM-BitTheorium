@@ -14,7 +14,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr meta16_t ExtractMeta16fromPackedCell(packed64_t packed_cell) noexcept
         {
-            return static_cast<meta16_t>((packed_cell >> TOTAL_LOW) & MaskLowNBits(META16_B16));
+            return static_cast<meta16_t>((packed_cell >> TOTAL_LOW) & MaskLeftOverBitsUntil64(META16_B16));
         }
 
         static constexpr PackedMode ExtractModeFromCell(packed64_t packed_cell) noexcept
@@ -42,7 +42,7 @@ namespace PredictedAdaptedEncoding
                 return BIT_FAMILY_32_SENTINAL;
             }
             
-            return static_cast<val32_t>(packed_cell & MaskLowNBits(VALBITS));
+            return static_cast<val32_t>(packed_cell & MaskLeftOverBitsUntil64(VALBITS));
         }
 
 
@@ -52,7 +52,7 @@ namespace PredictedAdaptedEncoding
             {
                 return CLOCK_16_SENTINAL;
             }
-            return static_cast<clk16_t>((packed_cell >> (VALBITS)) & MaskLowNBits(LOW16_BIT_LEN));
+            return static_cast<clk16_t>((packed_cell >> (VALBITS)) & MaskLeftOverBitsUntil64(LOW16_BIT_LEN));
         }
 
         static constexpr uint64_t ExtractRaw48FamilyBits(packed64_t packed_cell) noexcept
@@ -61,12 +61,7 @@ namespace PredictedAdaptedEncoding
             {
                 return PACKED_CELL_SENTINAL;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
             }
-            return static_cast<uint64_t>(packed_cell & MaskLowNBits(FAMILY_48_BIT_LEN));
-        }
-
-        static constexpr WildCardOfPackedCell ExtractWildCardFromCell(packed64_t packed_cell) noexcept
-        {
-            return static_cast<WildCardOfPackedCell>(ExtractWildCardFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
+            return static_cast<uint64_t>(packed_cell & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN));
         }
 
         static constexpr LocalityPolicy ExtractLocalityFromCell(packed64_t packed_cell) noexcept
@@ -92,11 +87,6 @@ namespace PredictedAdaptedEncoding
         static constexpr Model48Subclass ExtractSubclass48FromCell(packed64_t packed_cell) noexcept
         {
             return static_cast<Model48Subclass>(ExtractSubClassOrContractFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
-        }
-
-        static constexpr InternalDataTypePolicy ExtractDataTypeFromCell(packed64_t packed_cell) noexcept
-        {
-            return static_cast<InternalDataTypePolicy>(ExtractDataTypeFromMeta16_(ExtractMeta16fromPackedCell(packed_cell)));
         }
 
         template <typename PCDT>
@@ -182,6 +172,21 @@ namespace PredictedAdaptedEncoding
 
 protected:
 
+        static constexpr WildCardOfPackedCell ExtractWildCardFromCell_(uint64_t cell) noexcept
+        {
+            return static_cast<WildCardOfPackedCell>((cell >> RAW_WILD_CARD_SHIFT) & DEFAULT_META16_INDEXING_LIMIT_2BIT);
+        }
+
+        static constexpr InternalDataTypePolicy ExtractDataTypeFromCell(uint64_t cell) noexcept
+        {
+            return static_cast<InternalDataTypePolicy>((cell >> RAW_DTYPE_SHIFT) & DEFAULT_META16_INDEXING_LIMIT_2BIT);
+        }
+
+        static constexpr uint64_t ExtractRawBody60(uint64_t cell) noexcept
+        {
+            return cell & MaskLeftOverBitsUntil64(RAW_BODY_SHIFT);
+        }
+
         static constexpr tag8_t ExtractWildCardFromMeta16_(meta16_t meta16) noexcept
         {
             return static_cast<tag8_t>((meta16 >> WILD_CARD_SHIFT) & WILD_CARD_MASK);
@@ -266,9 +271,9 @@ protected:
 
         static constexpr packed64_t SetMETA16InPacked(packed64_t packed_cell, meta16_t meta16) noexcept
         {
-            constexpr packed64_t top_48_bit_mask = MaskLowNBits(META16_B16) << TOTAL_LOW;
+            constexpr packed64_t top_48_bit_mask = MaskLeftOverBitsUntil64(META16_B16) << TOTAL_LOW;
             packed_cell &= ~top_48_bit_mask;
-            packed_cell |= (packed64_t(meta16) & MaskLowNBits(META16_B16)) << TOTAL_LOW;
+            packed_cell |= (packed64_t(meta16) & MaskLeftOverBitsUntil64(META16_B16)) << TOTAL_LOW;
             return packed_cell;
         }
 
@@ -279,11 +284,11 @@ protected:
                 return PACKED_CELL_SENTINAL;
             }
             
-            constexpr packed64_t clock16_mask = static_cast<packed64_t>(MaskLowNBits(LOW16_BIT_LEN) << VALBITS);
+            constexpr packed64_t clock16_mask = static_cast<packed64_t>(MaskLeftOverBitsUntil64(LOW16_BIT_LEN) << VALBITS);
             packed_cell &= ~clock16_mask;
 
             packed_cell |= (
-                static_cast<packed64_t>(value16) & static_cast<packed64_t>(MaskLowNBits(LOW16_BIT_LEN))
+                static_cast<packed64_t>(value16) & static_cast<packed64_t>(MaskLeftOverBitsUntil64(LOW16_BIT_LEN))
             ) << VALBITS;
 
             return packed_cell;
