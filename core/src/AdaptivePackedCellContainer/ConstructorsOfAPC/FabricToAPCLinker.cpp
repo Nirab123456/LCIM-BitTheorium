@@ -6,7 +6,7 @@ namespace PredictedAdaptedEncoding
 
 
     bool FabricToAPCLinker::BindExternalRawFabricBacking_(
-        packed64_t* raw_cells_ptr,
+        uint64_t* raw_cells_ptr,
         uint16_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
         uint64_t fabric_slot_idx
@@ -57,7 +57,7 @@ namespace PredictedAdaptedEncoding
     bool FabricToAPCLinker::ClaimAndCopyToAPCFromBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        const packed64_t* source_cells
+        const uint64_t* source_cells
     ) noexcept
     {
         if (
@@ -79,7 +79,7 @@ namespace PredictedAdaptedEncoding
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        const packed64_t* source_cells
+        const uint64_t* source_cells
     ) noexcept
     {
         if (
@@ -101,7 +101,7 @@ namespace PredictedAdaptedEncoding
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        packed64_t* return_buffer
+        uint64_t* return_buffer
     ) noexcept
     {
         if (

@@ -83,7 +83,7 @@ struct HashHelpers
 
 struct HashTableConf : public HashHelpers
 {
-    using SingleHashBuffer = std::array<packed64_t, HASH_BUCKED_WIDTH_OF_FABRIC + 1>;
+    using SingleHashBuffer = std::array<uint64_t, HASH_BUCKED_WIDTH_OF_FABRIC + 1>;
     static constexpr size_t VALIDATION_INDEX_HASH_BUFFER = static_cast<size_t>(HASH_BUCKED_WIDTH_OF_FABRIC);
 
     /// @brief FILL: The buffer with UINT64_MAX EXCEPT:VALIDATION_INDEX_HASH_BUFFER -> 0
@@ -92,7 +92,7 @@ struct HashTableConf : public HashHelpers
     {
         for (size_t i = 0; i < a_hash_buffer.size(); i++)
         {
-            a_hash_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+            a_hash_buffer[i] = FABRIC_CELL_SENTINAL;
         }
 
         a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
@@ -151,7 +151,7 @@ struct HashTableConf : public HashHelpers
 
     /// @brief Cell DEFAULTS: TypeFamily::VALUE48 + ContractOfConcurrency::CLAIMED_GURDED + WildCardOfPackedCell::RAW_60BIT
     /// @return VALID -> Packed Cell -> OR: UINT64_MAX:: if FabricTableSegmentClasses dosent belong  BRANCH_HASH, SHARED_HASH, LOGICAL_HASH
-    static constexpr packed64_t MakeAHashValueCell(
+    static constexpr uint64_t MakeAHashValueCell(
         uint64_t hash_handle,
         FabricTableSegmentClasses hash_table_class, 
         LocalityPolicy locality = LocalityPolicy::IDLE
@@ -159,12 +159,12 @@ struct HashTableConf : public HashHelpers
     {
         if (!CoreOfFabricCoordinator::IsValidHashTable(hash_table_class))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
 
         if (locality == LocalityPolicy::PUBLISHED && !HashIdConstructror::IsValidHashHandle(hash_handle))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
         return PackedCell64_t::MakeTypedFabricValidPackedCell(
@@ -177,7 +177,7 @@ struct HashTableConf : public HashHelpers
         );
     }
 
-    static constexpr packed64_t MakeHashIdKeyCell(
+    static constexpr uint64_t MakeHashIdKeyCell(
         uint64_t  key48,
         FabricTableSegmentClasses hash_table,
         LocalityPolicy locality = LocalityPolicy::IDLE
@@ -185,12 +185,12 @@ struct HashTableConf : public HashHelpers
     {
         if (!CoreOfFabricCoordinator::IsValidHashTable(hash_table))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
-        if (locality == LocalityPolicy::PUBLISHED && !HashIdConstructror::IsValidAPCId48(key48))
+        if (locality == LocalityPolicy::PUBLISHED && !HashIdConstructror::IsValidAPCId(key48))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
 
         if (IsGroupableHashTable(hash_table))
@@ -200,12 +200,12 @@ struct HashTableConf : public HashHelpers
 
             if (!prefix_32.has_value() || !sequential_index.has_value())
             {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
+                return FABRIC_CELL_SENTINAL;
             }
             
             if (locality == LocalityPolicy::PUBLISHED && prefix_32.value() == UNSIGNED_ZERO)
             {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
+                return FABRIC_CELL_SENTINAL;
             }
             
             return PackedCell64_t::MakeModeledFabricValidPackedCell(
@@ -234,7 +234,7 @@ struct HashTableConf : public HashHelpers
     /// @brief PACKEDMODE:MODE48 -> Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8[LOWEST16->Prob Distance | MID16 -> LOWEST:16 Bit From Hash Key | HIGHIEST16 -> LOWEST:16 Bit From Hash VAlue]
     /// @param table_class FabricTableSegmentClasses -> BRANCH_HASH / LOGICAL_HASH / SHARED_HASH
     /// @return 
-    static constexpr packed64_t MakeHashProbDistanceCellWithSaftyLock(
+    static constexpr uint64_t MakeHashProbDistanceCellWithSaftyLock(
         uint64_t key48, 
         uint64_t value48,
         uint16_t prob_distance,
@@ -245,7 +245,7 @@ struct HashTableConf : public HashHelpers
 
         if (!CoreOfFabricCoordinator::IsValidHashTable(hash_table))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
 
         if (
@@ -259,7 +259,7 @@ struct HashTableConf : public HashHelpers
                 value48 >= HASH_TOMBSTONE_KEY
             )
             {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
+                return FABRIC_CELL_SENTINAL;
             }
         }
 
@@ -295,10 +295,10 @@ private:
         if (a_key_cell_view.CellMode == PackedMode::MODEL32)
         {
             const uint64_t rebuild_group_key = HashIdConstructror::RebuildOriginalKey(a_key_cell_view.Raw32BitInCellData, a_key_cell_view.InCellClock16);
-            return HashIdConstructror::IsValidAPCId48(rebuild_group_key) ? rebuild_group_key : PackedCell64_t::PACKED_CELL_SENTINAL;
+            return HashIdConstructror::IsValidAPCId(rebuild_group_key) ? rebuild_group_key : FABRIC_CELL_SENTINAL;
         }
 
-        return PackedCell64_t::PACKED_CELL_SENTINAL;
+        return FABRIC_CELL_SENTINAL;
     }
 public:
 
@@ -310,9 +310,9 @@ public:
     /// @param caller_holds_Claim_guard IF: FALSE: Claimed Cell is Invalid & ONLY: -> SET: -> TRUE: When Caller Is the One Claimed The Cell 
     /// @return CELL INVALID: std::nullopt / HashFilesCarrier with Validity flag
     static constexpr HashFilesCarrier ReadKeyValueProbFromValidCells(
-        packed64_t key_cell,
-        packed64_t value_cell,
-        packed64_t prob_distance_safty,
+        uint64_t key_cell,
+        uint64_t value_cell,
+        uint64_t prob_distance_safty,
         bool caller_holds_Claim_guard
     ) noexcept
     {
@@ -360,7 +360,7 @@ public:
         }
 
         const uint64_t maybe_rebuilded_key48 = ExtractHashKey48FromValidViewUnchecked_(key_cell_auth_view);
-        if (!HashIdConstructror::IsValidAPCId48(maybe_rebuilded_key48))
+        if (!HashIdConstructror::IsValidAPCId(maybe_rebuilded_key48))
         {
             return invalid_value;
         }

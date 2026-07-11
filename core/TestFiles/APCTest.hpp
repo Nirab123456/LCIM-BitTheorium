@@ -187,7 +187,7 @@
 //         };
 //     }
 
-//     packed64_t PackF32(
+//     uint64_t PackF32(
 //         MasterClockConf& clock,
 //         float value,
 //         APCPagedNodeSegmentClasses page_class,
@@ -225,7 +225,7 @@
 
 //     }
 
-//     float UnpackF32(packed64_t cell, float fallback = 0.0f)
+//     float UnpackF32(uint64_t cell, float fallback = 0.0f)
 //     {
 //         const auto maybe = PackedCell64_t::ExtractAnyPackedValueX<float>(cell);
 //         return maybe ? *maybe : fallback;
@@ -561,7 +561,7 @@
 //     bool PublishWithRetry(
 //         APCSegmentsCausalCordinator& node,
 //         APCPagedNodeSegmentClasses region,
-//         packed64_t cell,
+//         uint64_t cell,
 //         PackedCellContainerManager& manager,
 //         std::atomic<uint64_t>& growth_counter,
 //         const char* label
@@ -585,7 +585,7 @@
 //         return false;
 //     }
 
-//     std::optional<packed64_t> ConsumeWithRetry(
+//     std::optional<uint64_t> ConsumeWithRetry(
 //         APCSegmentsCausalCordinator& node,
 //         APCPagedNodeSegmentClasses region,
 //         size_t& cursor,

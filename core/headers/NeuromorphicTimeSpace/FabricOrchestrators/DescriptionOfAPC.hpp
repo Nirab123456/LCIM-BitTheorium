@@ -10,8 +10,8 @@ struct APCDescriptorRange
     size_t EndIndex = UNSIGNED_ZERO;
     bool IsValid = false;
 };
-static_assert(sizeof(APCDescriptorRange) == RECORD_BOOK_WIDTH * sizeof(packed64_t));
-static_assert(alignof(APCDescriptorRange) == alignof(packed64_t));
+static_assert(sizeof(APCDescriptorRange) == RECORD_BOOK_WIDTH * sizeof(uint64_t));
+static_assert(alignof(APCDescriptorRange) == alignof(uint64_t));
 
 
 struct DescriptionOfAPC
@@ -19,7 +19,7 @@ struct DescriptionOfAPC
 
     static constexpr uint64_t VALID_BUFFER_MARK = 1111111111111;
 
-    using SingleAPCDescriptionCellBuffer = std::array<packed64_t, APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX + 1>;
+    using SingleAPCDescriptionCellBuffer = std::array<uint64_t, APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX + 1>;
 
     /// @brief Assignes UINT64_MAX  UPTO:INDEX: APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX - 1 and Next 2 INDEX: UNSIGNED_ZERO
     /// @param default_array 
@@ -29,7 +29,7 @@ struct DescriptionOfAPC
         {
             if (i < APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX)
             {
-                default_array[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+                default_array[i] = FABRIC_CELL_SENTINAL;
             }
             else
             {
@@ -58,7 +58,7 @@ struct DescriptionOfAPC
     }
 
     static constexpr bool IsValidAPCDescriptionCell(
-        packed64_t packed_cell, 
+        uint64_t packed_cell, 
         std::optional<PackedMode> mode_check = std::nullopt,
         bool check_consumeablity = true,
         PackedCell64_t::AuthoritiveCellView* return_auth_view_ptr = nullptr
@@ -111,7 +111,7 @@ struct DescriptionOfAPC
     }
 
 
-    static constexpr packed64_t MakeAPCDescriptionValue48Cell(
+    static constexpr uint64_t MakeAPCDescriptionValue48Cell(
         uint64_t cell_value, 
         LocalityPolicy locality = LocalityPolicy::PUBLISHED
     ) noexcept
@@ -133,7 +133,7 @@ struct DescriptionOfAPC
     /// @param claimed_count MID: uint16_t in PackUnsigned16x3ToMode48_
     /// @param faulty_count HIGHIEST: uint16_t in PackUnsigned16x3ToMode48_
     /// @return 
-    static constexpr packed64_t MakeOccupancyDescriptionForAPCDescriptionTable(
+    static constexpr uint64_t MakeOccupancyDescriptionForAPCDescriptionTable(
         uint16_t published_count,
         uint16_t claimed_count,
         uint16_t faulty_count,
@@ -159,7 +159,7 @@ struct DescriptionOfAPC
     /// @brief 
     /// @param state_of_apc MUST PACKEDMODE:MODEL32 -> AND Model32Subclass::UNCLOCKED_1x8_PLUS_2x4 -> [LOWEST16-> VERSION | MID16 -> State Of APC | HIGHIEST16 -> Ownership Of APC] 
     /// @return CELL INVALID: std::nullopt / HashFilesCarrier with Validity flag
-    static constexpr packed64_t MakeStateandSaftyCellOfSingleAPCDescriptor(
+    static constexpr uint64_t MakeStateandSaftyCellOfSingleAPCDescriptor(
         size_t segment_pool_begin, 
         size_t segment_pool_end,
         StateOfSingleAPCDescription state_of_apc,
@@ -174,7 +174,7 @@ struct DescriptionOfAPC
         uint16_t state_version_ownership = UNSIGNED_ZERO;
         if (apc_width == UNSIGNED_ZERO || !APCDataStructure::IsThisIndexValidForAPC(apc_width))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
         state_version_ownership = Clock16Subdivision1x8Plus2x4InMode32CellModel::Pack1x8Plus2x4InUnsigned16_(version, static_cast<uint8_t>(state_of_apc), static_cast<uint8_t>(origin_ownership));
@@ -192,8 +192,8 @@ struct DescriptionOfAPC
 
     /// @brief Sets Desired State, Owner & Version inside Safty Cell -> ONY: Bare Matale Packed Cell Check
     /// @return WARNING: This Function Dosent Validate ANYTHING & User Defined Value May Broke The Description If Not Validated OR: Carefull Use
-    static constexpr packed64_t SwitchStateOrAPCOwnerOfSaftyCell(
-        packed64_t packed_cell,
+    static constexpr uint64_t SwitchStateOrAPCOwnerOfSaftyCell(
+        uint64_t packed_cell,
         StateOfSingleAPCDescription desired_state = StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL,
         OwnershipPolicy desired_owner_of_apc = OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL,
         uint8_t desired_version = UNSIGNED_ZERO
@@ -202,7 +202,7 @@ struct DescriptionOfAPC
         const DescriptorSaftyFiles current_safty_files = ReadFilesFromStateSaftyofADescriptor(packed_cell);
         if (current_safty_files.IsValid)
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
         const StateOfSingleAPCDescription state_value = desired_state == StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL ? current_safty_files.StateOfTheAPC : desired_state;
@@ -227,12 +227,12 @@ struct DescriptionOfAPC
         LocalityPolicy LocalityOfTheDescription = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
-    static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(packed64_t));
+    static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
 
     /// @brief Returns A Compleate View of the APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY
     /// @param packed_cell 
     /// @return 
-    static constexpr DescriptorSaftyFiles ReadFilesFromStateSaftyofADescriptor(packed64_t packed_cell) noexcept
+    static constexpr DescriptorSaftyFiles ReadFilesFromStateSaftyofADescriptor(uint64_t packed_cell) noexcept
     {
         DescriptorSaftyFiles return_descriptor_files{};
 
@@ -283,9 +283,9 @@ struct DescriptionOfAPC
         std::optional<uint8_t> version_match = std::nullopt
     ) noexcept
     {
-        const packed64_t segment_pool_begin_cell =  single_apc_description[static_cast<size_t>(APCDescriptorCellType::APC_SEGMENTPOOL_BEGAIN_SLAB)];
-        const packed64_t segment_pool_end_cell = single_apc_description[static_cast<size_t>(APCDescriptorCellType::APC_SEGMENTPOOL_END_SLAB)];
-        const packed64_t state_version_ownership_cell = single_apc_description[static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY)];
+        const uint64_t segment_pool_begin_cell =  single_apc_description[static_cast<size_t>(APCDescriptorCellType::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+        const uint64_t segment_pool_end_cell = single_apc_description[static_cast<size_t>(APCDescriptorCellType::APC_SEGMENTPOOL_END_SLAB)];
+        const uint64_t state_version_ownership_cell = single_apc_description[static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY)];
 
         if (
             !IsValidAPCDescriptionCell(segment_pool_begin_cell, PackedMode::VALUE48, true) ||
@@ -345,7 +345,7 @@ struct DescriptionOfAPC
             return;
         }
         
-        const packed64_t desired_packed_cell = MakeAPCDescriptionValue48Cell(cell_value, cell_locality);
+        const uint64_t desired_packed_cell = MakeAPCDescriptionValue48Cell(cell_value, cell_locality);
 
         single_apc_description_buffer[static_cast<size_t>(cell_type)] = desired_packed_cell;
     }  
@@ -364,7 +364,7 @@ struct DescriptionOfAPC
         LocalityPolicy locality = LocalityPolicy::PUBLISHED
     )
     {
-        const packed64_t desired_occupancy_cell = MakeOccupancyDescriptionForAPCDescriptionTable(
+        const uint64_t desired_occupancy_cell = MakeOccupancyDescriptionForAPCDescriptionTable(
             published_count,
             claimed_count,
             faulty_count,
@@ -374,7 +374,7 @@ struct DescriptionOfAPC
         single_apc_description_buffer[static_cast<size_t>(APCDescriptorCellType::OCCUPANCY_CELL16x3)] = desired_occupancy_cell;
     }
 
-    static constexpr bool SetStateSaftyCellInBuffer(SingleAPCDescriptionCellBuffer& a_buffer_description, packed64_t packed_cell) noexcept
+    static constexpr bool SetStateSaftyCellInBuffer(SingleAPCDescriptionCellBuffer& a_buffer_description, uint64_t packed_cell) noexcept
     {
         if (!PackedCell64_t::IsThisCellValid(packed_cell))
         {
@@ -402,9 +402,9 @@ struct DescriptionOfAPC
             return std::nullopt;
         }
 
-        const packed64_t desired_value = PackedCell64_t::ExtractRaw48FamilyBits(a_description_buffer[static_cast<size_t>(description_type)]);
+        const uint64_t desired_value = PackedCell64_t::ExtractRaw48FamilyBits(a_description_buffer[static_cast<size_t>(description_type)]);
 
-        if (desired_value != PackedCell64_t::PACKED_CELL_SENTINAL)
+        if (desired_value != FABRIC_CELL_SENTINAL)
         {
             return desired_value;
         }
@@ -425,7 +425,7 @@ struct DescriptionOfAPC
         bool check_consumeablity = true,
         OwnershipPolicy validate_observer = OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL,
         StateOfSingleAPCDescription desired_state = StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL,
-        uint64_t match_apc_idx_itself = PackedCell64_t::PACKED_CELL_SENTINAL,
+        uint64_t match_apc_idx_itself = FABRIC_CELL_SENTINAL,
         std::optional<uint8_t> version_match = std::nullopt
     ) noexcept
     {
@@ -489,7 +489,7 @@ struct DescriptionOfAPC
         SetADescriptionInCellBuffer(apc_description_buffer, APCDescriptorCellType::RETIRE_EPOCH48, UNSIGNED_ZERO, cell_locality);
         SetADescriptionInCellBuffer(apc_description_buffer, APCDescriptorCellType::APC_FLAGS_FOR_THIS, UNSIGNED_ZERO, cell_locality);
         SetOccupancyInBuffer(apc_description_buffer, UNSIGNED_ZERO, UNSIGNED_ZERO, UNSIGNED_ZERO, cell_locality);
-        const packed64_t state_ownership_version_cell =  MakeStateandSaftyCellOfSingleAPCDescriptor(
+        const uint64_t state_ownership_version_cell =  MakeStateandSaftyCellOfSingleAPCDescriptor(
             segment_pool_begin, segment_pool_end, StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL, 
             version, cell_locality, OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC
         );

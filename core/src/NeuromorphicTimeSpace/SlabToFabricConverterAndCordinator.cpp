@@ -7,13 +7,13 @@ namespace PredictedAdaptedEncoding
 {
 
 
-    packed64_t* SlabToFabricConverterAndCordinator::AllocatePackedCellRaw_(size_t count_of_cells) noexcept
+    uint64_t* SlabToFabricConverterAndCordinator::AllocatePackedCellRaw_(size_t count_of_cells) noexcept
     {
         auto allocation_function = AllocatorOfFabric_.AllocatePackedCellStorage ? 
             AllocatorOfFabric_.AllocatePackedCellStorage : &RawPackedCellAllocator::DefaultAllocateAtomicCells;
         
         size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_A_PACKED_CELL;
-        alignment = std::max<size_t>(alignment, alignof(packed64_t));
+        alignment = std::max<size_t>(alignment, alignof(uint64_t));
         alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_A_PACKED_CELL);
 
         return allocation_function(count_of_cells, alignment, AllocatorOfFabric_.User);
@@ -21,12 +21,12 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    void SlabToFabricConverterAndCordinator::FreeRawPackedCells_(packed64_t* packed_cell_memory_ptr, size_t packed_cell_count) noexcept
+    void SlabToFabricConverterAndCordinator::FreeRawPackedCells_(uint64_t* packed_cell_memory_ptr, size_t packed_cell_count) noexcept
     {
         RawPackedCellAllocator::FreeFunction free_function = AllocatorOfFabric_.FreePackedCellStorage ?
                             AllocatorOfFabric_.FreePackedCellStorage : &RawPackedCellAllocator::DefaultFreeAtomicCells;
         size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_A_PACKED_CELL;
-        alignment = std::max<size_t>(alignment, alignof(packed64_t));
+        alignment = std::max<size_t>(alignment, alignof(uint64_t));
         alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_A_PACKED_CELL);
 
         free_function(packed_cell_memory_ptr, packed_cell_count, alignment, AllocatorOfFabric_.User);
@@ -144,18 +144,18 @@ namespace PredictedAdaptedEncoding
         }
 
         
-        const packed64_t idle_key = HashTableConf::MakeHashIdKeyCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
-        const packed64_t idle_value = HashTableConf::MakeAHashValueCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
-        const packed64_t prob_distance_lock_cell_idle = HashTableConf::MakeHashProbDistanceCellWithSaftyLock(
+        const uint64_t idle_key = HashTableConf::MakeHashIdKeyCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
+        const uint64_t idle_value = HashTableConf::MakeAHashValueCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
+        const uint64_t prob_distance_lock_cell_idle = HashTableConf::MakeHashProbDistanceCellWithSaftyLock(
             UNSIGNED_ZERO, UNSIGNED_ZERO, UNSIGNED_ZERO,
             hash_table, 
             LocalityPolicy::IDLE
         );
 
         if (
-            idle_key == PackedCell64_t::PACKED_CELL_SENTINAL ||
-            idle_value == PackedCell64_t::PACKED_CELL_SENTINAL ||
-            prob_distance_lock_cell_idle == PackedCell64_t::PACKED_CELL_SENTINAL 
+            idle_key == FABRIC_CELL_SENTINAL ||
+            idle_value == FABRIC_CELL_SENTINAL ||
+            prob_distance_lock_cell_idle == FABRIC_CELL_SENTINAL 
         )
         {
             return;
@@ -178,7 +178,7 @@ namespace PredictedAdaptedEncoding
     void SlabToFabricConverterAndCordinator::InitializeAPCDescriptorTable_() noexcept
     {
         const uint8_t version = APCDataStructure::BRANCH_VERSION;
-        const packed64_t idle_apc_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
+        const uint64_t idle_apc_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
             TypeFamily::VALUE32,
             ContractOfConcurrency::CLAIMED_GURDED,
             APCPagedNodeSegmentClasses::UNDEFINED,
@@ -355,7 +355,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const packed64_t valu48_raw_fabric_global_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
+        const uint64_t valu48_raw_fabric_global_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48,
             ContractOfConcurrency::RAW_PRIVATE,
             FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
@@ -414,7 +414,7 @@ namespace PredictedAdaptedEncoding
     {
 
         FabricInitialized_.store(false, MoStoreSeq_);
-        packed64_t* old_ptr = SlabBasePtr_;
+        uint64_t* old_ptr = SlabBasePtr_;
         const size_t old_count = SlabCellCount_;
         SlabBasePtr_ = nullptr;
         SlabCellCount_ = UNSIGNED_ZERO;
@@ -447,10 +447,10 @@ namespace PredictedAdaptedEncoding
         }
 
         container_initial_conf.BranchID = MakeUniqueBranchIdForHashAndAPC();
-        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandom48bitValue();
+        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandomFabricValid64();
         if (
-            !HashIdConstructror::IsValidAPCId48(container_initial_conf.BranchID) ||
-            !HashIdConstructror::IsValidAPCId48(container_initial_conf.AccessPassword)
+            !HashIdConstructror::IsValidAPCId(container_initial_conf.BranchID) ||
+            !HashIdConstructror::IsValidAPCId(container_initial_conf.AccessPassword)
         )
         {
             container_initial_conf.IsAssignable = false;
@@ -465,16 +465,16 @@ namespace PredictedAdaptedEncoding
     {
         for (size_t i = 0; i < DEFAULT_MAX_TRIES; i++)
         {
-            const uint64_t random_bid = HashIdConstructror::MakeARandom48bitValue();
+            const uint64_t random_bid = HashIdConstructror::MakeARandomFabricValid64();
             if (
-                HashIdConstructror::IsValidAPCId48(random_bid) && 
+                HashIdConstructror::IsValidAPCId(random_bid) && 
                 !FindHashValue48_(FabricTableSegmentClasses::BRANCH_HASH, random_bid).has_value()
             )
             {
                 return random_bid;
             }
         }
-        return PackedCell64_t::PACKED_CELL_SENTINAL;
+        return FABRIC_CELL_SENTINAL;
     }
 
 

@@ -17,7 +17,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
         LocalityPolicy LocalityOfLayout = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
-    static_assert(sizeof(LayoutCarrier) <= sizeof(packed64_t));
+    static_assert(sizeof(LayoutCarrier) <= sizeof(uint64_t));
 
     static constexpr bool ValidateALayoutCarrier(
         LayoutCarrier& a_layout,
@@ -47,13 +47,13 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
         return false;
     }
 
-    static constexpr packed64_t CreateALayoutBoundsCell(
+    static constexpr uint64_t CreateALayoutBoundsCell(
         LayoutCarrier& a_layout
     ) noexcept
     {
         if (!ValidateALayoutCarrier(a_layout))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
 
         const uint64_t raw48_layout = Subdivision2x16Plus2x8InternalMode48CellModel::Pack2x16Plus2x8UnsignedSubdivision_(
@@ -75,7 +75,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
     }
 
     static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(
-        packed64_t packed_cell,
+        uint64_t packed_cell,
         bool is_claimed_valid = true
     ) noexcept
     {
@@ -101,7 +101,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
     }
 
     static constexpr std::optional<uint16_t> SpanOflayoutFromPackedCell(
-        packed64_t packed_cell,
+        uint64_t packed_cell,
         bool caller_holds_claim_guard = false
     ) noexcept
     {
@@ -340,9 +340,9 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             return false;
         }
 
-        const packed64_t layout_cell = CreateALayoutBoundsCell(a_valid_layout_carrier);
+        const uint64_t layout_cell = CreateALayoutBoundsCell(a_valid_layout_carrier);
 
-        if (layout_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
+        if (layout_cell == FABRIC_CELL_SENTINAL)
         {
             return false;
         }
@@ -377,7 +377,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
 
         for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
-            const packed64_t current_packed_cell = a_layout_buffer[i];
+            const uint64_t current_packed_cell = a_layout_buffer[i];
             LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(current_packed_cell, is_claimed_valid);
             if (!current_layout.IsValid)
             {

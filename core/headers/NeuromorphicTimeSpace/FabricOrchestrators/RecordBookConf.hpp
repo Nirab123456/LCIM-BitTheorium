@@ -6,13 +6,13 @@ namespace PredictedAdaptedEncoding
 
 struct RecordBookCellTripletGroup
 {
-    packed64_t BeginIdxRawType48Cell = UNSIGNED_ZERO;
-    packed64_t EndIdxRawType48Cell = UNSIGNED_ZERO;
-    packed64_t WidthVersionOriginSafty = UNSIGNED_ZERO;
+    uint64_t BeginIdxRawType48Cell = UNSIGNED_ZERO;
+    uint64_t EndIdxRawType48Cell = UNSIGNED_ZERO;
+    uint64_t WidthVersionOriginSafty = UNSIGNED_ZERO;
     
 };
-static_assert(sizeof(RecordBookCellTripletGroup) == RECORD_BOOK_WIDTH * sizeof(packed64_t));
-static_assert(alignof(RecordBookCellTripletGroup) == alignof(packed64_t));
+static_assert(sizeof(RecordBookCellTripletGroup) == RECORD_BOOK_WIDTH * sizeof(uint64_t));
+static_assert(alignof(RecordBookCellTripletGroup) == alignof(uint64_t));
 
 struct RecordBookTablesBoundsCarrier
 {
@@ -22,8 +22,8 @@ struct RecordBookTablesBoundsCarrier
     uint8_t Width = UNSIGNED_ZERO;
     bool IsValid = false;  
 };
-static_assert(sizeof(RecordBookTablesBoundsCarrier) == RECORD_BOOK_WIDTH * sizeof(packed64_t));
-static_assert(alignof(RecordBookTablesBoundsCarrier) == alignof(packed64_t));
+static_assert(sizeof(RecordBookTablesBoundsCarrier) == RECORD_BOOK_WIDTH * sizeof(uint64_t));
+static_assert(alignof(RecordBookTablesBoundsCarrier) == alignof(uint64_t));
 
 
 struct RecordBookConf
@@ -59,7 +59,7 @@ struct RecordBookConf
     }
 
     static constexpr bool IsThisValidRecordBookPackedCell(
-        packed64_t packed_cell,
+        uint64_t packed_cell,
         PackedCell64_t::AuthoritiveCellView* return_cell_view = nullptr
     ) noexcept
     {
@@ -154,7 +154,7 @@ struct RecordBookConf
     }
 
     /// @return VALID -> Packed Cell -> OR: UINT64_MAX
-    static constexpr packed64_t MakeRecordBookCellOfTSC(
+    static constexpr uint64_t MakeRecordBookCellOfTSC(
         uint64_t value,
         LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED
     ) noexcept
@@ -178,7 +178,7 @@ struct RecordBookConf
     /// @param locality 
     /// @param version 
     /// @return 
-    static constexpr packed64_t MakeRecordBookSaftyLock(
+    static constexpr uint64_t MakeRecordBookSaftyLock(
         size_t begin_idx, size_t end_idx, 
         OriginOfRecord origin_table_class,
         LocalityPolicy locality = LocalityPolicy::PUBLISHED, 
@@ -191,7 +191,7 @@ struct RecordBookConf
 
         if (origin_per_record_width == CoreOfFabricCoordinator::EACH_TABLE_RECORD_SENTINAL)
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
         const uint16_t version_origin_slabid = Clock16Subdivision1x8Plus2x4InMode32CellModel::Pack1x8Plus2x4InUnsigned16_(origin_per_record_width, static_cast<uint8_t>(origin_table_class), slab_id);

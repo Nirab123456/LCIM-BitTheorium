@@ -3,30 +3,30 @@
 namespace PredictedAdaptedEncoding
 {
 
-    packed64_t FabricConstructor::ReadCompletePackedCellDirectly(size_t slab_index) noexcept
+    uint64_t FabricConstructor::ReadCompletePackedCellDirectly(size_t slab_index) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
-        const packed64_t desired_cell_raw = SlabBasePtr_[slab_index];
+        const uint64_t desired_cell_raw = SlabBasePtr_[slab_index];
 
         return desired_cell_raw;
     } 
 
-    constexpr packed64_t FabricConstructor::AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept
+    constexpr uint64_t FabricConstructor::AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
-        std::atomic_ref<const packed64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
-        const packed64_t desired_cell_raw = packed_cell_ref.load(MoLoad_);
+        std::atomic_ref<const uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
+        const uint64_t desired_cell_raw = packed_cell_ref.load(MoLoad_);
 
         return desired_cell_raw;
     }
 
-    constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, packed64_t packed_cell) noexcept
+    constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
@@ -36,7 +36,7 @@ namespace PredictedAdaptedEncoding
     }
 
     constexpr void FabricConstructor::AtomicallyStorePackedCellUnchecked(
-        size_t slab_index, packed64_t packed_cell,
+        size_t slab_index, uint64_t packed_cell,
         std::memory_order mem_order
     ) noexcept
     {
@@ -44,15 +44,15 @@ namespace PredictedAdaptedEncoding
         {
             return;
         }
-        std::atomic_ref<packed64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
+        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
         packed_cell_ref.store(packed_cell, mem_order);
         packed_cell_ref.notify_all();
     }
 
     constexpr bool FabricConstructor::CompareExchangeStrongFromFabric(
         size_t slab_index, 
-        packed64_t& expected_packed_cell, 
-        packed64_t desired_packed_cell,
+        uint64_t& expected_packed_cell, 
+        uint64_t desired_packed_cell,
         std::memory_order mem_order_success,
         std::memory_order mem_order_failure
     ) noexcept
@@ -61,14 +61,14 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        std::atomic_ref<packed64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
+        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
         return packed_cell_ref.compare_exchange_strong(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
     constexpr bool FabricConstructor::CompareExchangeWeakInSlab(
         size_t slab_index, 
-        packed64_t& expected_packed_cell, 
-        packed64_t desired_packed_cell,
+        uint64_t& expected_packed_cell, 
+        uint64_t desired_packed_cell,
         std::memory_order mem_order_success,
         std::memory_order mem_order_failure
     ) noexcept
@@ -77,7 +77,7 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        std::atomic_ref<packed64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
+        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
         return packed_cell_ref.compare_exchange_weak(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
@@ -92,7 +92,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const packed64_t packed_meta_cell = AtomicallyLoadReadCompletePackedCell(meta_index_in_slab);
+        const uint64_t packed_meta_cell = AtomicallyLoadReadCompletePackedCell(meta_index_in_slab);
         meta_cell_view_address = PackedCell64_t::GetAuthoritiveViewsForACell(packed_meta_cell);
 
         return true;        
@@ -113,8 +113,8 @@ namespace PredictedAdaptedEncoding
         const size_t desired_low_idx = static_cast<size_t>(desired_occupancy_low_idx);
         const size_t desired_high_idx = static_cast<size_t>(desired_occupancy_low_idx) + 1;
 
-        packed64_t raw_occ_low = AtomicallyLoadReadCompletePackedCell(desired_low_idx);
-        packed64_t raw_occ_high = AtomicallyLoadReadCompletePackedCell(desired_high_idx);
+        uint64_t raw_occ_low = AtomicallyLoadReadCompletePackedCell(desired_low_idx);
+        uint64_t raw_occ_high = AtomicallyLoadReadCompletePackedCell(desired_high_idx);
 
         
         auto result = PairedVersionedCellModelOfMode32::GetFullUnsigned64FromPairedVersionedCell(raw_occ_low, raw_occ_high, low_half_view_ptr, high_half_view_ptr);
@@ -155,7 +155,7 @@ namespace PredictedAdaptedEncoding
         for (uint8_t idx_inc = 0; idx_inc < claim_order_cell_count; idx_inc++)
         {
             const size_t current_slab_idx = static_cast<size_t>(idx_inc + claim_starting_idx_in_slab);
-            packed64_t expected_cell = AtomicallyLoadReadCompletePackedCell(current_slab_idx);
+            uint64_t expected_cell = AtomicallyLoadReadCompletePackedCell(current_slab_idx);
 
             packed_cell_buffer[idx_inc] = expected_cell;
 
@@ -164,7 +164,7 @@ namespace PredictedAdaptedEncoding
                 break;
             }
             
-            const packed64_t desired_cell = PackedCell64_t::SetLocalityInPacked(expected_cell, LocalityPolicy::CLAIMED);
+            const uint64_t desired_cell = PackedCell64_t::SetLocalityInPacked(expected_cell, LocalityPolicy::CLAIMED);
 
             if (!CompareExchangeStrongFromFabric(
                 current_slab_idx,
@@ -195,7 +195,7 @@ namespace PredictedAdaptedEncoding
     bool FabricConstructor::ForceNxLenMemCopy(
         size_t slab_starting_idx, 
         size_t number_of_cells, 
-        const packed64_t* desired_cells,
+        const uint64_t* desired_cells,
         bool force_update
     ) noexcept
     {
@@ -221,7 +221,7 @@ namespace PredictedAdaptedEncoding
         std::memcpy(
             &SlabBasePtr_[slab_starting_idx],
             desired_cells,
-            number_of_cells * sizeof(packed64_t)
+            number_of_cells * sizeof(uint64_t)
         );
 
         return true;

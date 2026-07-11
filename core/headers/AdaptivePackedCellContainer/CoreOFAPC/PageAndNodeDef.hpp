@@ -225,13 +225,13 @@ struct TrackingBufferConf
 {
     static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = PageNodeOrchestrator::TrackedAPCNodeLen() + 1;
     static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
-    using TrackingBufferOfAPC = std::array<packed64_t, LEN_OF_APC_TRACKING_BUFFER>;
+    using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
 
     static constexpr void BuildNullTrackingBuffer(TrackingBufferOfAPC& a_layout_buffer) noexcept
     {
         for (size_t i = 0; i < a_layout_buffer.size(); i++)
         {
-            a_layout_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+            a_layout_buffer[i] = FABRIC_CELL_SENTINAL;
         }
     }
 };

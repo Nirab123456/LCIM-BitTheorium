@@ -9,9 +9,9 @@ namespace PredictedAdaptedEncoding
     {
     private:
 
-        packed64_t* AllocatePackedCellRaw_(size_t count_of_cells) noexcept;
+        uint64_t* AllocatePackedCellRaw_(size_t count_of_cells) noexcept;
         
-        void FreeRawPackedCells_(packed64_t*packed_cell_memory_ptr, size_t packed_cell_count) noexcept;
+        void FreeRawPackedCells_(uint64_t*packed_cell_memory_ptr, size_t packed_cell_count) noexcept;
 
         void ResetScalarsofTheFabric_() noexcept;
 

@@ -14,7 +14,7 @@ namespace PredictedAdaptedEncoding
             return;
         }
 
-        const packed64_t idle_table_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
+        const uint64_t idle_table_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
             TypeFamily::VALUE48, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED,
             table_class, LocalityPolicy::IDLE,
             InternalDataTypePolicy::UNSIGNED
@@ -141,7 +141,7 @@ namespace PredictedAdaptedEncoding
         }
 
         /// ALways same derives from -> FabricMetaIndicies
-        const packed64_t directory_begin_cell = ReadCompletePackedCellDirectly(static_cast<size_t>(FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
+        const uint64_t directory_begin_cell = ReadCompletePackedCellDirectly(static_cast<size_t>(FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
 
         const PackedCell64_t::AuthoritiveCellView base_idx_record_book_view = PackedCell64_t::GetAuthoritiveViewsForACell(directory_begin_cell);
 

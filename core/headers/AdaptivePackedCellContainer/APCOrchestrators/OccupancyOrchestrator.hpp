@@ -17,7 +17,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
         LocalityPolicy localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
-    static_assert(sizeof(OccupancyCarrier) <= 2 * sizeof(packed64_t));
+    static_assert(sizeof(OccupancyCarrier) <= 2 * sizeof(uint64_t));
 
     static constexpr void RestOccupancyCarrier(OccupancyCarrier& a_occupancy_carrier) noexcept
     {
@@ -92,13 +92,13 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
     /// @param ClaimedOccupancy MID: uint16_t in PackUnsigned16x3ToMode48_
     /// @param IdleOccupancy HIGHIEST: uint16_t in PackUnsigned16x3ToMode48_
     /// @return 
-    static constexpr packed64_t CreateAPCOccupancyCell(
+    static constexpr uint64_t CreateAPCOccupancyCell(
         OccupancyCarrier& valid_occupancy_carrier
     ) noexcept
     {   
         if (!IsValidateAnOccupancyCarrier(valid_occupancy_carrier, true))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         
         const uint64_t raw_48 =  Subdevision16x3InternalMode48CellModel::PackUnsigned16x3ToMode48_(
@@ -118,7 +118,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
     }
 
 
-    static constexpr OccupancyCarrier GetAnOccupancyCarrierFromValidOccupancyCell(packed64_t packed_cell) noexcept
+    static constexpr OccupancyCarrier GetAnOccupancyCarrierFromValidOccupancyCell(uint64_t packed_cell) noexcept
     {
         OccupancyCarrier return_occupancy{};
         const PackedCell64_t::AuthoritiveCellView desired_auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
@@ -149,7 +149,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
         return total_capacity > APCDataStructure::METACELL_COUNT && APCDataStructure::IsThisIndexValidForAPC(static_cast<uint32_t>(total_capacity));
     }
 
-    static constexpr std::optional<uint16_t> GetOccupancyWithoutErrorFromPackedCell(packed64_t packed_cell) noexcept
+    static constexpr std::optional<uint16_t> GetOccupancyWithoutErrorFromPackedCell(uint64_t packed_cell) noexcept
     {
         const OccupancyCarrier desired_occupancy_files = GetAnOccupancyCarrierFromValidOccupancyCell(packed_cell);
 
@@ -167,7 +167,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
 ////////////////////////////////////////////////////////////////////////// MOST WILL BE OBSULE BELLOW IN THIS STRUCT
 
         static constexpr std::optional<uint16_t> GetOccuupancyFromPackedCellMode48(
-            packed64_t packed_cell,
+            uint64_t packed_cell,
             LocalityPolicy desired_occupancy_bucket,
             uint16_t physical_capacity
         ) noexcept
@@ -177,7 +177,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
                 return std::nullopt;
             }
             const uint64_t raw48 = PackedCell64_t::ExtractRaw48FamilyBits(packed_cell);
-            if (raw48 == PackedCell64_t::PACKED_CELL_SENTINAL)
+            if (raw48 == FABRIC_CELL_SENTINAL)
             {
                 return std::nullopt;
             }
@@ -212,10 +212,10 @@ protected:
             return in_use_potion > physical_capacity ? UNSIGNED_ZERO : static_cast<uint16_t>(physical_capacity - in_use_potion);
         }
 
-        static constexpr uint16_t DerivedIdleFromPackedCell48(packed64_t packed_cell, uint16_t physical_capacity) noexcept
+        static constexpr uint16_t DerivedIdleFromPackedCell48(uint64_t packed_cell, uint16_t physical_capacity) noexcept
         {
             const uint64_t raw48 = PackedCell64_t::ExtractRaw48FamilyBits(packed_cell);
-            if (raw48 == PackedCell64_t::PACKED_CELL_SENTINAL)
+            if (raw48 == FABRIC_CELL_SENTINAL)
             {
                 return UNSIGNED_ZERO;
             }
@@ -253,9 +253,9 @@ struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
 
         const std::optional<uint8_t> buffer_idx = GetOccupancyBufferIdxFromPageClass(valid_occupancy_carrier.OccupancyOrigin);
 
-        const packed64_t packed_cell = CreateAPCOccupancyCell(valid_occupancy_carrier);
+        const uint64_t packed_cell = CreateAPCOccupancyCell(valid_occupancy_carrier);
 
-        if (packed_cell == PackedCell64_t::PACKED_CELL_SENTINAL || !buffer_idx)
+        if (packed_cell == FABRIC_CELL_SENTINAL || !buffer_idx)
         {
             return false;
         }

@@ -32,7 +32,7 @@ namespace PredictedAdaptedEncoding
             LocalityPolicy cell_locality = LocalityPolicy::PUBLISHED
         )noexcept;
 
-        JustifyClaimCas TryClaimACellInSlab(PackedCell64_t::AuthoritiveCellView& expected_cell_auth_view, packed64_t* desired_packed_cell = nullptr) noexcept;
+        JustifyClaimCas TryClaimACellInSlab(PackedCell64_t::AuthoritiveCellView& expected_cell_auth_view, uint64_t* desired_packed_cell = nullptr) noexcept;
 
     public:
 
@@ -41,7 +41,7 @@ namespace PredictedAdaptedEncoding
         bool ReadASnapShotFromSlab(
             size_t slab_starting_idx, 
             size_t sequential_number_of_cells, 
-            const packed64_t* return_buffer
+            const uint64_t* return_buffer
         ) noexcept;
 
     };

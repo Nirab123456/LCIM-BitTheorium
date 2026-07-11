@@ -10,7 +10,7 @@ namespace PredictedAdaptedEncoding
     class FabricConstructor
     {
     protected:
-        packed64_t* SlabBasePtr_{nullptr};
+        uint64_t* SlabBasePtr_{nullptr};
 
         size_t SlabCellCount_{UNSIGNED_ZERO};
         uint16_t PerAPCRuntimeCellCount_{UNSIGNED_ZERO};
@@ -36,7 +36,7 @@ namespace PredictedAdaptedEncoding
         bool ForceNxLenMemCopy(
             size_t slab_starting_idx,
             size_t sequential_number_of_cells,
-            std::span<const packed64_t, EXTENT> desired_cells,
+            std::span<const uint64_t, EXTENT> desired_cells,
             bool force_update = false
         ) noexcept
         {
@@ -52,14 +52,14 @@ namespace PredictedAdaptedEncoding
         bool ForceNxMemCopyPtrPlusSize_(
             size_t slab_starting_idx,
             size_t sequential_number_of_cells,
-            const packed64_t (&source_cells)[NUMBER_OF_CELLS],
+            const uint64_t (&source_cells)[NUMBER_OF_CELLS],
             bool force_update = false
         ) noexcept
         {
             return ForceNxLenMemCopy(
                 slab_starting_idx,
                 sequential_number_of_cells,
-                std::span<const packed64_t, NUMBER_OF_CELLS>(source_cells),
+                std::span<const uint64_t, NUMBER_OF_CELLS>(source_cells),
                 force_update
             );
         }
@@ -74,13 +74,13 @@ protected:
         bool ClaimThenMemCopyFromArray_(
             size_t slab_starting_idx,
             size_t sequential_number_of_cells,
-            const std::array<packed64_t, NUMBER_OF_CELLS>& source_cells
+            const std::array<uint64_t, NUMBER_OF_CELLS>& source_cells
         ) noexcept
         {
             return ForceNxLenMemCopy(
                 slab_starting_idx,
                 sequential_number_of_cells,
-                std::span<const packed64_t, NUMBER_OF_CELLS>(source_cells),
+                std::span<const uint64_t, NUMBER_OF_CELLS>(source_cells),
                 false
             );
         }
@@ -94,36 +94,36 @@ protected:
         bool ForceMemCopyFromArray_(
             size_t slab_starting_idx,
             size_t sequential_number_of_cells,
-            const std::array<packed64_t, NUMBER_OF_CELLS>& source_cells
+            const std::array<uint64_t, NUMBER_OF_CELLS>& source_cells
         ) noexcept
         {
             return ForceNxLenMemCopy(
                 slab_starting_idx,
                 sequential_number_of_cells,
-                std::span<const packed64_t, NUMBER_OF_CELLS>(source_cells),
+                std::span<const uint64_t, NUMBER_OF_CELLS>(source_cells),
                 true
             );
         }
 
     public:
 
-        packed64_t ReadCompletePackedCellDirectly(size_t slab_index) noexcept;
+        uint64_t ReadCompletePackedCellDirectly(size_t slab_index) noexcept;
 
-        constexpr packed64_t AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept;
+        constexpr uint64_t AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept;
         
         bool ReadFabricMetaCellViewAtomically(FabricMetaIndicies fabric_meta_idx, PackedCell64_t::AuthoritiveCellView& meta_cell_view_address) noexcept;
 
-        constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, packed64_t packed_cell) noexcept;
+        constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept;
 
-        constexpr void AtomicallyStorePackedCellUnchecked(size_t slab_index, packed64_t packed_cell, std::memory_order mem_order = MoStoreSeq_) noexcept;
+        constexpr void AtomicallyStorePackedCellUnchecked(size_t slab_index, uint64_t packed_cell, std::memory_order mem_order = MoStoreSeq_) noexcept;
 
         /// @brief Do not change default memory order unless have total idea
         /// @param expected_packed_cell ->ADDRESS
         /// @return bool
         constexpr bool CompareExchangeStrongFromFabric(
             size_t slab_index, 
-            packed64_t& expected_packed_cell, 
-            packed64_t desired_packed_cell,
+            uint64_t& expected_packed_cell, 
+            uint64_t desired_packed_cell,
             std::memory_order mem_order_success = MoClaimSuccess,
             std::memory_order mem_order_failure = MoClaimFailure
         ) noexcept;
@@ -133,8 +133,8 @@ protected:
         /// @return bool
         constexpr bool CompareExchangeWeakInSlab(
             size_t slab_index, 
-            packed64_t& expected_packed_cell, 
-            packed64_t desired_packed_cell,
+            uint64_t& expected_packed_cell, 
+            uint64_t desired_packed_cell,
             std::memory_order mem_order_success = MoClaimSuccess,
             std::memory_order mem_order_failure = MoLoad_
         ) noexcept;
@@ -163,7 +163,7 @@ protected:
         bool ForceNxLenMemCopy(
             size_t slab_starting_idx, 
             size_t number_of_cells, 
-            const packed64_t* desired_cells,
+            const uint64_t* desired_cells,
             bool force_update = false
         ) noexcept;
 

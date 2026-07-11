@@ -104,7 +104,7 @@ namespace PredictedAdaptedEncoding
             return std::nullopt;
         }
         
-        packed64_t* raw_apc_segment_ptr = &SlabBasePtr_[desired_apc_segment_pool_range.BeginIndex];
+        uint64_t* raw_apc_segment_ptr = &SlabBasePtr_[desired_apc_segment_pool_range.BeginIndex];
 
         if (!desired_apc.BindExternalRawFabricBacking_(
             raw_apc_segment_ptr,
@@ -268,11 +268,11 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const uint64_t probable_root_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, UNSIGNED_ZERO);
+        const uint64_t probable_root_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, UNSIGNED_ZERO);
         const uint64_t this_handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_cfg.APCSlotIndex);
         if (
-            !HashIdConstructror::IsValidAPCId48(probable_root_key) ||
-            !HashIdConstructror::IsValidAPCId48(this_handle)
+            !HashIdConstructror::IsValidAPCId(probable_root_key) ||
+            !HashIdConstructror::IsValidAPCId(this_handle)
         )
         {
             return false;
@@ -303,12 +303,12 @@ namespace PredictedAdaptedEncoding
         
         uint64_t new_sequense_count = root_apc->AtomicallyUpdateMetaCellCounter(desired_axis_map.CountTarget, 1);
 
-        const uint64_t next_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, static_cast<uint16_t>(new_sequense_count));
-        const uint64_t previous_key = HashIdConstructror::MakeGroupAccessKey48(current_group_id, static_cast<uint16_t>(new_sequense_count - 1));
+        const uint64_t next_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, static_cast<uint16_t>(new_sequense_count));
+        const uint64_t previous_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, static_cast<uint16_t>(new_sequense_count - 1));
 
         if (
-            !HashIdConstructror::IsValidAPCId48(next_key) ||
-            !HashIdConstructror::IsValidAPCId48(previous_key)
+            !HashIdConstructror::IsValidAPCId(next_key) ||
+            !HashIdConstructror::IsValidAPCId(previous_key)
         )
         {
             return false;
@@ -317,7 +317,7 @@ namespace PredictedAdaptedEncoding
         const std::optional<uint64_t> maybe_previous_handle = FindHashValue48_(desired_axis_map.HashTable, previous_key);
         if (
             !maybe_previous_handle.has_value() ||
-            !HashIdConstructror::IsValidAPCId48(maybe_previous_handle.value())
+            !HashIdConstructror::IsValidAPCId(maybe_previous_handle.value())
         )
         {
             return false;

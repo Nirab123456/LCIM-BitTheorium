@@ -79,7 +79,7 @@ namespace PredictedAdaptedEncoding
         std::memcpy(
             return_buffer.data(),
             &SlabBasePtr_[this_apc_descriptor_range.BeginIndex],
-            APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX * sizeof(packed64_t)
+            APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX * sizeof(uint64_t)
         );
 
         return DescriptionOfAPC::ValidateSingleAPCDescriptionBuffer(
@@ -161,7 +161,7 @@ namespace PredictedAdaptedEncoding
             return return_files;
         }
         const size_t state_cell_idx = desired_description_range.BeginIndex + static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY);
-        const packed64_t state_of_apc_cell = SlabBasePtr_[state_cell_idx];
+        const uint64_t state_of_apc_cell = SlabBasePtr_[state_cell_idx];
 
         return_files = DescriptionOfAPC::ReadFilesFromStateSaftyofADescriptor(state_of_apc_cell);
         return return_files;
@@ -187,7 +187,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const packed64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
+        const uint64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
             desired_apc_description_buffer[static_cast<size_t>(APCDescriptorCellType::STATE_OWNERSHIP_VESION_SAFTY)],
             updated_state,
             updated_owner
@@ -215,13 +215,13 @@ namespace PredictedAdaptedEncoding
             !FabricInitialized_.load(MoLoad_) ||
             !SlabBasePtr_ || 
             APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
-            !HashIdConstructror::IsValidAPCId48(CountOfAPC_)
+            !HashIdConstructror::IsValidAPCId(CountOfAPC_)
         )
         {
             return std::nullopt;
         }
 
-        uint64_t desired_apc_slot = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t desired_apc_slot = FABRIC_CELL_SENTINAL;
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {

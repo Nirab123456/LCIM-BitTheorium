@@ -13,7 +13,7 @@ class FabricToAPCLinker : public APCDataStructure
 
 protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
-    uint64_t IdxOfThisAPCInFabric_{PackedCell64_t::PACKED_CELL_SENTINAL};
+    uint64_t IdxOfThisAPCInFabric_{FABRIC_CELL_SENTINAL};
     bool FabricBackend_{false};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
     uint16_t CapacityOfThisAPC_{UNSIGNED_ZERO};
@@ -30,23 +30,23 @@ public:
     bool ClaimAndCopyToAPCFromBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        const packed64_t* source_cells
+        const uint64_t* source_cells
     ) noexcept;
 
     bool ForceCopyToAPCFromBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        const packed64_t* source_cells
+        const uint64_t* source_cells
     ) noexcept;
 
     bool CopyFromAPCToBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        packed64_t* return_buffer
+        uint64_t* return_buffer
     ) noexcept;
 
     bool BindExternalRawFabricBacking_(
-        packed64_t* raw_cells_ptr,
+        uint64_t* raw_cells_ptr,
         uint16_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
         uint64_t fabric_slot_idx

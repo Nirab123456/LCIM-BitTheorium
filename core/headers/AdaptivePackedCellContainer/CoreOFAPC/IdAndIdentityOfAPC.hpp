@@ -11,23 +11,23 @@ namespace PredictedAdaptedEncoding
 struct HashIdConstructror
 {
     static constexpr uint64_t GROUP_IDX_BIT_BOUNDRY = 16u;
-    static constexpr uint64_t GROUP_SEQUENTIAL_INDEX_MASK = UINT16_MAX;
+    static constexpr uint64_t GROUP_SEQUENTIAL_INDEX_MASK = UINT32_MAX;
     static constexpr uint64_t GROUP_PREFIX_MASK = UINT32_MAX;
 
     /// @brief VALIDATES THE RAW ID 
-    static constexpr bool IsValidAPCId48(uint64_t value) noexcept
+    static constexpr bool IsValidAPCId(uint64_t value) noexcept
     {
-        return value != UNSIGNED_ZERO && value < PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+        return value != UNSIGNED_ZERO && value < FABRIC_CELL_SENTINAL;
     }
 
     static constexpr bool IsValidAPCSlotIdx(uint64_t slot_idx) noexcept
     {
-        return slot_idx < PackedCell64_t::APC_FABRIC_SLOT_LIMIT;
+        return slot_idx < FABRIC_CELL_SENTINAL - 1;
     }
 
     static constexpr bool IsValidHashHandle(uint64_t handle) noexcept
     {
-        return handle > UNSIGNED_ZERO && handle < PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+        return handle > UNSIGNED_ZERO && handle < FABRIC_CELL_SENTINAL;
     }
 
     static constexpr uint64_t APCSlotIdxToHashTableHandler(uint64_t apc_slot_idx) noexcept
@@ -36,7 +36,7 @@ struct HashIdConstructror
         {
             return apc_slot_idx + 1;
         }
-        return PackedCell64_t::PACKED_CELL_SENTINAL;
+        return FABRIC_CELL_SENTINAL;
     }
 
     static constexpr uint64_t HashTableHandlerToAPCSlotIdx(uint64_t handler) noexcept
@@ -45,13 +45,13 @@ struct HashIdConstructror
         {
             return handler - 1;
         }
-        return PackedCell64_t::PACKED_CELL_SENTINAL;
+        return FABRIC_CELL_SENTINAL;
     }
 
     /// @brief CREATS: HASH KEY: Based On a Desired SHARED / LOGICAL Group ID
     /// @param sequential_idx_of_desired_id SEQUENTIAL IDX < UINT16_MAX - 1
     /// @return IF INVALID: UINT64_MAX
-    static constexpr uint64_t MakeGroupAccessKey48(uint64_t group_id, uint16_t sequential_idx_of_desired_id) noexcept
+    static constexpr uint64_t MakeGroupAccessKey(uint64_t group_id, uint16_t sequential_idx_of_desired_id) noexcept
     {
         if (
             group_id == UNSIGNED_ZERO ||
@@ -59,48 +59,48 @@ struct HashIdConstructror
             !APCDataStructure::IsThisIndexValidForAPC(sequential_idx_of_desired_id)
         )
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
 
         const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | (sequential_idx_of_desired_id & GROUP_SEQUENTIAL_INDEX_MASK);
 
-        return IsValidAPCId48(key) ? key : PackedCell64_t::PACKED_CELL_SENTINAL;
+        return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL;
     }
 
     /// @brief Get 32 Bit Prefix of A Group Key Can be used to set a Different sequential idx to find linked APC's
-    /// @param group_key48 Raw key
+    /// @param group_key Raw key
     /// @return If Key VALID: -> 32 BIT PREFIX / std::nullopt
-    static constexpr std::optional<uint32_t> GroupPreFix32FromKey48(uint64_t group_key48) noexcept
+    static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
     {
-        if (!IsValidAPCId48(group_key48))
+        if (!IsValidAPCId(group_key))
         {
             return std::nullopt;
         }
         
-        return static_cast<uint32_t>((group_key48 >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
+        return static_cast<uint32_t>((group_key >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
     }
 
     /// @brief Get 16 Bit Sequential Linked Idx From Key
-    /// @param group_key48 Raw Key
+    /// @param group_key Raw Key
     /// @return if Key VALID: -> 16 BIT SEQUENTIAL IDX / std::nullopt
-    static constexpr std::optional<uint16_t> GetSeqIndexOfAHashKey(uint64_t group_key48) noexcept
+    static constexpr std::optional<uint16_t> GetSeqIndexOfAHashKey(uint64_t group_key) noexcept
     {
-        if (!IsValidAPCId48(group_key48))
+        if (!IsValidAPCId(group_key))
         {
             return std::nullopt;
         }
 
-        return static_cast<uint16_t>(group_key48 & GROUP_SEQUENTIAL_INDEX_MASK);
+        return static_cast<uint16_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
     }
 
-    static constexpr uint64_t RebuildOriginalKey(uint32_t prefix32, uint16_t index16) noexcept
+    static constexpr uint64_t RebuildOriginalKey(uint32_t prefix32, uint32_t index_32) noexcept
     {
-        const uint64_t original_key = (static_cast<uint64_t>(prefix32) << GROUP_IDX_BIT_BOUNDRY | static_cast<uint64_t>(index16));
+        const uint64_t original_key = (static_cast<uint64_t>(prefix32) << GROUP_IDX_BIT_BOUNDRY | static_cast<uint64_t>(index_32));
 
-        return IsValidAPCId48(original_key) ? original_key : PackedCell64_t::PACKED_CELL_SENTINAL;
+        return IsValidAPCId(original_key) ? original_key : FABRIC_CELL_SENTINAL;
     }
 
-    static uint64_t MakeARandom48bitValue() noexcept
+    static uint64_t MakeARandomFabricValid64() noexcept
     {
         static std::atomic<uint64_t> global_counter{1u};
 
@@ -124,7 +124,6 @@ struct HashIdConstructror
         try
         {
             std::random_device random_device;
-            random_seed ^= (static_cast<uint64_t>(random_device()) << VALBITS);
             random_seed ^= static_cast<uint64_t>(random_device());
         }
         catch(...)
@@ -135,17 +134,16 @@ struct HashIdConstructror
         for (uint32_t attempt = 0; attempt < 8u; attempt++)
         {
             random_seed = SplitMix64(random_seed);
-            const uint64_t seed48 = random_seed & MaskLeftOverBitsUntil64(TOTAL_LOW);
 
-            if (seed48 != UNSIGNED_ZERO && seed48 < PackedCell64_t::BIT_FAMILY_48_SENTINAL)
+            if (!IsValidAPCId(random_seed))
             {
-                return seed48;
+                return random_seed;
             }
         }
         
-        const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel)) & MaskLeftOverBitsUntil64(TOTAL_LOW);
+        const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel));
 
-        return fallback!= UNSIGNED_ZERO && fallback < PackedCell64_t::BIT_FAMILY_48_SENTINAL ? fallback : PackedCell64_t::PACKED_CELL_SENTINAL;
+        return IsValidAPCId(fallback) ? fallback : FABRIC_CELL_SENTINAL;
 
     }
 
@@ -167,7 +165,7 @@ struct AxisConstructor
         MetaIndexOfAPCNode NextTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
         bool IsValid = false;
     };
-    static_assert(sizeof(AxisConstructionMap) <= sizeof(packed64_t));
+    static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
 
     static constexpr AxisConstructionMap ConstructAxisMap(BidirectionalAxis desired_axis) noexcept
     {
@@ -217,21 +215,19 @@ struct APCGroupReserver : public AxisConstructor
 
     struct APCInitialIdentityStruct
     {
-        PackedMode InitialMode = PackedMode::UNASSIGNED_UNUSED_NANNULL;
+        uint64_t APCSlotIndex = FABRIC_CELL_SENTINAL;
+        uint64_t BranchID = FABRIC_CELL_SENTINAL;
+        uint64_t SharedID = FABRIC_CELL_SENTINAL;
+        uint64_t LogicalId = FABRIC_CELL_SENTINAL;
 
-        uint64_t APCSlotIndex = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t BranchID = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t SharedID = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalId = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t AccessPassword = FABRIC_CELL_SENTINAL;
+        uint64_t SharedHashKey = FABRIC_CELL_SENTINAL;
+        uint64_t LogicalHashKey = FABRIC_CELL_SENTINAL;
 
-        uint64_t AccessPassword = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t SharedHashKey = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalHashKey = PackedCell64_t::PACKED_CELL_SENTINAL;
-
-        uint64_t SharedPreviousHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t SharedNextHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalPreviousHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
-        uint64_t LogicalNextHandle = PackedCell64_t::PACKED_CELL_SENTINAL;
+        uint64_t SharedPreviousHandle = FABRIC_CELL_SENTINAL;
+        uint64_t SharedNextHandle = FABRIC_CELL_SENTINAL;
+        uint64_t LogicalPreviousHandle = FABRIC_CELL_SENTINAL;
+        uint64_t LogicalNextHandle = FABRIC_CELL_SENTINAL;
 
         uint16_t SharedSequentialCount = APCDataStructure::APC_INDEX_SENTINAL;
         uint16_t LogicalSequentalCount = APCDataStructure::APC_INDEX_SENTINAL;
@@ -256,51 +252,48 @@ struct APCGroupReserver : public AxisConstructor
 
     static constexpr bool IsMinimalValidCreateRequestOfAPC(const APCInitialIdentityStruct& requested_conf) noexcept
     {
-        return requested_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
-            IsRequestedAxisValid(requested_conf.HorizontalSharedState) &&
+        return IsRequestedAxisValid(requested_conf.HorizontalSharedState) &&
             IsRequestedAxisValid(requested_conf.VarticalLogicState);
     }
 
     static constexpr bool IfSystemResolvedIdentityValid(APCInitialIdentityStruct& requested_conf) noexcept
     {
-        requested_conf.IsAssignable = requested_conf.InitialMode != PackedMode::UNASSIGNED_UNUSED_NANNULL &&
+        requested_conf.IsAssignable = (
             HashIdConstructror::IsValidAPCSlotIdx(requested_conf.APCSlotIndex) &&
-            HashIdConstructror::IsValidAPCId48(requested_conf.BranchID) &&
+            HashIdConstructror::IsValidAPCId(requested_conf.BranchID) &&
             HashIdConstructror::IsValidHashHandle(
                 HashIdConstructror::APCSlotIdxToHashTableHandler(requested_conf.APCSlotIndex)
             ) &&
-            HashIdConstructror::IsValidAPCId48(requested_conf.AccessPassword) &&
+            HashIdConstructror::IsValidAPCId(requested_conf.AccessPassword) &&
             IfSystemDefinedAxis(requested_conf.HorizontalSharedState) &&
-            IfSystemDefinedAxis(requested_conf.VarticalLogicState);
-
+            IfSystemDefinedAxis(requested_conf.VarticalLogicState)
+        );
         return requested_conf.IsAssignable;
     }
 
-    static constexpr APCInitialIdentityStruct MakeDefaultIdentityForAPC(PackedMode initial_mode) noexcept
+    static constexpr APCInitialIdentityStruct MakeDefaultIdentityForAPC() noexcept
     {
         APCInitialIdentityStruct requested_identity{};
-        requested_identity.InitialMode = initial_mode;
         requested_identity.HorizontalSharedState = APCIdentityDef::NULL_USER_INSTRUCTION;
         requested_identity.VarticalLogicState = APCIdentityDef::NULL_USER_INSTRUCTION;
         return requested_identity;
     }
 
     static constexpr APCInitialIdentityStruct MakeAGroupedIdentityForAPC(
-        PackedMode initial_mode,
         uint64_t shared_id,
         uint64_t logical_id
     ) noexcept
     {
 
-        APCInitialIdentityStruct user_defined_identity = MakeDefaultIdentityForAPC(initial_mode);
+        APCInitialIdentityStruct user_defined_identity = MakeDefaultIdentityForAPC();
 
-        if (HashIdConstructror::IsValidAPCId48(shared_id))
+        if (HashIdConstructror::IsValidAPCId(shared_id))
         {
             user_defined_identity.SharedID = shared_id;
             user_defined_identity.HorizontalSharedState = APCIdentityDef::DEFAULT_ASSIGNMENT;
         }
 
-        if (HashIdConstructror::IsValidAPCId48(logical_id))
+        if (HashIdConstructror::IsValidAPCId(logical_id))
         {
             user_defined_identity.LogicalId = logical_id;
             user_defined_identity.VarticalLogicState = APCIdentityDef::DEFAULT_ASSIGNMENT;
@@ -312,7 +305,7 @@ struct APCGroupReserver : public AxisConstructor
     {
         if (
             !IsMinimalValidCreateRequestOfAPC(a_runtime_identity) ||
-            !HashIdConstructror::IsValidAPCId48(a_runtime_identity.BranchID)
+            !HashIdConstructror::IsValidAPCId(a_runtime_identity.BranchID)
         )
         {
             return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
@@ -322,21 +315,21 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.HorizontalSharedState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
                 return APCIdentityDef::NULL_USER_INSTRUCTION;
                         
             default:
-                if (!HashIdConstructror::IsValidAPCId48(a_runtime_identity.SharedID))
+                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.SharedID))
                 {
                     return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
                 }
@@ -347,21 +340,21 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.VarticalLogicState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.VarticalLogicState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey48(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
                 return APCIdentityDef::NULL_USER_INSTRUCTION;
                         
             default:
-                if (!HashIdConstructror::IsValidAPCId48(a_runtime_identity.LogicalId))
+                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.LogicalId))
                 {
                     return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
                 }

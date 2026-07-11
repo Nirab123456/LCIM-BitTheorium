@@ -15,16 +15,16 @@ namespace PredictedAdaptedEncoding
         static constexpr uint8_t VALIDATION_INDEX_OF_HEADER_BUFFER = LEN_OF_APC_META_BUFFER_OR_COUNT - 1;
 
 
-        using DefaultMemCopyBuffer = std::array<packed64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
+        using DefaultMemCopyBuffer = std::array<uint64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
 
-        using APCMetaBuffer = std::array<packed64_t, LEN_OF_APC_META_BUFFER_OR_COUNT>;
+        using APCMetaBuffer = std::array<uint64_t, LEN_OF_APC_META_BUFFER_OR_COUNT>;
 
 
         static constexpr void BuildNullMemCopyBuffer(DefaultMemCopyBuffer& a_default_buffer) noexcept
         {
             for (size_t i = 0; i < a_default_buffer.size(); i++)
             {
-                a_default_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+                a_default_buffer[i] = FABRIC_CELL_SENTINAL;
             }
         }
 
@@ -32,7 +32,7 @@ namespace PredictedAdaptedEncoding
         {
             for (size_t i = 0; i < a_meta_buffer.size(); i++)
             {
-                a_meta_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+                a_meta_buffer[i] = FABRIC_CELL_SENTINAL;
             }
         }
 
@@ -46,7 +46,7 @@ namespace PredictedAdaptedEncoding
         {
             const size_t idx_of_meta = static_cast<size_t>(meta_idx);
 
-            const packed64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
+            const uint64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
                 TypeFamily::VALUE48,
                 contract,
                 APCPagedNodeSegmentClasses::META_HEADER,
@@ -56,7 +56,7 @@ namespace PredictedAdaptedEncoding
                 UNSIGNED_ZERO
             );
             
-            if (packed_cell == PackedCell64_t::PACKED_CELL_SENTINAL)
+            if (packed_cell == FABRIC_CELL_SENTINAL)
             {
                 return;
             }

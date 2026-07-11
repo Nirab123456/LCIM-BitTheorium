@@ -10,9 +10,9 @@ namespace PredictedAdaptedEncoding
             return HashFilesCarrier{};
         }
 
-        const packed64_t key_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::KEY_INDEX));
-        const packed64_t value_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::VALUE_INDEX));
-        const packed64_t prob_safty_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK));
+        const uint64_t key_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::KEY_INDEX));
+        const uint64_t value_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::VALUE_INDEX));
+        const uint64_t prob_safty_cell = AtomicallyLoadReadCompletePackedCell(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK));
         
         return HashTableConf::ReadKeyValueProbFromValidCells(
             key_cell,

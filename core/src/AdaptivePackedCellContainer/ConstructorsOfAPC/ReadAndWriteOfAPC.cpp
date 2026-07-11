@@ -80,7 +80,7 @@ namespace PredictedAdaptedEncoding
     {
         if (!IsValidAPCRange(desired_idx, 1))
         {
-            return PackedCell64_t::PACKED_CELL_SENTINAL;
+            return FABRIC_CELL_SENTINAL;
         }
         const uint64_t desired_slab_idx = RangeOfThisAPCInSlab_.BeginIndex + desired_idx;
         return FabricOwnerPtr_->UpdateACounterAtomically(desired_slab_idx, delta);
@@ -93,6 +93,6 @@ namespace PredictedAdaptedEncoding
         {
             return AtomicallyUpdateACounterFromAPC(desired_idx, delta);
         }
-        return PackedCell64_t::PACKED_CELL_SENTINAL;
+        return FABRIC_CELL_SENTINAL;
     }
 }

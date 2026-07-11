@@ -286,7 +286,7 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr packed64_t UpdateACountMetaCell(packed64_t packed_cell, FabricMetaIndicies user_validation, int delta) noexcept
+        static constexpr uint64_t UpdateACountMetaCell(uint64_t packed_cell, FabricMetaIndicies user_validation, int delta) noexcept
         {
             const PackedCell64_t::AuthoritiveCellView auth_view_of_the_cell = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
             if (
@@ -296,14 +296,14 @@ namespace PredictedAdaptedEncoding
                 !IsThisFebricMetaIdxAValidIncrementalCountType(user_validation)
             )
             {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
+                return FABRIC_CELL_SENTINAL;
             }
             
             const int64_t updated_count = auth_view_of_the_cell.Raw48BitInCellData <= PackedCell64_t::BIT_FAMILY_48_SENTINAL ?
                 auth_view_of_the_cell.Raw48BitInCellData + delta : delta;
             if (updated_count >= PackedCell64_t::BIT_FAMILY_48_SENTINAL || updated_count < UNSIGNED_ZERO)
             {
-                return PackedCell64_t::PACKED_CELL_SENTINAL;
+                return FABRIC_CELL_SENTINAL;
             }
 
             const uint64_t desired_count = static_cast<uint64_t>(updated_count) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
@@ -312,13 +312,13 @@ namespace PredictedAdaptedEncoding
 
         }
 
-        // using DefaultMemCopyBuffer = std::array<packed64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
+        // using DefaultMemCopyBuffer = std::array<uint64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
 
         // static constexpr void BuildNullMemCopyBuffer(DefaultMemCopyBuffer& a_default_buffer) noexcept
         // {
         //     for (size_t i = 0; i < MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY; i++)
         //     {
-        //         a_default_buffer[i] = PackedCell64_t::PACKED_CELL_SENTINAL;
+        //         a_default_buffer[i] = FABRIC_CELL_SENTINAL;
         //     }
         // }
 
@@ -356,12 +356,12 @@ namespace PredictedAdaptedEncoding
 
     struct RawPackedCellAllocator
     {
-        using AllocateFunction = packed64_t* (*)(
+        using AllocateFunction = uint64_t* (*)(
             size_t count_of_packed_cell, size_t alignment, void* user
         ) noexcept;
 
         using FreeFunction = void (*)(
-            packed64_t* packed_cell_storage_ptr, 
+            uint64_t* packed_cell_storage_ptr, 
             size_t count_of_cell, size_t alignment, void*user
         ) noexcept;
 
@@ -381,7 +381,7 @@ namespace PredictedAdaptedEncoding
             return remaining_bytes == UNSIGNED_ZERO ? bytes : bytes + (alignment - remaining_bytes);
         }
 
-        static packed64_t* DefaultAllocateAtomicCells(
+        static uint64_t* DefaultAllocateAtomicCells(
             size_t count_of_packed_cell, size_t alignment, void*
         ) noexcept
         {
@@ -390,8 +390,8 @@ namespace PredictedAdaptedEncoding
                 return nullptr;
             }
 
-            alignment = std::max<size_t>(alignment, alignof(packed64_t));
-            const size_t byte_count = sizeof(packed64_t) * count_of_packed_cell;
+            alignment = std::max<size_t>(alignment, alignof(uint64_t));
+            const size_t byte_count = sizeof(uint64_t) * count_of_packed_cell;
             const size_t aligned_bytes = AlignBiteCount_(byte_count, alignment);
 
 #if defined(_MSC_VER)
@@ -405,12 +405,12 @@ namespace PredictedAdaptedEncoding
                 return nullptr;
             }
             std::memset(raw_packed_cell_memory, UNSIGNED_ZERO, aligned_bytes);
-            return static_cast<packed64_t*>(raw_packed_cell_memory);
+            return static_cast<uint64_t*>(raw_packed_cell_memory);
             
         }
 
         static void DefaultFreeAtomicCells(
-            packed64_t* packed_cell_storage_ptr, 
+            uint64_t* packed_cell_storage_ptr, 
             size_t, size_t, void*
         ) noexcept
         {

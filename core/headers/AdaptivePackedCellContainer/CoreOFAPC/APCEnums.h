@@ -2,7 +2,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "../../PackedCell/CellDougma/DefaultCellMutation.hpp"
+#include "../../SharedComponents/SharedConf.hpp"
 
 namespace PredictedAdaptedEncoding
 {
