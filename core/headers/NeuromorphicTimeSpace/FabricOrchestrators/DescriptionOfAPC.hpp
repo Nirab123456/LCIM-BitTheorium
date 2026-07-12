@@ -220,7 +220,7 @@ struct DescriptionOfAPC
 
     struct DescriptorSaftyFiles
     {
-        uint16_t WidthOfAPC = APCDataStructure::APC_INDEX_SENTINAL;
+        uint16_t WidthOfAPC = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint8_t Version = UINT8_MAX;
         StateOfSingleAPCDescription StateOfTheAPC = StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL;
         OwnershipPolicy WhoHoldsTheAcess = OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL;

@@ -2,8 +2,6 @@
 #pragma once 
 namespace PredictedAdaptedEncoding
 {
-    //packedCell
-    #define ID_HASH_GOLDEN_CONST 0x9E3779B97F4A7C15ull 
     //runtime
     #define MIN_PRODUCER_BLOCK_SIZE 96
     #define MIN_REGION_SIZE 4
@@ -25,17 +23,11 @@ namespace PredictedAdaptedEncoding
     #define PAIRED_POINTER_PERCENTAGE 0u
     #define FREE_PERCENTAGE 30u
     #define UNDEFINED_PERCENTAGE 2u
-    //masterclock
-    #define HALF16Bit_THRESHOLD_WRAP 0x8000u
-    #define MIN_TIMER_DOWNSHIFT 6
-    #define MAX_TIMER_DOWNSHIFT 14
-    #define A_BILLION 1000000000ull
-    #define THRESHHOLD_64BIT 1e-12
     ////
     #define DEFAULT_MAX_TRIES 128
 
-
-    static constexpr size_t BIT_LENGTH_OF_A_PACKED_CELL = 64;
+    static constexpr size_t BIT_LENGTH_OF_FABRIC = 64;
+    static constexpr uint8_t BIT_LENGTH_OF_APC = 32;
     static constexpr uint8_t SIZE_OF_CACHELINE = 64;
     static constexpr uint8_t CACHELINE_BOUNDRY = 16;
     static constexpr unsigned UNSIGNED_ZERO = 0u;

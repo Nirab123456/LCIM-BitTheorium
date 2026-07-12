@@ -368,7 +368,7 @@ namespace PredictedAdaptedEncoding
         AllocateFunction AllocatePackedCellStorage{nullptr};
         FreeFunction FreePackedCellStorage{nullptr};
         void* User{nullptr};
-        size_t Alignment{BIT_LENGTH_OF_A_PACKED_CELL};
+        size_t Alignment{BIT_LENGTH_OF_FABRIC};
 
         static size_t AlignBiteCount_(size_t bytes, size_t alignment) noexcept
         {

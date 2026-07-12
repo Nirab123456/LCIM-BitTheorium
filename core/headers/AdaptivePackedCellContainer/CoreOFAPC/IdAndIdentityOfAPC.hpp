@@ -229,8 +229,8 @@ struct APCGroupReserver : public AxisConstructor
         uint64_t LogicalPreviousHandle = FABRIC_CELL_SENTINAL;
         uint64_t LogicalNextHandle = FABRIC_CELL_SENTINAL;
 
-        uint16_t SharedSequentialCount = APCDataStructure::APC_INDEX_SENTINAL;
-        uint16_t LogicalSequentalCount = APCDataStructure::APC_INDEX_SENTINAL;
+        uint32_t SharedSequentialCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t LogicalSequentalCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
 
         bool IsAssignable = false;
         APCIdentityDef HorizontalSharedState = APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;

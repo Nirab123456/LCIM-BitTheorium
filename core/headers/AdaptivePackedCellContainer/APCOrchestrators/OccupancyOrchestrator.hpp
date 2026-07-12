@@ -9,9 +9,9 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
 {
     struct OccupancyCarrier
     {
-        uint16_t IdleOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
-        uint16_t ClaimedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
-        uint16_t PublishedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;
+        uint16_t IdleOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint16_t ClaimedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint16_t PublishedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         APCPagedNodeSegmentClasses OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN; ////
         MetaIndexOfAPCNode MetaIndexForThis = MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL;
         LocalityPolicy localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
@@ -21,9 +21,9 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
 
     static constexpr void RestOccupancyCarrier(OccupancyCarrier& a_occupancy_carrier) noexcept
     {
-        a_occupancy_carrier.IdleOccupancy = APCDataStructure::APC_INDEX_SENTINAL;;
-        a_occupancy_carrier.ClaimedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;;
-        a_occupancy_carrier.PublishedOccupancy = APCDataStructure::APC_INDEX_SENTINAL;;
+        a_occupancy_carrier.IdleOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
+        a_occupancy_carrier.ClaimedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
+        a_occupancy_carrier.PublishedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
         a_occupancy_carrier.OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN;
         a_occupancy_carrier.MetaIndexForThis = MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL;
         a_occupancy_carrier.localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;

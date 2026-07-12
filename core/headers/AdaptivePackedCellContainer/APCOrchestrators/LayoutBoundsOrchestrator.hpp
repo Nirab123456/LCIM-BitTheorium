@@ -10,33 +10,20 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
 {
     struct LayoutCarrier
     {
-        uint16_t BeginIndex = APCDataStructure::APC_INDEX_SENTINAL;
-        uint16_t EndIndex = APCDataStructure::APC_INDEX_SENTINAL;
+        uint32_t BeginIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t EndIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint8_t Version = UINT8_MAX;
         APCPagedNodeSegmentClasses LayoutIdentity = APCPagedNodeSegmentClasses::NULLNAN;
-        LocalityPolicy LocalityOfLayout = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
-    static_assert(sizeof(LayoutCarrier) <= sizeof(uint64_t));
 
     static constexpr bool ValidateALayoutCarrier(
-        LayoutCarrier& a_layout,
-        bool is_claimed_valid = true
+        LayoutCarrier& a_layout
     ) noexcept
-    {
-        if (a_layout.LocalityOfLayout == LocalityPolicy::UNASSIGNED_UNUSED_NANNULL)
-        {
-            return false;
-        }
-        if (!is_claimed_valid && a_layout.LocalityOfLayout == LocalityPolicy::CLAIMED)
-        {
-            return false;
-        }
-        
+    {        
         if (
             APCDataStructure::IsThisIndexValidForAPC(a_layout.BeginIndex) &&
             APCDataStructure::IsThisIndexValidForAPC(a_layout.EndIndex) &&
-            APCDataStructure::ThisVersionValid(a_layout.Version) &&
             a_layout.BeginIndex <= a_layout.EndIndex &&
             PageNodeOrchestrator::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
         )
@@ -47,7 +34,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
         return false;
     }
 
-    static constexpr uint64_t CreateALayoutBoundsCell(
+    static constexpr std::optional<uint64_t> CreateALayoutBoundsCell(
         LayoutCarrier& a_layout
     ) noexcept
     {
@@ -56,64 +43,44 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
             return FABRIC_CELL_SENTINAL;
         }
 
-        const uint64_t raw48_layout = Subdivision2x16Plus2x8InternalMode48CellModel::Pack2x16Plus2x8UnsignedSubdivision_(
-            a_layout.BeginIndex,
-            a_layout.EndIndex,
-            a_layout.Version,
-            static_cast<uint8_t>(a_layout.LayoutIdentity)
-        );
-
-        return PackedCell64_t::MakeModeledAPCValidPackedCell(
-            ModelFamily::MODEL48,
-            static_cast<tag8_t>(Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8),
-            APCPagedNodeSegmentClasses::META_HEADER,
-            a_layout.LocalityOfLayout,
-            InternalDataTypePolicy ::UNSIGNED,
-            raw48_layout
-        );
-
+        const std::optional<uint64_t> layout_cell = Double32In64ExPa::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
+        return layout_cell;
     }
 
     static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(
         uint64_t packed_cell,
-        bool is_claimed_valid = true
+        APCPagedNodeSegmentClasses layout_marker
     ) noexcept
     {
         LayoutCarrier return_carrier{};
-        const PackedCell64_t::AuthoritiveCellView desired_auth_view = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
-        
-        if (
-            !PageNodeOrchestrator::IsValidAPCHeaderCell(desired_auth_view) ||
-            desired_auth_view.SubClassOfModel48 != Model48Subclass::FOUR_SUBDIVISION_2x16_AND_2x8
-        )
+
+        if (!APCDataStructure::IsThsisIndexValidForFabric(packed_cell))
         {
             return return_carrier;
         }
         
-        return_carrier.BeginIndex = Subdivision2x16Plus2x8InternalMode48CellModel::ExtractLowestFirstLow16Bit0_(desired_auth_view.Raw48BitInCellData);
-        return_carrier.EndIndex = Subdivision2x16Plus2x8InternalMode48CellModel::ExtractSecondLow16Bit1_(desired_auth_view.Raw48BitInCellData);
-        return_carrier.Version = Subdivision2x16Plus2x8InternalMode48CellModel::ExtractHigh8Bit2_(desired_auth_view.Raw48BitInCellData);
-        return_carrier.LayoutIdentity = static_cast<APCPagedNodeSegmentClasses>(Subdivision2x16Plus2x8InternalMode48CellModel::ExtractHighestHigh8Bit3_(desired_auth_view.Raw48BitInCellData));
-        return_carrier.LocalityOfLayout = desired_auth_view.LocalityOfCell;
+        const std::optional<uint32_t> begin_idx = Double32In64ExPa::ExtractLow32Of64(packed_cell);
+        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractLow32Of64(packed_cell);
+        return_carrier.BeginIndex =  begin_idx.has_value() ? begin_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        return_carrier.EndIndex =  end_idx.has_value() ? end_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        return_carrier.LayoutIdentity = layout_marker;
 
-        ValidateALayoutCarrier(return_carrier, is_claimed_valid);
+        ValidateALayoutCarrier(return_carrier);
         return return_carrier;
     }
 
     static constexpr std::optional<uint16_t> SpanOflayoutFromPackedCell(
         uint64_t packed_cell,
-        bool caller_holds_claim_guard = false
+        APCPagedNodeSegmentClasses layout_identity
     ) noexcept
     {
-        const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(packed_cell, caller_holds_claim_guard);
+        const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(packed_cell, layout_identity);
         if (!desired_layout_files.IsValid)
         {
             return std::nullopt;
         }
         return static_cast<uint16_t>(desired_layout_files.EndIndex - desired_layout_files.BeginIndex);
     }
-
-
 };
 
 

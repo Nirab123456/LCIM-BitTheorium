@@ -12,9 +12,9 @@ namespace PredictedAdaptedEncoding
         auto allocation_function = AllocatorOfFabric_.AllocatePackedCellStorage ? 
             AllocatorOfFabric_.AllocatePackedCellStorage : &RawPackedCellAllocator::DefaultAllocateAtomicCells;
         
-        size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_A_PACKED_CELL;
+        size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_FABRIC;
         alignment = std::max<size_t>(alignment, alignof(uint64_t));
-        alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_A_PACKED_CELL);
+        alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_FABRIC);
 
         return allocation_function(count_of_cells, alignment, AllocatorOfFabric_.User);
 
@@ -25,9 +25,9 @@ namespace PredictedAdaptedEncoding
     {
         RawPackedCellAllocator::FreeFunction free_function = AllocatorOfFabric_.FreePackedCellStorage ?
                             AllocatorOfFabric_.FreePackedCellStorage : &RawPackedCellAllocator::DefaultFreeAtomicCells;
-        size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_A_PACKED_CELL;
+        size_t alignment = AllocatorOfFabric_.Alignment ? AllocatorOfFabric_.Alignment : BIT_LENGTH_OF_FABRIC;
         alignment = std::max<size_t>(alignment, alignof(uint64_t));
-        alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_A_PACKED_CELL);
+        alignment = std::max<size_t>(alignment, BIT_LENGTH_OF_FABRIC);
 
         free_function(packed_cell_memory_ptr, packed_cell_count, alignment, AllocatorOfFabric_.User);
     }

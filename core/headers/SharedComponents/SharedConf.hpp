@@ -78,5 +78,14 @@ namespace PredictedAdaptedEncoding
         CONTROL_HEADER = 14,
         NULLNAN = 15,
     };
+
+
+    static  constexpr uint64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
+    {
+        if (n == UNSIGNED_ZERO) return uint64_t(0);
+        if (n >= BIT_LENGTH_OF_FABRIC) return ~uint64_t(0);
+        // produce low-n ones without shifting by >= width
+        return ((uint64_t(1) << n) - 1u);                  
+    }
 }
 
