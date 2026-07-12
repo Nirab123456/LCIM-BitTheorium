@@ -26,6 +26,7 @@ namespace PredictedAdaptedEncoding
     ////
     #define DEFAULT_MAX_TRIES 128
 
+    static constexpr uint8_t LEN_OF_BYTE_IN_BITS = 8u;
     static constexpr size_t BIT_LENGTH_OF_FABRIC = 64;
     static constexpr uint8_t BIT_LENGTH_OF_APC = 32;
     static constexpr uint8_t SIZE_OF_CACHELINE = 64;

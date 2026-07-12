@@ -117,10 +117,10 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            const uint8_t layout_begin = PageNodeOrchestrator::LayoutBufferBegainInMetaIndecies();
-            const uint8_t occupancy_begin = PageNodeOrchestrator::OccupencyBufferBegainInMetaIndecies();
+            const uint8_t layout_begin = RegionCursorIndexOrchestrator::LayoutBufferBegainInMetaIndecies();
+            const uint8_t occupancy_begin = RegionCursorIndexOrchestrator::OccupencyBufferBegainInMetaIndecies();
 
-            for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
             {
                 return_buffer[layout_begin + i] = layout_buffer[i];
                 return_buffer[occupancy_begin + i] = occupancy_buffer[i];
