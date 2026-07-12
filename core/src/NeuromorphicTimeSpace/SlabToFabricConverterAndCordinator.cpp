@@ -276,9 +276,9 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        if (slot_cell_count < MINIMUM_APC_CAPACITY)
+        if (slot_cell_count < MINIMUM_APC_CELL_COUNT)
         {
-            slot_cell_count = MINIMUM_APC_CAPACITY;
+            slot_cell_count = MINIMUM_APC_CELL_COUNT;
         }
 
         CountOfAPC_ = static_cast<uint64_t>(slot_count);

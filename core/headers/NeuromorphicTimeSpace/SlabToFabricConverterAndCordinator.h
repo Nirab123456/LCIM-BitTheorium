@@ -43,7 +43,7 @@ namespace PredictedAdaptedEncoding
 
         bool InitializeFabric(
             uint16_t slot_count,
-            size_t slot_cell_count = MINIMUM_APC_CAPACITY,
+            size_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
             uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
             uint32_t fabric_thread_capacity = DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;

@@ -431,7 +431,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
     {
         BuildNullTrackingBuffer(return_buffer);
         if (
-            capacity_of_the_apc < MINIMUM_APC_CAPACITY ||
+            capacity_of_the_apc < MINIMUM_APC_CELL_COUNT ||
             !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
             !APCDataStructure::ThisVersionValid(desired_version)
         )

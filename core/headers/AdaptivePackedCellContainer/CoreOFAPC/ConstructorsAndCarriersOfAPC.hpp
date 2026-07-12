@@ -49,7 +49,7 @@ struct APCDataStructure
 
     static constexpr bool IsCapacityOfAPCValid(uint32_t capacity) noexcept
     {
-        return capacity >= MINIMUM_APC_CAPACITY &&
+        return capacity >= MINIMUM_APC_CELL_COUNT &&
             IsThisIndexValidForAPC(capacity);
     }
 

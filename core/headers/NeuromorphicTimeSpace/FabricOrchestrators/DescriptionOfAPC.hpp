@@ -258,7 +258,7 @@ struct DescriptionOfAPC
         return_descriptor_files.LocalityOfTheDescription = desired_cell_view.LocalityOfCell;
 
         if (
-            return_descriptor_files.WidthOfAPC >= MINIMUM_APC_CAPACITY  && 
+            return_descriptor_files.WidthOfAPC >= MINIMUM_APC_CELL_COUNT  && 
             APCDataStructure::IsThisIndexValidForAPC(return_descriptor_files.WidthOfAPC) &&
             return_descriptor_files.StateOfTheAPC != StateOfSingleAPCDescription::UNASSIGNED_UNUSED_NANNULL &&
             return_descriptor_files.WhoHoldsTheAcess != OwnershipPolicy::UNASSIGNED_UNUSED_NANNULL
