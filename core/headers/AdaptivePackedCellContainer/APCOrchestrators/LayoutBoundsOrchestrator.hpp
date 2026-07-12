@@ -60,7 +60,7 @@ struct LayoutBuilderAndValidator
         }
         
         const std::optional<uint32_t> begin_idx = Double32In64ExPa::ExtractLow32Of64(packed_cell);
-        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractLow32Of64(packed_cell);
+        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractHigh32Of64(packed_cell);
         return_carrier.BeginIndex =  begin_idx.has_value() ? begin_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.EndIndex =  end_idx.has_value() ? end_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.LayoutIdentity = layout_marker;

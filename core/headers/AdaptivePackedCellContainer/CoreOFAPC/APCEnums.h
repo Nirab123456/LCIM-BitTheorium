@@ -44,42 +44,63 @@ namespace PredictedAdaptedEncoding
         AUX_BOUNDS = 22,
         HETEROGENOUS_PTR_BOUNDS = 23,
         FREE_BOUNDS = 24,
+
+        LAYOUT_VERSION = 25,
+        LAYOUT_MUTATION_EPOCH = 26,
+        LAYOUT_FLAGS = 27,
         ///
 
-        // region occupancy
-        FEEDFORWARD_OCC = 28,
-        FEEDBACKWARD_OCC = 29,
-        LATERAL_OCC = 30,
-        STATE_OCC = 31,
-        ERROR_OCC = 32,
-        WEIGHTLESS_OCC = 33,
-        WEIGHT_OCC = 34,
-        AUX_OCC = 35,
-        HETEROGENOUS_OCC = 36,
-        FREE_OCC = 37,
+        FEEDFORWARD_ENQUEUE_POSITION = 28,
+        FEEDBACKWARD_ENQUEUE_POSITION = 29,
+        LATERAL_ENQUEUE_POSITION = 30,
+        STATE_ENQUEUE_POSITION = 31,
+        ERROR_ENQUEUE_POSITION = 32,
+        WEIGHTLESS_ENQUEUE_POSITION = 33,
+        WEIGHT_ENQUEUE_POSITION = 34,
+        AUX_ENQUEUE_POSITION = 35,
+        HETEROGENOUS_ENQUEUE_POSITION = 36,
+        FREE_ENQUEUE_POSITION = 37,
+
+        FEEDFORWARD_DEQUEUE_POSITION = 38,
+        FEEDBACKWARD_DEQUEUE_POSITION = 39,
+        LATERAL_DEQUEUE_POSITION = 40,
+        STATE_DEQUEUE_POSITION = 41,
+        ERROR_DEQUEUE_POSITION = 42,
+        WEIGHTLESS_DEQUEUE_POSITION = 43,
+        WEIGHT_DEQUEUE_POSITION = 44,
+        AUX_DEQUEUE_POSITION = 45,
+        HETEROGENOUS_DEQUEUE_POSITION = 46,
+        FREE_DEQUEUE_POSITION = 47,
+
+        // Region schema: record width + protocol + format/version.
+        FEEDFORWARD_REGION_SCHEMA = 48,
+        FEEDBACKWARD_REGION_SCHEMA = 49,
+        LATERAL_REGION_SCHEMA = 50,
+        STATE_REGION_SCHEMA = 51,
+        ERROR_REGION_SCHEMA = 52,
+        WEIGHTLESS_REGION_SCHEMA = 53,
+        WEIGHT_REGION_SCHEMA = 54,
+        AUX_REGION_SCHEMA = 55,
+        HETEROGENOUS_REGION_SCHEMA = 56,
+        FREE_REGION_SCHEMA = 57,
 
 
 
         
         ////-------NEEDS UPDATE IN FUTURE---------
         // runtime-control
-        BRANCH_PRIORITY = 80,
-        CURRENT_ACTIVE_THREADS = 81,
-        SPLIT_THRESHOLD_PERCENTAGE = 82,
-        TOTAL_CAPACITY_OF_THIS_SEGEMENT = 83,
-        PAGED_NODE_READY_BIT = 84,
-        DEFINED_MODE_OF_CURRENT_APC = 85,
-        PRODUCER_CURSOR_PLACEMENT = 86,
-        CONSUMER_CURSORE_PLACEMENT = 87,
-        TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH = 88,
-        NODE_GROUP_SIZE = 89,
+        BRANCH_PRIORITY = 86,
+        CURRENT_ACTIVE_THREADS = 87,
+        SPLIT_THRESHOLD_PERCENTAGE = 88,
+        TOTAL_CAPACITY_OF_THIS_SEGEMENT = 89,
+        PAGED_NODE_READY_BIT = 90,
+        APC_SCHEMA_ID = 91,
+        TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH = 92,
+        NODE_GROUP_SIZE = 93,
         ///
-
         // INTERNAL TIMER
         LOCAL_FULL_CLOCK = 94,
         ///
-
-
         EOF_APC_HEADER = 95,
         UNASSIGNED_UNUSED_NANNULL = 96
     };
@@ -90,7 +111,7 @@ namespace PredictedAdaptedEncoding
     );
 
     static_assert(
-        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_OCC) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_OCC)) ==
+        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_ENQUEUE_POSITION) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION)) ==
         (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
     );
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <functional>
-#include "OccupancyOrchestrator.hpp"
+#include "MPMCOrchestratorForAPCRegion.hpp"
 
 namespace PredictedAdaptedEncoding
 {
