@@ -29,7 +29,7 @@ namespace PredictedAdaptedEncoding
     /// @brief Name Of Each Segment On APC
     /// @param NONE Lower guard prevents a Packed Cell to be ever VALID: 0
     /// @param NULLNAN Uppper Guard Prevents Pack-ed Cell to be VALID: UINT64_MAX
-    enum class APCPagedNodeSegmentClasses : uint8_t
+    enum class MacroColumnOfAPC : uint8_t
     {
         NONE = 0x0,
         FEEDFORWARD_MESSAGE  = 0x1,
@@ -37,16 +37,13 @@ namespace PredictedAdaptedEncoding
         LATERAL_MESAGE = 0x3,
         STATE_SLOT = 0x4,
         ERROR_SLOT = 0x5,
-        EDGE_DESCRIPTOR = 0x6,
+        WEIGHTLESS_LOOKUP = 0x6,
         WEIGHT_SLOT = 0x7,
         AUX_SLOT = 0x8,
-        HETEROGENOUS_RAW_MEMORY = 0x9,
-        RAW_64BIT_MEMORY = 0xA,
-        PAIRED_POINTER_IN_MEMORY = 0xB,
-        FREE_SLOT     = 0xC,
-        UNDEFINED = 0xD,
-        META_HEADER = 0xE,
-        NULLNAN     = 0xF,
+        HETEROGENOUS_PTR = 0x9,
+        FREE_SLOT     = 10,
+        META_HEADER = 11,
+        NULLNAN     = 12
     };
 
     /// @brief Name Of Each Segment On Fabric

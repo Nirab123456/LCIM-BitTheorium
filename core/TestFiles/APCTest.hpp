@@ -124,26 +124,26 @@
 //         return out;
 //     }
 
-//     const char* RegionName(APCPagedNodeSegmentClasses r) noexcept
+//     const char* RegionName(MacroColumnOfAPC r) noexcept
 //     {
 //         switch (r)
 //         {
-//             case APCPagedNodeSegmentClasses::NONE: return "NONE";
-//             case APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE: return "FF";
-//             case APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE: return "FB";
-//             case APCPagedNodeSegmentClasses::LATERAL_MESAGE: return "LATERAL";
-//             case APCPagedNodeSegmentClasses::STATE_SLOT: return "STATE";
-//             case APCPagedNodeSegmentClasses::ERROR_SLOT: return "ERROR";
-//             case APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR: return "EDGE";
-//             case APCPagedNodeSegmentClasses::WEIGHT_SLOT: return "WEIGHT";
-//             case APCPagedNodeSegmentClasses::META_HEADER: return "CONTROL";
-//             case APCPagedNodeSegmentClasses::AUX_SLOT: return "AUX";
-//             case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY: return "HETERO_MEM";
-//             case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY: return "LOCAL_PTR";
-//             case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY: return "DIST_PTR";
-//             case APCPagedNodeSegmentClasses::FREE_SLOT: return "FREE";
-//             case APCPagedNodeSegmentClasses::UNDEFINED: return "UNDEFINED";
-//             case APCPagedNodeSegmentClasses::NULLNAN: return "NULLNAN";
+//             case MacroColumnOfAPC::NONE: return "NONE";
+//             case MacroColumnOfAPC::FEEDFORWARD_MESSAGE: return "FF";
+//             case MacroColumnOfAPC::FEEDBACKWARD_MESSAGE: return "FB";
+//             case MacroColumnOfAPC::LATERAL_MESAGE: return "LATERAL";
+//             case MacroColumnOfAPC::STATE_SLOT: return "STATE";
+//             case MacroColumnOfAPC::ERROR_SLOT: return "ERROR";
+//             case MacroColumnOfAPC::WEIGHTLESS_LOOKUP: return "EDGE";
+//             case MacroColumnOfAPC::WEIGHT_SLOT: return "WEIGHT";
+//             case MacroColumnOfAPC::META_HEADER: return "CONTROL";
+//             case MacroColumnOfAPC::AUX_SLOT: return "AUX";
+//             case MacroColumnOfAPC::HETEROGENOUS_PTR: return "HETERO_MEM";
+//             case MacroColumnOfAPC::RAW_64BIT_MEMORY: return "LOCAL_PTR";
+//             case MacroColumnOfAPC::PAIRED_POINTER_IN_MEMORY: return "DIST_PTR";
+//             case MacroColumnOfAPC::FREE_SLOT: return "FREE";
+//             case MacroColumnOfAPC::UNDEFINED: return "UNDEFINED";
+//             case MacroColumnOfAPC::NULLNAN: return "NULLNAN";
 //             default: return "UNKNOWN";
 //         }
 //     }
@@ -153,44 +153,44 @@
 //         return ok ? "PASS" : "FAIL";
 //     }
 
-//     std::array<APCPagedNodeSegmentClasses, 14> TrackedRegionsNoNoneNoNan() noexcept
+//     std::array<MacroColumnOfAPC, 14> TrackedRegionsNoNoneNoNan() noexcept
 //     {
 //         return {
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
-//             APCPagedNodeSegmentClasses::LATERAL_MESAGE,
-//             APCPagedNodeSegmentClasses::STATE_SLOT,
-//             APCPagedNodeSegmentClasses::ERROR_SLOT,
-//             APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR,
-//             APCPagedNodeSegmentClasses::WEIGHT_SLOT,
-//             APCPagedNodeSegmentClasses::META_HEADER,
-//             APCPagedNodeSegmentClasses::AUX_SLOT,
-//             APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY,
-//             APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY,
-//             APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY,
-//             APCPagedNodeSegmentClasses::FREE_SLOT,
-//             APCPagedNodeSegmentClasses::UNDEFINED
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::LATERAL_MESAGE,
+//             MacroColumnOfAPC::STATE_SLOT,
+//             MacroColumnOfAPC::ERROR_SLOT,
+//             MacroColumnOfAPC::WEIGHTLESS_LOOKUP,
+//             MacroColumnOfAPC::WEIGHT_SLOT,
+//             MacroColumnOfAPC::META_HEADER,
+//             MacroColumnOfAPC::AUX_SLOT,
+//             MacroColumnOfAPC::HETEROGENOUS_PTR,
+//             MacroColumnOfAPC::RAW_64BIT_MEMORY,
+//             MacroColumnOfAPC::PAIRED_POINTER_IN_MEMORY,
+//             MacroColumnOfAPC::FREE_SLOT,
+//             MacroColumnOfAPC::UNDEFINED
 //         };
 //     }
 
-//     std::array<APCPagedNodeSegmentClasses, 8> PrintedRegions() noexcept
+//     std::array<MacroColumnOfAPC, 8> PrintedRegions() noexcept
 //     {
 //         return {
-//             APCPagedNodeSegmentClasses::META_HEADER,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
-//             APCPagedNodeSegmentClasses::LATERAL_MESAGE,
-//             APCPagedNodeSegmentClasses::STATE_SLOT,
-//             APCPagedNodeSegmentClasses::ERROR_SLOT,
-//             APCPagedNodeSegmentClasses::AUX_SLOT,
-//             APCPagedNodeSegmentClasses::UNDEFINED
+//             MacroColumnOfAPC::META_HEADER,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::LATERAL_MESAGE,
+//             MacroColumnOfAPC::STATE_SLOT,
+//             MacroColumnOfAPC::ERROR_SLOT,
+//             MacroColumnOfAPC::AUX_SLOT,
+//             MacroColumnOfAPC::UNDEFINED
 //         };
 //     }
 
 //     uint64_t PackF32(
 //         MasterClockConf& clock,
 //         float value,
-//         APCPagedNodeSegmentClasses page_class,
+//         MacroColumnOfAPC page_class,
 //         WildCardOfPackedCell attribute = WildCardOfPackedCell::PACKED_CELL,
 //         PackedMode mode = PackedMode::VALUE32
 //     )
@@ -348,7 +348,7 @@
 
 //     OccupancyTriple ReadRegion(
 //         AdaptivePackedCellContainer& apc,
-//         APCPagedNodeSegmentClasses region
+//         MacroColumnOfAPC region
 //     )
 //     {
 //         OccupancyTriple out{};
@@ -375,9 +375,9 @@
 //     {
 //         uint32_t used = 0;
 
-//         for (const APCPagedNodeSegmentClasses region : TrackedRegionsNoNoneNoNan())
+//         for (const MacroColumnOfAPC region : TrackedRegionsNoNoneNoNan())
 //         {
-//             if (region == APCPagedNodeSegmentClasses::META_HEADER)
+//             if (region == MacroColumnOfAPC::META_HEADER)
 //             {
 //                 continue;
 //             }
@@ -433,7 +433,7 @@
 //     )
 //     {
 //         const OccupancyTriple central = ReadCentral(seg);
-//         const OccupancyTriple control = ReadRegion(seg, APCPagedNodeSegmentClasses::META_HEADER);
+//         const OccupancyTriple control = ReadRegion(seg, MacroColumnOfAPC::META_HEADER);
 //         const ExactPayloadLocalityCount exact = CountExactLocalPayload(seg);
 
 //         std::cout
@@ -441,11 +441,11 @@
 //             << "branch=" << seg.GetSlabSlotID()
 //             << " logical=" << seg.GetLogicalId()
 //             << " shared=" << seg.GetSharedId()
-//             << " group=" << seg.ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::NODE_GROUP_SIZE)
+//             << " group=" << seg.ReadValuFromAPCMetaIndecies(HeaderIdentifierOfAPC::NODE_GROUP_SIZE)
 //             << " cap=" << seg.GetTotalCapacityForThisAPC()
 //             << " payload=" << seg.PayloadCapacityFromHeader()
 //             << " ready=0x" << std::hex
-//             << seg.ReadValuFromAPCMetaIndecies(MetaIndexOfAPCNode::PAGED_NODE_READY_BIT)
+//             << seg.ReadValuFromAPCMetaIndecies(HeaderIdentifierOfAPC::PAGED_NODE_READY_BIT)
 //             << std::dec
 //             << " central(pub=" << central.Published
 //             << ",claim=" << central.Claimed
@@ -463,7 +463,7 @@
 
 //     void PrintRegionPressure(
 //         APCSegmentsCausalCordinator& node,
-//         APCPagedNodeSegmentClasses region
+//         MacroColumnOfAPC region
 //     )
 //     {
 //         const uint32_t exact_chain_pub =
@@ -527,7 +527,7 @@
 
 //         std::cout << "  region chain pressure:\n";
 
-//         for (const APCPagedNodeSegmentClasses region : PrintedRegions())
+//         for (const MacroColumnOfAPC region : PrintedRegions())
 //         {
 //             PrintRegionPressure(node, region);
 //         }
@@ -560,7 +560,7 @@
 
 //     bool PublishWithRetry(
 //         APCSegmentsCausalCordinator& node,
-//         APCPagedNodeSegmentClasses region,
+//         MacroColumnOfAPC region,
 //         uint64_t cell,
 //         PackedCellContainerManager& manager,
 //         std::atomic<uint64_t>& growth_counter,
@@ -587,7 +587,7 @@
 
 //     std::optional<uint64_t> ConsumeWithRetry(
 //         APCSegmentsCausalCordinator& node,
-//         APCPagedNodeSegmentClasses region,
+//         MacroColumnOfAPC region,
 //         size_t& cursor,
 //         PackedCellContainerManager& manager,
 //         std::atomic<uint64_t>& older_counter,
@@ -648,11 +648,11 @@
 
 //             if (!PublishWithRetry(
 //                     sensor,
-//                     APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//                     MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //                     PackF32(
 //                         clock,
 //                         value,
-//                         APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//                         MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //                         WildCardOfPackedCell::PACKED_CELL
 //                     ),
 //                     manager,
@@ -680,11 +680,11 @@
 
 //             if (!PublishWithRetry(
 //                     predictor,
-//                     APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//                     MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //                     PackF32(
 //                         clock,
 //                         prediction,
-//                         APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//                         MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //                         WildCardOfPackedCell::PACKED_CELL
 //                     ),
 //                     manager,
@@ -811,7 +811,7 @@
 //     {
 //         auto sensor_cell = ConsumeWithRetry(
 //             Sensor,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //             sensor_ff_cursor,
 //             manager,
 //             older_counter,
@@ -820,7 +820,7 @@
 
 //         auto prediction_cell = ConsumeWithRetry(
 //             Predictor,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //             predictor_fb_cursor,
 //             manager,
 //             older_counter,
@@ -835,7 +835,7 @@
 
 //         ok = ok && PublishWithRetry(
 //             Comparator,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //             *sensor_cell,
 //             manager,
 //             grow_comparator,
@@ -844,7 +844,7 @@
 
 //         ok = ok && PublishWithRetry(
 //             Comparator,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //             *prediction_cell,
 //             manager,
 //             grow_comparator,
@@ -864,7 +864,7 @@
 //     {
 //         auto ff = ConsumeWithRetry(
 //             Comparator,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //             comparator_ff_cursor,
 //             manager,
 //             older_counter,
@@ -873,7 +873,7 @@
 
 //         auto fb = ConsumeWithRetry(
 //             Comparator,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //             comparator_fb_cursor,
 //             manager,
 //             older_counter,
@@ -902,11 +902,11 @@
 
 //         ok = ok && PublishWithRetry(
 //             Integrator,
-//             APCPagedNodeSegmentClasses::STATE_SLOT,
+//             MacroColumnOfAPC::STATE_SLOT,
 //             PackF32(
 //                 clock,
 //                 state,
-//                 APCPagedNodeSegmentClasses::STATE_SLOT,
+//                 MacroColumnOfAPC::STATE_SLOT,
 //                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
@@ -916,11 +916,11 @@
 
 //         ok = ok && PublishWithRetry(
 //             Integrator,
-//             APCPagedNodeSegmentClasses::ERROR_SLOT,
+//             MacroColumnOfAPC::ERROR_SLOT,
 //             PackF32(
 //                 clock,
 //                 error,
-//                 APCPagedNodeSegmentClasses::ERROR_SLOT,
+//                 MacroColumnOfAPC::ERROR_SLOT,
 //                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
@@ -940,7 +940,7 @@
 //     {
 //         auto state_cell = ConsumeWithRetry(
 //             Integrator,
-//             APCPagedNodeSegmentClasses::STATE_SLOT,
+//             MacroColumnOfAPC::STATE_SLOT,
 //             integrator_state_cursor,
 //             manager,
 //             older_counter,
@@ -949,7 +949,7 @@
 
 //         auto error_cell = ConsumeWithRetry(
 //             Integrator,
-//             APCPagedNodeSegmentClasses::ERROR_SLOT,
+//             MacroColumnOfAPC::ERROR_SLOT,
 //             integrator_error_cursor,
 //             manager,
 //             older_counter,
@@ -976,11 +976,11 @@
 
 //         ok = ok && PublishWithRetry(
 //             Motor,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //             PackF32(
 //                 clock,
 //                 motor,
-//                 APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//                 MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
@@ -990,11 +990,11 @@
 
 //         ok = ok && PublishWithRetry(
 //             Predictor,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //             PackF32(
 //                 clock,
 //                 feedback,
-//                 APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//                 MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //                 WildCardOfPackedCell::PACKED_CELL
 //             ),
 //             manager,
@@ -1020,7 +1020,7 @@
 //     {
 //         auto motor_cell = ConsumeWithRetry(
 //             Motor,
-//             APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
 //             motor_ff_cursor,
 //             manager,
 //             older_counter,
@@ -1029,7 +1029,7 @@
 
 //         auto feedback_cell = ConsumeWithRetry(
 //             Predictor,
-//             APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE,
+//             MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
 //             predictor_feedback_cursor,
 //             manager,
 //             older_counter,

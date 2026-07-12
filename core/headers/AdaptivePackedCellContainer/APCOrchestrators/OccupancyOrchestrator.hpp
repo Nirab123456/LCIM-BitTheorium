@@ -12,8 +12,8 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
         uint16_t IdleOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint16_t ClaimedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint16_t PublishedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        APCPagedNodeSegmentClasses OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN; ////
-        MetaIndexOfAPCNode MetaIndexForThis = MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL;
+        MacroColumnOfAPC OccupancyOrigin = MacroColumnOfAPC::NULLNAN; ////
+        HeaderIdentifierOfAPC MetaIndexForThis = HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL;
         LocalityPolicy localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
@@ -24,8 +24,8 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
         a_occupancy_carrier.IdleOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
         a_occupancy_carrier.ClaimedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
         a_occupancy_carrier.PublishedOccupancy = APCDataStructure::APC_INDEX_BOUND_SENTINAL;;
-        a_occupancy_carrier.OccupancyOrigin = APCPagedNodeSegmentClasses::NULLNAN;
-        a_occupancy_carrier.MetaIndexForThis = MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL;
+        a_occupancy_carrier.OccupancyOrigin = MacroColumnOfAPC::NULLNAN;
+        a_occupancy_carrier.MetaIndexForThis = HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL;
         a_occupancy_carrier.localityOfThisOccupancy = LocalityPolicy::UNASSIGNED_UNUSED_NANNULL;
         a_occupancy_carrier.IsValid = false;
     }
@@ -42,7 +42,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
             a_occupancy_carrier.localityOfThisOccupancy != LocalityPolicy::UNASSIGNED_UNUSED_NANNULL
         )
         {
-            const std::optional<APCPagedNodeSegmentClasses> maybe_derived_node = PageNodeOrchestrator::GetNodeClassForOccupancyMetaIdx(a_occupancy_carrier.MetaIndexForThis);
+            const std::optional<MacroColumnOfAPC> maybe_derived_node = PageNodeOrchestrator::GetNodeClassForOccupancyMetaIdx(a_occupancy_carrier.MetaIndexForThis);
             if (maybe_derived_node.has_value() && PageNodeOrchestrator::IsValidTrackedAPCNode(a_occupancy_carrier.OccupancyOrigin))
             {
                 if (maybe_derived_node.value() == a_occupancy_carrier.OccupancyOrigin)
@@ -56,7 +56,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
 
             if (
                 maybe_derived_node.has_value() &&
-                a_occupancy_carrier.OccupancyOrigin == APCPagedNodeSegmentClasses::NULLNAN
+                a_occupancy_carrier.OccupancyOrigin == MacroColumnOfAPC::NULLNAN
             )
             {
                 a_occupancy_carrier.OccupancyOrigin = maybe_derived_node.value();
@@ -64,7 +64,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
                 return true;
             }
 
-            const std::optional<MetaIndexOfAPCNode> maybe_derived_meta_idx = PageNodeOrchestrator::OccupancyMetaIdxFromNodeClass(a_occupancy_carrier.OccupancyOrigin);
+            const std::optional<HeaderIdentifierOfAPC> maybe_derived_meta_idx = PageNodeOrchestrator::OccupancyMetaIdxFromNodeClass(a_occupancy_carrier.OccupancyOrigin);
             if (
                 maybe_derived_meta_idx.has_value() &&
                 !maybe_derived_node
@@ -110,7 +110,7 @@ struct OccupancyBuilderAndValidator : public TrackingBufferConf
         return PackedCell64_t::MakeModeledAPCValidPackedCell(
             ModelFamily::MODEL48,
             static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
-            APCPagedNodeSegmentClasses::META_HEADER,
+            MacroColumnOfAPC::META_HEADER,
             valid_occupancy_carrier.localityOfThisOccupancy,
             InternalDataTypePolicy ::UNSIGNED,
             raw_48
@@ -231,12 +231,12 @@ struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
     static constexpr uint64_t VALIDATION_OCCUPANCY_BUFFER_MARK = 22222;
 
     static constexpr std::optional<uint8_t> GetOccupancyBufferIdxFromPageClass(
-        APCPagedNodeSegmentClasses page_class
+        MacroColumnOfAPC page_class
     ) noexcept
     {
         if (PageNodeOrchestrator::IsValidTrackedAPCNode(page_class))
         {
-            return static_cast<uint8_t>(static_cast<uint8_t>(page_class) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE));
+            return static_cast<uint8_t>(static_cast<uint8_t>(page_class) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE));
         }
         return std::nullopt;
     }
@@ -290,8 +290,8 @@ struct OccupancyOrchestrator : public OccupancyBuilderAndValidator
                 BuildNullTrackingBuffer(return_occupancy_buffer);
                 return false;
             }
-            const APCPagedNodeSegmentClasses current_layout_class = LayoutBoundsOrchestrator::GetOriginForLayoutClassByBufferIdx(i);
-            if (current_layout_class == APCPagedNodeSegmentClasses::NULLNAN)
+            const MacroColumnOfAPC current_layout_class = LayoutBoundsOrchestrator::GetOriginForLayoutClassByBufferIdx(i);
+            if (current_layout_class == MacroColumnOfAPC::NULLNAN)
             {
                 BuildNullTrackingBuffer(return_occupancy_buffer);
                 return false;

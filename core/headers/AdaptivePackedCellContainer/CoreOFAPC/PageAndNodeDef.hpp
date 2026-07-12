@@ -11,17 +11,17 @@ namespace PredictedAdaptedEncoding
 
 
 
-        static constexpr MetaIndexOfAPCNode GetOccupancyMetIndexByRegionClass(
-            APCPagedNodeSegmentClasses desired_region_class
+        static constexpr HeaderIdentifierOfAPC GetOccupancyMetIndexByRegionClass(
+            MacroColumnOfAPC desired_region_class
         )noexcept
         {
-            return static_cast<MetaIndexOfAPCNode>(
-                static_cast<size_t>(MetaIndexOfAPCNode::FEEDBACKWARD_OCC) +
+            return static_cast<HeaderIdentifierOfAPC>(
+                static_cast<size_t>(HeaderIdentifierOfAPC::FEEDBACKWARD_OCC) +
                 (static_cast<uint8_t>(desired_region_class) & HIGH_FOUR_NIBBLE)
                 );
         }
 
-        static constexpr bool IsTrackedOccupancyPageClass(APCPagedNodeSegmentClasses page_class) noexcept
+        static constexpr bool IsTrackedOccupancyPageClass(MacroColumnOfAPC page_class) noexcept
         {
             /*
                 Occupancy-tracked means:
@@ -33,11 +33,11 @@ namespace PredictedAdaptedEncoding
                 This includes FREE_SLOT only for non-idle abnormal transitions.
                 Normal idle free capacity is still derived, not counted.
             */
-            return page_class != APCPagedNodeSegmentClasses::NONE &&
-                page_class != APCPagedNodeSegmentClasses::NULLNAN;
+            return page_class != MacroColumnOfAPC::NONE &&
+                page_class != MacroColumnOfAPC::NULLNAN;
         }
 
-        static constexpr bool IsDataConsumablePageClass(APCPagedNodeSegmentClasses page_class) noexcept
+        static constexpr bool IsDataConsumablePageClass(MacroColumnOfAPC page_class) noexcept
         {
             /*
                 These regions may contain normal user/runtime data.
@@ -45,21 +45,21 @@ namespace PredictedAdaptedEncoding
                 FREE_SLOT is not data-consumable.
                 NONE/NULLNAN are invalid.
             */
-            return page_class != APCPagedNodeSegmentClasses::NONE &&
-                page_class != APCPagedNodeSegmentClasses::NULLNAN &&
-                page_class != APCPagedNodeSegmentClasses::META_HEADER &&
-                page_class != APCPagedNodeSegmentClasses::FREE_SLOT;
+            return page_class != MacroColumnOfAPC::NONE &&
+                page_class != MacroColumnOfAPC::NULLNAN &&
+                page_class != MacroColumnOfAPC::META_HEADER &&
+                page_class != MacroColumnOfAPC::FREE_SLOT;
         }
 
 };
 
 struct MetaIdxOrchestrator
 {
-    static constexpr bool IsValidTrackedAPCNode(APCPagedNodeSegmentClasses layout_node) noexcept
+    static constexpr bool IsValidTrackedAPCNode(MacroColumnOfAPC layout_node) noexcept
     {
         if (
-            layout_node > APCPagedNodeSegmentClasses::NONE &&
-            layout_node < APCPagedNodeSegmentClasses::META_HEADER
+            layout_node > MacroColumnOfAPC::NONE &&
+            layout_node < MacroColumnOfAPC::META_HEADER
         )
         {
             return true;
@@ -69,38 +69,38 @@ struct MetaIdxOrchestrator
 
     static constexpr uint8_t LayoutBufferBegainInMetaIndecies() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_BOUNDS_VERSION);
+        return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS);
     }
 
     static constexpr uint8_t LayoutBufferEndInMetaIndecies() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_BOUNDS_VERSION);
+        return static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_BOUNDS);
     }
 
     static constexpr uint8_t OccupencyBufferBegainInMetaIndecies() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC);
+        return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_OCC);
     }
 
     static constexpr uint8_t OccupancyBufferEndInMetaIndecies() noexcept
     {
-        return static_cast<uint8_t>(MetaIndexOfAPCNode::UNDEFINED_OCC);
+        return static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_OCC);
     }
 
-    static constexpr std::optional<MetaIndexOfAPCNode>OccupancyMetaIdxFromNodeClass(APCPagedNodeSegmentClasses node_class) noexcept
+    static constexpr std::optional<HeaderIdentifierOfAPC>OccupancyMetaIdxFromNodeClass(MacroColumnOfAPC node_class) noexcept
     {
         if (!IsValidTrackedAPCNode(node_class))
         {
             return std::nullopt;
         }
         
-        return static_cast<MetaIndexOfAPCNode>(
-            static_cast<size_t>(MetaIndexOfAPCNode::FEEDFORWARD_OCC) +
-            (static_cast<uint8_t>(node_class) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE))
+        return static_cast<HeaderIdentifierOfAPC>(
+            static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_OCC) +
+            (static_cast<uint8_t>(node_class) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
             );
     }
 
-    static constexpr std::optional<APCPagedNodeSegmentClasses>GetNodeClassForOccupancyMetaIdx(MetaIndexOfAPCNode meta_index) noexcept
+    static constexpr std::optional<MacroColumnOfAPC>GetNodeClassForOccupancyMetaIdx(HeaderIdentifierOfAPC meta_index) noexcept
     {
         const uint8_t meta_index_u = static_cast<uint8_t>(meta_index);
         if (
@@ -108,8 +108,8 @@ struct MetaIdxOrchestrator
             meta_index_u <= OccupancyBufferEndInMetaIndecies()
         )
         {
-            return static_cast<APCPagedNodeSegmentClasses>(
-                meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE)
+            return static_cast<MacroColumnOfAPC>(
+                meta_index_u - OccupencyBufferBegainInMetaIndecies() + static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
             );
         }
 
@@ -125,13 +125,13 @@ struct PageNodeOrchestrator : public MetaIdxOrchestrator
 
     static constexpr uint8_t TrackedAPCNodeLen() noexcept
     {
-        return static_cast<uint8_t>(APCPagedNodeSegmentClasses::META_HEADER) - static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
+        return static_cast<uint8_t>(MacroColumnOfAPC::META_HEADER) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
     }
 
 
-    static constexpr bool IsThisCellAPCMetaHeader(APCPagedNodeSegmentClasses page_class) noexcept
+    static constexpr bool IsThisCellAPCMetaHeader(MacroColumnOfAPC page_class) noexcept
     {
-        if (page_class == APCPagedNodeSegmentClasses::META_HEADER)
+        if (page_class == MacroColumnOfAPC::META_HEADER)
         {
             return true;
         }
@@ -139,21 +139,6 @@ struct PageNodeOrchestrator : public MetaIdxOrchestrator
         return false;
     }
 
-};
-
-struct TrackingBufferConf
-{
-    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = PageNodeOrchestrator::TrackedAPCNodeLen() + 1;
-    static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
-    using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
-
-    static constexpr void BuildNullTrackingBuffer(TrackingBufferOfAPC& a_layout_buffer) noexcept
-    {
-        for (size_t i = 0; i < a_layout_buffer.size(); i++)
-        {
-            a_layout_buffer[i] = FABRIC_CELL_SENTINAL;
-        }
-    }
 };
 
 

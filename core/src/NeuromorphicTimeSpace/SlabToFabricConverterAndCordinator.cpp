@@ -181,7 +181,7 @@ namespace PredictedAdaptedEncoding
         const uint64_t idle_apc_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
             TypeFamily::VALUE32,
             ContractOfConcurrency::CLAIMED_GURDED,
-            APCPagedNodeSegmentClasses::UNDEFINED,
+            MacroColumnOfAPC::UNDEFINED,
             LocalityPolicy::IDLE,
             InternalDataTypePolicy::UNSIGNED,
             UNSIGNED_ZERO,

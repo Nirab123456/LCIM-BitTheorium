@@ -160,9 +160,9 @@ struct AxisConstructor
     struct AxisConstructionMap
     {
         FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
-        MetaIndexOfAPCNode CountTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
-        MetaIndexOfAPCNode PreviousTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
-        MetaIndexOfAPCNode NextTarget{MetaIndexOfAPCNode::UNASSIGNED_UNUSED_NANNULL};
+        HeaderIdentifierOfAPC CountTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
+        HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
+        HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
         bool IsValid = false;
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
@@ -173,18 +173,18 @@ struct AxisConstructor
         {
             return AxisConstructionMap{
                 FabricTableSegmentClasses::SHARED_HASH,
-                MetaIndexOfAPCNode::TOTAL_HORIZONTAL_COUNT_S,
-                MetaIndexOfAPCNode::PREVIOUS_HORIZONTAL_HANDLE,
-                MetaIndexOfAPCNode::NEXT_HORIZONTAL_HANDLE,
+                HeaderIdentifierOfAPC::TOTAL_HORIZONTAL_COUNT_S,
+                HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE,
+                HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE,
                 true
             };
         }
 
         return AxisConstructionMap{
             FabricTableSegmentClasses::LOGICAL_HASH,
-            MetaIndexOfAPCNode::TOTAL_VERTICAL_COUNT_L,
-            MetaIndexOfAPCNode::PREVIOUS_VERTICAL_HANDLE,
-            MetaIndexOfAPCNode::NEXT_VERTICAL_HANDLE,
+            HeaderIdentifierOfAPC::TOTAL_VERTICAL_COUNT_L,
+            HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE,
+            HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE,
             true
         };
     }

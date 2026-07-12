@@ -6,14 +6,14 @@
 namespace PredictedAdaptedEncoding
 {
 
-struct LayoutBuilderAndValidator : public TrackingBufferConf
+struct LayoutBuilderAndValidator 
 {
     struct LayoutCarrier
     {
         uint32_t BeginIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint32_t EndIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint8_t Version = UINT8_MAX;
-        APCPagedNodeSegmentClasses LayoutIdentity = APCPagedNodeSegmentClasses::NULLNAN;
+        MacroColumnOfAPC LayoutIdentity = MacroColumnOfAPC::NULLNAN;
         bool IsValid = false;
     };
 
@@ -49,7 +49,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
 
     static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(
         uint64_t packed_cell,
-        APCPagedNodeSegmentClasses layout_marker
+        MacroColumnOfAPC layout_marker
     ) noexcept
     {
         LayoutCarrier return_carrier{};
@@ -71,7 +71,7 @@ struct LayoutBuilderAndValidator : public TrackingBufferConf
 
     static constexpr std::optional<uint16_t> SpanOflayoutFromPackedCell(
         uint64_t packed_cell,
-        APCPagedNodeSegmentClasses layout_identity
+        MacroColumnOfAPC layout_identity
     ) noexcept
     {
         const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(packed_cell, layout_identity);
@@ -94,21 +94,18 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         uint16_t Lateral = LATERAL_PERCENTAGE;
         uint16_t StateSlot = STATESLOT_PERCENTAGE;
         uint16_t ErrorSlot = ERRORSLOT_PERCENTAGE;
-        uint16_t EdgeDescriptor = EDGEDESCRIPTOR_PERCENTAGE;
+        uint16_t Weightless = EDGEDESCRIPTOR_PERCENTAGE;
         uint16_t WeightSlot = WEIGHTSLOT_PERCENTAGE;
         uint16_t AUXSlot = AUXSLOT_PERCENTAGE;
-        uint16_t HeterogenousSlot = HETEROGENOUS_RAW_PERCENTAGE;
-        uint16_t Raw64BitSlot = RAW64_BIT_PERCENTAGE;
-        uint16_t PairedPtr = PAIRED_POINTER_PERCENTAGE;
+        uint16_t HeterogenousPtr = HETEROGENOUS_RAW_PERCENTAGE;
         uint16_t FreeSlot = FREE_PERCENTAGE;
-        uint16_t UndefinedSlot = UNDEFINED_PERCENTAGE;
     };
 
 
     static constexpr LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_WEIGHT{};
 
     static constexpr std::optional<uint16_t> GetDefaultInitialPercentage(
-        APCPagedNodeSegmentClasses layout_class,
+        MacroColumnOfAPC layout_class,
         const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
@@ -119,32 +116,26 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
         switch (layout_class)
         {
-        case APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE:
+        case MacroColumnOfAPC::FEEDFORWARD_MESSAGE:
             return user_defined_percentage.FeedForward;
-        case APCPagedNodeSegmentClasses::FEEDBACKWARD_MESSAGE:
+        case MacroColumnOfAPC::FEEDBACKWARD_MESSAGE:
             return user_defined_percentage.FeedBackward;
-        case APCPagedNodeSegmentClasses::LATERAL_MESAGE:
+        case MacroColumnOfAPC::LATERAL_MESAGE:
             return user_defined_percentage.Lateral;
-        case APCPagedNodeSegmentClasses::STATE_SLOT:
+        case MacroColumnOfAPC::STATE_SLOT:
             return user_defined_percentage.StateSlot;
-        case APCPagedNodeSegmentClasses::ERROR_SLOT:
+        case MacroColumnOfAPC::ERROR_SLOT:
             return user_defined_percentage.ErrorSlot;
-        case APCPagedNodeSegmentClasses::EDGE_DESCRIPTOR:
-            return user_defined_percentage.EdgeDescriptor;
-        case APCPagedNodeSegmentClasses::WEIGHT_SLOT:
+        case MacroColumnOfAPC::WEIGHTLESS_LOOKUP:
+            return user_defined_percentage.Weightless;
+        case MacroColumnOfAPC::WEIGHT_SLOT:
             return user_defined_percentage.WeightSlot;
-        case APCPagedNodeSegmentClasses::AUX_SLOT:
+        case MacroColumnOfAPC::AUX_SLOT:
             return user_defined_percentage.AUXSlot;
-        case APCPagedNodeSegmentClasses::HETEROGENOUS_RAW_MEMORY:
-            return user_defined_percentage.HeterogenousSlot;
-        case APCPagedNodeSegmentClasses::RAW_64BIT_MEMORY:
-            return user_defined_percentage.Raw64BitSlot;
-        case APCPagedNodeSegmentClasses::PAIRED_POINTER_IN_MEMORY:
-            return user_defined_percentage.PairedPtr;
-        case APCPagedNodeSegmentClasses::FREE_SLOT:
+        case MacroColumnOfAPC::HETEROGENOUS_PTR:
+            return user_defined_percentage.HeterogenousPtr;
+        case MacroColumnOfAPC::FREE_SLOT:
             return user_defined_percentage.FreeSlot;
-        case APCPagedNodeSegmentClasses::UNDEFINED:
-            return user_defined_percentage.UndefinedSlot;
         default:
             return std::nullopt;
         }
@@ -171,14 +162,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             &user_defined_percentage.Lateral,
             &user_defined_percentage.StateSlot,
             &user_defined_percentage.ErrorSlot,
-            &user_defined_percentage.EdgeDescriptor,
+            &user_defined_percentage.Weightless,
             &user_defined_percentage.WeightSlot,
             &user_defined_percentage.AUXSlot,
-            &user_defined_percentage.HeterogenousSlot,
-            &user_defined_percentage.Raw64BitSlot,
-            &user_defined_percentage.PairedPtr,
-            &user_defined_percentage.FreeSlot,
-            &user_defined_percentage.UndefinedSlot
+            &user_defined_percentage.HeterogenousPtr,
+            &user_defined_percentage.FreeSlot
         };
 
         uint32_t total_weight = UNSIGNED_ZERO;
@@ -268,29 +256,56 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
 };
 
-struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
+struct TrackingBufferConf : public LayoutPercentageBuilder
+{
+    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = PageNodeOrchestrator::TrackedAPCNodeLen() + 1;
+    static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
+    using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
+
+    static constexpr void BuildNullTrackingBuffer(TrackingBufferOfAPC& a_layout_buffer) noexcept
+    {
+        for (size_t i = 0; i < a_layout_buffer.size(); i++)
+        {
+            a_layout_buffer[i] = FABRIC_CELL_SENTINAL;
+        }
+    }
+protected:
+    static constexpr MacroColumnOfAPC GetAPCPagdNodeFromBufferIdx(uint8_t buffer_idx) noexcept
+    {
+        if (buffer_idx >= VALIDATION_IDX_OF_TRACKING_BUFFER)
+        {
+            return MacroColumnOfAPC::NULLNAN;
+        }
+
+        return static_cast<MacroColumnOfAPC>(
+            static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + buffer_idx
+        );
+    }
+};
+
+struct LayoutBoundsOrchestrator : public TrackingBufferConf
 {
     static constexpr uint64_t VALIDATION_LAYOUT_BUFFER_MARK = 11111;
 
     static constexpr std::optional<uint8_t> GetBufferIndexForALayout(LayoutCarrier& a_valid_layout) noexcept
     {
-        if (!ValidateALayoutCarrier(a_valid_layout, true))
+        if (!ValidateALayoutCarrier(a_valid_layout))
         {
             return std::nullopt;
         }
 
-        const uint8_t start_idx = static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE);
+        const uint8_t start_idx = static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
         return static_cast<uint8_t>(static_cast<uint8_t>(a_valid_layout.LayoutIdentity) - start_idx);
     }
 
-    static constexpr APCPagedNodeSegmentClasses GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
+    static constexpr MacroColumnOfAPC GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
         if (buffer_idx >= PageNodeOrchestrator::TrackedAPCNodeLen())
         {
-            return APCPagedNodeSegmentClasses::NULLNAN;
+            return MacroColumnOfAPC::NULLNAN;
         }
-        return static_cast<APCPagedNodeSegmentClasses>(
-            static_cast<uint8_t>(APCPagedNodeSegmentClasses::FEEDFORWARD_MESSAGE) +
+        return static_cast<MacroColumnOfAPC>(
+            static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) +
             buffer_idx
         );
     }
@@ -307,22 +322,24 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             return false;
         }
 
-        const uint64_t layout_cell = CreateALayoutBoundsCell(a_valid_layout_carrier);
+        const std::optional<uint64_t> layout_cell = CreateALayoutBoundsCell(a_valid_layout_carrier);
 
-        if (layout_cell == FABRIC_CELL_SENTINAL)
+        if (
+            !layout_cell.has_value() ||
+            !APCDataStructure::IsThsisIndexValidForFabric(layout_cell.value())
+        )
         {
             return false;
         }
 
-        layout_buffer[maybe_buffer_idx.value()] = layout_cell;
+        layout_buffer[maybe_buffer_idx.value()] = layout_cell.value();
         
         return true;
     }
 
     static constexpr bool ValidateALayoutBuffer(
         TrackingBufferOfAPC& a_layout_buffer,
-        uint16_t capacity_of_the_apc,
-        bool is_claimed_valid = true
+        uint16_t capacity_of_the_apc
     ) noexcept
     {
         if (!APCDataStructure::IsCapacityOfAPCValid(capacity_of_the_apc))
@@ -339,13 +356,16 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             return false;
         }
 
-        uint16_t expected_begin = payload_begin;
+        uint32_t expected_begin = payload_begin;
         uint8_t expected_version = UINT8_MAX;
 
         for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
             const uint64_t current_packed_cell = a_layout_buffer[i];
-            LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(current_packed_cell, is_claimed_valid);
+            LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(
+                current_packed_cell, 
+                GetAPCPagdNodeFromBufferIdx(i)
+            );
             if (!current_layout.IsValid)
             {
                 return false;
@@ -433,10 +453,10 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             return false;
         }
 
-        uint16_t cursor = payload_begin;
+        uint32_t cursor = payload_begin;
         for (uint8_t i = 0; i < PageNodeOrchestrator::TrackedAPCNodeLen(); i++)
         {
-            const APCPagedNodeSegmentClasses layout_class = GetOriginForLayoutClassByBufferIdx(i);
+            const MacroColumnOfAPC layout_class = GetOriginForLayoutClassByBufferIdx(i);
             const std::optional<uint16_t> maybe_span = GetDefaultInitialPercentage(layout_class, normalized_layout);
 
             if (
@@ -453,7 +473,6 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             current_layout.EndIndex = static_cast<uint16_t>(cursor + maybe_span.value());
             current_layout.Version = desired_version;
             current_layout.LayoutIdentity = layout_class;
-            current_layout.LocalityOfLayout = LocalityPolicy::PUBLISHED;
 
             if (!InsertALayoutCellInBuffer(return_buffer, current_layout))
             {
@@ -463,7 +482,7 @@ struct LayoutBoundsOrchestrator : public LayoutPercentageBuilder
             cursor = current_layout.EndIndex;
         }
 
-        return ValidateALayoutBuffer(return_buffer, capacity_of_the_apc, false);
+        return ValidateALayoutBuffer(return_buffer, capacity_of_the_apc);
     }
 
     static constexpr bool MutateAPCLayout() noexcept;

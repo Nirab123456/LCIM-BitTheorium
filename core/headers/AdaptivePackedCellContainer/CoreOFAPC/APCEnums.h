@@ -7,7 +7,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    enum class MetaIndexOfAPCNode : uint8_t
+    enum class HeaderIdentifierOfAPC : uint8_t
     {
         // identity
         MAGIC_ID = 0,
@@ -34,19 +34,16 @@ namespace PredictedAdaptedEncoding
         ///
 
         // payload bounds versions
-        FEEDFORWARD_BOUNDS_VERSION = 15,
-        FEEDBACKWARD_BOUNDS_VERSION = 16,
-        LATERAL_BOUNDS_VERSION = 17,
-        STATE_BOUNDS_VERSION = 18,
-        ERROR_BOUNDS_VERSION = 19,
-        EDGE_DESCRIPTIOR_BOUNDS_VERSION = 20,
-        WEIGHT_BOUNDS_VERSION = 21,
-        AUX_BOUNDS_VERSION = 22,
-        HETEROGENOUS_RAW_MEMORY_BOUNDS_VERSION = 23,
-        RAW_64Bit_MEMORY = 24,
-        PAIRED_POINTER_IN_MEMORY_BOUNDS_VERSION = 25,
-        FREE_BOUNDS_VERSION = 26,
-        UNDEFINED_BOUNDS_VERSION = 27,
+        FEEDFORWARD_BOUNDS = 15,
+        FEEDBACKWARD_BOUNDS = 16,
+        LATERAL_BOUNDS = 17,
+        STATE_BOUNDS = 18,
+        ERROR_BOUNDS = 19,
+        WEIGHTLESS_BOUNDS = 20,
+        WEIGHT_BOUNDS= 21,
+        AUX_BOUNDS = 22,
+        HETEROGENOUS_PTR_BOUNDS = 23,
+        FREE_BOUNDS = 24,
         ///
 
         // region occupancy
@@ -55,15 +52,11 @@ namespace PredictedAdaptedEncoding
         LATERAL_OCC = 30,
         STATE_OCC = 31,
         ERROR_OCC = 32,
-        EDGE_OCC = 33,
+        WEIGHTLESS_OCC = 33,
         WEIGHT_OCC = 34,
         AUX_OCC = 35,
         HETEROGENOUS_OCC = 36,
-        RAW64_OCC = 37,
-        PAIRED_PTR_OCC = 38,
-        FREE_OCC = 39,
-        UNDEFINED_OCC = 40,
-
+        FREE_OCC = 37,
 
 
 
@@ -83,11 +76,7 @@ namespace PredictedAdaptedEncoding
         ///
 
         // INTERNAL TIMER
-        LOCAL_CLOCK48 = 90,
-        LAST_ACCEPTED_FEED_FORWARD_CLOCK16 = 91,
-        LAST_EMITTED_FEED_FORWARD_CLOCK16 = 92,
-        LAST_ACCEPTED_FEED_BACKWARD_CLOCK16 = 93,
-        LAST_EMITTED_FEED_BACKWARD_CLOCK16 = 94,
+        LOCAL_FULL_CLOCK = 94,
         ///
 
 
@@ -95,36 +84,21 @@ namespace PredictedAdaptedEncoding
         UNASSIGNED_UNUSED_NANNULL = 96
     };
 
+    static_assert(
+        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_BOUNDS) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS)) ==
+        (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
+    );
+
+    static_assert(
+        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_OCC) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_OCC)) ==
+        (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
+    );
+
     struct APCSegmentPoolRange
     {
         size_t BeginIndex = UNSIGNED_ZERO;
         size_t EndIndex = UNSIGNED_ZERO;
         bool IsValid = false;
-    };
-
-    enum class ControlEnumOfAPCSegment : uint32_t
-    {
-        NONE = 0u,
-        ENABLE_BRANCHING = 1u << 0,
-        HAS_REGION_INDEX =  1u << 1,
-        SATURATED = 1u << 2,
-        SPLIT_INFLIGHT = 1u << 3,
-        IS_GRAPH_NODE = 1u << 4,
-        IS_SHARED_ROOT = 1u << 5,
-        IS_SHARED_MAMBER = 1u << 6,
-        HAS_SHARED_NEXT = 1u << 7,
-        HAS_SHARED_PREVIOUS = 1u << 8,
-        HAS_LAYOUT_DIR = 1u << 9,
-        HAS_EDGE_TABLE = 1u << 10,
-        HAS_WEIGHT_TABLE = 1u << 11,
-        LAYOUT_MUTATION_INFLIGHT = 1u << 12
-    };
-
-    enum class PublishStatus : uint8_t
-    {
-        OK = 0,
-        FULL = 1,
-        INVALID = 2
     };
 
 }

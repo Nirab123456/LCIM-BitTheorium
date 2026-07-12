@@ -86,7 +86,7 @@ namespace PredictedAdaptedEncoding
         return FabricOwnerPtr_->UpdateACounterAtomically(desired_slab_idx, delta);
     }
 
-    uint64_t ReadAndWriteOfAPC::AtomicallyUpdateMetaCellCounter(MetaIndexOfAPCNode meta_idx, uint32_t delta) noexcept
+    uint64_t ReadAndWriteOfAPC::AtomicallyUpdateMetaCellCounter(HeaderIdentifierOfAPC meta_idx, uint32_t delta) noexcept
     {
         const uint16_t desired_idx = static_cast<uint16_t>(meta_idx);
         if (desired_idx < APCDataStructure::METACELL_COUNT)

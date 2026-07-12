@@ -34,7 +34,7 @@ namespace PredictedAdaptedEncoding
         /// @return The Update only ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED
         uint64_t AtomicallyUpdateACounterFromAPC(uint16_t desired_idx, uint32_t delta) noexcept;
 
-        uint64_t AtomicallyUpdateMetaCellCounter(MetaIndexOfAPCNode meta_idx, uint32_t delta) noexcept;
+        uint64_t AtomicallyUpdateMetaCellCounter(HeaderIdentifierOfAPC meta_idx, uint32_t delta) noexcept;
 
 
     };
