@@ -391,7 +391,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
                 return false;
             }
 
-            if (expected_version == UINT8_MAX)
+            if (!APCDataStructure::ThisVersionValid(current_layout.Version))
             {
                 expected_version = current_layout.Version;
             }
