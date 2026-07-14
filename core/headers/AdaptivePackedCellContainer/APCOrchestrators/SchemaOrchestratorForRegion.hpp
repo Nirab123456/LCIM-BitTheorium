@@ -35,8 +35,12 @@ namespace PredictedAdaptedEncoding
 
         enum class SchemaFlags : uint8_t
         {
+            NONE = 0u,
             REQUIRED_POW_OF_TWO = 1u << 0u,
             ALLOW_QUICENT_SCHEMA_MUTATION = 1u << 1u ,
+            ALLOW_TRAILING_PAGING = 1u << 2u,
+            HAS_PER_SLOT_SEQUENSE = 1u << 3u,
+            REGION_DISABLED = 1u << 4u,
             UNASSIGNED_UNUSED_NANNULL = 1u << 3u
         };
 
@@ -135,11 +139,22 @@ namespace PredictedAdaptedEncoding
             return provided_schema.Protocol == RegionConcurrencyProtocol::MPMC_FIXED_RECORD_QUEUE;
         }
 
+        static constexpr bool HasSchemaFlag(SchemaFlags current_flag, SchemaFlags desired_bit) noexcept
+        {
+            return (
+                static_cast<uint8_t>(current_flag) & static_cast<uint8_t>(desired_bit)
+            ) != UNSIGNED_ZERO;
+        }
+
+        
+
     };
     
 
-    struct MPMCOrchestratorForAPCRegion : public SchemaValidator
+    struct RegionOrchestrator : public SchemaValidator
     {
+
+
         static constexpr uint64_t PackRegionScheme(const RegionSchemaRecord& desired_scheme)
         {
             if (!IsValidRegionScheme(desired_scheme))
@@ -212,7 +227,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool InsertASchemaInBuffer(
             TrackingBufferOfAPC& buffer_address,
-            MPMCOrchestratorForAPCRegion::RegionSchemaRecord& schema_record,
+            RegionOrchestrator::RegionSchemaRecord& schema_record,
             MacroColumnOfAPC desired_column
         ) noexcept
         {
@@ -223,7 +238,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
                        
-            uint64_t packed_schema = MPMCOrchestratorForAPCRegion::PackRegionScheme(schema_record);
+            uint64_t packed_schema = RegionOrchestrator::PackRegionScheme(schema_record);
             if (!APCDataStructure::IsThsisIndexValidForFabric(packed_schema))
             {
                 return false;
@@ -238,6 +253,16 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool ValidateInitialSchema() noexcept;
     };
-    
 
+    namespace Schema
+    {
+        static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept
+        {
+            return static_cast<SchemaOrchestrator::SchemaFlags>(
+                static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
+            );
+        }
+    } // namespace Schema
+    
+    
 }
