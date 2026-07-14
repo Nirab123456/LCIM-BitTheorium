@@ -26,7 +26,7 @@ struct LayoutBuilderAndValidator
             APCDataStructure::IsThisIndexValidForAPC(a_layout.BeginIndex) &&
             APCDataStructure::IsThisIndexValidForAPC(a_layout.EndIndex) &&
             a_layout.BeginIndex <= a_layout.EndIndex &&
-            RegionCursorIndexOrchestrator::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
+            MacroColumnConf::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
         )
         {   a_layout.IsValid = true;
             return true;
@@ -110,7 +110,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
-        if (!RegionCursorIndexOrchestrator::IsValidTrackedAPCNode(layout_class))
+        if (!MacroColumnConf::IsValidTrackedAPCNode(layout_class))
         {
             return std::nullopt;
         }
@@ -156,7 +156,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint16_t*, RegionCursorIndexOrchestrator::TrackedAPCNodeLen()> layout_fields_array
+        std::array<uint16_t*, MacroColumnConf::TrackedAPCNodeLen()> layout_fields_array
         {
             &user_defined_percentage.FeedForward,
             &user_defined_percentage.FeedBackward,
@@ -171,7 +171,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         };
 
         uint32_t total_weight = UNSIGNED_ZERO;
-        for (size_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             total_weight += static_cast<uint32_t>(*layout_fields_array[i]);
         }
@@ -181,11 +181,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint16_t, RegionCursorIndexOrchestrator::TrackedAPCNodeLen()> normalize_counts_array{};
-        std::array<uint32_t, RegionCursorIndexOrchestrator::TrackedAPCNodeLen()> reminders_array{};
+        std::array<uint16_t, MacroColumnConf::TrackedAPCNodeLen()> normalize_counts_array{};
+        std::array<uint32_t, MacroColumnConf::TrackedAPCNodeLen()> reminders_array{};
 
         uint32_t assigned_count = UNSIGNED_ZERO;
-        for (size_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             const uint32_t weight = static_cast<uint32_t>(*layout_fields_array[i]);
             const uint32_t scaled = weight * static_cast<uint32_t>(payload_span);
@@ -207,15 +207,15 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
         while (remaining_cells > UNSIGNED_ZERO)
         {
-            size_t best_idx = RegionCursorIndexOrchestrator::TrackedAPCNodeLen();
+            size_t best_idx = MacroColumnConf::TrackedAPCNodeLen();
             uint32_t best_reminder = UNSIGNED_ZERO;
-            for (size_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+            for (size_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
             {
                 if (
                     reminders_array[i] > best_reminder ||
                     (
                         reminders_array[i] == best_reminder && 
-                        best_idx == RegionCursorIndexOrchestrator::TrackedAPCNodeLen() &&
+                        best_idx == MacroColumnConf::TrackedAPCNodeLen() &&
                         *layout_fields_array[i]
                     )
                 )
@@ -225,7 +225,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
                 }
             }
 
-            if (best_idx == RegionCursorIndexOrchestrator::TrackedAPCNodeLen())
+            if (best_idx == MacroColumnConf::TrackedAPCNodeLen())
             {
                 return false;
             }
@@ -236,7 +236,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         
         uint32_t final_sum = UNSIGNED_ZERO;
 
-        for (size_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             final_sum += normalize_counts_array[i];
         }
@@ -247,7 +247,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         }
         
         
-        for (size_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             *layout_fields_array[i] = normalize_counts_array[i];
         }
@@ -259,7 +259,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
 struct TrackingBufferConf : public LayoutPercentageBuilder
 {
-    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = RegionCursorIndexOrchestrator::TrackedAPCNodeLen() + 1;
+    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = MacroColumnConf::TrackedAPCNodeLen() + 1;
     static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
     using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
 
@@ -314,7 +314,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
 
     static constexpr MacroColumnOfAPC GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx >= RegionCursorIndexOrchestrator::TrackedAPCNodeLen())
+        if (buffer_idx >= MacroColumnConf::TrackedAPCNodeLen())
         {
             return MacroColumnOfAPC::NULLNAN;
         }
@@ -373,7 +373,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
         uint32_t expected_begin = payload_begin;
         uint8_t expected_version = UINT8_MAX;
 
-        for (uint8_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             const uint64_t current_packed_cell = a_layout_buffer[i];
             LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(
@@ -468,7 +468,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
         }
 
         uint32_t cursor = payload_begin;
-        for (uint8_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+        for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
         {
             const MacroColumnOfAPC layout_class = GetOriginForLayoutClassByBufferIdx(i);
             const std::optional<uint16_t> maybe_span = GetDefaultInitialPercentage(layout_class, normalized_layout);

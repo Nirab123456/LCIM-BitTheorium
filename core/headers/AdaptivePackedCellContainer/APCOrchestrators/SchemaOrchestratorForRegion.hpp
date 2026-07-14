@@ -45,8 +45,7 @@ namespace PredictedAdaptedEncoding
         };
 
         //LEN
-        static constexpr uint8_t WORDS_PER_RECORD_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint16_t);
-        static constexpr uint8_t RECORD_WORDS_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint16_t);
+        static constexpr uint8_t WORDS_PER_RECORD_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint32_t);
         static constexpr uint8_t PROTOCOL_LEN = LEN_OF_BYTE_IN_BITS * sizeof(SchemaProtocols);
         static constexpr uint8_t DTYPE_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint8_t);
         static constexpr uint8_t VERSION_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint8_t);
@@ -57,17 +56,16 @@ namespace PredictedAdaptedEncoding
         static constexpr uint8_t VERSION_SHIFT = FLAGS_SHIFT - VERSION_LEN;
         static constexpr uint8_t DTYPE_SHIFT = VERSION_SHIFT - DTYPE_LEN;
         static constexpr uint8_t PROTOCOL_SHIFT = DTYPE_SHIFT - PROTOCOL_LEN;
-        static constexpr uint8_t RECORD_WORDS_SHIFT = PROTOCOL_SHIFT - RECORD_WORDS_LEN;
-        static constexpr uint8_t WORDS_PER_RECORD_SHIFT = RECORD_WORDS_SHIFT - WORDS_PER_RECORD_LEN;
+        static constexpr uint8_t WORDS_PER_RECORD_SHIFT = PROTOCOL_SHIFT - WORDS_PER_RECORD_LEN;
 
         struct RegionSchemaRecord
         {
-            uint16_t PayloadWordsPerRecord = UNSIGNED_ZERO;
-            uint16_t RecordWords = UNSIGNED_ZERO;
+            uint32_t PayloadWordsPerRecord = UNSIGNED_ZERO;
             SchemaProtocols Protocol = SchemaProtocols::UNASSIGNED_UNUSED_NANNULL;
             DataTypeOfMacroColumn Dtype = DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
             uint8_t Version = UNSIGNED_ZERO;
             SchemaFlags Flags = SchemaFlags::UNASSIGNED_UNUSED_NANNULL;
+            MacroColumnOfAPC ParentColumn = MacroColumnOfAPC::NULLNAN;
         };
 
         struct InitialRegionalDtypeConf 
@@ -107,21 +105,17 @@ namespace PredictedAdaptedEncoding
             if (
                 !IsKnownProtocol(desired_scheme.Protocol) ||
                 !IsKnownDataType(desired_scheme.Dtype) ||
-                desired_scheme.Version == UNSIGNED_ZERO
+                !APCDataStructure::ThisVersionValid(desired_scheme.Version)
             )
             {
                 return false;
             }
             if (HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REGION_DISABLED))
             {
-                return desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO &&
-                    desired_scheme.RecordWords == UNSIGNED_ZERO;
+                return desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO;
             }
 
-            if (
-                desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO ||
-                desired_scheme.RecordWords == UNSIGNED_ZERO
-            )
+            if ( desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO)
             {
                 return false;
             }
@@ -129,30 +123,21 @@ namespace PredictedAdaptedEncoding
             switch (desired_scheme.Protocol)
             {
             case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return desired_scheme.RecordWords == static_cast<uint16_t>(desired_scheme.PayloadWordsPerRecord + 1u) &&
+                return 
                     HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REQUIRED_POW_OF_TWO) &&
                     HasSchemaFlag(desired_scheme.Flags, SchemaFlags::HAS_PER_SLOT_SEQUENSE);
             
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return desired_scheme.PayloadWordsPerRecord == 1u &&
-                    desired_scheme.RecordWords == 1u;
+                return desired_scheme.PayloadWordsPerRecord == 1u;
 
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
             case SchemaProtocols::DOUBLE_BUFFERED:
-                return desired_scheme.RecordWords == desired_scheme.PayloadWordsPerRecord;
+                return true;
             
             default:
                 return false;
-            }
-            
-            
-            if (IsMPMCQueue(desired_scheme))
-            {
-                return desired_scheme.RecordWords == static_cast<uint16_t>(desired_scheme.PayloadWordsPerRecord + 1u);
-            }
-
-            return desired_scheme.RecordWords >= desired_scheme.PayloadWordsPerRecord;
+            }                                                                                                                                                                                                                                                                                                                                                                           
         }
 
         static constexpr bool IsKnownProtocol(SchemaProtocols protocol) noexcept
@@ -220,7 +205,6 @@ namespace PredictedAdaptedEncoding
 
             return(
                 static_cast<uint64_t>(desired_scheme.PayloadWordsPerRecord) << WORDS_PER_RECORD_SHIFT |
-                static_cast<uint64_t>(desired_scheme.RecordWords) << RECORD_WORDS_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Protocol) << PROTOCOL_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Dtype) << DTYPE_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Version) << VERSION_SHIFT |
@@ -241,7 +225,6 @@ namespace PredictedAdaptedEncoding
             }
 
             return_scheme.PayloadWordsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
-            return_scheme.RecordWords = static_cast<uint16_t>((packed_scheme >> RECORD_WORDS_SHIFT) & MaskLeftOverBitsUntil64(RECORD_WORDS_LEN));
             return_scheme.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
             return_scheme.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
             return_scheme.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
@@ -291,13 +274,41 @@ namespace PredictedAdaptedEncoding
             }
         }
 
+        static constexpr std::optional<uint8_t> GetMultiplyerForDataType(DataTypeOfMacroColumn data_type) noexcept
+        {
+            switch (data_type)
+            {
+            case DataTypeOfMacroColumn::UINT8_T:
+            case DataTypeOfMacroColumn::INT8_T:
+            case DataTypeOfMacroColumn::CHAR:
+                return sizeof(uint64_t) / sizeof(uint8_t);
+
+            case DataTypeOfMacroColumn::UINT16_T:
+            case DataTypeOfMacroColumn::INT16_T:
+            case DataTypeOfMacroColumn::FLOAT16_T:
+                return sizeof(uint64_t) / sizeof(uint16_t);
+
+            case DataTypeOfMacroColumn::UINT32_T:
+            case DataTypeOfMacroColumn::INT32_T:
+            case DataTypeOfMacroColumn::FLOAT32_T:
+                return sizeof(uint64_t) / sizeof(uint32_t);
+
+            case DataTypeOfMacroColumn::UINT64_T:
+            case DataTypeOfMacroColumn::INT64_T:
+            case DataTypeOfMacroColumn::FLOAT64_T:
+                return sizeof(uint64_t) / sizeof(uint64_t);
+
+            default:
+                return std::nullopt;
+            }
+        }
+
         static constexpr bool MakeInitialRegionSchema(
             RegionSchemaRecord& return_schema,
-            uint16_t region_span,
-            MacroColumnOfAPC default_setter = MacroColumnOfAPC::NULLNAN
+            uint32_t region_span
         ) noexcept
         {
-            if (default_setter == MacroColumnOfAPC::NULLNAN)
+            if (return_schema.ParentColumn == MacroColumnOfAPC::NULLNAN)
             {
                 if (
                     !IsKnownDataType(return_schema.Dtype) ||
@@ -311,22 +322,34 @@ namespace PredictedAdaptedEncoding
             const InitialConcurrencyProtocol init_protocol = InitialConcurrencyProtocol{};
             const InitialRegionalDtypeConf init_dtype = InitialRegionalDtypeConf{};
 
-            return_schema.Dtype = IsKnownDataType(return_schema.Dtype) ? return_schema.Dtype : GetDataTypeForColumn(init_dtype, default_setter);
-            return_schema.Protocol = IsKnownProtocol(return_schema.Protocol) ? return_schema.Protocol : GetProtocolForColumn(init_protocol, default_setter);
-            return_schema.Version = APCDataStructure::ThisVersionValid(return_schema.Version) ? return_schema.Version : APCDataStructure::BRANCH_VERSION;
+            return_schema.Dtype = IsKnownDataType(return_schema.Dtype) ? 
+                return_schema.Dtype : GetDataTypeForColumn(init_dtype, return_schema.ParentColumn);
+
+            return_schema.Protocol = IsKnownProtocol(return_schema.Protocol) ? 
+                return_schema.Protocol : GetProtocolForColumn(init_protocol, return_schema.ParentColumn);
+
+            return_schema.Version = APCDataStructure::ThisVersionValid(return_schema.Version) ? 
+                return_schema.Version : APCDataStructure::BRANCH_VERSION;
+
             return_schema.Flags = SchemaFlags::NONE;
 
+            const std::optional<uint8_t> dtype_mult = GetMultiplyerForDataType(return_schema.Dtype);
+            if (!dtype_mult.has_value())
+            {
+                return false;
+            }
+            
             if (region_span == UNSIGNED_ZERO)
             {
                 return_schema.Flags = SchemaFlags::REGION_DISABLED;
                 return true;
             }
 
+
             switch (return_schema.Protocol)
             {
             case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return_schema.PayloadWordsPerRecord = 1u;
-                return_schema.RecordWords = 2u;
+                return_schema.PayloadWordsPerRecord = region_span * dtype_mult.value();
                 return_schema.Flags = 
                     SchemaFlags::REQUIRED_POW_OF_TWO |
                     SchemaFlags::ALLOW_TRAILING_PAGING |
@@ -334,9 +357,8 @@ namespace PredictedAdaptedEncoding
                 return true;
 
             case SchemaProtocols::DOUBLE_BUFFERED:
-                return_schema.PayloadWordsPerRecord = static_cast<uint16_t>(region_span / 2u);
-                return_schema.RecordWords = return_schema.PayloadWordsPerRecord;
-                if ((region_span % 2u) != UNSIGNED_ZERO)
+                return_schema.PayloadWordsPerRecord = static_cast<uint32_t>((region_span * dtype_mult.value()) / 2u);
+                if (((region_span * dtype_mult.value()) % 2u) != UNSIGNED_ZERO)
                 {
                     return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PAGING;
                 }
@@ -344,13 +366,11 @@ namespace PredictedAdaptedEncoding
 
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
                 return_schema.PayloadWordsPerRecord = 1u;
-                return_schema.RecordWords = 1u;
                 break;
             
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
-                return_schema.PayloadWordsPerRecord = region_span;
-                return_schema.RecordWords = region_span;
+                return_schema.PayloadWordsPerRecord = region_span * dtype_mult.value();
                 return true;
                 
             default:

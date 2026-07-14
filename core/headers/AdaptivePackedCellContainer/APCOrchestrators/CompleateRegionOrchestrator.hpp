@@ -19,7 +19,7 @@ namespace PredictedAdaptedEncoding
             BuildNullTrackingBuffer(buffers.Enqueue);
             BuildNullTrackingBuffer(buffers.Dequeue);
 
-            for (uint8_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
             {
                 buffers.Enqueue[i] = UNSIGNED_ZERO;
                 buffers.Dequeue[i] = UNSIGNED_ZERO;
