@@ -282,6 +282,19 @@ protected:
             static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + buffer_idx
         );
     }
+
+
+    static constexpr std::optional<uint8_t> GetBufferIdxFromMacroColumn(MacroColumnOfAPC column) noexcept
+    {
+        if (!LayoutHeaderIdentityOrchestrator::IsValidTrackedAPCNode(column))
+        {
+            return std::nullopt;
+        }
+
+        return static_cast<uint8_t>(
+            static_cast<uint8_t>(column) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
+        );
+    }
 };
 
 struct LayoutBoundsOrchestrator : public TrackingBufferConf

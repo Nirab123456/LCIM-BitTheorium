@@ -143,8 +143,8 @@ protected:
     public:
         static constexpr bool IsTrackedRegionMacroColumn(MacroColumnOfAPC macro_column) noexcept
         {
-            return macro_column > MacroColumnOfAPC::FEEDFORWARD_MESSAGE &&
-                macro_column < MacroColumnOfAPC::FEEDFORWARD_MESSAGE;
+            return macro_column >= MacroColumnOfAPC::FEEDFORWARD_MESSAGE &&
+                macro_column <= MacroColumnOfAPC::FREE_SLOT;
         }
 
         static constexpr std::optional<HeaderIdentifierOfAPC> EnqueueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
@@ -182,7 +182,7 @@ protected:
 
         static constexpr uint8_t TrackedAPCNodeLen() noexcept
         {
-            return static_cast<uint8_t>(MacroColumnOfAPC::META_HEADER) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+            return static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + 1;
         }
 
     };

@@ -36,33 +36,6 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr void InsertTypedValue48MetaInBuffer(
-            HeaderIdentifierOfAPC meta_idx, 
-            uint64_t value48,
-            APCMetaBuffer& a_header_buffer,
-            LocalityPolicy locality = LocalityPolicy::IDLE,
-            ContractOfConcurrency contract = ContractOfConcurrency::LAST_WRITIER_WIN_NO_CAS_RMW
-        ) noexcept
-        {
-            const size_t idx_of_meta = static_cast<size_t>(meta_idx);
-
-            const uint64_t packed_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
-                TypeFamily::VALUE48,
-                contract,
-                MacroColumnOfAPC::META_HEADER,
-                locality,
-                InternalDataTypePolicy::UNSIGNED,
-                value48,
-                UNSIGNED_ZERO
-            );
-            
-            if (packed_cell == FABRIC_CELL_SENTINAL)
-            {
-                return;
-            }
-            
-            a_header_buffer[idx_of_meta] = packed_cell;
-        }
 
         static constexpr void ConfigureThisMetaBufferIdentity(
             const APCGroupReserver::APCInitialIdentityStruct& identity_cfg,
@@ -87,46 +60,6 @@ namespace PredictedAdaptedEncoding
             InsertTypedValue48MetaInBuffer(HeaderIdentifierOfAPC::TOTAL_VERTICAL_COUNT_L, identity_cfg.LogicalSequentalCount, a_header_buffer, locality, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
             
             InsertTypedValue48MetaInBuffer(HeaderIdentifierOfAPC::ACCESS_PASSWORD, identity_cfg.AccessPassword, a_header_buffer, locality);
-        }
-
-        static constexpr bool InitiateLayoutThenOccupencyInHeaderBuffer(
-            APCMetaBuffer& return_buffer,
-            uint16_t capacity_of_apc,
-            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
-            uint8_t version = APCDataStructure::BRANCH_VERSION
-        ) noexcept
-        {
-            TrackingBufferConf::TrackingBufferOfAPC layout_buffer{};
-            TrackingBufferConf::TrackingBufferOfAPC occupancy_buffer{};
-
-            bool layout_build_ok = LayoutBoundsOrchestrator::BuildInitialLayoutBuffer(
-                layout_buffer,
-                capacity_of_apc,
-                user_defined_weight,
-                version
-            );
-            if (!layout_build_ok)
-            {
-                return false;
-            }
-
-            bool occupancy_buffer_ok = OccupancyOrchestrator::BuildInitialOccupancyBuffer(occupancy_buffer, layout_buffer);
-
-            if (!occupancy_buffer_ok)
-            {
-                return false;
-            }
-
-            const uint8_t layout_begin = RegionCursorIndexOrchestrator::LayoutBufferBegainInMetaIndecies();
-            const uint8_t occupancy_begin = RegionCursorIndexOrchestrator::OccupencyBufferBegainInMetaIndecies();
-
-            for (uint8_t i = 0; i < RegionCursorIndexOrchestrator::TrackedAPCNodeLen(); i++)
-            {
-                return_buffer[layout_begin + i] = layout_buffer[i];
-                return_buffer[occupancy_begin + i] = occupancy_buffer[i];
-            };
-            
-            return true;
         }
 
         static constexpr bool InitializeDefaultHeaderBuffer(

@@ -144,6 +144,34 @@ namespace PredictedAdaptedEncoding
             buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
             buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
         }
+
+        static constexpr bool InsertASchemaInBuffer(
+            TrackingBufferOfAPC& buffer_address,
+            MPMCOrchestratorForAPCRegion::RegionSchemaRecord& schema_record,
+            MacroColumnOfAPC desired_column
+        ) noexcept
+        {
+
+            const std::optional<uint8_t> buffer_idx = GetBufferIdxFromMacroColumn(desired_column);
+            if (!buffer_idx.has_value())
+            {
+                return false;
+            }
+                       
+            uint64_t packed_schema = MPMCOrchestratorForAPCRegion::PackRegionScheme(schema_record);
+            if (!APCDataStructure::IsThsisIndexValidForFabric(packed_schema))
+            {
+                return false;
+            }
+
+            buffer_address[*buffer_idx] = packed_schema; 
+
+            return true;
+        }
+
+        static constexpr bool BuildInitialSchema() noexcept;
+
+        static constexpr bool ValidateInitialSchema() noexcept;
     };
     
 
