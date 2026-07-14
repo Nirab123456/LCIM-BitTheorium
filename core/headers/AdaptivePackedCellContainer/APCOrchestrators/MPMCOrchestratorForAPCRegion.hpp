@@ -3,7 +3,8 @@
 
 namespace PredictedAdaptedEncoding
 {
-    struct MPMCOrchestratorForAPCRegion
+
+    struct SchemaOrchestrator 
     {
         enum class RegionConcurrencyProtocol : uint8_t
         {
@@ -32,6 +33,13 @@ namespace PredictedAdaptedEncoding
             UNASSIGNED_UNUSED_NANNULL = 12
         };
 
+        enum class SchemaFlags : uint8_t
+        {
+            REQUIRED_POW_OF_TWO = 1u << 0u,
+            ALLOW_QUICENT_SCHEMA_MUTATION = 1u << 1u ,
+            UNASSIGNED_UNUSED_NANNULL = 1u << 3u
+        };
+
         //LEN
         static constexpr uint8_t WORDS_PER_RECORD_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint16_t);
         static constexpr uint8_t RECORD_WORDS_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint16_t);
@@ -55,26 +63,83 @@ namespace PredictedAdaptedEncoding
             RegionConcurrencyProtocol Protocol = RegionConcurrencyProtocol::UNASSIGNED_UNUSED_NANNULL;
             DataTypeOfMacroColumn Dtype = DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
             uint8_t Version = UNSIGNED_ZERO;
-            uint8_t Flags = UNSIGNED_ZERO;
+            SchemaFlags Flags = SchemaFlags::UNASSIGNED_UNUSED_NANNULL;
         };
 
+        struct InitialRegionalDtypeConf 
+        {
+            DataTypeOfMacroColumn FEEDFORWARD_MESSAGE  = DataTypeOfMacroColumn::UINT32_T;
+            DataTypeOfMacroColumn FEEDBACKWARD_MESSAGE = DataTypeOfMacroColumn::INT32_T;
+            DataTypeOfMacroColumn LATERAL_MESAGE = DataTypeOfMacroColumn::FLOAT32_T;
+            DataTypeOfMacroColumn STATE_SLOT = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn ERROR_SLOT = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn WEIGHTLESS_LOOKUP = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn WEIGHT_SLOT = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn AUX_SLOT = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn HETEROGENOUS_PTR = DataTypeOfMacroColumn::UINT64_T;
+            DataTypeOfMacroColumn FREE_SLOT = DataTypeOfMacroColumn::UINT64_T;
+        }; 
 
+        struct InitialConcurrencyProtocol
+        {
+            RegionConcurrencyProtocol FEEDFORWARD_MESSAGE  = RegionConcurrencyProtocol::MPMC_FIXED_RECORD_QUEUE;
+            RegionConcurrencyProtocol FEEDBACKWARD_MESSAGE = RegionConcurrencyProtocol::MPMC_FIXED_RECORD_QUEUE;
+            RegionConcurrencyProtocol LATERAL_MESAGE = RegionConcurrencyProtocol::MPMC_FIXED_RECORD_QUEUE;
+            RegionConcurrencyProtocol STATE_SLOT = RegionConcurrencyProtocol::DOUBLE_BUFFERED;
+            RegionConcurrencyProtocol ERROR_SLOT = RegionConcurrencyProtocol::DOUBLE_BUFFERED;
+            RegionConcurrencyProtocol WEIGHTLESS_LOOKUP = RegionConcurrencyProtocol::DOUBLE_BUFFERED;
+            RegionConcurrencyProtocol WEIGHT_SLOT = RegionConcurrencyProtocol::DOUBLE_BUFFERED;
+            RegionConcurrencyProtocol AUX_SLOT = RegionConcurrencyProtocol::DOUBLE_BUFFERED;
+            RegionConcurrencyProtocol HETEROGENOUS_PTR = RegionConcurrencyProtocol::PRIVATE_REGION;
+            RegionConcurrencyProtocol FREE_SLOT = RegionConcurrencyProtocol::PRIVATE_REGION;
+        };
+
+    };
+    
+    struct SchemaValidator : public SchemaOrchestrator
+    {
         static constexpr bool IsValidRegionScheme(const RegionSchemaRecord& desired_scheme) noexcept
         {
             if (
-                desired_scheme.PayloadWordsPerRecord > UNSIGNED_ZERO &&
-                desired_scheme.RecordWords > UNSIGNED_ZERO &&
-                desired_scheme.Protocol != RegionConcurrencyProtocol::UNASSIGNED_UNUSED_NANNULL &&
-                desired_scheme.Dtype != DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
-                desired_scheme.Version > UNSIGNED_ZERO
+                desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO ||
+                desired_scheme.RecordWords == UNSIGNED_ZERO ||
+                !IsKnownProtocol(desired_scheme.Protocol) ||
+                !IsKnownDataType(desired_scheme.Dtype) ||
+                desired_scheme.Version == UNSIGNED_ZERO
             )
             {
-                return true;
+                return false;
             }
-            return false;
+            if (IsMPMCQueue(desired_scheme))
+            {
+                return desired_scheme.RecordWords == static_cast<uint16_t>(desired_scheme.PayloadWordsPerRecord + 1u);
+            }
+
+            return desired_scheme.RecordWords >= desired_scheme.PayloadWordsPerRecord;
         }
 
+        static constexpr bool IsKnownProtocol(RegionConcurrencyProtocol protocol) noexcept
+        {
+            return protocol >= RegionConcurrencyProtocol::PRIVATE_REGION &&
+                protocol < RegionConcurrencyProtocol::UNASSIGNED_UNUSED_NANNULL;
+        }
 
+        static constexpr bool IsKnownDataType(DataTypeOfMacroColumn data_type) noexcept
+        {
+            return data_type >= DataTypeOfMacroColumn::UINT8_T &&
+                data_type < DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
+        }
+
+        static constexpr bool IsMPMCQueue(const RegionSchemaRecord& provided_schema) noexcept
+        {
+            return provided_schema.Protocol == RegionConcurrencyProtocol::MPMC_FIXED_RECORD_QUEUE;
+        }
+
+    };
+    
+
+    struct MPMCOrchestratorForAPCRegion : public SchemaValidator
+    {
         static constexpr uint64_t PackRegionScheme(const RegionSchemaRecord& desired_scheme)
         {
             if (!IsValidRegionScheme(desired_scheme))
@@ -109,7 +174,7 @@ namespace PredictedAdaptedEncoding
             return_scheme.Protocol = static_cast<RegionConcurrencyProtocol>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
             return_scheme.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
             return_scheme.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
-            return_scheme.Flags = static_cast<uint8_t>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
+            return_scheme.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
 
             if (!IsValidRegionScheme(return_scheme))
             {
