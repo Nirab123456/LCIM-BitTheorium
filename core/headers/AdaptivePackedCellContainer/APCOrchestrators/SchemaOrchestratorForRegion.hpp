@@ -114,7 +114,7 @@ namespace PredictedAdaptedEncoding
             return true;
         }
 
-        static constexpr bool SchemaFilesValidation(RegionSchemaRecord& desired_scheme) noexcept
+        static constexpr bool SchemaSelfValidation(RegionSchemaRecord& desired_scheme) noexcept
         {
             if (
                 !IsKnownProtocol(desired_scheme.Protocol) ||
@@ -122,6 +122,7 @@ namespace PredictedAdaptedEncoding
                 !APCDataStructure::ThisVersionValid(desired_scheme.Version)
             )
             {
+                desired_scheme.IsValidSchema = false;
                 return false;
             }
             if (HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REGION_DISABLED))
@@ -131,6 +132,7 @@ namespace PredictedAdaptedEncoding
 
             if ( desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO)
             {
+                desired_scheme.IsValidSchema = false;
                 return false;
             }
 
@@ -317,13 +319,12 @@ namespace PredictedAdaptedEncoding
         }
     };
 
-    struct RegionOrchestrator : MPMCQOrchestrator
+
+    struct SchemDefinition : public MPMCQOrchestrator
     {
-
-
         static constexpr uint64_t PackRegionScheme(RegionSchemaRecord& desired_scheme)
         {
-            if (!SchemaFilesValidation(desired_scheme))
+            if (!SchemaSelfValidation(desired_scheme))
             {
                 return FABRIC_CELL_SENTINAL;
             }
@@ -349,13 +350,13 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            return_schema.RequiredTypedElementsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
+            return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
             return_schema.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
             return_schema.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
             return_schema.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
             return_schema.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
 
-            return SchemaFilesValidation(return_schema);
+            return SchemaSelfValidation(return_schema);
         }
 
         static constexpr SchemaProtocols GetProtocolForColumn(
@@ -400,91 +401,6 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-
-
-        static constexpr bool MakeInitialRegionSchema(
-            RegionSchemaRecord& return_schema,
-            uint32_t layout_span,
-            const InitialRegionalDtypeConf& init_dtype = InitialRegionalDtypeConf{},
-            const InitialRegionalProtocol& protocol_conf_init = InitialRegionalProtocol{}
-        ) noexcept
-        {
-            if (!HasEnoughForInitialSchema(return_schema))
-            {
-                return_schema.IsValidSchema = false;
-                return false;
-            }
-            
-            return_schema.Dtype = GetDataTypeForColumn(init_dtype, return_schema.ParentColumn);
-            return_schema.Protocol = GetProtocolForColumn(protocol_conf_init, return_schema.ParentColumn);
-
-            return_schema.Flags = SchemaFlags::NONE;
-            return_schema.RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
-            
-            std::optional<uint8_t> equivelent_typed_count_of_64bit = CountOfTypedWordIn64Bit(return_schema.Dtype);
-
-            if (
-                !equivelent_typed_count_of_64bit.has_value() ||
-                !IsKnownProtocol(return_schema.Protocol)
-            )
-            {
-                return_schema.IsValidSchema = false;
-                return false;
-            }
-            
-            if (layout_span == UNSIGNED_ZERO)
-            {
-                return_schema.Flags = SchemaFlags::REGION_DISABLED;
-                return_schema.IsValidSchema = true;
-                return true;
-            }
-
-            const uint32_t half_count_of_layout64bit = layout_span / 2u;
-
-            switch (return_schema.Protocol)
-            {
-            case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return_schema.RequiredTypedElementsPerRecord = equivelent_typed_count_of_64bit.value();
-                return_schema.Flags = SchemaFlags::REQUIRED_POW_OF_TWO |
-                    SchemaFlags::ALLOW_TRAILING_PADDING |
-                    SchemaFlags::HAS_PER_SLOT_SEQUENSE;
-                return_schema.IsValidSchema = true;
-                return true;
-            
-            case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return_schema.RequiredTypedElementsPerRecord = equivelent_typed_count_of_64bit.value();
-                return_schema.IsValidSchema = true;
-                return true;
-
-            case SchemaProtocols::DOUBLE_BUFFERED:
-                if (half_count_of_layout64bit == UNSIGNED_ZERO)
-                {
-                    return_schema.IsValidSchema = false;
-                    return false;
-                }
-                return_schema.RequiredTypedElementsPerRecord = half_count_of_layout64bit * equivelent_typed_count_of_64bit.value();
-                if (
-                    (return_schema.RequiredTypedElementsPerRecord % 2u) != UNSIGNED_ZERO
-                )
-                {
-                    return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PADDING;
-                }
-                return_schema.IsValidSchema = true;
-                return true;
-
-            case SchemaProtocols::PRIVATE_REGION:
-            case SchemaProtocols::IMMUTABLE_SNAPSHOT:
-                return_schema.RequiredTypedElementsPerRecord = layout_span * equivelent_typed_count_of_64bit.value();
-                return_schema.IsValidSchema = true;
-                return true;
-                
-            default:
-                return_schema.IsValidSchema = false;
-                return false;
-            }
-        }
-
     };
-    
     
 }
