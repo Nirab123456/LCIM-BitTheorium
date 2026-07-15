@@ -38,7 +38,7 @@ namespace PredictedAdaptedEncoding
             NONE = 0u,
             REQUIRED_POW_OF_TWO = 1u << 0u,
             ALLOW_QUICENT_SCHEMA_MUTATION = 1u << 1u ,
-            ALLOW_TRAILING_PAGING = 1u << 2u,
+            ALLOW_TRAILING_PADDING = 1u << 2u,
             HAS_PER_SLOT_SEQUENSE = 1u << 3u,
             REGION_DISABLED = 1u << 4u,
             UNASSIGNED_UNUSED_NANNULL = UINT8_MAX
@@ -66,6 +66,7 @@ namespace PredictedAdaptedEncoding
             uint8_t Version = UNSIGNED_ZERO;
             SchemaFlags Flags = SchemaFlags::UNASSIGNED_UNUSED_NANNULL;
             MacroColumnOfAPC ParentColumn = MacroColumnOfAPC::NULLNAN;
+            bool IsValidSchema = false;
         };
 
         struct InitialRegionalDtypeConf 
@@ -82,7 +83,7 @@ namespace PredictedAdaptedEncoding
             DataTypeOfMacroColumn FREE_SLOT = DataTypeOfMacroColumn::UINT64_T;
         }; 
 
-        struct InitialConcurrencyProtocol
+        struct InitialRegionalProtocol
         {
             SchemaProtocols FEEDFORWARD_MESSAGE  = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
             SchemaProtocols FEEDBACKWARD_MESSAGE = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
@@ -100,7 +101,20 @@ namespace PredictedAdaptedEncoding
     
     struct SchemaValidator : public SchemaOrchestrator
     {
-        static constexpr bool IsValidRegionScheme(const RegionSchemaRecord& desired_scheme) noexcept
+        static constexpr bool HasEnoughForInitialSchema(const RegionSchemaRecord& schema) noexcept
+        {
+            if (
+                !APCDataStructure::IsTrackedRegionMacroColumn(schema.ParentColumn) ||
+                !APCDataStructure::ThisVersionValid(schema.Version)
+            )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        static constexpr bool SchemaFilesValidation(RegionSchemaRecord& desired_scheme) noexcept
         {
             if (
                 !IsKnownProtocol(desired_scheme.Protocol) ||
@@ -123,21 +137,34 @@ namespace PredictedAdaptedEncoding
             switch (desired_scheme.Protocol)
             {
             case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return 
+                desired_scheme.IsValidSchema = 
                     HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REQUIRED_POW_OF_TWO) &&
                     HasSchemaFlag(desired_scheme.Flags, SchemaFlags::HAS_PER_SLOT_SEQUENSE);
+                return desired_scheme.IsValidSchema;
             
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return desired_scheme.RequiredTypedElementsPerRecord == 1u;
+                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord == 1u;
+                return desired_scheme.IsValidSchema;
 
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
             case SchemaProtocols::DOUBLE_BUFFERED:
+                desired_scheme.IsValidSchema = true;
                 return true;
             
             default:
+                desired_scheme.IsValidSchema = false;
                 return false;
             }                                                                                                                                                                                                                                                                                                                                                                           
+        }
+
+        static constexpr bool IsSchemaValidated(const RegionSchemaRecord& schema) noexcept
+        {
+            if (schema.IsValidSchema)
+            {
+                return true;
+            }
+            return false;
         }
 
         static constexpr bool IsKnownProtocol(SchemaProtocols protocol) noexcept
@@ -170,7 +197,7 @@ namespace PredictedAdaptedEncoding
             constexpr uint8_t KNOWN_FLAGS = 
                 static_cast<uint8_t>(SchemaFlags::REQUIRED_POW_OF_TWO) |
                 static_cast<uint8_t>(SchemaFlags::ALLOW_QUICENT_SCHEMA_MUTATION) |
-                static_cast<uint8_t>(SchemaFlags::ALLOW_TRAILING_PAGING) |
+                static_cast<uint8_t>(SchemaFlags::ALLOW_TRAILING_PADDING) |
                 static_cast<uint8_t>(SchemaFlags::HAS_PER_SLOT_SEQUENSE) |
                 static_cast<uint8_t>(SchemaFlags::REGION_DISABLED);
             
@@ -232,6 +259,7 @@ namespace PredictedAdaptedEncoding
         {
             std::optional<uint8_t> count_of_typed_word_in64bit = CountOfTypedWordIn64Bit(schema.Dtype);
             if (
+                !schema.IsValidSchema ||
                 !count_of_typed_word_in64bit.has_value() ||
                 schema.RequiredTypedElementsPerRecord == UNSIGNED_ZERO
             )
@@ -293,9 +321,9 @@ namespace PredictedAdaptedEncoding
     {
 
 
-        static constexpr uint64_t PackRegionScheme(const RegionSchemaRecord& desired_scheme)
+        static constexpr uint64_t PackRegionScheme(RegionSchemaRecord& desired_scheme)
         {
-            if (!IsValidRegionScheme(desired_scheme))
+            if (!SchemaFilesValidation(desired_scheme))
             {
                 return FABRIC_CELL_SENTINAL;
             }
@@ -311,26 +339,27 @@ namespace PredictedAdaptedEncoding
 
 
         static constexpr bool RegionSchemeFromPackedRegion(
-            RegionSchemaRecord& return_scheme,
+            RegionSchemaRecord& return_schema,
             uint64_t packed_scheme
         ) noexcept
         {
             if (!APCDataStructure::IsThsisIndexValidForFabric(packed_scheme))
             {
-                return_scheme = RegionSchemaRecord{};
+                return_schema = RegionSchemaRecord{};
                 return false;
             }
 
-            return_scheme.RequiredTypedElementsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
-            return_scheme.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
-            return_scheme.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
-            return_scheme.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
-            return_scheme.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
+            return_schema.RequiredTypedElementsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
+            return_schema.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
+            return_schema.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
+            return_schema.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
+            return_schema.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
 
+            return SchemaFilesValidation(return_schema);
         }
 
         static constexpr SchemaProtocols GetProtocolForColumn(
-            const InitialConcurrencyProtocol& conc_conf,
+            const InitialRegionalProtocol& conc_conf,
             MacroColumnOfAPC column
         ) noexcept
         {
@@ -375,78 +404,84 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool MakeInitialRegionSchema(
             RegionSchemaRecord& return_schema,
-            uint32_t region_span
+            uint32_t layout_span,
+            const InitialRegionalDtypeConf& init_dtype = InitialRegionalDtypeConf{},
+            const InitialRegionalProtocol& protocol_conf_init = InitialRegionalProtocol{}
         ) noexcept
         {
-            if (return_schema.ParentColumn == MacroColumnOfAPC::NULLNAN)
+            if (!HasEnoughForInitialSchema(return_schema))
             {
-                if (
-                    !IsKnownDataType(return_schema.Dtype) ||
-                    !IsKnownProtocol(return_schema.Protocol) ||
-                    !APCDataStructure::ThisVersionValid(return_schema.Version)
-                )
-                {
-                    return false;
-                }
-            }
-            const InitialConcurrencyProtocol init_protocol = InitialConcurrencyProtocol{};
-            const InitialRegionalDtypeConf init_dtype = InitialRegionalDtypeConf{};
-
-            return_schema.Dtype = IsKnownDataType(return_schema.Dtype) ? 
-                return_schema.Dtype : GetDataTypeForColumn(init_dtype, return_schema.ParentColumn);
-
-            return_schema.Protocol = IsKnownProtocol(return_schema.Protocol) ? 
-                return_schema.Protocol : GetProtocolForColumn(init_protocol, return_schema.ParentColumn);
-
-            return_schema.Version = APCDataStructure::ThisVersionValid(return_schema.Version) ? 
-                return_schema.Version : APCDataStructure::BRANCH_VERSION;
-
-            return_schema.Flags = SchemaFlags::NONE;
-
-            const std::optional<uint8_t> dtype_mult = CountOfTypedWordIn64Bit(return_schema.Dtype);
-            if (!dtype_mult.has_value())
-            {
+                return_schema.IsValidSchema = false;
                 return false;
             }
             
-            if (region_span == UNSIGNED_ZERO)
+            return_schema.Dtype = GetDataTypeForColumn(init_dtype, return_schema.ParentColumn);
+            return_schema.Protocol = GetProtocolForColumn(protocol_conf_init, return_schema.ParentColumn);
+
+            return_schema.Flags = SchemaFlags::NONE;
+            return_schema.RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
+            
+            std::optional<uint8_t> equivelent_typed_count_of_64bit = CountOfTypedWordIn64Bit(return_schema.Dtype);
+
+            if (
+                !equivelent_typed_count_of_64bit.has_value() ||
+                !IsKnownProtocol(return_schema.Protocol)
+            )
+            {
+                return_schema.IsValidSchema = false;
+                return false;
+            }
+            
+            if (layout_span == UNSIGNED_ZERO)
             {
                 return_schema.Flags = SchemaFlags::REGION_DISABLED;
+                return_schema.IsValidSchema = true;
                 return true;
             }
 
+            const uint32_t half_count_of_layout64bit = layout_span / 2u;
 
             switch (return_schema.Protocol)
             {
             case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return_schema.RequiredTypedElementsPerRecord = region_span * dtype_mult.value();
-                return_schema.Flags = 
-                    SchemaFlags::REQUIRED_POW_OF_TWO |
-                    SchemaFlags::ALLOW_TRAILING_PAGING |
+                return_schema.RequiredTypedElementsPerRecord = equivelent_typed_count_of_64bit.value();
+                return_schema.Flags = SchemaFlags::REQUIRED_POW_OF_TWO |
+                    SchemaFlags::ALLOW_TRAILING_PADDING |
                     SchemaFlags::HAS_PER_SLOT_SEQUENSE;
+                return_schema.IsValidSchema = true;
+                return true;
+            
+            case SchemaProtocols::ATOMIC_WORD_ARRAY:
+                return_schema.RequiredTypedElementsPerRecord = equivelent_typed_count_of_64bit.value();
+                return_schema.IsValidSchema = true;
                 return true;
 
             case SchemaProtocols::DOUBLE_BUFFERED:
-                return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((region_span * dtype_mult.value()) / 2u);
-                if (((region_span * dtype_mult.value()) % 2u) != UNSIGNED_ZERO)
+                if (half_count_of_layout64bit == UNSIGNED_ZERO)
                 {
-                    return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PAGING;
+                    return_schema.IsValidSchema = false;
+                    return false;
                 }
+                return_schema.RequiredTypedElementsPerRecord = half_count_of_layout64bit * equivelent_typed_count_of_64bit.value();
+                if (
+                    (return_schema.RequiredTypedElementsPerRecord % 2u) != UNSIGNED_ZERO
+                )
+                {
+                    return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PADDING;
+                }
+                return_schema.IsValidSchema = true;
                 return true;
 
-            case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return_schema.RequiredTypedElementsPerRecord = 1u;
-                break;
-            
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
-                return_schema.RequiredTypedElementsPerRecord = region_span * dtype_mult.value();
+                return_schema.RequiredTypedElementsPerRecord = layout_span * equivelent_typed_count_of_64bit.value();
+                return_schema.IsValidSchema = true;
                 return true;
                 
             default:
+                return_schema.IsValidSchema = false;
                 return false;
             }
-            
         }
 
     };
