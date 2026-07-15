@@ -41,7 +41,7 @@ namespace PredictedAdaptedEncoding
             ALLOW_TRAILING_PAGING = 1u << 2u,
             HAS_PER_SLOT_SEQUENSE = 1u << 3u,
             REGION_DISABLED = 1u << 4u,
-            UNASSIGNED_UNUSED_NANNULL = 1u << 3u
+            UNASSIGNED_UNUSED_NANNULL = UINT8_MAX
         };
 
         //LEN
@@ -60,7 +60,7 @@ namespace PredictedAdaptedEncoding
 
         struct RegionSchemaRecord
         {
-            uint32_t PayloadWordsPerRecord = UNSIGNED_ZERO;
+            uint32_t RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
             SchemaProtocols Protocol = SchemaProtocols::UNASSIGNED_UNUSED_NANNULL;
             DataTypeOfMacroColumn Dtype = DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
             uint8_t Version = UNSIGNED_ZERO;
@@ -112,10 +112,10 @@ namespace PredictedAdaptedEncoding
             }
             if (HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REGION_DISABLED))
             {
-                return desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO;
+                return desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO;
             }
 
-            if ( desired_scheme.PayloadWordsPerRecord == UNSIGNED_ZERO)
+            if ( desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO)
             {
                 return false;
             }
@@ -128,7 +128,7 @@ namespace PredictedAdaptedEncoding
                     HasSchemaFlag(desired_scheme.Flags, SchemaFlags::HAS_PER_SLOT_SEQUENSE);
             
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return desired_scheme.PayloadWordsPerRecord == 1u;
+                return desired_scheme.RequiredTypedElementsPerRecord == 1u;
 
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
@@ -181,7 +181,10 @@ namespace PredictedAdaptedEncoding
                 
         }
 
-        
+        static constexpr bool IsValuePowOfTwoU32(uint32_t value) noexcept
+        {
+            return value >= 2u && ((value & (value - 1u)) == UNSIGNED_ZERO);
+        }
 
     };
 
@@ -192,7 +195,101 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    struct RegionOrchestrator : public SchemaValidator
+    struct MPMCQOrchestrator : public SchemaValidator
+    {
+        static constexpr uint8_t FIXED_ADDITIONAL_UIT_FRO_MPMCQ = 1;
+
+        static constexpr std::optional<uint8_t> CountOfTypedWordIn64Bit(DataTypeOfMacroColumn data_type) noexcept
+        {
+            switch (data_type)
+            {
+            case DataTypeOfMacroColumn::UINT8_T:
+            case DataTypeOfMacroColumn::INT8_T:
+            case DataTypeOfMacroColumn::CHAR:
+                return sizeof(uint64_t) / sizeof(uint8_t);
+
+            case DataTypeOfMacroColumn::UINT16_T:
+            case DataTypeOfMacroColumn::INT16_T:
+            case DataTypeOfMacroColumn::FLOAT16_T:
+                return sizeof(uint64_t) / sizeof(uint16_t);
+
+            case DataTypeOfMacroColumn::UINT32_T:
+            case DataTypeOfMacroColumn::INT32_T:
+            case DataTypeOfMacroColumn::FLOAT32_T:
+                return sizeof(uint64_t) / sizeof(uint32_t);
+
+            case DataTypeOfMacroColumn::UINT64_T:
+            case DataTypeOfMacroColumn::INT64_T:
+            case DataTypeOfMacroColumn::FLOAT64_T:
+                return sizeof(uint64_t) / sizeof(uint64_t);
+
+            default:
+                return std::nullopt;
+            }
+        }
+
+        static constexpr std::optional<uint32_t> Required64BitCellForDesiredPayload(const RegionSchemaRecord& schema) noexcept
+        {
+            std::optional<uint8_t> count_of_typed_word_in64bit = CountOfTypedWordIn64Bit(schema.Dtype);
+            if (
+                !count_of_typed_word_in64bit.has_value() ||
+                schema.RequiredTypedElementsPerRecord == UNSIGNED_ZERO
+            )
+            {
+                return std::nullopt;
+            }
+
+            return UpwordRoundingDivision_(
+                schema.RequiredTypedElementsPerRecord,
+                count_of_typed_word_in64bit.value()
+            );
+            
+        }
+
+        static constexpr std::optional<uint32_t>CountOf64BitBasedOnTypedProtocol(const RegionSchemaRecord& schema) noexcept
+        {
+            const std::optional<uint32_t> payload_words = Required64BitCellForDesiredPayload(schema);
+            if (!payload_words.has_value())
+            {
+                return std::nullopt;
+            }
+            return payload_words.value() +
+                (schema.Protocol == SchemaProtocols::MPMC_FIXED_RECORD_QUEUE ? FIXED_ADDITIONAL_UIT_FRO_MPMCQ : UNSIGNED_ZERO);
+        }
+
+        static constexpr uint32_t FloorPoweOfTwoUnsigned32(uint32_t value) noexcept
+        {
+            if (value == UNSIGNED_ZERO)
+            {
+                return UNSIGNED_ZERO;
+            }
+
+            uint32_t result = 1u;
+            while (result <= value / 2u)
+            {
+                result <<= 1u;
+            }
+            return result;
+        }
+
+    protected:
+        static constexpr uint32_t UpwordRoundingDivision_(
+            uint32_t numerator,
+            uint32_t denominator
+        ) noexcept
+        {
+            if (denominator == UNSIGNED_ZERO)
+            {
+                return UNSIGNED_ZERO;
+            }
+
+            return numerator / denominator +
+                static_cast<uint32_t>(numerator % denominator != UNSIGNED_ZERO);
+            
+        }
+    };
+
+    struct RegionOrchestrator : MPMCQOrchestrator
     {
 
 
@@ -204,7 +301,7 @@ namespace PredictedAdaptedEncoding
             }
 
             return(
-                static_cast<uint64_t>(desired_scheme.PayloadWordsPerRecord) << WORDS_PER_RECORD_SHIFT |
+                static_cast<uint64_t>(desired_scheme.RequiredTypedElementsPerRecord) << WORDS_PER_RECORD_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Protocol) << PROTOCOL_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Dtype) << DTYPE_SHIFT |
                 static_cast<uint64_t>(desired_scheme.Version) << VERSION_SHIFT |
@@ -224,7 +321,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            return_scheme.PayloadWordsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
+            return_scheme.RequiredTypedElementsPerRecord = static_cast<uint16_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
             return_scheme.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
             return_scheme.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
             return_scheme.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
@@ -274,34 +371,7 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr std::optional<uint8_t> GetMultiplyerForDataType(DataTypeOfMacroColumn data_type) noexcept
-        {
-            switch (data_type)
-            {
-            case DataTypeOfMacroColumn::UINT8_T:
-            case DataTypeOfMacroColumn::INT8_T:
-            case DataTypeOfMacroColumn::CHAR:
-                return sizeof(uint64_t) / sizeof(uint8_t);
 
-            case DataTypeOfMacroColumn::UINT16_T:
-            case DataTypeOfMacroColumn::INT16_T:
-            case DataTypeOfMacroColumn::FLOAT16_T:
-                return sizeof(uint64_t) / sizeof(uint16_t);
-
-            case DataTypeOfMacroColumn::UINT32_T:
-            case DataTypeOfMacroColumn::INT32_T:
-            case DataTypeOfMacroColumn::FLOAT32_T:
-                return sizeof(uint64_t) / sizeof(uint32_t);
-
-            case DataTypeOfMacroColumn::UINT64_T:
-            case DataTypeOfMacroColumn::INT64_T:
-            case DataTypeOfMacroColumn::FLOAT64_T:
-                return sizeof(uint64_t) / sizeof(uint64_t);
-
-            default:
-                return std::nullopt;
-            }
-        }
 
         static constexpr bool MakeInitialRegionSchema(
             RegionSchemaRecord& return_schema,
@@ -333,7 +403,7 @@ namespace PredictedAdaptedEncoding
 
             return_schema.Flags = SchemaFlags::NONE;
 
-            const std::optional<uint8_t> dtype_mult = GetMultiplyerForDataType(return_schema.Dtype);
+            const std::optional<uint8_t> dtype_mult = CountOfTypedWordIn64Bit(return_schema.Dtype);
             if (!dtype_mult.has_value())
             {
                 return false;
@@ -349,7 +419,7 @@ namespace PredictedAdaptedEncoding
             switch (return_schema.Protocol)
             {
             case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                return_schema.PayloadWordsPerRecord = region_span * dtype_mult.value();
+                return_schema.RequiredTypedElementsPerRecord = region_span * dtype_mult.value();
                 return_schema.Flags = 
                     SchemaFlags::REQUIRED_POW_OF_TWO |
                     SchemaFlags::ALLOW_TRAILING_PAGING |
@@ -357,7 +427,7 @@ namespace PredictedAdaptedEncoding
                 return true;
 
             case SchemaProtocols::DOUBLE_BUFFERED:
-                return_schema.PayloadWordsPerRecord = static_cast<uint32_t>((region_span * dtype_mult.value()) / 2u);
+                return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((region_span * dtype_mult.value()) / 2u);
                 if (((region_span * dtype_mult.value()) % 2u) != UNSIGNED_ZERO)
                 {
                     return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PAGING;
@@ -365,12 +435,12 @@ namespace PredictedAdaptedEncoding
                 return true;
 
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                return_schema.PayloadWordsPerRecord = 1u;
+                return_schema.RequiredTypedElementsPerRecord = 1u;
                 break;
             
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
-                return_schema.PayloadWordsPerRecord = region_span * dtype_mult.value();
+                return_schema.RequiredTypedElementsPerRecord = region_span * dtype_mult.value();
                 return true;
                 
             default:
