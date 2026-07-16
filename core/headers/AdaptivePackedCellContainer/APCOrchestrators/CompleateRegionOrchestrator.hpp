@@ -183,38 +183,18 @@ namespace PredictedAdaptedEncoding
 
     };
 
-    struct CompleateRegionOrchestrator : public TrackingBufferConf
+    struct SchemaBufferOrchestrator : public TrackingBufferConf
     {
         static constexpr uint64_t VALIDATION_CURSOR_BUFFER_MARK = 22222u;
-
-        struct CursorBuffers
-        {
-            TrackingBufferOfAPC Enqueue{};
-            TrackingBufferOfAPC Dequeue{};
-        };
-
-        static constexpr void BuildInitialCursorBuffers(CursorBuffers& buffers) noexcept
-        {
-            BuildNullTrackingBuffer(buffers.Enqueue);
-            BuildNullTrackingBuffer(buffers.Dequeue);
-
-            for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
-            {
-                buffers.Enqueue[i] = UNSIGNED_ZERO;
-                buffers.Dequeue[i] = UNSIGNED_ZERO;
-            }
-            buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
-            buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
-        }
+        static constexpr uint64_t VALIDATION_SCHEMA_MARK = 23333u;
 
         static constexpr bool InsertASchemaInBuffer(
             TrackingBufferOfAPC& buffer_address,
-            RegionOrchestrator::RegionSchemaRecord& schema_record,
-            MacroColumnOfAPC desired_column
+            RegionOrchestrator::RegionSchemaRecord& schema_record
         ) noexcept
         {
 
-            const std::optional<uint8_t> buffer_idx = GetBufferIdxFromMacroColumn(desired_column);
+            const std::optional<uint8_t> buffer_idx = GetBufferIdxFromMacroColumn(schema_record.ParentColumn);
             if (!buffer_idx.has_value())
             {
                 return false;
@@ -229,6 +209,119 @@ namespace PredictedAdaptedEncoding
             buffer_address[*buffer_idx] = packed_schema; 
 
             return true;
+        }
+
+        static constexpr bool BuildInitialSchemaBuffer (
+            TrackingBufferOfAPC& return_schema_buffer,
+            const TrackingBufferOfAPC& valid_layout_buffer,
+            uint8_t version = APCDataStructure::BRANCH_VERSION,
+            const RegionOrchestrator::InitialRegionalDtypeConf& dtype_map = RegionOrchestrator::InitialRegionalDtypeConf{},
+            const RegionOrchestrator::InitialRegionalProtocol& protocol_map = RegionOrchestrator::InitialRegionalProtocol{}
+        ) noexcept
+        {
+            BuildNullTrackingBuffer(return_schema_buffer);
+
+            if (
+                !LayoutBoundsOrchestrator::IsLayouBufferValidationMarked(valid_layout_buffer) ||
+                !APCDataStructure::ThisVersionValid(version)
+            )
+            {
+                return false;
+            }
+            
+            for (uint8_t i = 0; i < APCDataStructure::TrackedAPCNodeLen(); i++)
+            {
+                const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
+                const std::optional<uint32_t> maybe_span = LayoutBoundsOrchestrator::SpanOflayoutFromPackedCell(valid_layout_buffer[i], column);
+
+                if (!maybe_span.has_value())
+                {
+                    BuildNullTrackingBuffer(return_schema_buffer);
+                    return false;
+                }
+
+                RegionOrchestrator::RegionSchemaRecord schema{};
+                schema.ParentColumn = column;
+                schema.Version = version;
+                bool schema_build_ok = RegionOrchestrator::MakeInitialRegionSchema(
+                    schema, maybe_span.value(),
+                    dtype_map, protocol_map
+                );
+
+                bool insert_ok = InsertASchemaInBuffer(
+                    return_schema_buffer,
+                    schema
+                );
+
+                if (!schema_build_ok || !insert_ok)
+                {
+                    BuildNullTrackingBuffer(return_schema_buffer);
+                    return false;
+                }
+                
+                return_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
+                return true;                
+            }
+        }
+
+        static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
+            const TrackingBufferOfAPC& valid_schema_buffer,
+            const TrackingBufferConf& valid_layout_buffer
+        ) noexcept;
+
+    };
+
+    struct CompleateRegionOrchestrator : public SchemaBufferOrchestrator
+    {
+        struct CursorBuffers
+        {
+            TrackingBufferOfAPC Enqueue{};
+            TrackingBufferOfAPC Dequeue{};
+        };
+
+        static constexpr bool BuildInitialCursorBuffers(
+            CursorBuffers& buffers,
+            const TrackingBufferOfAPC& valid_schema_buffer
+        ) noexcept
+        {
+            BuildNullTrackingBuffer(buffers.Enqueue);
+            BuildNullTrackingBuffer(buffers.Dequeue);
+
+            if (valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] != VALIDATION_SCHEMA_MARK)
+            {
+                return false;
+            }
+            
+            for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
+            {
+                const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
+
+                RegionOrchestrator::RegionSchemaRecord schema{};
+                schema.ParentColumn = column;
+
+                if (
+                    !RegionOrchestrator::RegionSchemeFromPackedRegion
+                    (
+                    schema,
+                    valid_schema_buffer[i]
+                    )
+                )
+                {
+                    return false;
+                }
+
+                if (
+                    schema.Protocol == RegionOrchestrator::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE &&
+                    !RegionOrchestrator::HasSchemaFlag(schema.Flags, RegionOrchestrator::SchemaFlags::REGION_DISABLED)
+                )
+                {
+                    buffers.Enqueue[i] = UNSIGNED_ZERO;
+                    buffers.Dequeue[i] = UNSIGNED_ZERO;
+                }
+                
+            }
+            buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
+            buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
         }
 
         static constexpr bool BuildInitialSchema() noexcept;
