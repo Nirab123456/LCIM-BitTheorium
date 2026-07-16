@@ -34,7 +34,7 @@ namespace PredictedAdaptedEncoding
 
     };
 
-    struct MacroColumnConf : public LayoutHeaderIdentityOrchestrator
+    struct ColumnConf : public LayoutHeaderIdentityOrchestrator
     {
     protected:
         static constexpr uint8_t RegionOrdinal(MacroColumnOfAPC macro_column) noexcept
@@ -89,7 +89,7 @@ namespace PredictedAdaptedEncoding
 
     };
 
-    struct APCDataStructure : public MacroColumnConf
+    struct APCDataStructure : public ColumnConf
     {
 
         static constexpr size_t METACELL_COUNT = 96;

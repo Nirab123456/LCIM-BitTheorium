@@ -183,7 +183,7 @@ namespace PredictedAdaptedEncoding
 
     };
 
-    struct SchemaBufferOrchestrator : public TrackingBufferConf
+    struct SchemaBufferOrchestrator : public BufferConfForTracking
     {
         static constexpr uint64_t VALIDATION_SCHEMA_MARK = 23333u;
 
@@ -271,19 +271,66 @@ namespace PredictedAdaptedEncoding
             return true;     
         }
 
-        // static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
-        //     const TrackingBufferOfAPC& valid_schema_buffer,
-        //     const TrackingBufferConf& valid_layout_buffer
-        // ) noexcept
-        // {
-        //     if (
-                
-        //     )
-        //     {
-        //         /* code */
-        //     }
+        static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
+            const TrackingBufferOfAPC& valid_schema_buffer,
+            const TrackingBufferOfAPC& valid_layout_buffer
+        ) noexcept
+        {
+            if (
+                !HasSchemaBufferValidationMark(valid_schema_buffer) ||
+                !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer)
+            )
+            {
+                return false;
+            }
             
-        // }
+            uint8_t expected_version = UINT8_MAX;
+            for (uint8_t i = 0; i < APCDataStructure::TrackedAPCNodeLen(); i++)
+            {
+                const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
+                const std::optional<uint32_t> maybe_span = LayoutBoundsOrchestrator::SpanOflayoutFromPackedCell(
+                    valid_layout_buffer[i], column
+                );
+
+                RegionOrchestrator::RegionSchemaRecord schema{};
+                schema.ParentColumn = column;
+                bool have_schema = RegionOrchestrator::RegionSchemeFromPackedCell(
+                    schema,
+                    valid_schema_buffer[i]
+                );
+                
+                if (
+                    !maybe_span.has_value() ||
+                    !have_schema
+                )
+                {
+                    return false;
+                }
+
+                if (!RegionOrchestrator::ValidateSchemaAgainstLayout(
+                    schema,
+                    maybe_span.value()
+                ))
+                {
+                    return false;
+                }
+                
+                if (
+                    APCDataStructure::ThisVersionValid(schema.Version) &&
+                    !APCDataStructure::ThisVersionValid(expected_version)
+                )
+                {
+                    expected_version = schema.Version;
+                }
+
+                if (schema.Version != expected_version)
+                {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
 
     };
 
@@ -320,7 +367,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             
-            for (uint8_t i = 0; i < MacroColumnConf::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
             {
                 const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
 
@@ -328,7 +375,7 @@ namespace PredictedAdaptedEncoding
                 schema.ParentColumn = column;
 
                 if (
-                    !RegionOrchestrator::RegionSchemeFromPackedRegion
+                    !RegionOrchestrator::RegionSchemeFromPackedCell
                     (
                     schema,
                     valid_schema_buffer[i]

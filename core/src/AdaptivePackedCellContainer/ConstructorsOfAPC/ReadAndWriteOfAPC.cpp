@@ -27,15 +27,15 @@ namespace PredictedAdaptedEncoding
         if (is_claimed_required)
         {
             return ClaimAndCopyToAPCFromBuffer(
-                MacroColumnConf::LayoutBufferBegainInMetaIndecies(),
-                MacroColumnConf::TrackedAPCNodeLen(),
+                ColumnConf::LayoutBufferBegainInMetaIndecies(),
+                ColumnConf::TrackedAPCNodeLen(),
                 a_layout_buffer.data()
             );
         }
         
         return ForceCopyToAPCFromBuffer(
-            MacroColumnConf::LayoutBufferBegainInMetaIndecies(),
-            MacroColumnConf::TrackedAPCNodeLen(),
+            ColumnConf::LayoutBufferBegainInMetaIndecies(),
+            ColumnConf::TrackedAPCNodeLen(),
             a_layout_buffer.data()
         );
     }
