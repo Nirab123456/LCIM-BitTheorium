@@ -160,9 +160,9 @@ struct AxisConstructor
     struct AxisConstructionMap
     {
         FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
-        HeaderIdentifierOfAPC CountTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
-        HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
-        HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::UNASSIGNED_UNUSED_NANNULL};
+        HeaderIdentifierOfAPC CountTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         bool IsValid = false;
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
@@ -217,8 +217,8 @@ struct APCGroupReserver : public AxisConstructor
     {
         uint64_t APCSlotIndex = FABRIC_CELL_SENTINAL;
         uint64_t BranchID = FABRIC_CELL_SENTINAL;
-        uint64_t SharedID = FABRIC_CELL_SENTINAL;
-        uint64_t LogicalId = FABRIC_CELL_SENTINAL;
+        uint64_t SharedGroupId = FABRIC_CELL_SENTINAL;
+        uint64_t LogicalGroupId = FABRIC_CELL_SENTINAL;
 
         uint64_t AccessPassword = FABRIC_CELL_SENTINAL;
         uint64_t SharedHashKey = FABRIC_CELL_SENTINAL;
@@ -289,13 +289,13 @@ struct APCGroupReserver : public AxisConstructor
 
         if (HashIdConstructror::IsValidAPCId(shared_id))
         {
-            user_defined_identity.SharedID = shared_id;
+            user_defined_identity.SharedGroupId = shared_id;
             user_defined_identity.HorizontalSharedState = APCIdentityDef::DEFAULT_ASSIGNMENT;
         }
 
         if (HashIdConstructror::IsValidAPCId(logical_id))
         {
-            user_defined_identity.LogicalId = logical_id;
+            user_defined_identity.LogicalGroupId = logical_id;
             user_defined_identity.VarticalLogicState = APCIdentityDef::DEFAULT_ASSIGNMENT;
         }
         return user_defined_identity;
@@ -315,21 +315,21 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.HorizontalSharedState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.SharedID = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
                 return APCIdentityDef::NULL_USER_INSTRUCTION;
                         
             default:
-                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.SharedID))
+                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.SharedGroupId))
                 {
                     return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
                 }
@@ -340,21 +340,21 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.VarticalLogicState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.VarticalLogicState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.LogicalId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
                 return APCIdentityDef::NULL_USER_INSTRUCTION;
                         
             default:
-                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.LogicalId))
+                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.LogicalGroupId))
                 {
                     return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
                 }

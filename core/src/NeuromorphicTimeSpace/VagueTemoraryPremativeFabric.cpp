@@ -237,7 +237,7 @@ namespace PredictedAdaptedEncoding
 
         uint64_t& current_group_id = (
             APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
-            container_cfg.SharedID : container_cfg.LogicalId
+            container_cfg.SharedGroupId : container_cfg.LogicalGroupId
         );
 
         uint64_t& current_group_key = (

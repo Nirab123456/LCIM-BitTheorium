@@ -335,6 +335,21 @@ namespace PredictedAdaptedEncoding
             return true;
         }
 
+        static constexpr uint64_t ComputeAPCSchemaId(
+            const BufferConfForTracking::TrackingBufferOfAPC& layout,
+            const BufferConfForTracking::TrackingBufferOfAPC& schema
+        ) noexcept
+        {
+            uint64_t hash = 1469598103934665603ull;
+            for (uint8_t i = 0u; i < APCDataStructure::CountOfMacroColumn(); ++i)
+            {
+                hash ^= layout[i];
+                hash *= 1099511628211ull;
+                hash ^= schema[i];
+                hash *= 1099511628211ull;
+            }
+            return hash == FABRIC_CELL_SENTINAL ? hash - 1u : hash;
+        }
     };
 
     struct CompleateRegionOrchestrator : public SchemaBufferOrchestrator

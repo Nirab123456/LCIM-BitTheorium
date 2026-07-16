@@ -101,8 +101,7 @@ namespace PredictedAdaptedEncoding
         // INTERNAL TIMER
         LOCAL_FULL_CLOCK = 94,
         ///
-        EOF_APC_HEADER = 95,
-        UNASSIGNED_UNUSED_NANNULL = 96
+        EOF_APC_HEADER = 95
     };
 
     static_assert(
