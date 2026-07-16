@@ -391,15 +391,18 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
                 return false;
             }
 
-            if (!APCDataStructure::ThisVersionValid(current_layout.Version))
+            if (
+                APCDataStructure::ThisVersionValid(current_layout.Version) &&
+                !APCDataStructure::ThisVersionValid(expected_version)
+            )
             {
                 expected_version = current_layout.Version;
             }
-            else if (current_layout.Version != expected_version)
+
+            if (current_layout.Version != expected_version)
             {
                 return false;
             }
-            
 
             if (
                 current_layout.BeginIndex != expected_begin ||
@@ -415,7 +418,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
 
         if (
             expected_begin != payload_end ||
-            !APCDataStructure::IsThisIndexValidForAPC(expected_version)
+            !APCDataStructure::IsThisIndexValidForAPC(expected_begin)
         )
         {
             return false;
@@ -426,7 +429,7 @@ struct LayoutBoundsOrchestrator : public TrackingBufferConf
     }
 
 
-    static constexpr bool IsLayouBufferValidationMarked(const TrackingBufferOfAPC& a_layout_buffer) noexcept
+    static constexpr bool HasLayouBufferValidationMark(const TrackingBufferOfAPC& a_layout_buffer) noexcept
     {
         if (a_layout_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_LAYOUT_BUFFER_MARK)
         {

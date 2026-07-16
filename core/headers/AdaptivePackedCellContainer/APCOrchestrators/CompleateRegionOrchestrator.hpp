@@ -185,8 +185,16 @@ namespace PredictedAdaptedEncoding
 
     struct SchemaBufferOrchestrator : public TrackingBufferConf
     {
-        static constexpr uint64_t VALIDATION_CURSOR_BUFFER_MARK = 22222u;
         static constexpr uint64_t VALIDATION_SCHEMA_MARK = 23333u;
+
+        static constexpr bool HasSchemaBufferValidationMark(const TrackingBufferOfAPC& schema_buffer) noexcept
+        {
+            if (schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_SCHEMA_MARK)
+            {
+                return true;
+            }
+            return false;
+        }
 
         static constexpr bool InsertASchemaInBuffer(
             TrackingBufferOfAPC& buffer_address,
@@ -222,7 +230,7 @@ namespace PredictedAdaptedEncoding
             BuildNullTrackingBuffer(return_schema_buffer);
 
             if (
-                !LayoutBoundsOrchestrator::IsLayouBufferValidationMarked(valid_layout_buffer) ||
+                !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer) ||
                 !APCDataStructure::ThisVersionValid(version)
             )
             {
@@ -257,27 +265,47 @@ namespace PredictedAdaptedEncoding
                 {
                     BuildNullTrackingBuffer(return_schema_buffer);
                     return false;
-                }
-                
-                return_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
-                return true;                
+                }           
             }
+            return_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
+            return true;     
         }
 
-        static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
-            const TrackingBufferOfAPC& valid_schema_buffer,
-            const TrackingBufferConf& valid_layout_buffer
-        ) noexcept;
+        // static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
+        //     const TrackingBufferOfAPC& valid_schema_buffer,
+        //     const TrackingBufferConf& valid_layout_buffer
+        // ) noexcept
+        // {
+        //     if (
+                
+        //     )
+        //     {
+        //         /* code */
+        //     }
+            
+        // }
 
     };
 
     struct CompleateRegionOrchestrator : public SchemaBufferOrchestrator
     {
+        static constexpr uint64_t VALIDATION_CURSOR_BUFFER_MARK = 22222u;
+
         struct CursorBuffers
         {
             TrackingBufferOfAPC Enqueue{};
             TrackingBufferOfAPC Dequeue{};
         };
+
+
+        static constexpr bool HasCursorBufferValidationMark(const TrackingBufferOfAPC& cursor_buffer) noexcept
+        {
+            if (cursor_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_CURSOR_BUFFER_MARK)
+            {
+                return true;
+            }
+            return false;
+        }
 
         static constexpr bool BuildInitialCursorBuffers(
             CursorBuffers& buffers,
@@ -287,7 +315,7 @@ namespace PredictedAdaptedEncoding
             BuildNullTrackingBuffer(buffers.Enqueue);
             BuildNullTrackingBuffer(buffers.Dequeue);
 
-            if (valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] != VALIDATION_SCHEMA_MARK)
+            if (!HasSchemaBufferValidationMark(valid_schema_buffer))
             {
                 return false;
             }
@@ -322,6 +350,7 @@ namespace PredictedAdaptedEncoding
             }
             buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
             buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
+            return true;
         }
 
         static constexpr bool BuildInitialSchema() noexcept;
