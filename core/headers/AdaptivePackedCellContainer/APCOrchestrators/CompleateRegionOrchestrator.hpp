@@ -4,7 +4,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    struct RegionOrchestrator : SchemDefinition
+    struct SchemaDefinition : SchemDefinition
     {
         static constexpr bool MakeInitialRegionSchema(
             RegionSchemaRecord& return_schema,
@@ -198,7 +198,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool InsertASchemaInBuffer(
             TrackingBufferOfAPC& buffer_address,
-            RegionOrchestrator::RegionSchemaRecord& schema_record
+            SchemaDefinition::RegionSchemaRecord& schema_record
         ) noexcept
         {
 
@@ -208,7 +208,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
                        
-            uint64_t packed_schema = RegionOrchestrator::PackRegionScheme(schema_record);
+            uint64_t packed_schema = SchemaDefinition::PackRegionScheme(schema_record);
             if (!APCDataStructure::IsThsisIndexValidForFabric(packed_schema))
             {
                 return false;
@@ -223,8 +223,8 @@ namespace PredictedAdaptedEncoding
             TrackingBufferOfAPC& return_schema_buffer,
             const TrackingBufferOfAPC& valid_layout_buffer,
             uint8_t version = APCDataStructure::BRANCH_VERSION,
-            const RegionOrchestrator::InitialRegionalDtypeConf& dtype_map = RegionOrchestrator::InitialRegionalDtypeConf{},
-            const RegionOrchestrator::InitialRegionalProtocol& protocol_map = RegionOrchestrator::InitialRegionalProtocol{}
+            const SchemaDefinition::InitialRegionalDtypeConf& dtype_map = SchemaDefinition::InitialRegionalDtypeConf{},
+            const SchemaDefinition::InitialRegionalProtocol& protocol_map = SchemaDefinition::InitialRegionalProtocol{}
         ) noexcept
         {
             BuildNullTrackingBuffer(return_schema_buffer);
@@ -237,7 +237,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             
-            for (uint8_t i = 0; i < APCDataStructure::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
                 const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
                 const std::optional<uint32_t> maybe_span = LayoutBoundsOrchestrator::SpanOflayoutFromPackedCell(valid_layout_buffer[i], column);
@@ -248,10 +248,10 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
 
-                RegionOrchestrator::RegionSchemaRecord schema{};
+                SchemaDefinition::RegionSchemaRecord schema{};
                 schema.ParentColumn = column;
                 schema.Version = version;
-                bool schema_build_ok = RegionOrchestrator::MakeInitialRegionSchema(
+                bool schema_build_ok = SchemaDefinition::MakeInitialRegionSchema(
                     schema, maybe_span.value(),
                     dtype_map, protocol_map
                 );
@@ -285,16 +285,16 @@ namespace PredictedAdaptedEncoding
             }
             
             uint8_t expected_version = UINT8_MAX;
-            for (uint8_t i = 0; i < APCDataStructure::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
                 const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
                 const std::optional<uint32_t> maybe_span = LayoutBoundsOrchestrator::SpanOflayoutFromPackedCell(
                     valid_layout_buffer[i], column
                 );
 
-                RegionOrchestrator::RegionSchemaRecord schema{};
+                SchemaDefinition::RegionSchemaRecord schema{};
                 schema.ParentColumn = column;
-                bool have_schema = RegionOrchestrator::RegionSchemeFromPackedCell(
+                bool have_schema = SchemaDefinition::LayoutSchemaFromPackedCell(
                     schema,
                     valid_schema_buffer[i]
                 );
@@ -307,7 +307,7 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
 
-                if (!RegionOrchestrator::ValidateSchemaAgainstLayout(
+                if (!SchemaDefinition::ValidateSchemaAgainstLayout(
                     schema,
                     maybe_span.value()
                 ))
@@ -323,7 +323,10 @@ namespace PredictedAdaptedEncoding
                     expected_version = schema.Version;
                 }
 
-                if (schema.Version != expected_version)
+                if (
+                    schema.Version != expected_version &&
+                    APCDataStructure::ThisVersionValid(expected_version)
+                )
                 {
                     return false;
                 }
@@ -367,15 +370,15 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             
-            for (uint8_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+            for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
             {
                 const MacroColumnOfAPC column = GetMacroColumnFromBufferIdx(i);
 
-                RegionOrchestrator::RegionSchemaRecord schema{};
+                SchemaDefinition::RegionSchemaRecord schema{};
                 schema.ParentColumn = column;
 
                 if (
-                    !RegionOrchestrator::RegionSchemeFromPackedCell
+                    !SchemaDefinition::LayoutSchemaFromPackedCell
                     (
                     schema,
                     valid_schema_buffer[i]
@@ -386,8 +389,8 @@ namespace PredictedAdaptedEncoding
                 }
 
                 if (
-                    schema.Protocol == RegionOrchestrator::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE &&
-                    !RegionOrchestrator::HasSchemaFlag(schema.Flags, RegionOrchestrator::SchemaFlags::REGION_DISABLED)
+                    schema.Protocol == SchemaDefinition::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE &&
+                    !SchemaDefinition::HasSchemaFlag(schema.Flags, SchemaDefinition::SchemaFlags::REGION_DISABLED)
                 )
                 {
                     buffers.Enqueue[i] = UNSIGNED_ZERO;
@@ -400,9 +403,55 @@ namespace PredictedAdaptedEncoding
             return true;
         }
 
-        static constexpr bool BuildInitialSchema() noexcept;
+        static constexpr bool ValidateInitialCursorBuffers(
+            const CursorBuffers& enqueue_dequeue_buffers,
+            const TrackingBufferOfAPC& schema_buffer
+        ) noexcept
+        {
+            if (
+                !HasSchemaBufferValidationMark(schema_buffer) ||
+                !HasCursorBufferValidationMark(enqueue_dequeue_buffers.Enqueue) ||
+                !HasCursorBufferValidationMark(enqueue_dequeue_buffers.Dequeue)
+            )
+            {
+                return false;
+            }
 
-        static constexpr bool ValidateInitialSchema() noexcept;
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
+            {
+                SchemaDefinition::RegionSchemaRecord schema{};
+                schema.ParentColumn = GetMacroColumnFromBufferIdx(i);
+                if (!SchemaDefinition::LayoutSchemaFromPackedCell(
+                    schema,
+                    schema_buffer[i]
+                ))
+                {
+                    return false;
+                }
+
+                const bool is_active_mpmcq = 
+                    schema.Protocol == SchemaDefinition::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE &&
+                    !SchemaDefinition::HasSchemaFlag(schema.Flags, SchemaDefinition::SchemaFlags::REGION_DISABLED);
+                if (is_active_mpmcq)
+                {
+                    if (
+                        enqueue_dequeue_buffers.Enqueue[i] == UNSIGNED_ZERO ||
+                        enqueue_dequeue_buffers.Dequeue[i] == UNSIGNED_ZERO
+                    )
+                    {
+                        return false;
+                    }
+                }
+                else if (
+                    APCDataStructure::IsThsisIndexValidForFabric(enqueue_dequeue_buffers.Enqueue[i]) ||
+                    APCDataStructure::IsThsisIndexValidForFabric(enqueue_dequeue_buffers.Dequeue[i])
+                )
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
     };
 
 }

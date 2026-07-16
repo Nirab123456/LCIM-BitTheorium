@@ -28,14 +28,14 @@ namespace PredictedAdaptedEncoding
         {
             return ClaimAndCopyToAPCFromBuffer(
                 ColumnConf::LayoutBufferBegainInMetaIndecies(),
-                ColumnConf::TrackedAPCNodeLen(),
+                ColumnConf::CountOfMacroColumn(),
                 a_layout_buffer.data()
             );
         }
         
         return ForceCopyToAPCFromBuffer(
             ColumnConf::LayoutBufferBegainInMetaIndecies(),
-            ColumnConf::TrackedAPCNodeLen(),
+            ColumnConf::CountOfMacroColumn(),
             a_layout_buffer.data()
         );
     }

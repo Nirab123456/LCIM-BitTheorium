@@ -13,7 +13,6 @@ struct LayoutBuilderAndValidator
     {
         uint32_t BeginIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint32_t EndIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        uint8_t Version = UINT8_MAX;
         MacroColumnOfAPC LayoutIdentity = MacroColumnOfAPC::NULLNAN;
         bool IsValid = false;
     };
@@ -156,7 +155,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint32_t*, ColumnConf::TrackedAPCNodeLen()> layout_fields_array
+        std::array<uint32_t*, ColumnConf::CountOfMacroColumn()> layout_fields_array
         {
             &user_defined_percentage.FeedForward,
             &user_defined_percentage.FeedBackward,
@@ -171,7 +170,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         };
 
         uint32_t total_weight = UNSIGNED_ZERO;
-        for (size_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             total_weight += static_cast<uint32_t>(*layout_fields_array[i]);
         }
@@ -181,11 +180,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             return false;
         }
 
-        std::array<uint32_t, ColumnConf::TrackedAPCNodeLen()> normalize_counts_array{};
-        std::array<uint32_t, ColumnConf::TrackedAPCNodeLen()> reminders_array{};
+        std::array<uint32_t, ColumnConf::CountOfMacroColumn()> normalize_counts_array{};
+        std::array<uint32_t, ColumnConf::CountOfMacroColumn()> reminders_array{};
 
         uint32_t assigned_count = UNSIGNED_ZERO;
-        for (size_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             const uint32_t weight = static_cast<uint32_t>(*layout_fields_array[i]);
             const uint32_t scaled = weight * static_cast<uint32_t>(payload_span);
@@ -207,15 +206,15 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
         while (remaining_cells > UNSIGNED_ZERO)
         {
-            size_t best_idx = ColumnConf::TrackedAPCNodeLen();
+            size_t best_idx = ColumnConf::CountOfMacroColumn();
             uint32_t best_reminder = UNSIGNED_ZERO;
-            for (size_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+            for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
             {
                 if (
                     reminders_array[i] > best_reminder ||
                     (
                         reminders_array[i] == best_reminder && 
-                        best_idx == ColumnConf::TrackedAPCNodeLen() &&
+                        best_idx == ColumnConf::CountOfMacroColumn() &&
                         *layout_fields_array[i]
                     )
                 )
@@ -225,7 +224,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
                 }
             }
 
-            if (best_idx == ColumnConf::TrackedAPCNodeLen())
+            if (best_idx == ColumnConf::CountOfMacroColumn())
             {
                 return false;
             }
@@ -236,7 +235,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         
         uint32_t final_sum = UNSIGNED_ZERO;
 
-        for (size_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             final_sum += normalize_counts_array[i];
         }
@@ -247,7 +246,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         }
         
         
-        for (size_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             *layout_fields_array[i] = normalize_counts_array[i];
         }
@@ -259,7 +258,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
 struct BufferConfForTracking : public LayoutPercentageBuilder
 {
-    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = ColumnConf::TrackedAPCNodeLen() + 1;
+    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = ColumnConf::CountOfMacroColumn() + 1;
     static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
     using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
 
@@ -314,7 +313,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
     static constexpr MacroColumnOfAPC GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx >= ColumnConf::TrackedAPCNodeLen())
+        if (buffer_idx >= ColumnConf::CountOfMacroColumn())
         {
             return MacroColumnOfAPC::NULLNAN;
         }
@@ -371,9 +370,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
         }
 
         uint32_t expected_begin = payload_begin;
-        uint8_t expected_version = UINT8_MAX;
-
-        for (uint8_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             const uint64_t current_packed_cell = a_layout_buffer[i];
             LayoutCarrier current_layout = GetLayoutCarrierFromValidLayoutCell(
@@ -387,19 +384,6 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
             const std::optional<uint8_t> maybe_current_idx = GetBufferIndexForALayout(current_layout);
             if (!maybe_current_idx.has_value() || maybe_current_idx.value() != i)
-            {
-                return false;
-            }
-
-            if (
-                APCDataStructure::ThisVersionValid(current_layout.Version) &&
-                !APCDataStructure::ThisVersionValid(expected_version)
-            )
-            {
-                expected_version = current_layout.Version;
-            }
-
-            if (current_layout.Version != expected_version)
             {
                 return false;
             }
@@ -441,15 +425,13 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
     static constexpr bool BuildInitialLayoutBuffer(
         TrackingBufferOfAPC& return_buffer,
         uint32_t capacity_of_the_apc,
-        const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_LAYOUT_WEIGHT,
-        uint8_t desired_version = APCDataStructure::BRANCH_VERSION
+        const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
         BuildNullTrackingBuffer(return_buffer);
         if (
             capacity_of_the_apc < MINIMUM_APC_CELL_COUNT ||
-            !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc) ||
-            !APCDataStructure::ThisVersionValid(desired_version)
+            !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc)
         )
         {
             return false;
@@ -471,7 +453,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
         }
 
         uint32_t cursor = payload_begin;
-        for (uint8_t i = 0; i < ColumnConf::TrackedAPCNodeLen(); i++)
+        for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             const MacroColumnOfAPC layout_class = GetOriginForLayoutClassByBufferIdx(i);
             const std::optional<uint32_t> maybe_span = GetDefaultInitialPercentage(layout_class, normalized_layout);
@@ -488,7 +470,6 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
             LayoutCarrier current_layout{};
             current_layout.BeginIndex = cursor;
             current_layout.EndIndex = static_cast<uint32_t>(cursor + maybe_span.value());
-            current_layout.Version = desired_version;
             current_layout.LayoutIdentity = layout_class;
 
             if (!InsertALayoutCellInBuffer(return_buffer, current_layout))

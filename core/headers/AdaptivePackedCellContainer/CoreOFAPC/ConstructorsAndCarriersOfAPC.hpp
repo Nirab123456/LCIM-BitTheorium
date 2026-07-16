@@ -82,7 +82,7 @@ namespace PredictedAdaptedEncoding
             );
         }
 
-        static constexpr uint8_t TrackedAPCNodeLen() noexcept
+        static constexpr uint8_t CountOfMacroColumn() noexcept
         {
             return static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + 1;
         }

@@ -339,7 +339,7 @@ namespace PredictedAdaptedEncoding
         }
 
 
-        static constexpr bool RegionSchemeFromPackedCell(
+        static constexpr bool LayoutSchemaFromPackedCell(
             RegionSchemaRecord& return_schema,
             uint64_t packed_scheme
         ) noexcept
