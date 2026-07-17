@@ -3,15 +3,13 @@
 namespace PredictedAdaptedEncoding
 {
 
-    uint64_t FabricConstructor::ReadCompletePackedCellDirectly(size_t slab_index) noexcept
+    uint64_t FabricConstructor::ReadAFabricU64Directly(size_t slab_index) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return FABRIC_CELL_SENTINAL;
         }
-        const uint64_t desired_cell_raw = SlabBasePtr_[slab_index];
-
-        return desired_cell_raw;
+        return SlabBasePtr_[slab_index];
     } 
 
     constexpr uint64_t FabricConstructor::AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept
@@ -20,8 +18,8 @@ namespace PredictedAdaptedEncoding
         {
             return FABRIC_CELL_SENTINAL;
         }
-        std::atomic_ref<const uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
-        const uint64_t desired_cell_raw = packed_cell_ref.load(MoLoad_);
+        std::atomic_ref<const uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
+        const uint64_t desired_cell_raw = fab_u64_ref.load(MoLoad_);
 
         return desired_cell_raw;
     }
@@ -35,7 +33,7 @@ namespace PredictedAdaptedEncoding
         SlabBasePtr_[slab_index] = packed_cell;
     }
 
-    constexpr void FabricConstructor::AtomicallyStorePackedCellUnchecked(
+    constexpr void FabricConstructor::AtomicallyStoreU64Fab(
         size_t slab_index, uint64_t packed_cell,
         std::memory_order mem_order
     ) noexcept
@@ -44,9 +42,9 @@ namespace PredictedAdaptedEncoding
         {
             return;
         }
-        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
-        packed_cell_ref.store(packed_cell, mem_order);
-        packed_cell_ref.notify_all();
+        std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
+        fab_u64_ref.store(packed_cell, mem_order);
+        fab_u64_ref.notify_all();
     }
 
     constexpr bool FabricConstructor::CompareExchangeStrongFromFabric(
@@ -61,8 +59,8 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
-        return packed_cell_ref.compare_exchange_strong(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
+        std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
+        return fab_u64_ref.compare_exchange_strong(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
     constexpr bool FabricConstructor::CompareExchangeWeakInSlab(
@@ -77,8 +75,8 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        std::atomic_ref<uint64_t> packed_cell_ref(SlabBasePtr_[slab_index]);
-        return packed_cell_ref.compare_exchange_weak(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
+        std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
+        return fab_u64_ref.compare_exchange_weak(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
     bool FabricConstructor::ReadFabricMetaCellViewAtomically(FabricMetaIndicies fabric_meta_idx, PackedCell64_t::AuthoritiveCellView& meta_cell_view_address) noexcept

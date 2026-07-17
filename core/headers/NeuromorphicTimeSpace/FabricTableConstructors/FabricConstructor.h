@@ -1,6 +1,6 @@
 #pragma once 
 #include <span>
-#include "../FabricOrchestrators/RecordBookConf.hpp"
+#include "../FabricOrchestrators/FabricTableOrchestrator.hpp"
 #include "../FabricOrchestrators/DescriptionOfAPC.hpp"
 #include "../FabricOrchestrators/HashTableConf.hpp"
 
@@ -107,7 +107,7 @@ protected:
 
     public:
 
-        uint64_t ReadCompletePackedCellDirectly(size_t slab_index) noexcept;
+        uint64_t ReadAFabricU64Directly(size_t slab_index) noexcept;
 
         constexpr uint64_t AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept;
         
@@ -115,7 +115,7 @@ protected:
 
         constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept;
 
-        constexpr void AtomicallyStorePackedCellUnchecked(size_t slab_index, uint64_t packed_cell, std::memory_order mem_order = MoStoreSeq_) noexcept;
+        constexpr void AtomicallyStoreU64Fab(size_t slab_index, uint64_t packed_cell, std::memory_order mem_order = MoStoreSeq_) noexcept;
 
         /// @brief Do not change default memory order unless have total idea
         /// @param expected_packed_cell ->ADDRESS

@@ -27,7 +27,7 @@ namespace PredictedAdaptedEncoding
 
         RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
 
-        bool is_valid_bounds = GetValidSlabRangeTripletFromRecordBookOfFTSC(hash_table, desired_hash_table_bounds);
+        bool is_valid_bounds = BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds);
         if (!is_valid_bounds)
         {
             return false;
@@ -179,7 +179,7 @@ namespace PredictedAdaptedEncoding
         
         RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
 
-        if (!GetValidSlabRangeTripletFromRecordBookOfFTSC(hash_table, desired_hash_table_bounds))
+        if (!BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds))
         {
             return std::nullopt;
         }

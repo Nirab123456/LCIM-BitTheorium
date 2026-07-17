@@ -154,8 +154,8 @@ namespace PredictedAdaptedEncoding
         );
 
         auto ForceUpdate = [&](){
-            AtomicallyStorePackedCellUnchecked(low_idx, low32_and_probable_high32.first);
-            AtomicallyStorePackedCellUnchecked(high_idx, low32_and_probable_high32.second);
+            AtomicallyStoreU64Fab(low_idx, low32_and_probable_high32.first);
+            AtomicallyStoreU64Fab(high_idx, low32_and_probable_high32.second);
             return true;
         };
         
@@ -191,7 +191,7 @@ namespace PredictedAdaptedEncoding
             {
                 if (CompareExchangeStrongFromFabric(low_idx, expected, desired))
                 {
-                    AtomicallyStorePackedCellUnchecked(high_idx, low32_and_probable_high32.second);
+                    AtomicallyStoreU64Fab(high_idx, low32_and_probable_high32.second);
                     return true;
                 }
 
@@ -213,7 +213,7 @@ namespace PredictedAdaptedEncoding
 
             auto RestoreLow = [&]()
             {
-                AtomicallyStorePackedCellUnchecked(low_idx, low32_half_view.RawCell);
+                AtomicallyStoreU64Fab(low_idx, low32_half_view.RawCell);
                 return false;
             };
 
@@ -227,7 +227,7 @@ namespace PredictedAdaptedEncoding
                     {
                         if (CompareExchangeStrongFromFabric(high_idx, expected_high, low32_and_probable_high32.second))
                         {
-                            AtomicallyStorePackedCellUnchecked(low_idx, low32_and_probable_high32.first);
+                            AtomicallyStoreU64Fab(low_idx, low32_and_probable_high32.first);
                             return true;
                         }
 

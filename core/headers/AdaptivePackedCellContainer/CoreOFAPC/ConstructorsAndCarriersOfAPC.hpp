@@ -97,7 +97,7 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
         static constexpr uint8_t BRANCH_VERSION = 1u;
         static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
-        static constexpr uint32_t APC_ALL_INDEX_LIMIT = APC_INDEX_BOUND_SENTINAL - 1;
+        // static constexpr uint32_t APC_ALL_INDEX_LIMIT = APC_INDEX_BOUND_SENTINAL - 1;
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
         static constexpr size_t APC_SIZE_SENTINAL = SIZE_MAX;
 

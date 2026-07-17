@@ -21,8 +21,7 @@ namespace PredictedAdaptedEncoding
     {
         BEGIN48 = 0,
         END48 = 1,
-        META32 = 2,
-        UNASSIGNED_UNUSED_NANNULL = 3
+        UNASSIGNED_UNUSED_NANNULL = 2
     };
     static constexpr size_t RECORD_BOOK_WIDTH = static_cast<size_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
 

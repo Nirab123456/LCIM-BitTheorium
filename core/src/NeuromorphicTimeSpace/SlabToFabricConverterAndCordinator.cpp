@@ -137,7 +137,7 @@ namespace PredictedAdaptedEncoding
         }
 
         RecordBookTablesBoundsCarrier return_bounds{};
-        bool bounds_ok = GetValidSlabRangeTripletFromRecordBookOfFTSC(hash_table, return_bounds);
+        bool bounds_ok = BegainEndIdxHeaderPairGet(hash_table, return_bounds);
         if (!bounds_ok)
         {
             return;
