@@ -67,7 +67,7 @@ struct HashHelpers
     {
         if (
             count_of_entries == UNSIGNED_ZERO ||
-            count_of_entries >= APC_FABRIC_INDEX_SENTINAL
+            count_of_entries >= FABRIC_CELL_SENTINAL
         )
         {
             return UNSIGNED_ZERO;
@@ -210,7 +210,7 @@ struct HashTableConf : public HashHelpers
             
             return PackedCell64_t::MakeModeledFabricValidPackedCell(
                 ModelFamily::MODEL32,
-                static_cast<tag8_t>(Model32Subclass::SELF_CLASS),
+                static_cast<uint8_t>(Model32Subclass::SELF_CLASS),
                 hash_table,
                 locality,
                 InternalDataTypePolicy ::UNSIGNED,
@@ -274,7 +274,7 @@ struct HashTableConf : public HashHelpers
 
         return PackedCell64_t::MakeModeledFabricValidPackedCell(
             ModelFamily::MODEL48,
-            static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
+            static_cast<uint8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
             hash_table,
             locality,
             InternalDataTypePolicy::UNSIGNED,

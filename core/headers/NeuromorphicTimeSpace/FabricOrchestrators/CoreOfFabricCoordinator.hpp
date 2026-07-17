@@ -4,8 +4,6 @@
 namespace PredictedAdaptedEncoding
 {
 
-    static constexpr uint64_t APC_FABRIC_INDEX_SENTINAL = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
-
 
     /// UNCHECKED
     static constexpr size_t RELATION_WIDTH_OF_FABRIC = 8u;
@@ -19,7 +17,7 @@ namespace PredictedAdaptedEncoding
     ///--------------------------
 
 
-    enum class RecordBookInternalIndexing : tag8_t
+    enum class RecordBookInternalIndexing : uint8_t
     {
         BEGIN48 = 0,
         END48 = 1,
@@ -28,7 +26,7 @@ namespace PredictedAdaptedEncoding
     };
     static constexpr size_t RECORD_BOOK_WIDTH = static_cast<size_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
 
-    enum class HashTableInternalIndexing : tag8_t
+    enum class HashTableInternalIndexing : uint8_t
     {
         KEY_INDEX = 0,
         VALUE_INDEX = 1,
@@ -108,16 +106,6 @@ namespace PredictedAdaptedEncoding
         TABLE_DIRECTORY_COUNT = 38,
         TABLE_DIRECTORY_VERSION = 39,
 
-        // It dosent have a use case 
-        FABRIC_OCCUPANCY_APPROXIMATION_IDLE_LOW32 = 40,
-        FABRIC_OCCUPANCY_APPROXIMATION_IDLE_HIGH32 = 41,
-        FABRIC_OCCUPANCY_APPROXIMATION_PUBLISHED_LOW32 = 42,
-        FABRIC_OCCUPANCY_APPROXIMATION_PUBLISHED_HIGH32 = 43,
-        FABRIC_OCCUPANCY_APPROXIMATION_CLAIMED_LOW32 = 44,
-        FABRIC_OCCUPANCY_APPROXIMATION_CLAIMED_HIGH32 = 45,
-        FABRIC_OCCUPANCY_APPROXIMATION_FAULTY_LOW32 = 46,
-        FABRIC_OCCUPANCY_APPROXIMATION_FAULTY_HIGH32 = 47,
-        //end pair
 
         HASH_TOMBSTONE_COUNT = 48,
         HASH_COMPACTION_COUNT = 49,
@@ -180,28 +168,6 @@ namespace PredictedAdaptedEncoding
                 table_class == FabricTableSegmentClasses::WORK_QUEUE;
         }
 
-        static constexpr FabricMetaIndicies GetDesiredLowIdxOfOccupancyPairFromLocality(LocalityPolicy locality) noexcept
-        {
-            switch (locality)
-            {
-            case LocalityPolicy::IDLE :
-                return FabricMetaIndicies::FABRIC_OCCUPANCY_APPROXIMATION_IDLE_LOW32;
-
-            case LocalityPolicy::PUBLISHED :
-                return FabricMetaIndicies::FABRIC_OCCUPANCY_APPROXIMATION_PUBLISHED_LOW32;
-
-            case LocalityPolicy::CLAIMED :
-                return FabricMetaIndicies::FABRIC_OCCUPANCY_APPROXIMATION_CLAIMED_LOW32;
-
-            case LocalityPolicy::FAULTY :
-                return FabricMetaIndicies::FABRIC_OCCUPANCY_APPROXIMATION_FAULTY_LOW32;
-
-            default:
-                return FabricMetaIndicies::EOF_FABRIC_HEADER;
-            }
-        }
-
-
         static constexpr uint8_t GetWidthOfValidFabricTable(FabricTableSegmentClasses table_idintity) noexcept
         {
             switch (table_idintity)
@@ -242,20 +208,6 @@ namespace PredictedAdaptedEncoding
         }
 
 
-        static constexpr bool CommonValidityCheckOfFabricCellsTableSegmentClasses(const PackedCell64_t::AuthoritiveCellView& a_cell_view) noexcept
-        {
-            if (
-                !a_cell_view.IsCellValid || 
-                a_cell_view.CellOwnership != OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC ||
-                a_cell_view.CellValueDataType != InternalDataTypePolicy::UNSIGNED
-            )
-            {
-                return false;
-            }
-            return true;
-        }
-
-
 
         //kept for safty
         static constexpr bool IsThisFebricMetaIdxAValidIncrementalCountType(FabricMetaIndicies meta_idx) noexcept
@@ -285,70 +237,6 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
         }
-
-        static constexpr uint64_t UpdateACountMetaCell(uint64_t packed_cell, FabricMetaIndicies user_validation, int delta) noexcept
-        {
-            const PackedCell64_t::AuthoritiveCellView auth_view_of_the_cell = PackedCell64_t::GetAuthoritiveViewsForACell(packed_cell);
-            if (
-                !CommonValidityCheckOfFabricCellsTableSegmentClasses(auth_view_of_the_cell) ||
-                auth_view_of_the_cell.CellMode != PackedMode::VALUE48 ||
-                auth_view_of_the_cell.CellValueDataType != InternalDataTypePolicy::UNSIGNED ||
-                !IsThisFebricMetaIdxAValidIncrementalCountType(user_validation)
-            )
-            {
-                return FABRIC_CELL_SENTINAL;
-            }
-            
-            const int64_t updated_count = auth_view_of_the_cell.Raw48BitInCellData <= PackedCell64_t::BIT_FAMILY_48_SENTINAL ?
-                auth_view_of_the_cell.Raw48BitInCellData + delta : delta;
-            if (updated_count >= PackedCell64_t::BIT_FAMILY_48_SENTINAL || updated_count < UNSIGNED_ZERO)
-            {
-                return FABRIC_CELL_SENTINAL;
-            }
-
-            const uint64_t desired_count = static_cast<uint64_t>(updated_count) & MaskLeftOverBitsUntil64(FAMILY_48_BIT_LEN);
-            
-            return PackedCell64_t::SetMETA16InPacked(desired_count, auth_view_of_the_cell.InCellMeta16);
-
-        }
-
-        // using DefaultMemCopyBuffer = std::array<uint64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
-
-        // static constexpr void BuildNullMemCopyBuffer(DefaultMemCopyBuffer& a_default_buffer) noexcept
-        // {
-        //     for (size_t i = 0; i < MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY; i++)
-        //     {
-        //         a_default_buffer[i] = FABRIC_CELL_SENTINAL;
-        //     }
-        // }
-
-
-        static constexpr bool IsCellValidFabricMetaIndecies(const PackedCell64_t::AuthoritiveCellView& a_cell_view) noexcept
-        {
-            if (
-                !a_cell_view.IsCellValid ||
-                a_cell_view.CellOwnership != OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC ||
-                a_cell_view.FabricTableSegmentClass != FabricTableSegmentClasses::CONTROL_HEADER
-            )
-            {
-                return false;
-            }
-
-            switch (a_cell_view.CellMode)
-            {
-
-            case PackedMode::MODEL48:
-                return a_cell_view.SubClassOfModel48 == Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL;
-            
-            case PackedMode::VALUE48:
-                return true;
-
-            default:
-                return false;
-            }
-            
-        }
-
 
     
     };

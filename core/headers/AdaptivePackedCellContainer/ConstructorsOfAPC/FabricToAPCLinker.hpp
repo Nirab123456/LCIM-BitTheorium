@@ -17,8 +17,7 @@ protected:
     bool FabricBackend_{false};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
     uint16_t CapacityOfThisAPC_{UNSIGNED_ZERO};
-    Timer48 LocalTimer48_;
-
+    
     void ReleseFabricBindingOnly_() noexcept;
 
 public:

@@ -202,7 +202,7 @@ namespace PredictedAdaptedEncoding
                 desc_idx,
                 static_cast<uint64_t>(segment_pool_range.BeginIndex),
                 static_cast<uint64_t>(segment_pool_range.EndIndex),
-                static_cast<uint64_t>(next_segment_pool_range.BeginIndex == UNSIGNED_ZERO ? APC_FABRIC_INDEX_SENTINAL : next_segment_pool_range.BeginIndex),
+                static_cast<uint64_t>(next_segment_pool_range.BeginIndex == UNSIGNED_ZERO ? FABRIC_CELL_SENTINAL : next_segment_pool_range.BeginIndex),
                 version,
                 LocalityPolicy::PUBLISHED                
             );
@@ -288,7 +288,7 @@ namespace PredictedAdaptedEncoding
 
         HashBucketCount_ = HashHelpers::BucketCountForExpectedEntries(CountOfAPC_);
 
-        if (HashBucketCount_ == UNSIGNED_ZERO || HashBucketCount_ >= APC_FABRIC_INDEX_SENTINAL)
+        if (HashBucketCount_ == UNSIGNED_ZERO || HashBucketCount_ >= FABRIC_CELL_SENTINAL)
         {
             return false;
         }
@@ -345,7 +345,7 @@ namespace PredictedAdaptedEncoding
         SegmentPoolEnd_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
         SlabCellCount_ = SegmentPoolEnd_;
 
-        if (SlabCellCount_ == UNSIGNED_ZERO || SlabCellCount_ >= APC_FABRIC_INDEX_SENTINAL)
+        if (SlabCellCount_ == UNSIGNED_ZERO || SlabCellCount_ >= FABRIC_CELL_SENTINAL)
         {
             return false;
         }

@@ -18,7 +18,7 @@ struct RecordBookTablesBoundsCarrier
 {
     uint64_t BeginIndex = UNSIGNED_ZERO;
     uint64_t EndIndex = UNSIGNED_ZERO;
-    OriginOfRecord OwnerTableOfTheBounds = OriginOfRecord::NULLNAN;
+    FabricTableSegmentClasses OwnerTableOfTheBounds = FabricTableSegmentClasses::NULLNAN;
     uint8_t Width = UNSIGNED_ZERO;
     bool IsValid = false;  
 };
@@ -197,7 +197,7 @@ struct RecordBookConf
         const uint16_t version_origin_slabid = Clock16Subdivision1x8Plus2x4InMode32CellModel::Pack1x8Plus2x4InUnsigned16_(origin_per_record_width, static_cast<uint8_t>(origin_table_class), slab_id);
 
         return PackedCell64_t::MakeModeledFabricValidPackedCell(ModelFamily::MODEL32,
-            static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
+            static_cast<uint8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::SLAB_RECORD_MAP,
             locality, InternalDataTypePolicy::UNSIGNED,
             masked_width,

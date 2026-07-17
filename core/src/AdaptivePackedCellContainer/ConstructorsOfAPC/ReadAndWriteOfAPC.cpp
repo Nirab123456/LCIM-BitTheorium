@@ -43,9 +43,10 @@ namespace PredictedAdaptedEncoding
     bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
         uint16_t total_capacity,
         APCGroupReserver::APCInitialIdentityStruct& container_configuration,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight,
-        uint8_t version,
-        LocalityPolicy locality
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
+        const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
+        const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
+        uint8_t version
     ) noexcept
     {
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
@@ -54,9 +55,10 @@ namespace PredictedAdaptedEncoding
             header_meta_buffer,
             container_configuration,
             total_capacity,
-            user_defined_weight,
-            version,
-            locality
+            layout_weight,
+            dtype_conf,
+            protocol_conf,
+            version
         ))
         {
             return false;

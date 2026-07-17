@@ -25,8 +25,9 @@ namespace PredictedAdaptedEncoding
             uint16_t total_capacity,
             APCGroupReserver::APCInitialIdentityStruct& container_configuration,
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
-            uint8_t version = APCDataStructure::BRANCH_VERSION,
-            LocalityPolicy locality = LocalityPolicy::PUBLISHED
+            const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
+            const SchemaDefinition::InitialRegionalProtocol& protocol_conf = SchemaDefinition::InitialRegionalProtocol{},
+            uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept;
 
         ////// SINGLE READ WRITE/////

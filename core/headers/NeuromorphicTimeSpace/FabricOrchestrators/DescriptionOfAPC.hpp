@@ -148,7 +148,7 @@ struct DescriptionOfAPC
 
         return PackedCell64_t::MakeModeledFabricValidPackedCell(
             ModelFamily::MODEL48,
-            static_cast<tag8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
+            static_cast<uint8_t>(Model48Subclass::SUBDIVISION16x3_INTERNAL_CELL_MODEL),
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality,
             InternalDataTypePolicy ::UNSIGNED,
@@ -181,7 +181,7 @@ struct DescriptionOfAPC
 
         return PackedCell64_t::MakeModeledFabricValidPackedCell(
             ModelFamily::MODEL32,
-            static_cast<tag8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
+            static_cast<uint8_t>(Model32Subclass::UNCLOCKED_1x8_PLUS_2x4),
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             locality, InternalDataTypePolicy::UNSIGNED,
             apc_width,
