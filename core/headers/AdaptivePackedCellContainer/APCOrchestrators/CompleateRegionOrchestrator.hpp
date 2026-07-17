@@ -271,13 +271,12 @@ namespace PredictedAdaptedEncoding
             return true;     
         }
 
-        static constexpr bool ValidateSchemaBufferAgainsLayoutBuffer(
-            const TrackingBufferOfAPC& valid_schema_buffer,
+        static constexpr bool ValidateSchemaBufferAgainstLayoutBuffer(
+            TrackingBufferOfAPC& valid_schema_buffer,
             const TrackingBufferOfAPC& valid_layout_buffer
         ) noexcept
         {
             if (
-                !HasSchemaBufferValidationMark(valid_schema_buffer) ||
                 !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer)
             )
             {
@@ -331,7 +330,7 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
             }
-            
+            valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
             return true;
         }
 
@@ -419,14 +418,12 @@ namespace PredictedAdaptedEncoding
         }
 
         static constexpr bool ValidateInitialCursorBuffers(
-            const CursorBuffers& enqueue_dequeue_buffers,
+            CursorBuffers& enqueue_dequeue_buffers,
             const TrackingBufferOfAPC& schema_buffer
         ) noexcept
         {
             if (
-                !HasSchemaBufferValidationMark(schema_buffer) ||
-                !HasCursorBufferValidationMark(enqueue_dequeue_buffers.Enqueue) ||
-                !HasCursorBufferValidationMark(enqueue_dequeue_buffers.Dequeue)
+                !HasSchemaBufferValidationMark(schema_buffer)
             )
             {
                 return false;
@@ -465,6 +462,8 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
             }
+            enqueue_dequeue_buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
+            enqueue_dequeue_buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
             return true;
         }
     };
