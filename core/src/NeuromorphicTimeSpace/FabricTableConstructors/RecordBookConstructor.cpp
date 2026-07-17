@@ -25,7 +25,7 @@ namespace PredictedAdaptedEncoding
     {
         const size_t begin_of_desired_table = BegainIdxOfAnyFabTableHeader(table_class);
         
-        const size_t end_idx = begin_of_desired_table + static_cast<size_t>(RecordBookInternalIndexing::END48);
+        const size_t end_idx = begin_of_desired_table + static_cast<size_t>(EnumsOfFabricCoordinator::RecordBookInternalIndexing::END48);
 
         if (end_idx >= SlabCellCount_ || begin_of_desired_table < APCDataStructure::METACELL_COUNT)
         {
@@ -47,7 +47,7 @@ namespace PredictedAdaptedEncoding
         const size_t base_idx = BegainIdxOfAnyFabTableHeader(table_class);
         if (
             base_idx == APCDataStructure::APC_SIZE_SENTINAL || 
-            (base_idx + RECORD_BOOK_WIDTH > SlabCellCount_) ||
+            (base_idx + EnumsOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_) ||
             begin >= end || end > SlabCellCount_
         )
         {
@@ -55,12 +55,12 @@ namespace PredictedAdaptedEncoding
         }
 
         AtomicallyStoreU64Fab(
-            base_idx + static_cast<size_t>(RecordBookInternalIndexing::BEGIN48), 
+            base_idx + static_cast<size_t>(EnumsOfFabricCoordinator::RecordBookInternalIndexing::BEGIN48), 
             begin
         );
         
         AtomicallyStoreU64Fab(
-            base_idx + static_cast<size_t>(RecordBookInternalIndexing::END48), 
+            base_idx + static_cast<size_t>(EnumsOfFabricCoordinator::RecordBookInternalIndexing::END48), 
             end
         );                
         
@@ -72,9 +72,9 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         /// ALways same derives from -> FabricMetaIndicies
-        const uint64_t record_map_begin = ReadAFabricU64Directly(static_cast<size_t>(FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
+        const uint64_t record_map_begin = ReadAFabricU64Directly(static_cast<size_t>(EnumsOfFabricCoordinator::FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
 
-        return static_cast<size_t>(record_map_begin + (static_cast<size_t>(table_class) * RECORD_BOOK_WIDTH));        
+        return static_cast<size_t>(record_map_begin + (static_cast<size_t>(table_class) * EnumsOfFabricCoordinator::RECORD_BOOK_WIDTH));        
     }
 
         

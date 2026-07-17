@@ -68,7 +68,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        DescriptionOfAPC::BuildABlankAPCDescriptionBufferwith2CellIdentity(return_buffer);
+        DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
 
         const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionOnSlotIdx(apc_description_index);
 

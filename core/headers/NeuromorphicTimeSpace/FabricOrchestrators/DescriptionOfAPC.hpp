@@ -4,7 +4,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    struct DescriptorConf
+    struct DescriptorConf : public EnumsOfFabricCoordinator
     {
 
         struct APCDescriptorRange
@@ -91,9 +91,8 @@ namespace PredictedAdaptedEncoding
 
         using SingleAPCDescriptionCellBuffer = std::array<uint64_t, APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX + 1>;
 
-        /// @brief Assignes UINT64_MAX  UPTO:INDEX: APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX - 1 and Next 2 INDEX: UNSIGNED_ZERO
-        /// @param default_array 
-        static constexpr void BuildABlankAPCDescriptionBufferwith2CellIdentity(SingleAPCDescriptionCellBuffer& default_array)
+
+        static constexpr void BuildSentinalDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array)
         {
             for (size_t i = 0; i < default_array.size(); i++)
             {
@@ -108,11 +107,37 @@ namespace PredictedAdaptedEncoding
             }
         }
 
+        static constexpr void BuildZerodDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array)
+        {
+            for (size_t i = 0; i < default_array.size(); i++)
+            {
+                default_array[i] = UNSIGNED_ZERO;
+            }
+        }
+
+        // static constexpr bool ValidateADescriptionBuffer(
+        //     SingleAPCDescriptionCellBuffer& desc_return_buff
+        // ) noexcept;
+
+        // static constexpr void SetADescriptionUnit(
+
+        // )
+
+        // static constexpr bool ConstructInitialAPCDescriptionBuffer(
+        //     SingleAPCDescriptionCellBuffer& desc_return_buff,
+        //     uint64_t apc_idx,
+        //     uint64_t segment_pool_begin,
+        //     uint64_t segment_pool_end,
+        //     uint64_t next_apc_segment_pool = UNSIGNED_ZERO,
+        //     StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
+        // ) noexcept
+        // {
+        //     BuildZerodDescriptionBuffer(desc_return_buff);
+
+        // }
 
 
-
-
-};
+    };
 
 
 }
