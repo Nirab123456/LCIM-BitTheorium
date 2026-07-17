@@ -29,14 +29,6 @@ namespace PredictedAdaptedEncoding
             size_t end 
         ) noexcept;
 
-    public:
-
-        /// @brief Uses -> BegainEndIdxHeaderPairGet to get record and packs into -> APCDescriptorRange
-        /// @return VALID::APCDescriptorRange.IsValid = true || INVALID:: APCDescriptorRange.IsValid = false
-        bool ReadAPCDescriptorTableBeginEndFromRecordBook(
-            APCDescriptorRange& return_APC_handle_description_range
-        ) noexcept;
-
     };
 
 }

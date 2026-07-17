@@ -37,19 +37,17 @@ namespace PredictedAdaptedEncoding
     /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
     enum class APCDescriptorCellType : uint8_t
     {
-        CURRENT_DESCRIPTOR_INDEX = 0,
-        OWNER_BRANCH = 1,
-        APC_SEGMENTPOOL_BEGAIN_SLAB = 2,
-        APC_SEGMENTPOOL_END_SLAB = 3,
-        NEXT_APC_SAGMANTPOOL_BEGAIN = 4,
-        LOGICAL_ID = 5,
-        SHARED_GROUP_ID = 6,
-        RELATION_HEADS = 7,
-        RETIRE_EPOCH48 = 8,
-        APC_FLAGS_FOR_THIS = 9,
-        OCCUPANCY_CELL16x3 = 10,
-        STATE_OWNERSHIP_VESION_SAFTY = 11,
-        UNASSIGNED_UNUSED_NANNULL = 12
+        APC_INDEX = 0,
+        APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
+        APC_SEGMENTPOOL_END_SLAB = 2,
+        NEXT_APC_SAGMANTPOOL_BEGAIN = 3,
+        LOGICAL_ID = 4,
+        SHARED_GROUP_ID = 5,
+        RELATION_HEADS = 6,
+        RETIRE_EPOCH = 7,
+        APC_FLAGS_FOR_THIS = 8,
+        ID_STATE_CONCURRENT = 9,
+        UNASSIGNED_UNUSED_NANNULL = 10
     };
     static constexpr size_t APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX = static_cast<size_t>(APCDescriptorCellType::UNASSIGNED_UNUSED_NANNULL);
 

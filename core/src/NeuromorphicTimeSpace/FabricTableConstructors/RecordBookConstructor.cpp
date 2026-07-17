@@ -77,25 +77,5 @@ namespace PredictedAdaptedEncoding
         return static_cast<size_t>(record_map_begin + (static_cast<size_t>(table_class) * RECORD_BOOK_WIDTH));        
     }
 
-    bool RecordBookConstructor::ReadAPCDescriptorTableBeginEndFromRecordBook(
-        APCDescriptorRange& return_APC_handle_description_range
-    ) noexcept
-    {
-        RecordBookConf::RecordBookTablesBoundsCarrier return_bounds{};
-
-        bool bounds_ok = BegainEndIdxHeaderPairGet(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, return_bounds);
-
-        if (!bounds_ok)
-        {
-            return_APC_handle_description_range.IsValid = false;
-            return false;
-        }
-
-        return_APC_handle_description_range.BeginIndex = return_bounds.BeginIndex;
-        return_APC_handle_description_range.EndIndex = return_bounds.EndIndex;
-        return_APC_handle_description_range.IsValid = return_bounds.IsValid;
-
-        return return_bounds.IsValid;
-    }
         
 }
