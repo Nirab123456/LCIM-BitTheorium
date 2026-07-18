@@ -35,7 +35,7 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<size_t>(HashTableInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
-        enum class APCDescriptorCellType : uint8_t
+        enum class DescriptionUnitIdentity : uint8_t
         {
             APC_INDEX = 0,
             APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
@@ -49,7 +49,7 @@ namespace PredictedAdaptedEncoding
             ID_STATE_CONCURRENT = 9,
             UNASSIGNED_UNUSED_NANNULL = 10
         };
-        static constexpr size_t APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX = static_cast<size_t>(APCDescriptorCellType::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr size_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<size_t>(DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL);
 
 
 
@@ -151,6 +151,9 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t FABRIC_MAGIC = 0x41504643u;
         static constexpr uint32_t FABRIC_META_EOF = 0x41474946u;
         static constexpr uint8_t EACH_TABLE_RECORD_SENTINAL = UINT8_MAX;
+        
+        static constexpr uint32_t HASH_GOLDEN_RATIO_1 = 2654435769u;
+        static constexpr uint32_t HASH_GOLDEN_RATIO_2 = 123456789u;
 
         static constexpr bool IsValidHashTable(FabricTableSegmentClasses table_class) noexcept
         {
@@ -159,83 +162,14 @@ namespace PredictedAdaptedEncoding
                 table_class == FabricTableSegmentClasses::SHARED_HASH;
         }
 
-        static constexpr bool IsQueueTable(FabricTableSegmentClasses table_class) noexcept
+        static constexpr bool IsKnownDescriptionIdentity(DescriptionUnitIdentity identity_of_unit) noexcept
         {
-            return table_class == FabricTableSegmentClasses::FREE_APC_LIST ||
-                table_class == FabricTableSegmentClasses::READY_QUEUE ||
-                table_class == FabricTableSegmentClasses::WORK_QUEUE;
-        }
-
-        static constexpr uint8_t GetWidthOfValidFabricTable(FabricTableSegmentClasses table_idintity) noexcept
-        {
-            switch (table_idintity)
+            if (identity_of_unit < DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL)
             {
-            case FabricTableSegmentClasses::SLAB_RECORD_MAP:
-                return static_cast<uint8_t>(RECORD_BOOK_WIDTH);
-            
-            case FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR:
-                return static_cast<uint8_t>(APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX);
-            
-            case FabricTableSegmentClasses::BRANCH_HASH:
-            case FabricTableSegmentClasses::SHARED_HASH:
-            case FabricTableSegmentClasses::LOGICAL_HASH:
-                return static_cast<uint8_t>(HASH_BUCKED_WIDTH_OF_FABRIC);
-            
-            case FabricTableSegmentClasses::EDGE_TABLE:
-                return static_cast<uint8_t>(RELATION_WIDTH_OF_FABRIC);
-
-            case FabricTableSegmentClasses::FREE_APC_LIST:
-            case FabricTableSegmentClasses::READY_QUEUE:
-                return static_cast<uint8_t>(QUEUE_RECORD_WIDTH_OF_FABRIC);
-
-            case FabricTableSegmentClasses::WORK_QUEUE:
-                return static_cast<uint8_t>(WORK_RECORD_WIDTH_OF_FABRIC);
-
-            case FabricTableSegmentClasses::DEVICE_VIEW_TABLE:
-                return static_cast<uint8_t>(DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
-
-            case FabricTableSegmentClasses::THREAD_TABLE:
-                return static_cast<uint8_t>(THREAD_TABLE_RECORD_WIDTH);
-
-            case FabricTableSegmentClasses::SEGMENT_POOL:
-                return UNSIGNED_ZERO;
-            
-            default:
-                return EACH_TABLE_RECORD_SENTINAL;
-            }
-        }
-
-
-
-        //kept for safty
-        static constexpr bool IsThisFebricMetaIdxAValidIncrementalCountType(FabricMetaIndicies meta_idx) noexcept
-        {
-            switch (meta_idx)
-            {
-            case FabricMetaIndicies::TOTAL_APC_IN_USE:
-            case FabricMetaIndicies::RETIRE_SLOT_HEAD:
-            case FabricMetaIndicies::RELATION_FREE_HEAD:
-            case FabricMetaIndicies::GLOBAL_EPOCH48:
-            case FabricMetaIndicies::MIN_SAFE_EPOCH48:
-            case FabricMetaIndicies::NEXT_DEVICE_VIEW_ID:
-            case FabricMetaIndicies::RELATION_RECLAIM_COUNT:
-            case FabricMetaIndicies::WORK_QUEUE_DROPPED_COUNT:
-            case FabricMetaIndicies::THREAD_ACTIVE_COUNT:
-            case FabricMetaIndicies::THREAD_REGISTRATION_FAILURE:
-            case FabricMetaIndicies::RELATION_TOMBSTONE_COUNT:
-            case FabricMetaIndicies::RELATION_UNLINK_FAILURES:
-            case FabricMetaIndicies::WORK_QUEUE_CLAIM_FAILURES:
-            case FabricMetaIndicies::CAS_FAILURE_COUNT:
-            case FabricMetaIndicies::ERROR_COUNT:
-            case FabricMetaIndicies::RETIRED_COUNT:
-            case FabricMetaIndicies::LIVE_SLOT_COUNT:
-            case FabricMetaIndicies::FABRIC_CLOCK16:
                 return true;
-            default:
-                return false;
             }
+            return false;
         }
-
     
     };
 

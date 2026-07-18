@@ -218,7 +218,7 @@ namespace PredictedAdaptedEncoding
                 continue;
             }
 
-            if (!ForceMemCopyFromArray_(self_range.BeginIndex, APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX, desired_buffer))
+            if (!ForceMemCopyFromArray_(self_range.BeginIndex, DESCRIPTION_WIDTH_AND_VALIDATION_IDX, desired_buffer))
             {
                 continue;
             }
@@ -302,7 +302,7 @@ namespace PredictedAdaptedEncoding
 
         cursor = DefaultFabricAlignment16Cell_(record_book_end);
         const size_t apc_description_begin = cursor;
-        const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX);
+        const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
 
         cursor = DefaultFabricAlignment16Cell_(apc_description_end);
         const size_t branch_hash_begin = cursor;

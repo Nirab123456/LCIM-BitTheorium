@@ -49,8 +49,8 @@ namespace PredictedAdaptedEncoding
             return desired_slot_of_apc_descriptor;
         }
 
-        desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX;
-        desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX;
+        desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
+        desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
         desired_slot_of_apc_descriptor.IsValid = true;
         return desired_slot_of_apc_descriptor;
     }
@@ -80,7 +80,7 @@ namespace PredictedAdaptedEncoding
         std::memcpy(
             return_buffer.data(),
             &SlabBasePtr_[this_apc_descriptor_range.BeginIndex],
-            APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX * sizeof(uint64_t)
+            DESCRIPTION_WIDTH_AND_VALIDATION_IDX * sizeof(uint64_t)
         );
 
         return DescriptionOfAPC::ValidateSingleAPCDescriptionBuffer(
@@ -98,7 +98,7 @@ namespace PredictedAdaptedEncoding
         bool caller_holds_claim_guard
     ) noexcept
     {
-        std::optional<uint64_t> current_descriptor_idx = DescriptionOfAPC::ReadADataValueFromADescriptionBuffer(a_valid_description_buffer, APCDescriptorCellType::APC_INDEX);
+        std::optional<uint64_t> current_descriptor_idx = DescriptionOfAPC::ReadADataValueFromADescriptionBuffer(a_valid_description_buffer, DescriptionUnitIdentity::APC_INDEX);
         if (!current_descriptor_idx.has_value())
         {
             return false;
@@ -114,7 +114,7 @@ namespace PredictedAdaptedEncoding
         {
             return ClaimThenMemCopyFromArray_(
                 desired_descriptor_range.BeginIndex,
-                APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX,
+                DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 a_valid_description_buffer
             );
         }
@@ -122,7 +122,7 @@ namespace PredictedAdaptedEncoding
         {
             return ForceMemCopyFromArray_(
                 desired_descriptor_range.BeginIndex,
-                APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX,
+                DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 a_valid_description_buffer
             );
         }
@@ -142,7 +142,7 @@ namespace PredictedAdaptedEncoding
         {
             return return_files;
         }
-        const size_t state_cell_idx = desired_description_range.BeginIndex + static_cast<size_t>(APCDescriptorCellType::ID_STATE_CONCURRENT);
+        const size_t state_cell_idx = desired_description_range.BeginIndex + static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT);
         const uint64_t state_of_apc_cell = SlabBasePtr_[state_cell_idx];
 
         return_files = DescriptionOfAPC::ReadFilesFromStateSaftyofADescriptor(state_of_apc_cell);
@@ -170,7 +170,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const uint64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
-            desired_apc_description_buffer[static_cast<size_t>(APCDescriptorCellType::ID_STATE_CONCURRENT)],
+            desired_apc_description_buffer[static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT)],
             updated_state,
             updated_owner
         );

@@ -26,7 +26,7 @@ namespace PredictedAdaptedEncoding
             bool caller_holds_claim_guard = false
         ) noexcept;
 
-        /// @brief Just Reads the APCDescriptorCellType::ID_STATE_CONCURRENT Cell  Without Validating with Other Descriptor Cells
+        /// @brief Just Reads the DescriptionUnitIdentity::ID_STATE_CONCURRENT Cell  Without Validating with Other Descriptor Cells
         /// @param apc_description_index 
         /// @return 
         DescriptionOfAPC::DescriptorSaftyFiles OneShotTryReadingDescriptionState_(uint64_t apc_description_index) noexcept;

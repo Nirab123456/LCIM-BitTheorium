@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr std::optional<uint32_t> ExtractLow32Of64(uint64_t packed_value) noexcept
         {
-            if (!APCDataStructure::IsThsisIndexValidForFabric(packed_value))
+            if (!APCDataStructure::IsValidFabricUnit(packed_value))
             {
                 return std::nullopt;
             }
@@ -32,7 +32,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr std::optional<uint32_t> ExtractHigh32Of64(uint64_t packed_value) noexcept
         {
-            if(!APCDataStructure::IsThsisIndexValidForFabric(packed_value))
+            if(!APCDataStructure::IsValidFabricUnit(packed_value))
             {
                 return std::nullopt;
             }

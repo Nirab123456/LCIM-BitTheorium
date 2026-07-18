@@ -111,7 +111,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        static constexpr bool IsThsisIndexValidForFabric(uint64_t index) noexcept
+        static constexpr bool IsValidFabricUnit(uint64_t index) noexcept
         {
             if (index < FABRIC_CELL_SENTINAL)
             {

@@ -54,7 +54,7 @@ struct LayoutBuilderAndValidator
     {
         LayoutCarrier return_carrier{};
 
-        if (!APCDataStructure::IsThsisIndexValidForFabric(packed_cell))
+        if (!APCDataStructure::IsValidFabricUnit(packed_cell))
         {
             return return_carrier;
         }
@@ -339,7 +339,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
         if (
             !layout_cell.has_value() ||
-            !APCDataStructure::IsThsisIndexValidForFabric(layout_cell.value())
+            !APCDataStructure::IsValidFabricUnit(layout_cell.value())
         )
         {
             return false;

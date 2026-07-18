@@ -4,7 +4,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    struct DescriptorConf : public EnumsOfFabricCoordinator
+    struct DescriptorConf : public CoreOfFabricCoordinator
     {
 
         struct APCDescriptorRange
@@ -39,9 +39,6 @@ namespace PredictedAdaptedEncoding
             }
             return false;
         }
-
-
-
 
         static constexpr uint64_t ComposeOwnershipAndLock(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
@@ -81,22 +78,20 @@ namespace PredictedAdaptedEncoding
 
     };
 
-
-
-
-    struct DescriptionOfAPC : DescriptorConf
+    struct DescriptionBuffer : public DescriptorConf
     {
-
         static constexpr uint64_t VALID_BUFFER_MARK = 1111111111111;
 
-        using SingleAPCDescriptionCellBuffer = std::array<uint64_t, APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX + 1>;
+        using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX + 1>;
 
 
-        static constexpr void BuildSentinalDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array)
+
+
+        static constexpr void BuildSentinalDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
         {
             for (size_t i = 0; i < default_array.size(); i++)
             {
-                if (i < APC_DESCRIPTOR_WIDTH_OR_VALIDATION_INDEX)
+                if (i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX)
                 {
                     default_array[i] = FABRIC_CELL_SENTINAL;
                 }
@@ -107,7 +102,7 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr void BuildZerodDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array)
+        static constexpr void BuildZerodDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
         {
             for (size_t i = 0; i < default_array.size(); i++)
             {
@@ -115,13 +110,70 @@ namespace PredictedAdaptedEncoding
             }
         }
 
+        static constexpr uint32_t ComposeDescriptionId(
+            SingleAPCDescriptionCellBuffer& description_buffer,
+            StateOfAPC state
+        ) noexcept
+        {
+            if (!IsKnownStateOfAPC(state))
+            {
+                return APCDataStructure::APC_INDEX_BOUND_SENTINAL; //->UINT32_MAX
+            }
+            
+            uint32_t hash = HASH_GOLDEN_RATIO_1 * static_cast<uint32_t>(state);
+
+            for (size_t i = 0; i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX - 1; i++)
+            {
+                const uint64_t unit = description_buffer[i];
+
+                hash ^= static_cast<uint32_t>(i);
+                hash *= HASH_GOLDEN_RATIO_2;
+
+                hash ^= static_cast<uint32_t>(unit);
+                hash *= HASH_GOLDEN_RATIO_2;
+
+                hash ^= static_cast<uint32_t>(unit >> (sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS));
+                hash *= HASH_GOLDEN_RATIO_2;
+            }
+            
+            if (hash == UNSIGNED_ZERO)
+            {
+                return 1u;
+            }
+            else if (hash == UINT32_MAX)
+            {
+                return hash - 1u;
+            }
+            return hash;
+        }
+
+
+    };
+    
+
+
+
+    struct DescriptionOfAPC : DescriptionBuffer
+    {
         // static constexpr bool ValidateADescriptionBuffer(
         //     SingleAPCDescriptionCellBuffer& desc_return_buff
         // ) noexcept;
 
-        // static constexpr void SetADescriptionUnit(
-
-        // )
+        static constexpr void SetADescriptionUnit(
+            SingleAPCDescriptionCellBuffer& desc_buffer,
+            CoreOfFabricCoordinator::DescriptionUnitIdentity identity,
+            uint64_t value
+        ) noexcept
+        {
+            if (
+                !CoreOfFabricCoordinator::IsKnownDescriptionIdentity(identity) ||
+                !APCDataStructure::IsValidFabricUnit(value)
+            )
+            {
+                return;
+            }
+            desc_buffer[static_cast<size_t>(identity)] = value;
+        }
 
         // static constexpr bool ConstructInitialAPCDescriptionBuffer(
         //     SingleAPCDescriptionCellBuffer& desc_return_buff,
@@ -135,7 +187,6 @@ namespace PredictedAdaptedEncoding
         //     BuildZerodDescriptionBuffer(desc_return_buff);
 
         // }
-
 
     };
 

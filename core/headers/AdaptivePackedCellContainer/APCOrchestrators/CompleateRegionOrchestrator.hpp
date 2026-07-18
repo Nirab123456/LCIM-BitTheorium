@@ -209,7 +209,7 @@ namespace PredictedAdaptedEncoding
             }
                        
             uint64_t packed_schema = SchemaDefinition::PackRegionScheme(schema_record);
-            if (!APCDataStructure::IsThsisIndexValidForFabric(packed_schema))
+            if (!APCDataStructure::IsValidFabricUnit(packed_schema))
             {
                 return false;
             }
@@ -455,8 +455,8 @@ namespace PredictedAdaptedEncoding
                     }
                 }
                 else if (
-                    APCDataStructure::IsThsisIndexValidForFabric(enqueue_dequeue_buffers.Enqueue[i]) ||
-                    APCDataStructure::IsThsisIndexValidForFabric(enqueue_dequeue_buffers.Dequeue[i])
+                    APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Enqueue[i]) ||
+                    APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Dequeue[i])
                 )
                 {
                     return false;

@@ -18,7 +18,7 @@ namespace PredictedAdaptedEncoding
     #define UNDEFINED_PERCENTAGE 2u
     ////
     #define DEFAULT_MAX_TRIES 128
-
+        
     static constexpr uint8_t LEN_OF_BYTE_IN_BITS = 8u;
     static constexpr size_t BIT_LENGTH_OF_FABRIC = LEN_OF_BYTE_IN_BITS * sizeof(uint64_t);
     static constexpr uint8_t BIT_LENGTH_OF_APC = LEN_OF_BYTE_IN_BITS * sizeof(uint32_t);

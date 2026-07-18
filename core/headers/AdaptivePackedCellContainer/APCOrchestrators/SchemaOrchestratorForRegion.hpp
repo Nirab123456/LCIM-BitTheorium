@@ -344,7 +344,7 @@ namespace PredictedAdaptedEncoding
             uint64_t packed_scheme
         ) noexcept
         {
-            if (!APCDataStructure::IsThsisIndexValidForFabric(packed_scheme))
+            if (!APCDataStructure::IsValidFabricUnit(packed_scheme))
             {
                 return_schema = RegionSchemaRecord{};
                 return false;

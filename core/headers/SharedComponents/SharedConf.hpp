@@ -50,7 +50,7 @@ namespace PredictedAdaptedEncoding
     /// @param NONE It is the lower guard prevents a Packed Cell to be ever 0
     /// @param GLOBAL_AND_CONFIG USED:FOR: Everything else after @param THREAD_TABLE
     /// @param SLAB_RECORD_MAP STORES:All Begin & End Pair of indicies for every class of FabricTableSegmentClasses
-    /// @param APC_HANDLE_DESCRIPTOR HOLDS:Each APC x RECORD:APCDescriptorCellType -> DESCRIBS: Initial Fundamental Meta for An APC When Created 
+    /// @param APC_HANDLE_DESCRIPTOR HOLDS:Each APC x RECORD:DescriptionUnitIdentity -> DESCRIBS: Initial Fundamental Meta for An APC When Created 
     /// @param BRANCH_HASH
     /// @param LOGICAL_HASH
     /// @param SHARED_HASH
