@@ -152,8 +152,8 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t FABRIC_META_EOF = 0x41474946u;
         static constexpr uint8_t EACH_TABLE_RECORD_SENTINAL = UINT8_MAX;
         
-        static constexpr uint32_t HASH_GOLDEN_RATIO_1 = 2654435769u;
-        static constexpr uint32_t HASH_GOLDEN_RATIO_2 = 123456789u;
+        static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
+        static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
         static constexpr bool IsValidHashTable(FabricTableSegmentClasses table_class) noexcept
         {

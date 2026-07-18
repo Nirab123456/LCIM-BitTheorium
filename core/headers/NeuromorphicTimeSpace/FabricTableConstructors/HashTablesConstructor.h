@@ -16,7 +16,7 @@ namespace PredictedAdaptedEncoding
         /// @param bucked_base_index First Index In Slab For That Hash SIMPLY: HashTableInternalIndexing::KEY_INDEX OF: ANY: Hash Table
         /// @param caller_holds_Claim_guard IF: FALSE: Claimed Cell is Invalid & ONLY: -> SET: -> TRUE: When Caller Is the One Claimed The Cell 
         /// @return VALID: HashFilesCarrier.IsValid -> true || INVALID: HashFilesCarrier.IsValid = false
-        HashFilesCarrier ReadHashFilesFromSlab(size_t bucked_base_index, bool caller_holds_Claim_guard) noexcept;
+        HashTableConf::HashFilesCarrier ReadHashFilesFromSlab(size_t bucked_base_index, bool caller_holds_Claim_guard) noexcept;
 
     };
 

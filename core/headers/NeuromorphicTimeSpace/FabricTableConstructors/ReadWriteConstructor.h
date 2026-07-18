@@ -21,7 +21,8 @@ namespace PredictedAdaptedEncoding
         bool ReadASnapShotFromSlab(
             size_t slab_starting_idx, 
             size_t sequential_number_of_cells, 
-            const uint64_t* return_buffer
+            uint64_t* return_buffer,
+            bool atomic_required = false
         ) noexcept;
 
     };

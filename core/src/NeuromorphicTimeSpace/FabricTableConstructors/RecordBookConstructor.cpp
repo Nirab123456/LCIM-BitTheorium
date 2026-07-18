@@ -46,7 +46,7 @@ namespace PredictedAdaptedEncoding
     {
         const size_t base_idx = BegainIdxOfAnyFabTableHeader(table_class);
         if (
-            base_idx == APCDataStructure::APC_SIZE_SENTINAL || 
+            base_idx == SIZE_MAX || 
             (base_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_) ||
             begin >= end || end > SlabCellCount_
         )

@@ -99,7 +99,6 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
         // static constexpr uint32_t APC_ALL_INDEX_LIMIT = APC_INDEX_BOUND_SENTINAL - 1;
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
-        static constexpr size_t APC_SIZE_SENTINAL = SIZE_MAX;
 
 
         static constexpr bool IsValidControlAPCUnit(uint32_t index) noexcept

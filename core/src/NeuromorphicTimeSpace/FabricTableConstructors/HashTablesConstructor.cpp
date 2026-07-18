@@ -3,29 +3,28 @@
 namespace PredictedAdaptedEncoding
 {
 
-    HashFilesCarrier HashTablesConstructor::ReadHashFilesFromSlab(size_t bucked_base_index, bool caller_holds_Claim_guard) noexcept
+    HashTableConf::HashFilesCarrier HashTablesConstructor::ReadHashFilesFromSlab(size_t bucked_base_index, bool caller_holds_Claim_guard) noexcept
     {
-        if (!SlabBasePtr_ || bucked_base_index + HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_)
+        if (!SlabBasePtr_ || bucked_base_index + HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_)
         {
-            return HashFilesCarrier{};
+            return HashTableConf::HashFilesCarrier{};
         }
 
-        const uint64_t key_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::KEY_INDEX));
-        const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::VALUE_INDEX));
-        const uint64_t prob_safty_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK));
+        const uint64_t key_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX));
+        const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX));
+        const uint64_t prob_safty_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK));
         
         return HashTableConf::ReadKeyValueProbFromValidCells(
             key_cell,
             value_cell,
-            prob_safty_cell,
-            caller_holds_Claim_guard
+            prob_safty_cell
         );
     }
 
     bool HashTablesConstructor::InsertOrUpdateRobinHoodHash48_(FabricTableSegmentClasses hash_table, uint64_t key48, uint64_t value48) noexcept
     {
 
-        RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
+        RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
 
         bool is_valid_bounds = BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds);
         if (!is_valid_bounds)
@@ -34,7 +33,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const uint64_t table_cell_count = desired_hash_table_bounds.EndIndex - desired_hash_table_bounds.BeginIndex;
-        if ((table_cell_count % HASH_BUCKED_WIDTH_OF_FABRIC) != UNSIGNED_ZERO)
+        if ((table_cell_count % HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC) != UNSIGNED_ZERO)
         {
             return false;
         }
@@ -50,12 +49,12 @@ namespace PredictedAdaptedEncoding
         
         uint64_t incoming_key = key48;
         uint64_t incoming_value = value48;
-        uint64_t incoming_hash = HashTableConf::HashUnsigned48_(incoming_key);
+        uint64_t incoming_hash = HashTableConf::HashUnsigned64(incoming_key);
         uint16_t incoming_prob = UNSIGNED_ZERO;
         uint64_t incoming_bucket = incoming_hash & (bucket_count - 1u);
 
 
-        HashFilesCarrier reuseable_carrier{};
+        HashTableConf::HashFilesCarrier reuseable_carrier{};
         auto MakeAHashCarrierInternal = [&](
             const uint64_t& desired_key,
             const uint64_t& desired_value,
@@ -98,7 +97,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            HashFilesCarrier currrent_hash_data = ReadHashFilesFromSlab(base_idx, false);
+            HashTableConf::HashFilesCarrier currrent_hash_data = ReadHashFilesFromSlab(base_idx, false);
 
             /// Initialize / Fix Invalid / reuse / reclaim
             if (
@@ -138,7 +137,7 @@ namespace PredictedAdaptedEncoding
 
                 incoming_key = currrent_hash_data.HashKey;
                 incoming_value = currrent_hash_data.HashValue;
-                incoming_hash = HashTableConf::HashUnsigned48_(incoming_key);
+                incoming_hash = HashTableConf::HashUnsigned64(incoming_key);
 
                 if (currrent_hash_data.ProbDistance == HashTableConf::PROB_DISTANCE_SENTINAL)
                 {
@@ -177,7 +176,7 @@ namespace PredictedAdaptedEncoding
             return std::nullopt;
         }
         
-        RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
+        RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
 
         if (!BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds))
         {
@@ -193,7 +192,7 @@ namespace PredictedAdaptedEncoding
         const uint64_t bucket_count_dht = table_cell_count / HASH_BUCKED_WIDTH_OF_FABRIC;
 
 
-        uint64_t bucket = HashHelpers::HashUnsigned48_(key48) & (bucket_count_dht - 1u);
+        uint64_t bucket = HashHelpers::HashUnsigned64(key48) & (bucket_count_dht - 1u);
 
         for (uint64_t prob = 0; prob < bucket_count_dht; prob++)
         {

@@ -40,4 +40,69 @@ namespace PredictedAdaptedEncoding
         }
     };
 
+    struct Pack32_30_4BitIn64BitUnit
+    {
+        static constexpr uint8_t UINT4_MAX = 0xff;
+        static constexpr uint8_t LEN_OF_28_BIT = 28u;
+        static constexpr uint32_t UINT28_MAX = UINT32_MAX & LeftOverBitMaskUntil32(LEN_OF_28_BIT);
+
+        struct Pack32_30_4_Carrier
+        {
+            uint32_t Lowest32Bit = UINT32_MAX;
+            uint32_t Mid28Bit = UINT32_MAX;
+            uint8_t High4Bit = UINT8_MAX;
+            bool IsValid = false;
+        };
+        
+        static constexpr bool IsCarrierValid(Pack32_30_4_Carrier& carrier) noexcept
+        {
+            if (
+                !APCDataStructure::IsValidControlAPCUnit(carrier.Lowest32Bit)||
+                carrier.Mid28Bit >= UINT28_MAX ||
+                carrier.High4Bit >= UINT4_MAX
+            )
+            {
+                carrier.IsValid = false;
+                return false;
+            }
+
+            carrier.IsValid = true;
+            return true;
+        }
+
+        static constexpr uint64_t PackValues(
+            Pack32_30_4_Carrier& carrier
+        ) noexcept
+        {
+            if (!IsCarrierValid(carrier))
+            {
+                return FABRIC_CELL_SENTINAL;
+            }
+            
+            return(
+                (uint64_t(carrier.Lowest32Bit) << UNSIGNED_ZERO) |
+                (uint64_t(carrier.Mid28Bit) << LEN_OF_28_BIT) |
+                (uint64_t(carrier.High4Bit) << 4u)
+            );
+        }
+
+        static constexpr Pack32_30_4_Carrier UnpackUnitToCarrier(uint64_t value) noexcept
+        {
+            Pack32_30_4_Carrier carrier{};
+
+            if (!APCDataStructure::IsValidFabricUnit(value))
+            {
+                return carrier;
+            }
+
+            carrier.Lowest32Bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(32u));
+            carrier.Mid28Bit = static_cast<uint32_t>((value >> LEN_OF_28_BIT) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
+            carrier.High4Bit = static_cast<uint8_t>((value >> 4u) & MaskLeftOverBitsUntil64(4u));
+            IsCarrierValid(carrier);
+            return carrier;
+        }
+
+    };
+    
+
 }

@@ -40,7 +40,8 @@ public:
     bool CopyFromAPCToBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        uint64_t* return_buffer
+        uint64_t* return_buffer,
+        bool atomic_required = true
     ) noexcept;
 
     bool BindExternalRawFabricBacking_(

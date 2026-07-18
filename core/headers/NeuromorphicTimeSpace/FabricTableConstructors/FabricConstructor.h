@@ -1,7 +1,5 @@
 #pragma once 
 #include <span>
-#include "../FabricOrchestrators/FabricTableOrchestrator.hpp"
-#include "../FabricOrchestrators/DescriptionOfAPC.hpp"
 #include "../FabricOrchestrators/HashTableConf.hpp"
 
 namespace PredictedAdaptedEncoding
@@ -39,7 +37,10 @@ namespace PredictedAdaptedEncoding
         
         constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept;
 
-        constexpr void AtomicallyStoreU64Fab(size_t slab_index, uint64_t packed_cell, std::memory_order mem_order = MoStoreSeq_) noexcept;
+        constexpr void AtomicallyStoreU64Fab(
+            size_t slab_index, uint64_t packed_cell, 
+            std::memory_order mem_order = std::memory_order_release
+        ) noexcept;
 
         constexpr bool CompareExchangeStrongFromFabric(
             size_t slab_index, 

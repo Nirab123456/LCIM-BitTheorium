@@ -44,7 +44,7 @@ namespace PredictedAdaptedEncoding
         RangeOfThisAPCInSlab_ = default_null_range;
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
-        IdxOfThisAPCInFabric_ = APCDataStructure::APC_SIZE_SENTINAL;
+        IdxOfThisAPCInFabric_ = SIZE_MAX;
     }
 
     void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept
@@ -97,7 +97,8 @@ namespace PredictedAdaptedEncoding
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
-        uint64_t* return_buffer
+        uint64_t* return_buffer,
+        bool atomic_required
     ) noexcept
     {
         if (
@@ -111,7 +112,8 @@ namespace PredictedAdaptedEncoding
         return FabricOwnerPtr_->ReadASnapShotFromSlab(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
-            return_buffer
+            return_buffer,
+            atomic_required
         );
     }
 }

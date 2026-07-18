@@ -136,7 +136,7 @@ namespace PredictedAdaptedEncoding
             return;
         }
 
-        RecordBookTablesBoundsCarrier return_bounds{};
+        RecordBookConf::RecordBookTablesBoundsCarrier return_bounds{};
         bool bounds_ok = BegainEndIdxHeaderPairGet(hash_table, return_bounds);
         if (!bounds_ok)
         {
@@ -146,7 +146,7 @@ namespace PredictedAdaptedEncoding
         
         const uint64_t idle_key = HashTableConf::MakeHashIdKeyCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
         const uint64_t idle_value = HashTableConf::MakeAHashValueCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
-        const uint64_t prob_distance_lock_cell_idle = HashTableConf::MakeHashProbDistanceCellWithSaftyLock(
+        const uint64_t prob_distance_lock_cell_idle = HashTableConf::MakeProbdistanceFingerPrintState(
             UNSIGNED_ZERO, UNSIGNED_ZERO, UNSIGNED_ZERO,
             hash_table, 
             LocalityPolicy::IDLE
@@ -293,8 +293,8 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        RelationRecordCount_ = HashHelpers::NextPowerOf2Unsigned48_(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
-        DeviceViewRecordCount_ = HashHelpers::NextPowerOf2Unsigned48_(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
+        RelationRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
+        DeviceViewRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
 
         size_t cursor = DefaultFabricAlignment16Cell_(APCDataStructure::METACELL_COUNT);
         const size_t record_book_begin = cursor;

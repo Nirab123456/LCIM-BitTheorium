@@ -1,5 +1,5 @@
 #pragma once 
-#include "CoreOfFabricCoordinator.hpp"
+#include "FabricTableOrchestrator.hpp"
 
 namespace PredictedAdaptedEncoding
 {
@@ -117,20 +117,20 @@ namespace PredictedAdaptedEncoding
                 return APCDataStructure::APC_INDEX_BOUND_SENTINAL; //->UINT32_MAX
             }
             
-            uint32_t hash = HASH_GOLDEN_RATIO_1 * static_cast<uint32_t>(state);
+            uint32_t hash = HASH32_GRATIO_1 * static_cast<uint32_t>(state);
 
             for (size_t i = 0; i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX - 1; i++)
             {
                 const uint64_t unit = description_buffer[i];
 
                 hash ^= static_cast<uint32_t>(i);
-                hash *= HASH_GOLDEN_RATIO_2;
+                hash *= HASH32_GRATIO_2;
 
                 hash ^= static_cast<uint32_t>(unit);
-                hash *= HASH_GOLDEN_RATIO_2;
+                hash *= HASH32_GRATIO_2;
 
                 hash ^= static_cast<uint32_t>(unit >> (sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS));
-                hash *= HASH_GOLDEN_RATIO_2;
+                hash *= HASH32_GRATIO_2;
             }
             
             if (hash == UNSIGNED_ZERO)
