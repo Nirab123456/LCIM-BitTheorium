@@ -22,8 +22,8 @@ struct LayoutBuilderAndValidator
     ) noexcept
     {        
         if (
-            APCDataStructure::IsThisIndexValidForAPC(a_layout.BeginIndex) &&
-            APCDataStructure::IsThisIndexValidForAPC(a_layout.EndIndex) &&
+            APCDataStructure::IsValidControlAPCUnit(a_layout.BeginIndex) &&
+            APCDataStructure::IsValidControlAPCUnit(a_layout.EndIndex) &&
             a_layout.BeginIndex <= a_layout.EndIndex &&
             ColumnConf::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
         )
@@ -149,7 +149,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
     {
         if (
             payload_span == UNSIGNED_ZERO ||
-            !APCDataStructure::IsThisIndexValidForAPC(payload_span)
+            !APCDataStructure::IsValidControlAPCUnit(payload_span)
         )
         {
             return false;
@@ -402,7 +402,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
         if (
             expected_begin != payload_end ||
-            !APCDataStructure::IsThisIndexValidForAPC(expected_begin)
+            !APCDataStructure::IsValidControlAPCUnit(expected_begin)
         )
         {
             return false;
@@ -431,7 +431,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
         BuildNullTrackingBuffer(return_buffer);
         if (
             capacity_of_the_apc < MINIMUM_APC_CELL_COUNT ||
-            !APCDataStructure::IsThisIndexValidForAPC(capacity_of_the_apc)
+            !APCDataStructure::IsValidControlAPCUnit(capacity_of_the_apc)
         )
         {
             return false;

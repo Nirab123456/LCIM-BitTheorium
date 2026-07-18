@@ -56,7 +56,7 @@ struct HashIdConstructror
         if (
             group_id == UNSIGNED_ZERO ||
             group_id > GROUP_SEQUENTIAL_INDEX_MASK ||
-            !APCDataStructure::IsThisIndexValidForAPC(sequential_idx_of_desired_id)
+            !APCDataStructure::IsValidControlAPCUnit(sequential_idx_of_desired_id)
         )
         {
             return FABRIC_CELL_SENTINAL;

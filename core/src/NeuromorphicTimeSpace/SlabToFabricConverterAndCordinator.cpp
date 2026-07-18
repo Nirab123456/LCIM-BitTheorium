@@ -271,7 +271,7 @@ namespace PredictedAdaptedEncoding
 
         InitializationInProgress_.store(true, MoStoreSeq_);
 
-        if (slot_count == UNSIGNED_ZERO || !APCDataStructure::IsThisIndexValidForAPC(slot_count))
+        if (slot_count == UNSIGNED_ZERO || !APCDataStructure::IsValidControlAPCUnit(slot_count))
         {
             return false;
         }

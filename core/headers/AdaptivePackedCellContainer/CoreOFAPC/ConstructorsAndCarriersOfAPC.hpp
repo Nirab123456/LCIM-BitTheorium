@@ -102,7 +102,7 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t APC_SIZE_SENTINAL = SIZE_MAX;
 
 
-        static constexpr bool IsThisIndexValidForAPC(uint32_t index) noexcept
+        static constexpr bool IsValidControlAPCUnit(uint32_t index) noexcept
         {
             if (index < APC_INDEX_BOUND_SENTINAL)
             {
@@ -135,7 +135,7 @@ namespace PredictedAdaptedEncoding
         static constexpr bool IsCapacityOfAPCValid(uint32_t capacity) noexcept
         {
             return capacity >= MINIMUM_APC_CELL_COUNT &&
-                IsThisIndexValidForAPC(capacity);
+                IsValidControlAPCUnit(capacity);
         }
 
         static constexpr bool IsPowerOfTwoValue(uint64_t value) noexcept

@@ -8,8 +8,8 @@ namespace PredictedAdaptedEncoding
         static constexpr uint64_t PackDoubleUnsigned32In64(uint32_t low_32, uint32_t high_32) noexcept
         {
             if (
-                !APCDataStructure::IsThisIndexValidForAPC(low_32) ||
-                !APCDataStructure::IsThisIndexValidForAPC(high_32)
+                !APCDataStructure::IsValidControlAPCUnit(low_32) ||
+                !APCDataStructure::IsValidControlAPCUnit(high_32)
             )
             {
                 return FABRIC_CELL_SENTINAL;

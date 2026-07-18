@@ -40,7 +40,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        static constexpr uint64_t ComposeOwnershipAndLock(uint32_t description_id, StateOfAPC apc_state) noexcept
+        static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
             return Double32In64ExPa::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
@@ -80,12 +80,9 @@ namespace PredictedAdaptedEncoding
 
     struct DescriptionBuffer : public DescriptorConf
     {
-        static constexpr uint64_t VALID_BUFFER_MARK = 1111111111111;
+        static constexpr uint64_t VALID_DESCRIPTION_BUFFER_MARK = 1111111111111ull;
 
         using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX + 1>;
-
-
-
 
         static constexpr void BuildSentinalDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
         {
@@ -151,17 +148,47 @@ namespace PredictedAdaptedEncoding
     };
     
 
-
-
     struct DescriptionOfAPC : DescriptionBuffer
     {
-        // static constexpr bool ValidateADescriptionBuffer(
-        //     SingleAPCDescriptionCellBuffer& desc_return_buff
-        // ) noexcept;
+        static constexpr bool ValidateADescriptionBuffer(
+            SingleAPCDescriptionCellBuffer& desc_return_buff
+        ) noexcept
+        {
+            for (size_t i = 0; i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX; i++)
+            {
+                if (!APCDataStructure::IsValidFabricUnit(desc_return_buff[i]))
+                {
+                    desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
+                    return false;
+                }
+            }
+
+            const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB)] -
+                desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+            
+            const DescriptorSaftyFiles desc_files = GetDescriptioLockAndOwnership(
+                desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT)]
+            );
+
+            const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, desc_files.StateOfTheAPC);
+
+            if (
+                !APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(span_of_apc)) ||
+                !desc_files.IsValid ||
+                desc_id != desc_files.DescriptionID
+            )
+            {
+                desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
+                return false;
+            }
+            
+            desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = VALID_DESCRIPTION_BUFFER_MARK;
+            return true;
+        }
 
         static constexpr void SetADescriptionUnit(
             SingleAPCDescriptionCellBuffer& desc_buffer,
-            CoreOfFabricCoordinator::DescriptionUnitIdentity identity,
+            DescriptionUnitIdentity identity,
             uint64_t value
         ) noexcept
         {
@@ -175,18 +202,36 @@ namespace PredictedAdaptedEncoding
             desc_buffer[static_cast<size_t>(identity)] = value;
         }
 
-        // static constexpr bool ConstructInitialAPCDescriptionBuffer(
-        //     SingleAPCDescriptionCellBuffer& desc_return_buff,
-        //     uint64_t apc_idx,
-        //     uint64_t segment_pool_begin,
-        //     uint64_t segment_pool_end,
-        //     uint64_t next_apc_segment_pool = UNSIGNED_ZERO,
-        //     StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
-        // ) noexcept
-        // {
-        //     BuildZerodDescriptionBuffer(desc_return_buff);
+        static constexpr bool ConstructInitialAPCDescriptionBuffer(
+            SingleAPCDescriptionCellBuffer& desc_return_buff,
+            uint64_t apc_idx,
+            uint64_t segment_pool_begin,
+            uint64_t segment_pool_end,
+            uint64_t next_apc_segment_pool = UNSIGNED_ZERO,
+            StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
+        ) noexcept
+        {
+            BuildZerodDescriptionBuffer(desc_return_buff);
+            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_INDEX, apc_idx);
+            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
+            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
+            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::NEXT_APC_SAGMANTPOOL_BEGAIN, next_apc_segment_pool);
 
-        // }
+            const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
+            const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
+            if (
+                !APCDataStructure::IsValidControlAPCUnit(desc_id) ||
+                !APCDataStructure::IsValidFabricUnit(id_state_unit)
+            )
+            {
+                desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
+                return false;
+            }
+            
+            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::ID_STATE_CONCURRENT, id_state_unit);
+
+            return ValidateADescriptionBuffer(desc_return_buff);
+        }
 
     };
 
