@@ -12,7 +12,7 @@ public:
     constexpr bool IsThisAPCValid() noexcept
     {
         if (
-            FabricBackend_ &&
+            FabricOwnerPtr_ != nullptr &&
             HashIdConstructror::IsValidAPCId(IdxOfThisAPCInFabric_) &&
             RangeOfThisAPCInSlab_.IsValid &&
             APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_)

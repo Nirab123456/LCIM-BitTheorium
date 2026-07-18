@@ -19,8 +19,8 @@ namespace PredictedAdaptedEncoding
 
         enum class RecordBookInternalIndexing : uint8_t
         {
-            BEGIN48 = 0,
-            END48 = 1,
+            BEGIN64 = 0,
+            END64 = 1,
             UNASSIGNED_UNUSED_NANNULL = 2
         };
         static constexpr size_t RECORD_BOOK_WIDTH = static_cast<size_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);

@@ -25,7 +25,7 @@ namespace PredictedAdaptedEncoding
     {
         const size_t begin_of_desired_table = BegainIdxOfAnyFabTableHeader(table_class);
         
-        const size_t end_idx = begin_of_desired_table + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END48);
+        const size_t end_idx = begin_of_desired_table + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64);
 
         if (end_idx >= SlabCellCount_ || begin_of_desired_table < APCDataStructure::METACELL_COUNT)
         {
@@ -55,12 +55,12 @@ namespace PredictedAdaptedEncoding
         }
 
         AtomicallyStoreU64Fab(
-            base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::BEGIN48), 
+            base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::BEGIN64), 
             begin
         );
         
         AtomicallyStoreU64Fab(
-            base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END48), 
+            base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64), 
             end
         );                
         

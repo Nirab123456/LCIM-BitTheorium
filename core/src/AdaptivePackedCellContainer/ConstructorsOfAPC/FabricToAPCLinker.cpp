@@ -34,7 +34,6 @@ namespace PredictedAdaptedEncoding
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;
         IdxOfThisAPCInFabric_ = fabric_slot_idx;
-        FabricBackend_ = true;
         return true;
     }
 
@@ -46,7 +45,6 @@ namespace PredictedAdaptedEncoding
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
         IdxOfThisAPCInFabric_ = APCDataStructure::APC_SIZE_SENTINAL;
-        FabricBackend_ = false;
     }
 
     void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept
@@ -54,7 +52,7 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = fabric_owner;
     }
 
-    bool FabricToAPCLinker::ClaimAndCopyToAPCFromBuffer(
+    bool FabricToAPCLinker::CompareExchangeSequentiallRevertInFail(
         uint16_t starting_idx_in_apc,
         uint16_t sequential_number_of_cells,
         const uint64_t* source_cells
@@ -67,12 +65,11 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        
-        return FabricOwnerPtr_->ForceNxLenMemCopy(
+
+        return FabricOwnerPtr_->CompareExchangeStrongSequentiallyOrRevert(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
-            source_cells,
-            false
+            source_cells
         );
     }
 
@@ -93,8 +90,7 @@ namespace PredictedAdaptedEncoding
         return FabricOwnerPtr_->ForceNxLenMemCopy(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
-            source_cells,
-            true
+            source_cells
         );
     }
 

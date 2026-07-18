@@ -21,12 +21,12 @@ namespace PredictedAdaptedEncoding
 
     bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer_(
         LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
-        bool is_claimed_required
+        bool compare_exchange_required 
     ) noexcept
     {
-        if (is_claimed_required)
+        if (compare_exchange_required)
         {
-            return ClaimAndCopyToAPCFromBuffer(
+            return CompareExchangeSequentiallRevertInFail(
                 ColumnConf::LayoutBufferBegainInMetaIndecies(),
                 ColumnConf::CountOfMacroColumn(),
                 a_layout_buffer.data()
