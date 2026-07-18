@@ -12,15 +12,14 @@ namespace PredictedAdaptedEncoding
         return SlabBasePtr_[slab_index];
     } 
 
-    constexpr uint64_t FabricConstructor::AtomicallyLoadReadCompletePackedCell(size_t slab_index) noexcept
+    constexpr uint64_t FabricConstructor::AtomicallyLoadReadAUnit(size_t slab_index) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return FABRIC_CELL_SENTINAL;
         }
         std::atomic_ref<const uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
-        const uint64_t desired_cell_raw = fab_u64_ref.load(MoLoad_);
-
+        const uint64_t desired_cell_raw = fab_u64_ref.load(std::memory_order_acquire);
         return desired_cell_raw;
     }
 
@@ -79,127 +78,15 @@ namespace PredictedAdaptedEncoding
         return fab_u64_ref.compare_exchange_weak(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
-    bool FabricConstructor::ReadFabricMetaCellViewAtomically(FabricMetaIndicies fabric_meta_idx, PackedCell64_t::AuthoritiveCellView& meta_cell_view_address) noexcept
-    {
-        const size_t meta_index_in_slab = static_cast<size_t>(fabric_meta_idx);
-        if (
-            meta_index_in_slab >= APCDataStructure::METACELL_COUNT ||
-            !IsDesiredIndexValidInSLab(meta_index_in_slab)
-        )
-        {
-            return false;
-        }
-
-        const uint64_t packed_meta_cell = AtomicallyLoadReadCompletePackedCell(meta_index_in_slab);
-        meta_cell_view_address = PackedCell64_t::GetAuthoritiveViewsForACell(packed_meta_cell);
-
-        return true;        
-    }
-
-    std::optional<uint64_t> FabricConstructor::ReadOccupancyApproxFromPairedIfValid(
-        LocalityPolicy desired_occupancy_class,
-        PackedCell64_t::AuthoritiveCellView* low_half_view_ptr,
-        PackedCell64_t::AuthoritiveCellView* high_half_view_ptr
-    ) noexcept
-    {
-        const FabricMetaIndicies desired_occupancy_low_idx = CoreOfFabricCoordinator::GetDesiredLowIdxOfOccupancyPairFromLocality(desired_occupancy_class);
-        if (desired_occupancy_low_idx == FabricMetaIndicies::EOF_FABRIC_HEADER)
-        {
-            return std::nullopt;
-        }
-
-        const size_t desired_low_idx = static_cast<size_t>(desired_occupancy_low_idx);
-        const size_t desired_high_idx = static_cast<size_t>(desired_occupancy_low_idx) + 1;
-
-        uint64_t raw_occ_low = AtomicallyLoadReadCompletePackedCell(desired_low_idx);
-        uint64_t raw_occ_high = AtomicallyLoadReadCompletePackedCell(desired_high_idx);
-
-        
-        auto result = PairedVersionedCellModelOfMode32::GetFullUnsigned64FromPairedVersionedCell(raw_occ_low, raw_occ_high, low_half_view_ptr, high_half_view_ptr);
-
-        if (low_half_view_ptr)
-        {
-            low_half_view_ptr->SlabIndexOfPackeCell =  desired_low_idx;
-        } 
-
-        if (high_half_view_ptr)
-        {
-            high_half_view_ptr->SlabIndexOfPackeCell = desired_high_idx;
-        }
-
-        return result;
-    }
-
-
-    bool FabricConstructor::ClaimNxSequentialPackedCellStrong(
-        size_t claim_starting_idx_in_slab, 
-        size_t claim_order_cell_count
-    ) noexcept
-    {
-        if (
-            !IsDesiredIndexValidInSLab(claim_starting_idx_in_slab)||
-            claim_order_cell_count == UNSIGNED_ZERO || 
-            claim_order_cell_count > MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY ||
-            claim_order_cell_count > SlabCellCount_ - claim_starting_idx_in_slab
-        )
-        {
-            return false;
-        }
-        
-        uint8_t changed_amount = UNSIGNED_ZERO;
-        HeaderOrchestrator::DefaultMemCopyBuffer packed_cell_buffer{};
-        HeaderOrchestrator::BuildNullMemCopyBuffer(packed_cell_buffer);
-
-        for (uint8_t idx_inc = 0; idx_inc < claim_order_cell_count; idx_inc++)
-        {
-            const size_t current_slab_idx = static_cast<size_t>(idx_inc + claim_starting_idx_in_slab);
-            uint64_t expected_cell = AtomicallyLoadReadCompletePackedCell(current_slab_idx);
-
-            packed_cell_buffer[idx_inc] = expected_cell;
-
-            if (!PackedCell64_t::IsCellClaimableFromThisCaller(expected_cell))
-            {
-                break;
-            }
-            
-            const uint64_t desired_cell = PackedCell64_t::SetLocalityInPacked(expected_cell, LocalityPolicy::CLAIMED);
-
-            if (!CompareExchangeStrongFromFabric(
-                current_slab_idx,
-                expected_cell,
-                desired_cell
-            ))
-            {
-                break;
-            }
-            
-            changed_amount = idx_inc + 1;
-        }
-
-        if (changed_amount != claim_order_cell_count)
-        {
-            for (uint8_t recover_idx = 0; recover_idx < changed_amount; recover_idx++)
-            {
-                StorePackedCellUncheckedDirectly(claim_starting_idx_in_slab + recover_idx, packed_cell_buffer[recover_idx]);
-            }
-
-            return false;
-        }
-        
-        return true;
-    }
-
-
     bool FabricConstructor::ForceNxLenMemCopy(
         size_t slab_starting_idx, 
         size_t number_of_cells, 
-        const uint64_t* desired_cells,
-        bool force_update
+        const uint64_t* desired_units
     ) noexcept
     {
         if (
-            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
-            !desired_cells ||
+            !IsDesiredIndexValidInSLab(slab_starting_idx + number_of_cells - 1) ||
+            !desired_units ||
             number_of_cells == UNSIGNED_ZERO ||
             number_of_cells > SlabCellCount_ - slab_starting_idx
         )
@@ -207,24 +94,86 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        if (!force_update)
+        try
         {
-            const bool claim_ok = ClaimNxSequentialPackedCellStrong(slab_starting_idx, number_of_cells);
-            if (!claim_ok)
-            {
-                return false;
-            }
+            uint64_t value_of_last_idx = desired_units[number_of_cells - 1];
+            (void) value_of_last_idx;
+        }
+        catch(...)
+        {
+            return false;
         }
 
         std::memcpy(
             &SlabBasePtr_[slab_starting_idx],
-            desired_cells,
+            desired_units,
             number_of_cells * sizeof(uint64_t)
         );
-
         return true;
     }
 
+    bool FabricConstructor::CompareExchangeStrongSequentiallyOrRevert(
+        size_t slab_starting_idx, 
+        uint8_t number_of_cells, 
+        const uint64_t* desired_units
+    ) noexcept
+    {
+        if (
+            !IsDesiredIndexValidInSLab(slab_starting_idx + number_of_cells - 1) ||
+            !desired_units ||
+            number_of_cells == UNSIGNED_ZERO ||
+            !APCDataStructure::InLimitOfUint8(number_of_cells)
+        )
+        {
+            return false;
+        }
 
+        try
+        {
+            uint64_t value_of_last_idx = desired_units[number_of_cells - 1];
+            (void) value_of_last_idx;        
+        }
+        catch(...)
+        {
+            return false;
+        }
+        
+
+        uint16_t changed_count = UNSIGNED_ZERO;
+        HeaderOrchestrator::DefaultMemCopyBuffer comp_ex_buffer{};
+        HeaderOrchestrator::BuildNullMemCopyBuffer(comp_ex_buffer);
+
+        for (size_t i = 0; i < number_of_cells; i++)
+        {
+            const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
+            uint64_t expected_unit = AtomicallyLoadReadAUnit(current_slab_idx);
+            comp_ex_buffer[i] = expected_unit;
+            if (
+                !CompareExchangeStrongFromFabric(
+                    current_slab_idx,
+                    expected_unit,
+                    desired_units[i]
+                )
+            )
+            {
+                break;
+            }
+            changed_count = i + 1;
+        }
+
+        if (changed_count != number_of_cells)
+        {
+            for (size_t i = 0; i < changed_count; i++)
+            {
+                const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
+
+                StorePackedCellUncheckedDirectly(current_slab_idx, comp_ex_buffer[i]);
+            }
+            return false;
+        }
+        
+        return true;
+        
+    }
 
 }

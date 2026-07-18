@@ -8,13 +8,12 @@ namespace PredictedAdaptedEncoding
 
     struct HeaderOrchestrator
     {
-        #define MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY 32
         static constexpr uint64_t COMPLETE_HEADER_VALIDATION_MARK = 3333;
         static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT + 1;
         static constexpr uint8_t VALIDATION_INDEX_OF_HEADER_BUFFER = LEN_OF_APC_META_BUFFER_OR_COUNT - 1;
 
 
-        using DefaultMemCopyBuffer = std::array<uint64_t, MAXIMUM_CLAIMABLE_COUNT_SEQUENTIALLY>;
+        using DefaultMemCopyBuffer = std::array<uint64_t, UINT8_MAX>;
 
         using APCMetaBuffer = std::array<uint64_t, LEN_OF_APC_META_BUFFER_OR_COUNT>;
 
@@ -74,7 +73,7 @@ namespace PredictedAdaptedEncoding
             if (
                 !APCGroupReserver::IfSystemResolvedIdentityValid(identity_apc) ||
                 !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
-                !APCDataStructure::ThisVersionValid(version)
+                !APCDataStructure::InLimitOfUint8(version)
             )
             {
                 return false;

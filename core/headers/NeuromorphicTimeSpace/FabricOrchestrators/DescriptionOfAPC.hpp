@@ -45,7 +45,7 @@ namespace PredictedAdaptedEncoding
             return Double32In64ExPa::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
 
-        static constexpr DescriptorSaftyFiles GetDescriptioLockAndOwnership(uint64_t desc_id_state) noexcept
+        static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
 
@@ -166,7 +166,7 @@ namespace PredictedAdaptedEncoding
             const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB)] -
                 desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB)];
             
-            const DescriptorSaftyFiles desc_files = GetDescriptioLockAndOwnership(
+            const DescriptorSaftyFiles desc_files = GetDescriptionFile(
                 desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT)]
             );
 
@@ -231,6 +231,20 @@ namespace PredictedAdaptedEncoding
             SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::ID_STATE_CONCURRENT, id_state_unit);
 
             return ValidateADescriptionBuffer(desc_return_buff);
+        }
+
+
+        static constexpr bool HasValidationDescriptionMark(
+            const SingleAPCDescriptionCellBuffer& desc_buffer
+        ) noexcept
+        {
+            if (
+                desc_buffer[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] == VALID_DESCRIPTION_BUFFER_MARK
+            )
+            {
+                return true;
+            }
+            return false;
         }
 
     };

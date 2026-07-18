@@ -68,7 +68,7 @@ namespace PredictedAdaptedEncoding
 
         for (size_t tries = 0; tries < DEFAULT_MAX_TRIES; tries++)
         {
-            uint64_t expected_cell = AtomicallyLoadReadCompletePackedCell(desired_idx);
+            uint64_t expected_cell = AtomicallyLoadReadAUnit(desired_idx);
             uint64_t updated_count = UNSIGNED_ZERO;
             const uint64_t updated_cell = Mutation64_t::AddDeltaInAtomicUnsignedCell(delta, expected_cell, &updated_count);
             if (updated_cell == FABRIC_CELL_SENTINAL)
@@ -103,7 +103,7 @@ namespace PredictedAdaptedEncoding
         
         for (size_t i = 0; i < DEFAULT_MAX_TRIES; i++)
         {
-            uint64_t currennt_expected_cell = AtomicallyLoadReadCompletePackedCell(expected_cell_auth_view.SlabIndexOfPackeCell);
+            uint64_t currennt_expected_cell = AtomicallyLoadReadAUnit(expected_cell_auth_view.SlabIndexOfPackeCell);
             if (currennt_expected_cell == FABRIC_CELL_SENTINAL)
             {
                 return JustifyClaimCas::CELL_SENTINAL_STATE;

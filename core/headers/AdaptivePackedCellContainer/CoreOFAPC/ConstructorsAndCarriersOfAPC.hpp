@@ -120,7 +120,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        static constexpr bool ThisVersionValid(uint32_t version) noexcept
+        static constexpr bool InLimitOfUint8(uint32_t version) noexcept
         {
             if (
                 version < UINT8_MAX &&

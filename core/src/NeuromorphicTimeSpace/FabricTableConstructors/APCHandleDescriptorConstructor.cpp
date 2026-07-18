@@ -34,7 +34,7 @@ namespace PredictedAdaptedEncoding
         
     }
 
-    DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionOnSlotIdx(uint64_t apc_slot_index) noexcept
+    DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionRanges(uint64_t apc_slot_index) noexcept
     {
         RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
         const bool ok = BegainEndIdxHeaderPairGet(
@@ -49,8 +49,8 @@ namespace PredictedAdaptedEncoding
             return desired_slot_of_apc_descriptor;
         }
 
-        desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
-        desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
+        desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
+        desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
         desired_slot_of_apc_descriptor.IsValid = true;
         return desired_slot_of_apc_descriptor;
     }
@@ -70,7 +70,7 @@ namespace PredictedAdaptedEncoding
 
         DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
 
-        const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionOnSlotIdx(apc_description_index);
+        const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges(apc_description_index);
 
         if (!this_apc_descriptor_range.IsValid)
         {
@@ -80,123 +80,96 @@ namespace PredictedAdaptedEncoding
         std::memcpy(
             return_buffer.data(),
             &SlabBasePtr_[this_apc_descriptor_range.BeginIndex],
-            DESCRIPTION_WIDTH_AND_VALIDATION_IDX * sizeof(uint64_t)
+            DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX * sizeof(uint64_t)
         );
 
-        return DescriptionOfAPC::ValidateSingleAPCDescriptionBuffer(
-            return_buffer,
-            desired_state,
-            apc_description_index,
-            version_match
-        );
+        return DescriptionOfAPC::ValidateADescriptionBuffer(return_buffer);
     }
 
 
 
     bool APCHandleDescriptorConstructor::OneShotUpdateAPCDescriptor(
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer,
-        bool caller_holds_claim_guard
+        const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
     ) noexcept
     {
-        std::optional<uint64_t> current_descriptor_idx = DescriptionOfAPC::ReadADataValueFromADescriptionBuffer(a_valid_description_buffer, DescriptionUnitIdentity::APC_INDEX);
-        if (!current_descriptor_idx.has_value())
+        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges(
+            desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::APC_INDEX)]
+        );
+
+        if (
+            !desired_descriptor_range.IsValid ||
+            !DescriptionOfAPC::HasValidationDescriptionMark(desc_buffer)
+        )
         {
             return false;
         }
 
-        const APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionOnSlotIdx(current_descriptor_idx.value());
-        if (!desired_descriptor_range.IsValid)
-        {
-            return false;
-        }
-
-        if (!caller_holds_claim_guard)
-        {
-            return ClaimThenMemCopyFromArray_(
-                desired_descriptor_range.BeginIndex,
-                DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
-                a_valid_description_buffer
-            );
-        }
-        else
-        {
-            return ForceMemCopyFromArray_(
-                desired_descriptor_range.BeginIndex,
-                DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
-                a_valid_description_buffer
-            );
-        }
+        return CompareExchangeStrongSequentiallyOrRevert(
+            desired_descriptor_range.BeginIndex,
+            DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
+            desc_buffer.data()
+        );
     }
     
-    DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::OneShotTryReadingDescriptionState_(uint64_t apc_description_index) noexcept
+    DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::ReadAPCStateAtomically(uint64_t apc_description_index) noexcept
     {
         DescriptionOfAPC::DescriptorSaftyFiles return_files{};
-
-        if (!SlabBasePtr_ || apc_description_index >= CountOfAPC_)
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxOnDescriptionIdx(apc_description_index);
+        if (!maybe_id_state_idx.has_value())
         {
             return return_files;
         }
-        
-        const APCDescriptorRange desired_description_range = ReadAPCDescriptionOnSlotIdx(apc_description_index);
-        if (!desired_description_range.IsValid)
-        {
-            return return_files;
-        }
-        const size_t state_cell_idx = desired_description_range.BeginIndex + static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT);
-        const uint64_t state_of_apc_cell = SlabBasePtr_[state_cell_idx];
-
-        return_files = DescriptionOfAPC::ReadFilesFromStateSaftyofADescriptor(state_of_apc_cell);
+        const uint64_t state_of_apc_cell = AtomicallyLoadReadAUnit(maybe_id_state_idx.value());
+        return_files = DescriptionOfAPC::GetDescriptionFile(state_of_apc_cell);
         return return_files;
     }
 
 
     bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
-        OwnershipPolicy updated_owner,
-        DescriptionOfAPC::StateOfSingleAPCDescription updated_state
+        DescriptionOfAPC::StateOfAPC updated_state
     ) noexcept
     {
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desired_apc_description_buffer{};
+        DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desc_buffer{};
         
         const bool buffer_ok = ReadACompleateAPCDescriptorBuffer(
             description_idx, 
-            desired_apc_description_buffer, 
-            false, 
-            OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC
+            desc_buffer
         );
-        if (!buffer_ok)
-        {
-            return false;
-        }
-
-        const uint64_t updated_safty = DescriptionOfAPC::SwitchStateOrAPCOwnerOfSaftyCell(
-            desired_apc_description_buffer[static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT)],
-            updated_state,
-            updated_owner
+        const uint32_t updated_id = DescriptionOfAPC::ComposeDescriptionId(
+            desc_buffer, updated_state
         );
+        uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, updated_state);
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxOnDescriptionIdx(description_idx);
 
-        const bool update_ok_safty = DescriptionOfAPC::SetStateSaftyCellInBuffer(desired_apc_description_buffer, updated_safty);
-        if (!update_ok_safty)
+        if (
+            !buffer_ok ||
+            !APCDataStructure::IsValidControlAPCUnit(updated_id) ||
+            !APCDataStructure::IsValidFabricUnit(updated_id_state) ||
+            !maybe_id_state_idx.has_value()
+        )
         {
             return false;
         }
 
-        const bool claimed_descripor_for_caller = OneShotUpdateAPCDescriptor(desired_apc_description_buffer, true);
-        if (!claimed_descripor_for_caller)
-        {
-            return false;
-        }
+        uint64_t expected_id_state = desc_buffer[
+            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
+        ];
 
-        return true;
+        return CompareExchangeStrongFromFabric(
+            maybe_id_state_idx.value(),
+            expected_id_state,
+            updated_id_state
+        );
     }
 
 
     std::optional<uint64_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink() noexcept
     {
         if (
-            !FabricInitialized_.load(MoLoad_) ||
+            !FabricInitialized_.load(std::memory_order_acquire) ||
             !SlabBasePtr_ || 
-            APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
+            !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
             !HashIdConstructror::IsValidAPCId(CountOfAPC_)
         )
         {
@@ -207,14 +180,10 @@ namespace PredictedAdaptedEncoding
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = OneShotTryReadingDescriptionState_(description_idx);
+            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically(description_idx);
             if (
                 desired_files.IsValid && 
-                desired_files.WidthOfAPC == PerAPCRuntimeCellCount_ &&
-                desired_files.LocalityOfTheDescription ==LocalityPolicy::PUBLISHED && 
-                desired_files.WhoHoldsTheAcess != OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER &&  
-                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL &&
-                ClaimACompleateAPCDescriptorCells(description_idx)
+                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfAPC::FREE_OR_EMPTY
             )
             {
                 desired_apc_slot = description_idx;
@@ -222,15 +191,9 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        if (desired_apc_slot >= CountOfAPC_)
-        {
-            return std::nullopt;
-        }
-
         bool switch_ok = SwitchOwnershipOfAReadyDescription(
             desired_apc_slot, 
-            OwnershipPolicy::ADAPTIVE_PACKED_CELL_CONTAINER, 
-            DescriptionOfAPC::StateOfSingleAPCDescription::OWNED_BY_APC
+            DescriptionOfAPC::StateOfAPC::LIVE_OR_PUBLISHED
         );
 
         if (!switch_ok)

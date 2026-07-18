@@ -231,7 +231,7 @@ namespace PredictedAdaptedEncoding
 
             if (
                 !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer) ||
-                !APCDataStructure::ThisVersionValid(version)
+                !APCDataStructure::InLimitOfUint8(version)
             )
             {
                 return false;
@@ -315,8 +315,8 @@ namespace PredictedAdaptedEncoding
                 }
                 
                 if (
-                    APCDataStructure::ThisVersionValid(schema.Version) &&
-                    !APCDataStructure::ThisVersionValid(expected_version)
+                    APCDataStructure::InLimitOfUint8(schema.Version) &&
+                    !APCDataStructure::InLimitOfUint8(expected_version)
                 )
                 {
                     expected_version = schema.Version;
@@ -324,7 +324,7 @@ namespace PredictedAdaptedEncoding
 
                 if (
                     schema.Version != expected_version &&
-                    APCDataStructure::ThisVersionValid(expected_version)
+                    APCDataStructure::InLimitOfUint8(expected_version)
                 )
                 {
                     return false;

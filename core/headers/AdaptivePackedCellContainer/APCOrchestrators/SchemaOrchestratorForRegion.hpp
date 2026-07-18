@@ -105,7 +105,7 @@ namespace PredictedAdaptedEncoding
         {
             if (
                 !APCDataStructure::IsTrackedRegionMacroColumn(schema.ParentColumn) ||
-                !APCDataStructure::ThisVersionValid(schema.Version)
+                !APCDataStructure::InLimitOfUint8(schema.Version)
             )
             {
                 return false;
@@ -119,7 +119,7 @@ namespace PredictedAdaptedEncoding
             if (
                 !IsKnownProtocol(desired_scheme.Protocol) ||
                 !IsKnownDataType(desired_scheme.Dtype) ||
-                !APCDataStructure::ThisVersionValid(desired_scheme.Version)
+                !APCDataStructure::InLimitOfUint8(desired_scheme.Version)
             )
             {
                 desired_scheme.IsValidSchema = false;
