@@ -15,7 +15,7 @@ protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
     uint64_t IdxOfThisAPCInFabric_{FABRIC_CELL_SENTINAL};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
-    uint16_t CapacityOfThisAPC_{UNSIGNED_ZERO};
+    uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     
     void ReleseFabricBindingOnly_() noexcept;
 

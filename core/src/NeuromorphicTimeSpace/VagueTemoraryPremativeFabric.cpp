@@ -21,7 +21,7 @@ namespace PredictedAdaptedEncoding
 
         for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
         {
-            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
+            APCRuntimePtrTable_[i].store(nullptr, std::memory_order_release);
         }
         
         return true;
@@ -35,7 +35,7 @@ namespace PredictedAdaptedEncoding
         }
         for (size_t i = 0; i < static_cast<size_t>(CountOfAPC_); i++)
         {
-            APCRuntimePtrTable_[i].store(nullptr, MoStoreSeq_);
+            APCRuntimePtrTable_[i].store(nullptr, std::memory_order_release);
         }
     }
 
@@ -46,7 +46,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        APCRuntimePtrTable_[apc_idx].store(apc_ptr, MoStoreSeq_);
+        APCRuntimePtrTable_[apc_idx].store(apc_ptr, std::memory_order_release);
         return true;
     }
 
@@ -57,7 +57,7 @@ namespace PredictedAdaptedEncoding
             return nullptr;
         }
 
-        return APCRuntimePtrTable_[apc_idx].load(MoLoad_);
+        return APCRuntimePtrTable_[apc_idx].load(std::memory_order_acquire);
     }
 
     AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept
@@ -74,9 +74,7 @@ namespace PredictedAdaptedEncoding
     std::optional<uint64_t> VagueTemoraryPremativeFabric::ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
         APCGroupReserver::APCInitialIdentityStruct& container_conf,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight,
-        uint8_t version,
-        LocalityPolicy locality
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight
     ) noexcept
     {
 
@@ -119,9 +117,7 @@ namespace PredictedAdaptedEncoding
         if (!desired_apc.InitiateAPCMetaHeader(
             static_cast<uint16_t>(capacity),
             container_conf,
-            user_defined_weight,
-            version,
-            locality
+            user_defined_weight
         ))
         {
             desired_apc.FreeAll();
@@ -255,7 +251,7 @@ namespace PredictedAdaptedEncoding
             container_cfg.SharedNextHandle : container_cfg.LogicalNextHandle
         );
 
-        uint16_t& current_sequential_count = (
+        uint32_t& current_sequential_count = (
             APCGroupReserver::IsHorizontalSharedAxis(desired_axis) ?
             container_cfg.SharedSequentialCount : container_cfg.LogicalSequentalCount
         );
@@ -288,8 +284,8 @@ namespace PredictedAdaptedEncoding
 
             desired_state = APCGroupReserver::APCIdentityDef::ROOT;
             current_group_key = probable_root_key;
-            previous_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
-            next_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+            previous_handle = FABRIC_CELL_SENTINAL;
+            next_handle = FABRIC_CELL_SENTINAL;
             current_sequential_count = UNSIGNED_ZERO;
             return true;
         }
@@ -331,7 +327,7 @@ namespace PredictedAdaptedEncoding
         desired_state = APCGroupReserver::APCIdentityDef::CHILD;
         current_group_key = next_key;
         previous_handle = maybe_previous_handle.value();
-        next_handle = PackedCell64_t::BIT_FAMILY_48_SENTINAL;
+        next_handle = FABRIC_CELL_SENTINAL;
         current_sequential_count = static_cast<uint16_t>(new_sequense_count);
 
         return true; 

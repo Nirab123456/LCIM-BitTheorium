@@ -10,7 +10,7 @@ namespace PredictedAdaptedEncoding
 
 struct HashIdConstructror
 {
-    static constexpr uint64_t GROUP_IDX_BIT_BOUNDRY = 16u;
+    static constexpr uint64_t GROUP_IDX_BIT_BOUNDRY = 32u;
     static constexpr uint64_t GROUP_SEQUENTIAL_INDEX_MASK = UINT32_MAX;
     static constexpr uint64_t GROUP_PREFIX_MASK = UINT32_MAX;
 
@@ -18,6 +18,12 @@ struct HashIdConstructror
     static constexpr bool IsValidAPCId(uint64_t value) noexcept
     {
         return value != UNSIGNED_ZERO && value < FABRIC_CELL_SENTINAL;
+    }
+
+    static constexpr bool IsValidGroupId(uint64_t value) noexcept
+    {
+        return value != UNSIGNED_ZERO && 
+            APCDataStructure::IsValidControlAPCUnit(static_cast<uint32_t>(value));
     }
 
     static constexpr bool IsValidAPCSlotIdx(uint64_t slot_idx) noexcept
@@ -49,20 +55,19 @@ struct HashIdConstructror
     }
 
     /// @brief CREATS: HASH KEY: Based On a Desired SHARED / LOGICAL Group ID
-    /// @param sequential_idx_of_desired_id SEQUENTIAL IDX < UINT16_MAX - 1
+    /// @param child_ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
-    static constexpr uint64_t MakeGroupAccessKey(uint64_t group_id, uint16_t sequential_idx_of_desired_id) noexcept
+    static constexpr uint64_t MakeGroupAccessKey(uint64_t group_id, uint32_t child_ordinal) noexcept
     {
         if (
-            group_id == UNSIGNED_ZERO ||
-            group_id > GROUP_SEQUENTIAL_INDEX_MASK ||
-            !APCDataStructure::IsValidControlAPCUnit(sequential_idx_of_desired_id)
+            !IsValidGroupId(group_id) ||
+            !APCDataStructure::IsValidControlAPCUnit(child_ordinal)
         )
         {
             return FABRIC_CELL_SENTINAL;
         }
 
-        const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | (sequential_idx_of_desired_id & GROUP_SEQUENTIAL_INDEX_MASK);
+        const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | child_ordinal;
 
         return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL;
     }
@@ -362,6 +367,11 @@ struct APCGroupReserver : public AxisConstructor
             }
         }  
     }
+
+
+
+
+
 };
 
 

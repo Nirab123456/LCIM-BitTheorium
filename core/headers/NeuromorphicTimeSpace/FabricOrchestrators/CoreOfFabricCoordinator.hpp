@@ -66,7 +66,7 @@ namespace PredictedAdaptedEncoding
             SEGMENT_POOL_BEGIN_IDX = 8,
             SEGMENT_POOL_END_IDX = 9,
             
-            TOTAL_APC_IN_USE  = 10,
+            RESERVED_10  = 10,
             RETIRE_SLOT_HEAD = 11,
             RELATION_FREE_HEAD = 12,
             RESERVED_13 = 13,
@@ -109,7 +109,7 @@ namespace PredictedAdaptedEncoding
 
             BACKOFF_SPIN_LIMIT = 52,
             BACKOFF_YIELD_LIMIT = 53,
-            INITIALIZATION_STATE = 54,
+            RESERVED_54 = 54,
             HAS_COMPACTION_INFLIGHT = 55,
 
             THREAD_TABLE_CAPACITY = 56,

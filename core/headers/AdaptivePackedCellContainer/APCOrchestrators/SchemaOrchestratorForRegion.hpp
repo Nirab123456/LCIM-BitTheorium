@@ -235,22 +235,22 @@ namespace PredictedAdaptedEncoding
             case DataTypeOfMacroColumn::UINT8_T:
             case DataTypeOfMacroColumn::INT8_T:
             case DataTypeOfMacroColumn::CHAR:
-                return sizeof(uint64_t) / sizeof(uint8_t);
+                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint8_t));
 
             case DataTypeOfMacroColumn::UINT16_T:
             case DataTypeOfMacroColumn::INT16_T:
             case DataTypeOfMacroColumn::FLOAT16_T:
-                return sizeof(uint64_t) / sizeof(uint16_t);
+                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint16_t));
 
             case DataTypeOfMacroColumn::UINT32_T:
             case DataTypeOfMacroColumn::INT32_T:
             case DataTypeOfMacroColumn::FLOAT32_T:
-                return sizeof(uint64_t) / sizeof(uint32_t);
+                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint32_t));
 
             case DataTypeOfMacroColumn::UINT64_T:
             case DataTypeOfMacroColumn::INT64_T:
             case DataTypeOfMacroColumn::FLOAT64_T:
-                return sizeof(uint64_t) / sizeof(uint64_t);
+                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint64_t));
 
             default:
                 return std::nullopt;

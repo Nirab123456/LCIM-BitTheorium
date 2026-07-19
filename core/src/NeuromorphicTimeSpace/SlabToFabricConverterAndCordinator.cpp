@@ -60,7 +60,7 @@ namespace PredictedAdaptedEncoding
 
         for (size_t i = 0; i < APCDataStructure::METACELL_COUNT; i++)
         {
-            StorePackedCellUncheckedDirectly(i, UNSIGNED_ZERO);
+            DirectlyStoreFabricUnit64(i, UNSIGNED_ZERO);
         }
 
         SlabBasePtr_[static_cast<size_t>(FMI::MAGIC)] = CoreOfFabricCoordinator::FABRIC_MAGIC;
@@ -78,20 +78,10 @@ namespace PredictedAdaptedEncoding
 
     void SlabToFabricConverterAndCordinator::InitializeAPCDescriptorTable_() noexcept
     {
-        const uint8_t version = APCDataStructure::BRANCH_VERSION;
-        const uint64_t idle_apc_cell = PackedCell64_t::MakeTypedAPCValidPackedCell(
-            TypeFamily::VALUE32,
-            ContractOfConcurrency::CLAIMED_GURDED,
-            MacroColumnOfAPC::UNDEFINED,
-            LocalityPolicy::IDLE,
-            InternalDataTypePolicy::UNSIGNED,
-            UNSIGNED_ZERO,
-            UNSIGNED_ZERO
-        );
 
         for (uint64_t desc_idx = 0; desc_idx < CountOfAPC_; desc_idx++)
         {
-            const APCDescriptorRange self_range = ReadAPCDescriptionRanges(desc_idx);
+            const DescriptorConf::APCDescriptorRange self_range = ReadAPCDescriptionRanges(desc_idx);
             const APCSegmentPoolRange segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desc_idx);
             if (!self_range.IsValid || !segment_pool_range.IsValid)
             {
@@ -99,40 +89,40 @@ namespace PredictedAdaptedEncoding
             }
             const APCSegmentPoolRange next_segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desc_idx + 1);
 
-            DescriptionOfAPC::SingleAPCDescriptionCellBuffer desired_buffer = DescriptionOfAPC::MakeADefaultAPCDescription(
+            DescriptionOfAPC::SingleAPCDescriptionCellBuffer description_buffer{};
+
+            bool dsc_ok = DescriptionOfAPC::ConstructInitialAPCDescriptionBuffer(
+                description_buffer,
                 desc_idx,
-                static_cast<uint64_t>(segment_pool_range.BeginIndex),
-                static_cast<uint64_t>(segment_pool_range.EndIndex),
-                static_cast<uint64_t>(next_segment_pool_range.BeginIndex == UNSIGNED_ZERO ? FABRIC_CELL_SENTINAL : next_segment_pool_range.BeginIndex),
-                version,
-                LocalityPolicy::PUBLISHED                
+                segment_pool_range.BeginIndex,
+                segment_pool_range.EndIndex,
+                !next_segment_pool_range.IsValid ? UNSIGNED_ZERO : next_segment_pool_range.BeginIndex
             );
 
-            bool buffer_ok = DescriptionOfAPC::ValidateSingleAPCDescriptionBuffer(
-                desired_buffer,
-                true,
-                OwnershipPolicy::NEUROMORPHIC_SPACE_TIME_FABRIC,
-                DescriptionOfAPC::StateOfSingleAPCDescription::RECORD_WITH_SEGMENT_POOL
-            );
-            if (!buffer_ok)
+            if (!dsc_ok)
             {
                 continue;
             }
 
-            if (!ForceMemCopyFromArray_(self_range.BeginIndex, DESCRIPTION_WIDTH_AND_VALIDATION_IDX, desired_buffer))
+            if (
+                !ForceNxLenMemCopy(
+                    self_range.BeginIndex,
+                    CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
+                    description_buffer.data()
+                )
+            )
             {
                 continue;
             }
+            
             
             for (size_t seg_idx = segment_pool_range.BeginIndex; seg_idx < segment_pool_range.EndIndex; seg_idx++)
             {
-                StorePackedCellUncheckedDirectly(seg_idx, idle_apc_cell);
+                DirectlyStoreFabricUnit64(seg_idx, UNSIGNED_ZERO);
             }
             
         }
-        
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TOTAL_APC_IN_USE, UNSIGNED_ZERO);
-        
+                
     }
 
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
@@ -143,7 +133,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         bool expected = false;
-        if (!InitializationInProgress_.compare_exchange_strong(expected, true, MoClaimSuccess, MoClaimFailure))
+        if (!InitializationInProgress_.compare_exchange_strong(expected, true, std::memory_order_acq_rel, std::memory_order_acquire))
         {
             return false;
         }
@@ -158,19 +148,19 @@ namespace PredictedAdaptedEncoding
             {
                 if (!SuccesInit && SelfPtr)
                 {
-                    SelfPtr->FabricInitialized_.store(false, MoStoreSeq_);
+                    SelfPtr->FabricInitialized_.store(false, std::memory_order_release);
                 }
                 
                 if (SelfPtr)
                 {
-                    SelfPtr->InitializationInProgress_.store(false, MoStoreSeq_);
+                    SelfPtr->InitializationInProgress_.store(false, std::memory_order_release);
                 }
             }
         } internal_init_guard{this, false};
         
         ShutDownFabric();
 
-        InitializationInProgress_.store(true, MoStoreSeq_);
+        InitializationInProgress_.store(true, std::memory_order_release);
 
         if (slot_count == UNSIGNED_ZERO || !APCDataStructure::IsValidControlAPCUnit(slot_count))
         {
@@ -185,7 +175,7 @@ namespace PredictedAdaptedEncoding
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
         PerAPCRuntimeCellCount_ = static_cast<uint16_t>(slot_cell_count);
         SlabId_ = slab_id == UNSIGNED_ZERO ? APCDataStructure::BRANCH_VERSION : slab_id;
-        ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
+        ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 
         HashBucketCount_ = HashHelpers::BucketCountForExpectedEntries(CountOfAPC_);
 
@@ -199,50 +189,50 @@ namespace PredictedAdaptedEncoding
 
         size_t cursor = DefaultFabricAlignment16Cell_(APCDataStructure::METACELL_COUNT);
         const size_t record_book_begin = cursor;
-        const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * RECORD_BOOK_WIDTH;
+        const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH;
 
         cursor = DefaultFabricAlignment16Cell_(record_book_end);
         const size_t apc_description_begin = cursor;
-        const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
+        const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
 
         cursor = DefaultFabricAlignment16Cell_(apc_description_end);
         const size_t branch_hash_begin = cursor;
-        const size_t branch_hash_end = branch_hash_begin + static_cast<size_t>(HashBucketCount_ * HASH_BUCKED_WIDTH_OF_FABRIC);
+        const size_t branch_hash_end = branch_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(branch_hash_end);
         const size_t logical_hash_begin = cursor;
-        const size_t logical_hash_end = logical_hash_begin + static_cast<size_t>(HashBucketCount_ * HASH_BUCKED_WIDTH_OF_FABRIC);
+        const size_t logical_hash_end = logical_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
         
         cursor = DefaultFabricAlignment16Cell_(logical_hash_end);
         const size_t shared_hash_begin = cursor;
-        const size_t shared_hash_end = shared_hash_begin + static_cast<size_t>(HashBucketCount_ * HASH_BUCKED_WIDTH_OF_FABRIC);
+        const size_t shared_hash_end = shared_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(shared_hash_end);
         const size_t edge_table_begin = cursor;
-        const size_t edge_table_end = edge_table_begin + static_cast<size_t>(CountOfAPC_ * QUEUE_RECORD_WIDTH_OF_FABRIC);
+        const size_t edge_table_end = edge_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(edge_table_end);
         const size_t free_list_begin = cursor;
-        const size_t free_list_end = free_list_begin + static_cast<size_t>(CountOfAPC_ * QUEUE_RECORD_WIDTH_OF_FABRIC);
+        const size_t free_list_end = free_list_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(free_list_end);
         const size_t ready_queue_begin = cursor;
-        const size_t ready_queue_end = ready_queue_begin + static_cast<size_t>(CountOfAPC_ * QUEUE_RECORD_WIDTH_OF_FABRIC);
+        const size_t ready_queue_end = ready_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(ready_queue_end);
         const size_t work_queue_begin = cursor;
-        const size_t work_queue_end = work_queue_begin + static_cast<size_t>(CountOfAPC_ * WORK_RECORD_WIDTH_OF_FABRIC);
+        const size_t work_queue_end = work_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::WORK_RECORD_WIDTH_OF_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(work_queue_end);
         const size_t device_view_table_begin = cursor;
-        const size_t device_view_table_end = static_cast<size_t>(DeviceViewRecordCount_ * DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
+        const size_t device_view_table_end = static_cast<size_t>(DeviceViewRecordCount_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(device_view_table_end);
         const size_t thread_table_begin = cursor;
-        const size_t thread_table_end = thread_table_begin + static_cast<size_t>(ThreadTableCapacity_ * THREAD_TABLE_RECORD_WIDTH);
+        const size_t thread_table_end = thread_table_begin + static_cast<size_t>(ThreadTableCapacity_ * CoreOfFabricCoordinator::THREAD_TABLE_RECORD_WIDTH);
 
         cursor = DefaultFabricAlignment16Cell_(thread_table_end);
-        SegmentPoolBegin_ = DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, DEFAULT_FABRIC_CONTROLIO_LENGTH));
+        SegmentPoolBegin_ = DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
         SegmentPoolEnd_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
         SlabCellCount_ = SegmentPoolEnd_;
 
@@ -256,34 +246,26 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const uint64_t valu48_raw_fabric_global_cell = PackedCell64_t::MakeTypedFabricValidPackedCell(
-            TypeFamily::VALUE48,
-            ContractOfConcurrency::RAW_PRIVATE,
-            FabricTableSegmentClasses::GLOBAL_AND_CONFIG,
-            LocalityPolicy::IDLE,
-            InternalDataTypePolicy::UNASSIGNED_UNUSED_NANNULL,
-            UNSIGNED_ZERO
-        );
         for (size_t idx = 0; idx < SlabCellCount_; idx++)
         {
-            StorePackedCellUncheckedDirectly(idx, valu48_raw_fabric_global_cell);
+            DirectlyStoreFabricUnit64(idx, UNSIGNED_ZERO);
         }
 
         InitializeCompleateFabricMetaIndices_(record_book_begin, record_book_end);
 
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SLAB_RECORD_MAP, record_book_begin, record_book_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_begin, branch_hash_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::LOGICAL_HASH, logical_hash_begin, logical_hash_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SHARED_HASH, shared_hash_begin, shared_hash_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::EDGE_TABLE, edge_table_begin, edge_table_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::FREE_APC_LIST, free_list_begin, free_list_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::READY_QUEUE, ready_queue_begin, ready_queue_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::WORK_QUEUE, work_queue_begin, work_queue_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::THREAD_TABLE, thread_table_begin, thread_table_end, SlabId_);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_, SlabId_);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SLAB_RECORD_MAP, record_book_begin, record_book_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_begin, branch_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::LOGICAL_HASH, logical_hash_begin, logical_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SHARED_HASH, shared_hash_begin, shared_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::EDGE_TABLE, edge_table_begin, edge_table_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::FREE_APC_LIST, free_list_begin, free_list_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::READY_QUEUE, ready_queue_begin, ready_queue_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::WORK_QUEUE, work_queue_begin, work_queue_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::THREAD_TABLE, thread_table_begin, thread_table_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_);
         //ENTRIES:: END ::SLAB_RECORD_MAP
 
         //IDLE UNUSED FabricTableSegmentClasses
@@ -304,8 +286,7 @@ namespace PredictedAdaptedEncoding
         InitializeAPCDescriptorTable_();
 
         //CONFERMATION
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::INITIALIZATION_STATE, static_cast<uint64_t>(LocalityPolicy::PUBLISHED));
-        FabricInitialized_.store(true, MoStoreSeq_);
+        FabricInitialized_.store(true, std::memory_order_release);
         internal_init_guard.SuccesInit = true;
         return true;
         
@@ -314,7 +295,7 @@ namespace PredictedAdaptedEncoding
     void SlabToFabricConverterAndCordinator::ShutDownFabric() noexcept
     {
 
-        FabricInitialized_.store(false, MoStoreSeq_);
+        FabricInitialized_.store(false, std::memory_order_release);
         uint64_t* old_ptr = SlabBasePtr_;
         const size_t old_count = SlabCellCount_;
         SlabBasePtr_ = nullptr;

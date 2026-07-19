@@ -14,7 +14,7 @@ namespace PredictedAdaptedEncoding
 
         for (size_t idx = return_bounds.BeginIndex; idx < return_bounds.EndIndex; idx++)
         {
-            StorePackedCellUncheckedDirectly(idx, UNSIGNED_ZERO);
+            DirectlyStoreFabricUnit64(idx, UNSIGNED_ZERO);
         }
     }
 

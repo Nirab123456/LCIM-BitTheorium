@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
         return desired_cell_raw;
     }
 
-    constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t fabric_unit) noexcept
+    constexpr void FabricConstructor::DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
@@ -167,7 +167,7 @@ namespace PredictedAdaptedEncoding
             {
                 const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
 
-                StorePackedCellUncheckedDirectly(current_slab_idx, comp_ex_buffer[i]);
+                DirectlyStoreFabricUnit64(current_slab_idx, comp_ex_buffer[i]);
             }
             return false;
         }

@@ -38,16 +38,14 @@ public:
     std::optional<uint64_t> ConstructAnAPC_(   
         AdaptivePackedCellContainer& desired_apc,     
         APCGroupReserver::APCInitialIdentityStruct& container_conf,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
-        uint8_t version = APCDataStructure::BRANCH_VERSION,
-        LocalityPolicy locality = LocalityPolicy::PUBLISHED
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT
     ) noexcept;
 
     bool InitializeFabricWithPtrTable(
         uint16_t slot_count,
         size_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
         uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
-        uint32_t fabric_thread_capacity = DEFAULT_THREAD_TABLE_CAPACITY
+        uint32_t fabric_thread_capacity = UNSIGNED_ZERO
     ) noexcept;
 
     void ShutDownFabricWithPtrTable() noexcept
