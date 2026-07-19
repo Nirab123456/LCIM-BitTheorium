@@ -11,18 +11,12 @@ class AdaptivePackedCellContainer : public ReadAndWriteOfAPC
 public:
     constexpr bool IsThisAPCValid() noexcept
     {
-        if (
+        return 
             FabricOwnerPtr_ != nullptr &&
             HashIdConstructror::IsValidAPCId(IdxOfThisAPCInFabric_) &&
             RangeOfThisAPCInSlab_.IsValid &&
-            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_)
-        )
-        {
-            return true;
-        }
-        return false;
+            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
     }
-
 };
 
 

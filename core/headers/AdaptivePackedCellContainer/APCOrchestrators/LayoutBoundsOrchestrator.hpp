@@ -48,19 +48,19 @@ struct LayoutBuilderAndValidator
     }
 
     static constexpr LayoutCarrier GetLayoutCarrierFromValidLayoutCell(
-        uint64_t packed_cell,
+        uint64_t fabric_unit,
         MacroColumnOfAPC layout_marker
     ) noexcept
     {
         LayoutCarrier return_carrier{};
 
-        if (!APCDataStructure::IsValidFabricUnit(packed_cell))
+        if (!APCDataStructure::IsValidFabricUnit(fabric_unit))
         {
             return return_carrier;
         }
         
-        const std::optional<uint32_t> begin_idx = Double32In64ExPa::ExtractLow32Of64(packed_cell);
-        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractHigh32Of64(packed_cell);
+        const std::optional<uint32_t> begin_idx = Double32In64ExPa::ExtractLow32Of64(fabric_unit);
+        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractHigh32Of64(fabric_unit);
         return_carrier.BeginIndex =  begin_idx.has_value() ? begin_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.EndIndex =  end_idx.has_value() ? end_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.LayoutIdentity = layout_marker;
@@ -70,11 +70,11 @@ struct LayoutBuilderAndValidator
     }
 
     static constexpr std::optional<uint32_t> SpanOflayoutFromPackedCell(
-        uint64_t packed_cell,
+        uint64_t fabric_unit,
         MacroColumnOfAPC layout_identity
     ) noexcept
     {
-        const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(packed_cell, layout_identity);
+        const LayoutCarrier desired_layout_files = GetLayoutCarrierFromValidLayoutCell(fabric_unit, layout_identity);
         if (!desired_layout_files.IsValid)
         {
             return std::nullopt;

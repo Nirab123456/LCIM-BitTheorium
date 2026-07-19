@@ -56,11 +56,11 @@ namespace PredictedAdaptedEncoding
         enum class FabricMetaIndicies : uint8_t
         {
             MAGIC = 0,
-            VERSION = 1,
+            RESERVED_1 = 1,
+
             FLAGS = 2,
             SLAB_ID = 3,
             TOTAL_CELLS = 4,
-            CONTROL_CELLS_OF_FABRIC = 5,
             APC_DESCRIPTION_COUNT = 6,
             PER_APC_RUNTIME_CELL_COUNT = 7,
             SEGMENT_POOL_BEGIN_IDX = 8,
@@ -95,12 +95,10 @@ namespace PredictedAdaptedEncoding
             ERROR_COUNT = 32,
             RETIRED_COUNT = 33,
             LIVE_SLOT_COUNT = 34,
-            FABRIC_CLOCK16 = 35,
             ///end count
             
             RECORD_BOOK_OF_TSC_BEGIN = 36,
             RECORD_BOOK_OF_TSC_END = 37,
-            TABLE_DIRECTORY_COUNT = 38,
             TABLE_DIRECTORY_VERSION = 39,
 
 

@@ -26,8 +26,8 @@ public:
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
     bool CompareExchangeSequentiallRevertInFail(
-        uint16_t starting_idx_in_apc,
-        uint16_t sequential_number_of_cells,
+        uint32_t starting_idx_in_apc,
+        uint8_t sequential_number_of_cells,
         const uint64_t* source_cells
     ) noexcept;
 
@@ -46,7 +46,7 @@ public:
 
     bool BindExternalRawFabricBacking_(
         uint64_t* raw_cells_ptr,
-        uint16_t cell_count,
+        uint32_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
         uint64_t fabric_slot_idx
     ) noexcept;

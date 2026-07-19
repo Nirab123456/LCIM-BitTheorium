@@ -56,63 +56,23 @@ namespace PredictedAdaptedEncoding
 
     void SlabToFabricConverterAndCordinator::InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept
     {
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::MAGIC, CoreOfFabricCoordinator::FABRIC_MAGIC);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::VERSION, APCDataStructure::BRANCH_VERSION);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::FLAGS, UNSIGNED_ZERO);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::SLAB_ID, static_cast<uint64_t>(SlabId_));
+        using FMI = CoreOfFabricCoordinator::FabricMetaIndicies;
 
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TOTAL_CELLS, static_cast<uint64_t>(SlabCellCount_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::CONTROL_CELLS_OF_FABRIC, static_cast<uint64_t>(SegmentPoolBegin_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::APC_DESCRIPTION_COUNT, static_cast<uint64_t>(CountOfAPC_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::PER_APC_RUNTIME_CELL_COUNT, static_cast<uint64_t>(PerAPCRuntimeCellCount_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::SEGMENT_POOL_BEGIN_IDX, static_cast<uint64_t>(SegmentPoolBegin_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::SEGMENT_POOL_END_IDX, static_cast<uint64_t>(SegmentPoolEnd_));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TOTAL_APC_IN_USE , UNSIGNED_ZERO);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RETIRE_SLOT_HEAD, PackedCell64_t::BIT_FAMILY_48_SENTINAL);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_FREE_HEAD, UNSIGNED_ZERO);
-        
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::GLOBAL_EPOCH48, 1u);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::MIN_SAFE_EPOCH48, UNSIGNED_ZERO);
+        for (size_t i = 0; i < APCDataStructure::METACELL_COUNT; i++)
+        {
+            StorePackedCellUncheckedDirectly(i, UNSIGNED_ZERO);
+        }
 
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::NEXT_BRANCH_ID, APCDataStructure::BRANCH_VERSION);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::NEXT_RELATION_ID, APCDataStructure::BRANCH_VERSION);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::NEXT_DEVICE_VIEW_ID, APCDataStructure::BRANCH_VERSION);
-        
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::FABRIC_CLOCK16, 1u);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_WRITE_CURSOR, UNSIGNED_ZERO);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_READ_CURSOR, UNSIGNED_ZERO);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::READY_WRITE_CURSOR, UNSIGNED_ZERO);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::READY_READ_CURSOR, UNSIGNED_ZERO);
-
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN, static_cast<uint64_t>(record_book_begin));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RECORD_BOOK_OF_TSC_END, static_cast<uint64_t>(record_book_end));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TABLE_DIRECTORY_COUNT, RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TABLE_DIRECTORY_VERSION, APCDataStructure::BRANCH_VERSION);
-
-
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::CAS_FAILURE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::ERROR_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::LIVE_SLOT_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_TOMBSTONE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HASH_COMPACTION_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_OCCUPANCY, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::READY_QUEUE_OCCUPANCY, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_SPIN_LIMIT, 16u, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::BACKOFF_YIELD_LIMIT, 64u, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::INITIALIZATION_STATE, static_cast<uint64_t>(LocalityPolicy::PUBLISHED));
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::HAS_COMPACTION_INFLIGHT, UNSIGNED_ZERO);
-
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_RECLAIM_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_DROPPED_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_TABLE_CAPACITY, ThreadTableCapacity_);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_ACTIVE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::THREAD_REGISTRATION_FAILURE, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_TOMBSTONE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::RELATION_UNLINK_FAILURES, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_CLAIM_FAILURES, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
-        MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::EOF_FABRIC_HEADER, CoreOfFabricCoordinator::FABRIC_META_EOF);
+        SlabBasePtr_[static_cast<size_t>(FMI::MAGIC)] = CoreOfFabricCoordinator::FABRIC_MAGIC;
+        SlabBasePtr_[static_cast<size_t>(FMI::SLAB_ID)] = SlabId_;
+        SlabBasePtr_[static_cast<size_t>(FMI::TOTAL_CELLS)] = SlabCellCount_;
+        SlabBasePtr_[static_cast<size_t>(FMI::APC_DESCRIPTION_COUNT)] = CountOfAPC_;
+        SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
+        SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_END_IDX)] = SegmentPoolEnd_;
+        SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
+        SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
+        SlabBasePtr_[static_cast<size_t>(FMI::THREAD_TABLE_CAPACITY)] = ThreadTableCapacity_;
+        SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
 

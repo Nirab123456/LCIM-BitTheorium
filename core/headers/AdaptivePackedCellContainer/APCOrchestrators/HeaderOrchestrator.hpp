@@ -56,7 +56,7 @@ namespace PredictedAdaptedEncoding
 
 
         static constexpr bool InitializeDefaultHeaderBuffer(
-            APCMetaBuffer& header_buffer_return,
+            APCMetaBuffer& header_buffer,
             APCGroupReserver::APCInitialIdentityStruct& identity_apc,
             uint32_t capacity_of_apc,
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
@@ -65,7 +65,7 @@ namespace PredictedAdaptedEncoding
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept
         {
-            for (uint64_t& word : header_buffer_return)
+            for (uint64_t& word : header_buffer)
             {
                 word  = UNSIGNED_ZERO;
             }
@@ -114,29 +114,29 @@ namespace PredictedAdaptedEncoding
             {
                 return false;
             }
-            CopyAllBuffersToHeaderBuffer_(header_buffer_return, layout_buffer, schema_buffer, cursors_buffrers);
-            header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
-            header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
-            header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = version;
-            header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
-            header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
+            CopyAllBuffersToHeaderBuffer_(header_buffer, layout_buffer, schema_buffer, cursors_buffrers);
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = version;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::CAPACITY)] = capacity_of_apc;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
-            header_buffer_return[VALIDATION_INDEX_OF_HEADER_BUFFER] = COMPLETE_HEADER_VALIDATION_MARK;
 
-            return true;
+            return ValidateHeaderBuffer(header_buffer);
 
         }
 
         static constexpr bool ValidateHeaderBuffer(
-            const APCMetaBuffer& header
+            APCMetaBuffer& header
         ) noexcept
         {
             if (
-                header[VALIDATION_INDEX_OF_HEADER_BUFFER] != COMPLETE_HEADER_VALIDATION_MARK ||
                 header[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] != APCDataStructure::BRANCH_MAGIC ||
                 header[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] != APCDataStructure::EOF_HEADER
             )
             {
+                header[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;
                 return false;
             }
             BufferConfForTracking::TrackingBufferOfAPC layout_buffer{};
@@ -155,7 +155,7 @@ namespace PredictedAdaptedEncoding
                 enq_dq_cursors
             );
 
-            const uint32_t total_64Bit_unit_count_in_apc = static_cast<uint32_t>(header[static_cast<size_t>(HeaderIdentifierOfAPC::TOTAL_CAPACITY_OF_THIS_SEGEMENT)]);
+            const uint32_t total_64Bit_unit_count_in_apc = static_cast<uint32_t>(header[static_cast<size_t>(HeaderIdentifierOfAPC::CAPACITY)]);
             
             bool layout_ok = LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, total_64Bit_unit_count_in_apc);
             
@@ -169,10 +169,11 @@ namespace PredictedAdaptedEncoding
                     CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer)
             )
             {
+                header[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;
                 return false;
             }
             
-
+            header[VALIDATION_INDEX_OF_HEADER_BUFFER] = COMPLETE_HEADER_VALIDATION_MARK;
             return true;
         }
 
@@ -189,7 +190,7 @@ namespace PredictedAdaptedEncoding
     
     private:
         static constexpr void CopyAllBuffersToHeaderBuffer_(
-            APCMetaBuffer& header_buffer_return,
+            APCMetaBuffer& header_buffer,
             const BufferConfForTracking::TrackingBufferOfAPC& layout_buffer,
             const BufferConfForTracking::TrackingBufferOfAPC& schema_buffer,
             const CompleateRegionOrchestrator::CursorBuffers& cursors_buffrers
@@ -197,20 +198,20 @@ namespace PredictedAdaptedEncoding
         {
             for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
-                header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i] = layout_buffer[i];
+                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i] = layout_buffer[i];
 
-                header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i] = cursors_buffrers.Enqueue[i];
+                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i] = cursors_buffrers.Enqueue[i];
 
-                header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i] = cursors_buffrers.Dequeue[i];
+                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i] = cursors_buffrers.Dequeue[i];
 
-                header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i] = schema_buffer[i];
+                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i] = schema_buffer[i];
             }
             
         }
 
 
         static constexpr void GetAllBuffersFromHeaderBuffer_(
-            const APCMetaBuffer& header_buffer_return,
+            const APCMetaBuffer& header_buffer,
             BufferConfForTracking::TrackingBufferOfAPC& layout_buffer,
             BufferConfForTracking::TrackingBufferOfAPC& schema_buffer,
             CompleateRegionOrchestrator::CursorBuffers& cursors_buffrers
@@ -218,10 +219,10 @@ namespace PredictedAdaptedEncoding
         {
             for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
-                layout_buffer[i] = header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i];
-                schema_buffer[i] = header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i];
-                cursors_buffrers.Enqueue[i] = header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i];
-                cursors_buffrers.Dequeue[i] = header_buffer_return[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i];
+                layout_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i];
+                schema_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i];
+                cursors_buffrers.Enqueue[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i];
+                cursors_buffrers.Dequeue[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i];
 
             }
             

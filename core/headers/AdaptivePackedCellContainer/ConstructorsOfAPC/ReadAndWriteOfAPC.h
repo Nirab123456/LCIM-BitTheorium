@@ -12,7 +12,7 @@ namespace PredictedAdaptedEncoding
 
         bool ReadCompleatLayoutBuffer_(
             LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
-            bool is_claimed_required = false
+            bool atomic_required = false
         ) noexcept;
 
         bool UpdateCompleateLayoutOfAPCFromBuffer_(

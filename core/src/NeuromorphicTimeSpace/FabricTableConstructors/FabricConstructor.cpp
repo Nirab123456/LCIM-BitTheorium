@@ -23,17 +23,17 @@ namespace PredictedAdaptedEncoding
         return desired_cell_raw;
     }
 
-    constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept
+    constexpr void FabricConstructor::StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t fabric_unit) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
             return;
         }
-        SlabBasePtr_[slab_index] = packed_cell;
+        SlabBasePtr_[slab_index] = fabric_unit;
     }
 
     constexpr void FabricConstructor::AtomicallyStoreU64Fab(
-        size_t slab_index, uint64_t packed_cell,
+        size_t slab_index, uint64_t fabric_unit,
         std::memory_order mem_order
     ) noexcept
     {
@@ -42,7 +42,7 @@ namespace PredictedAdaptedEncoding
             return;
         }
         std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
-        fab_u64_ref.store(packed_cell, mem_order);
+        fab_u64_ref.store(fabric_unit, mem_order);
         fab_u64_ref.notify_all();
     }
 

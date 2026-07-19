@@ -20,24 +20,22 @@ namespace PredictedAdaptedEncoding
     }
 
     bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer_(
-        LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
-        bool compare_exchange_required 
+        LayoutBoundsOrchestrator::TrackingBufferOfAPC& layout_buffer,
+        bool atomic_required 
     ) noexcept
     {
-        if (compare_exchange_required)
+        BufferConfForTracking::BuildNullTrackingBuffer(layout_buffer);
+        if (!CopyFromAPCToBuffer(
+            APCDataStructure::LayoutBufferBegainInMetaIndecies(),
+            APCDataStructure::CountOfMacroColumn(),
+            layout_buffer.data(),
+            atomic_required
+        ))
         {
-            return CompareExchangeSequentiallRevertInFail(
-                ColumnConf::LayoutBufferBegainInMetaIndecies(),
-                ColumnConf::CountOfMacroColumn(),
-                a_layout_buffer.data()
-            );
+            return false;
         }
         
-        return ForceCopyToAPCFromBuffer(
-            ColumnConf::LayoutBufferBegainInMetaIndecies(),
-            ColumnConf::CountOfMacroColumn(),
-            a_layout_buffer.data()
-        );
+        return LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, CapacityOfThisAPC_);
     }
 
     bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(

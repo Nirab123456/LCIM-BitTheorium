@@ -35,10 +35,10 @@ namespace PredictedAdaptedEncoding
 
         constexpr uint64_t AtomicallyLoadReadAUnit(size_t slab_index) noexcept;
         
-        constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t packed_cell) noexcept;
+        constexpr void StorePackedCellUncheckedDirectly(size_t slab_index, uint64_t fabric_unit) noexcept;
 
         constexpr void AtomicallyStoreU64Fab(
-            size_t slab_index, uint64_t packed_cell, 
+            size_t slab_index, uint64_t fabric_unit, 
             std::memory_order mem_order = std::memory_order_release
         ) noexcept;
 

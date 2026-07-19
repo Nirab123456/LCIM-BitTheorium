@@ -68,7 +68,7 @@ namespace PredictedAdaptedEncoding
                 }
                 return_schema.RequiredTypedElementsPerRecord = half_count_of_layout64bit * equivelent_typed_count_of_64bit.value();
                 if (
-                    (return_schema.RequiredTypedElementsPerRecord % 2u) != UNSIGNED_ZERO
+                    (layout_span % 2u) != UNSIGNED_ZERO
                 )
                 {
                     return_schema.Flags = SchemaFlags::ALLOW_TRAILING_PADDING;
@@ -172,6 +172,7 @@ namespace PredictedAdaptedEncoding
             case SchemaProtocols::PRIVATE_REGION:
             case SchemaProtocols::IMMUTABLE_SNAPSHOT:
                 schema.IsValidSchema = payload_size_in64bit_cell.value() == layout_span;
+                return schema.IsValidSchema;
             
             default:
                 schema.IsValidSchema = false;
@@ -280,6 +281,7 @@ namespace PredictedAdaptedEncoding
                 !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer)
             )
             {
+                valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                 return false;
             }
             
@@ -303,6 +305,7 @@ namespace PredictedAdaptedEncoding
                     !have_schema
                 )
                 {
+                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                     return false;
                 }
 
@@ -311,6 +314,7 @@ namespace PredictedAdaptedEncoding
                     maybe_span.value()
                 ))
                 {
+                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                     return false;
                 }
                 
@@ -327,6 +331,7 @@ namespace PredictedAdaptedEncoding
                     APCDataStructure::InLimitOfUint8(expected_version)
                 )
                 {
+                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                     return false;
                 }
             }
@@ -422,10 +427,17 @@ namespace PredictedAdaptedEncoding
             const TrackingBufferOfAPC& schema_buffer
         ) noexcept
         {
+            auto SetZeroMark = [&]()
+            {
+                enqueue_dequeue_buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
+                enqueue_dequeue_buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
+            };
+
             if (
                 !HasSchemaBufferValidationMark(schema_buffer)
             )
             {
+                SetZeroMark();
                 return false;
             }
 
@@ -438,6 +450,7 @@ namespace PredictedAdaptedEncoding
                     schema_buffer[i]
                 ))
                 {
+                    SetZeroMark();
                     return false;
                 }
 
@@ -447,18 +460,20 @@ namespace PredictedAdaptedEncoding
                 if (is_active_mpmcq)
                 {
                     if (
-                        enqueue_dequeue_buffers.Enqueue[i] == UNSIGNED_ZERO ||
-                        enqueue_dequeue_buffers.Dequeue[i] == UNSIGNED_ZERO
+                        enqueue_dequeue_buffers.Enqueue[i] != UNSIGNED_ZERO ||
+                        enqueue_dequeue_buffers.Dequeue[i] != UNSIGNED_ZERO
                     )
                     {
+                        SetZeroMark();
                         return false;
                     }
                 }
                 else if (
-                    APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Enqueue[i]) ||
-                    APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Dequeue[i])
+                    !APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Enqueue[i]) ||
+                    !APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Dequeue[i])
                 )
                 {
+                    SetZeroMark();
                     return false;
                 }
             }
