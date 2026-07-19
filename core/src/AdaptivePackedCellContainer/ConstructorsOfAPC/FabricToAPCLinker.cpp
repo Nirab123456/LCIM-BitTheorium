@@ -6,14 +6,14 @@ namespace PredictedAdaptedEncoding
 
 
     bool FabricToAPCLinker::BindExternalRawFabricBacking_(
-        uint64_t* raw_cells_ptr,
+        uint64_t* words_raw,
         uint16_t cell_count,
         VagueTemoraryPremativeFabric* fabric_owner,
         uint64_t fabric_slot_idx
     ) noexcept
     {
         if (
-            !raw_cells_ptr ||
+            !words_raw ||
             !fabric_owner ||
             !APCDataStructure::IsCapacityOfAPCValid(cell_count) ||
             !HashIdConstructror::IsValidAPCSlotIdx(fabric_slot_idx)

@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
             END64 = 1,
             UNASSIGNED_UNUSED_NANNULL = 2
         };
-        static constexpr size_t RECORD_BOOK_WIDTH = static_cast<size_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
 
         enum class HashTableInternalIndexing : uint8_t
         {
@@ -32,7 +32,7 @@ namespace PredictedAdaptedEncoding
             PROB_DISTANCE_LOCK = 2,
             UNASSIGNED_UNUSED_NANNULL = 3
         };
-        static constexpr size_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<size_t>(HashTableInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashTableInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
         enum class DescriptionUnitIdentity : uint8_t
@@ -49,7 +49,7 @@ namespace PredictedAdaptedEncoding
             ID_STATE_CONCURRENT = 9,
             UNASSIGNED_UNUSED_NANNULL = 10
         };
-        static constexpr size_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<size_t>(DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL);
 
 
 

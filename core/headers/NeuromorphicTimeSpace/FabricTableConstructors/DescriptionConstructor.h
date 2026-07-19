@@ -30,9 +30,7 @@ namespace PredictedAdaptedEncoding
 
         bool ReadACompleateAPCDescriptorBuffer(
             uint64_t apc_description_index, 
-            DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer,
-            DescriptorConf::StateOfAPC desired_state = DescriptorConf::StateOfAPC::UNASSIGNED_UNUSED_NANNULL,
-            std::optional<uint8_t> version_match = std::nullopt
+            DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
         ) noexcept;
 
         /// @brief UPDATES: A Description In ONE SHOT

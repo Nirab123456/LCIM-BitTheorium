@@ -143,7 +143,7 @@ namespace PredictedAdaptedEncoding
         HeaderOrchestrator::DefaultMemCopyBuffer comp_ex_buffer{};
         HeaderOrchestrator::BuildNullMemCopyBuffer(comp_ex_buffer);
 
-        for (size_t i = 0; i < number_of_cells; i++)
+        for (uint16_t i = 0; i < number_of_cells; i++)
         {
             const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
             uint64_t expected_unit = AtomicallyLoadReadAUnit(current_slab_idx);

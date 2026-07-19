@@ -8,7 +8,7 @@ namespace PredictedAdaptedEncoding
         
     protected:
 
-        constexpr size_t BegainIdxOfAnyFabTableHeader(FabricTableSegmentClasses desired_table) noexcept;
+        size_t BegainIdxOfAnyFabTableHeader(FabricTableSegmentClasses desired_table) noexcept;
         
         bool BegainEndIdxHeaderPairGet(
             const FabricTableSegmentClasses table_class,

@@ -67,7 +67,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    constexpr size_t RecordBookConstructor::BegainIdxOfAnyFabTableHeader(
+    size_t RecordBookConstructor::BegainIdxOfAnyFabTableHeader(
         FabricTableSegmentClasses table_class
     ) noexcept
     {

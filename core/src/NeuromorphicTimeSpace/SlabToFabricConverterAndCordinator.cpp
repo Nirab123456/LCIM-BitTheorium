@@ -48,19 +48,10 @@ namespace PredictedAdaptedEncoding
         DeviceViewRecordCount_ = UNSIGNED_ZERO;
         ThreadTableCapacity_  = UNSIGNED_ZERO;
 
-        FabricInitialized_.store(false, MoStoreSeq_);
-        InitializationInProgress_.store(false, MoStoreSeq_);
+        FabricInitialized_.store(false, std::memory_order_release);
+        InitializationInProgress_.store(false, std::memory_order_release);
     }
 
-
-
-    void SlabToFabricConverterAndCordinator::Zero4LocalityBasedOccupancyOfFabric_() noexcept
-    {
-        UpdateValidPairedOccupancyApproxAtomically_(LocalityPolicy::IDLE, UNSIGNED_ZERO, true, APCDataStructure::BRANCH_VERSION);
-        UpdateValidPairedOccupancyApproxAtomically_(LocalityPolicy::PUBLISHED, UNSIGNED_ZERO, true, APCDataStructure::BRANCH_VERSION);
-        UpdateValidPairedOccupancyApproxAtomically_(LocalityPolicy::CLAIMED, UNSIGNED_ZERO, true, APCDataStructure::BRANCH_VERSION);
-        UpdateValidPairedOccupancyApproxAtomically_(LocalityPolicy::FAULTY, UNSIGNED_ZERO, true, APCDataStructure::BRANCH_VERSION);
-    }
 
 
     void SlabToFabricConverterAndCordinator::InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept
@@ -98,7 +89,6 @@ namespace PredictedAdaptedEncoding
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TABLE_DIRECTORY_COUNT, RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT);
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::TABLE_DIRECTORY_VERSION, APCDataStructure::BRANCH_VERSION);
 
-        Zero4LocalityBasedOccupancyOfFabric_();
 
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::CAS_FAILURE_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::ERROR_COUNT, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
@@ -124,55 +114,6 @@ namespace PredictedAdaptedEncoding
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::WORK_QUEUE_CLAIM_FAILURES, UNSIGNED_ZERO, ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED);
         MakeAndStoreFabricMetaValue48_(FabricMetaIndicies::EOF_FABRIC_HEADER, CoreOfFabricCoordinator::FABRIC_META_EOF);
     }
-
-
-
-
-
-    void SlabToFabricConverterAndCordinator::InitializeHashTable_(FabricTableSegmentClasses hash_table) noexcept
-    {
-        if (!CoreOfFabricCoordinator::IsValidHashTable(hash_table))
-        {
-            return;
-        }
-
-        RecordBookConf::RecordBookTablesBoundsCarrier return_bounds{};
-        bool bounds_ok = BegainEndIdxHeaderPairGet(hash_table, return_bounds);
-        if (!bounds_ok)
-        {
-            return;
-        }
-
-        
-        const uint64_t idle_key = HashTableConf::MakeHashIdKeyCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
-        const uint64_t idle_value = HashTableConf::MakeAHashValueCell(UNSIGNED_ZERO, hash_table, LocalityPolicy::IDLE);
-        const uint64_t prob_distance_lock_cell_idle = HashTableConf::MakeProbdistanceFingerPrintState(
-            UNSIGNED_ZERO, UNSIGNED_ZERO, UNSIGNED_ZERO,
-            hash_table, 
-            LocalityPolicy::IDLE
-        );
-
-        if (
-            idle_key == FABRIC_CELL_SENTINAL ||
-            idle_value == FABRIC_CELL_SENTINAL ||
-            prob_distance_lock_cell_idle == FABRIC_CELL_SENTINAL 
-        )
-        {
-            return;
-        }
-
-        for (
-            size_t idx = return_bounds.BeginIndex; 
-            idx + HASH_BUCKED_WIDTH_OF_FABRIC <= static_cast<size_t>(return_bounds.EndIndex);
-            idx += HASH_BUCKED_WIDTH_OF_FABRIC
-        )
-        {
-            StorePackedCellUncheckedDirectly(idx + static_cast<size_t>(HashTableInternalIndexing::KEY_INDEX), idle_key);
-            StorePackedCellUncheckedDirectly(idx + static_cast<size_t>(HashTableInternalIndexing::VALUE_INDEX), idle_value);
-            StorePackedCellUncheckedDirectly(idx + static_cast<size_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK), prob_distance_lock_cell_idle);
-        }
-    }
-
 
 
     void SlabToFabricConverterAndCordinator::InitializeAPCDescriptorTable_() noexcept

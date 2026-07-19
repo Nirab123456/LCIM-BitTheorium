@@ -15,11 +15,6 @@ namespace PredictedAdaptedEncoding
 
         void ResetScalarsofTheFabric_() noexcept;
 
-        void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
-
-        /// @brief CALLES: 4xUpdateValidPairedOccupancyApproxAtomically_ ON: Each LocalityPolicy
-        void Zero4LocalityBasedOccupancyOfFabric_() noexcept;
-
         /// @brief BUILD: & INITIALIZED: All The APC Handle Descriptor With Segment Pool <-  CONSISTING: Packed CEll -> PacvkedMode::VALUE32
         void InitializeAPCDescriptorTable_() noexcept;
 
@@ -45,7 +40,7 @@ namespace PredictedAdaptedEncoding
             uint16_t slot_count,
             size_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
             uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
-            uint32_t fabric_thread_capacity = DEFAULT_THREAD_TABLE_CAPACITY
+            uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
 
         bool ResolveIDConfOfAPC(

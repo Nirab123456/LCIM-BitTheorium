@@ -70,8 +70,6 @@ struct HashHelpers : public DescriptorConf
     }
 
 
-
-
     static constexpr uint64_t BucketCountForExpectedEntries(uint64_t count_of_entries) noexcept
     {
         if (
@@ -97,8 +95,7 @@ struct HashHelpers : public DescriptorConf
             hash_files.HashKey == UNSIGNED_ZERO ||
             !APCDataStructure::IsValidFabricUnit(hash_files.HashKey) ||
             !APCDataStructure::IsValidFabricUnit(hash_files.HashValue) ||
-            !IsKnownStateOfAPC(hash_files.HashState) ||
-            !IsValidHashTable(hash_files.HashTable)
+            !IsKnownStateOfAPC(hash_files.HashState) 
         )
         {
             hash_files.IsValid = false;
@@ -149,6 +146,26 @@ struct HashHelpers : public DescriptorConf
         
     }
 
+    static constexpr uint64_t MakeProbdistanceFingerPrintState(
+        HashFilesCarrier& carrier
+    ) noexcept
+    {
+        if (!ValidHashFilesCarrier(carrier, true))
+        {
+            return FABRIC_CELL_SENTINAL;
+        }
+
+        const uint32_t fingerprint = MakeHashFingerPrint(carrier);
+
+        Pack32_30_4BitIn64BitUnit::Pack32_30_4_Carrier cell_packer_carrier{};
+
+        cell_packer_carrier.Lowest32Bit = carrier.ProbDistance;
+        cell_packer_carrier.Mid28Bit = fingerprint;
+        cell_packer_carrier.High4Bit = static_cast<uint8_t>(carrier.HashState);
+
+        return Pack32_30_4BitIn64BitUnit::PackValues(cell_packer_carrier);
+    }
+
 };
 
 
@@ -169,26 +186,6 @@ struct HashTableConf : public HashHelpers
         a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
     }
 
-
-    static constexpr uint64_t MakeProbdistanceFingerPrintState(
-        HashFilesCarrier& carrier
-    ) noexcept
-    {
-        if (!ValidHashFilesCarrier(carrier, true))
-        {
-            return FABRIC_CELL_SENTINAL;
-        }
-
-        const uint32_t fingerprint = MakeHashFingerPrint(carrier);
-
-        Pack32_30_4BitIn64BitUnit::Pack32_30_4_Carrier cell_packer_carrier{};
-
-        cell_packer_carrier.Lowest32Bit = carrier.ProbDistance;
-        cell_packer_carrier.Mid28Bit = fingerprint;
-        cell_packer_carrier.High4Bit = static_cast<uint8_t>(carrier.HashState);
-
-        return Pack32_30_4BitIn64BitUnit::PackValues(cell_packer_carrier);
-    }
 
 public:
 

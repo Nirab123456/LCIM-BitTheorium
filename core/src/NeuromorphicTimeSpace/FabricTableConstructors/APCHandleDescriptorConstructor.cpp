@@ -58,9 +58,7 @@ namespace PredictedAdaptedEncoding
 
     bool APCHandleDescriptorConstructor::ReadACompleateAPCDescriptorBuffer(
         uint64_t apc_description_index, 
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer,
-        DescriptorConf::StateOfAPC desired_state,
-        std::optional<uint8_t> version_match
+        DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
     ) noexcept
     {
         if (apc_description_index >= CountOfAPC_)
