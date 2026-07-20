@@ -166,6 +166,30 @@ struct HashHelpers : public DescriptorConf
         return Pack32_30_4BitIn64BitUnit::PackValues(cell_packer_carrier);
     }
 
+
+    static constexpr uint32_t MakeGroupIdFromBranchId(
+        uint64_t branch_id,
+        APCGroupReserver::BidirectionalAxis axis
+    ) noexcept
+    {
+        const uint64_t salt = (axis == APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED) ? 
+            HashIdConstructror::HASH_64BIT_GRATIO_1 : HashIdConstructror::HASH_64BIT_GRATIO_2;
+
+        uint32_t group_id = static_cast<uint32_t>(HashUnsigned64(branch_id ^ salt));
+        if (group_id == UNSIGNED_ZERO)
+        {
+            return 1;
+        }
+
+        if (!APCDataStructure::IsValidControlAPCUnit(group_id))
+        {
+            return group_id - 1;
+        }
+        
+        return group_id;
+    }
+
+
 };
 
 

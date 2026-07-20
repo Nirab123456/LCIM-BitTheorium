@@ -171,7 +171,7 @@ namespace PredictedAdaptedEncoding
         }
         
         const APCGroupReserver::APCIdentityDef horizontal_identity_s = APCGroupReserver::RuntimeAxisIdentityResolved(
-            APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED,
+            APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED,
             container_cfg
         );
 
@@ -191,7 +191,7 @@ namespace PredictedAdaptedEncoding
         bool horizontal_initiated = false;
         if (horizontal_identity_s != APCGroupReserver::APCIdentityDef::NULL_USER_INSTRUCTION)
         {
-            horizontal_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::HORIZONTAL_SHARED);
+            horizontal_initiated = InitiateABidirectionalAxis_(container_cfg, APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED);
         }
         else
         {

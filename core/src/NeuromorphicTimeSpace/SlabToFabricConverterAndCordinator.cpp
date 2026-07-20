@@ -225,7 +225,7 @@ namespace PredictedAdaptedEncoding
 
         cursor = DefaultFabricAlignment16Cell_(work_queue_end);
         const size_t device_view_table_begin = cursor;
-        const size_t device_view_table_end = static_cast<size_t>(DeviceViewRecordCount_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
+        const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(DeviceViewRecordCount_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
         cursor = DefaultFabricAlignment16Cell_(device_view_table_end);
         const size_t thread_table_begin = cursor;

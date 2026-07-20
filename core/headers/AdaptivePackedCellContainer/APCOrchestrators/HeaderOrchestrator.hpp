@@ -117,14 +117,32 @@ namespace PredictedAdaptedEncoding
             CopyAllBuffersToHeaderBuffer_(header_buffer, layout_buffer, schema_buffer, cursors_buffrers);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = version;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::CAPACITY)] = capacity_of_apc;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
+
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = 0u;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_FLAGS)] = 0u;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::NODE_GROUP_SIZE)] = 1u;
+
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
 
             return ValidateHeaderBuffer(header_buffer);
 
+        }
+
+        static constexpr bool ValidateFabricResolvedIdentity(APCMetaBuffer& header_buffer) noexcept
+        {
+            bool ok = HashIdConstructror::IsValidAPCSlotIdx(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)]) &&
+                HashIdConstructror::IsValidAPCId(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::BRANCH_ID)]) &&
+                HashIdConstructror::IsValidAPCId(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD)]);
+            if (!ok)
+            {
+                header_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;
+                return false;
+            }
+            return true;
         }
 
         static constexpr bool ValidateHeaderBuffer(
@@ -164,6 +182,7 @@ namespace PredictedAdaptedEncoding
             bool enq_dq_ok = CompleateRegionOrchestrator::ValidateInitialCursorBuffers(enq_dq_cursors, schema_buffer);
 
             if (
+                !ValidateFabricResolvedIdentity(header) ||
                 !layout_ok || !schema_ok || !enq_dq_ok ||
                 header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] != 
                     CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer)

@@ -11,7 +11,7 @@ namespace PredictedAdaptedEncoding
         uint64_t* SlabBasePtr_{nullptr};
 
         size_t SlabCellCount_{UNSIGNED_ZERO};
-        uint16_t PerAPCRuntimeCellCount_{UNSIGNED_ZERO};
+        uint32_t PerAPCRuntimeCellCount_{UNSIGNED_ZERO};
         uint64_t CountOfAPC_{UNSIGNED_ZERO};
         uint8_t SlabId_{UNSIGNED_ZERO};
 

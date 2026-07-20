@@ -42,7 +42,7 @@ namespace PredictedAdaptedEncoding
         }
         
         std::memcpy(
-            &return_buffer,
+            return_buffer,
             &SlabBasePtr_[slab_starting_idx],
             sequential_number_of_cells * sizeof(uint64_t)
         );

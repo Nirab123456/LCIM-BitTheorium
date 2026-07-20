@@ -21,7 +21,9 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-
+        CapacityOfThisAPC_ = cell_count;
+        FabricOwnerPtr_ = fabric_owner;
+        IdxOfThisAPCInFabric_ = fabric_slot_idx;
         const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolBegainEndForSingleAPCDescription(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
@@ -31,9 +33,6 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         RangeOfThisAPCInSlab_ = range_of_this_apc;
-        CapacityOfThisAPC_ = cell_count;
-        FabricOwnerPtr_ = fabric_owner;
-        IdxOfThisAPCInFabric_ = fabric_slot_idx;
         return true;
     }
 

@@ -66,11 +66,6 @@ public:
         return FabricOwnerPtr_;
     }
 
-    uint16_t PayloadCapacity() const noexcept
-    {
-        return CapacityOfThisAPC_ > METACELL_COUNT ? static_cast<uint16_t>(CapacityOfThisAPC_ - METACELL_COUNT) : 0u;
-    }
-
     static constexpr uint32_t PayloadBegin() noexcept
     {
         return METACELL_COUNT;

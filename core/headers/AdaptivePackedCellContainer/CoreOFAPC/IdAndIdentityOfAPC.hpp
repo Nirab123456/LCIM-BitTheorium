@@ -14,16 +14,19 @@ struct HashIdConstructror
     static constexpr uint64_t GROUP_SEQUENTIAL_INDEX_MASK = UINT32_MAX;
     static constexpr uint64_t GROUP_PREFIX_MASK = UINT32_MAX;
 
+    static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
+    static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
+
     /// @brief VALIDATES THE RAW ID 
     static constexpr bool IsValidAPCId(uint64_t value) noexcept
     {
-        return value != UNSIGNED_ZERO && value < FABRIC_CELL_SENTINAL;
+        return value > UNSIGNED_ZERO && value < FABRIC_CELL_SENTINAL;
     }
 
     static constexpr bool IsValidGroupId(uint64_t value) noexcept
     {
-        return value != UNSIGNED_ZERO && 
-            APCDataStructure::IsValidControlAPCUnit(static_cast<uint32_t>(value));
+        return value > UNSIGNED_ZERO && 
+            APCDataStructure::IsValidControlAPCUnit(value);
     }
 
     static constexpr bool IsValidAPCSlotIdx(uint64_t slot_idx) noexcept
@@ -67,7 +70,7 @@ struct HashIdConstructror
             return FABRIC_CELL_SENTINAL;
         }
 
-        const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | child_ordinal;
+        const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | static_cast<uint64_t>(child_ordinal);
 
         return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL;
     }
@@ -111,7 +114,7 @@ struct HashIdConstructror
 
         auto SplitMix64 = [](uint64_t x) noexcept -> uint64_t
         {
-            x += 0x9E3779B97F4A7C15ull;
+            x += HASH_64BIT_GRATIO_1;
             x = (x ^ (x >> 30u)) * 0xBF58476D1CE4E5B9ull;
             x = (x ^ (x >> 27u)) * 0x94D049BB133111EBull;
             x = x ^ (x >> 31u);
@@ -133,14 +136,14 @@ struct HashIdConstructror
         }
         catch(...)
         {
-            random_seed ^= 0xD6E8FEB86659FD93ull;
+            random_seed ^= HASH_64BIT_GRATIO_2;
         }
 
         for (uint32_t attempt = 0; attempt < 8u; attempt++)
         {
             random_seed = SplitMix64(random_seed);
 
-            if (!IsValidAPCId(random_seed))
+            if (IsValidAPCId(random_seed))
             {
                 return random_seed;
             }
@@ -158,7 +161,7 @@ struct AxisConstructor
 {
     enum class BidirectionalAxis : uint8_t
     {
-        HORIZONTAL_SHARED = 1,
+        HORIZONTALLY_SHARED = 1,
         VARTICAL_LOGICAL = 2
     };
 
@@ -174,7 +177,7 @@ struct AxisConstructor
 
     static constexpr AxisConstructionMap ConstructAxisMap(BidirectionalAxis desired_axis) noexcept
     {
-        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             return AxisConstructionMap{
                 FabricTableSegmentClasses::SHARED_HASH,
@@ -197,7 +200,7 @@ struct AxisConstructor
 
     static constexpr bool IsHorizontalSharedAxis(BidirectionalAxis desired_axis) noexcept
     {
-        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             return true;
         }
@@ -316,7 +319,7 @@ struct APCGroupReserver : public AxisConstructor
             return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
         }
         
-        if (desired_axis == BidirectionalAxis::HORIZONTAL_SHARED)
+        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {

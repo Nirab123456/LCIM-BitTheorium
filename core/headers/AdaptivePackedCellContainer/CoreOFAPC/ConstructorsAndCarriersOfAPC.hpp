@@ -101,34 +101,20 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
 
 
-        static constexpr bool IsValidControlAPCUnit(uint32_t index) noexcept
+        static constexpr bool IsValidControlAPCUnit(uint64_t index) noexcept
         {
-            if (index < APC_INDEX_BOUND_SENTINAL)
-            {
-                return true;
-            }
-            return false;
+            return index < APC_INDEX_BOUND_SENTINAL;
         }
 
         static constexpr bool IsValidFabricUnit(uint64_t index) noexcept
         {
-            if (index < FABRIC_CELL_SENTINAL)
-            {
-                return true;
-            }
-            return false;
+            return index < FABRIC_CELL_SENTINAL;
         }
 
         static constexpr bool InLimitOfUint8(uint32_t version) noexcept
         {
-            if (
-                version < UINT8_MAX &&
-                version > UNSIGNED_ZERO
-            )
-            {
-                return true;
-            }
-            return false;
+            return version < UINT8_MAX &&
+                version > UNSIGNED_ZERO;
         }
 
         static constexpr bool IsCapacityOfAPCValid(uint32_t capacity) noexcept

@@ -33,8 +33,8 @@ namespace PredictedAdaptedEncoding
         }
 
         return_bounds.BeginIndex = begin_of_desired_table;
-        return_bounds.IsValid = false;
-        return false;
+        return_bounds.IsValid = true;
+        return return_bounds.IsValid;
     }
 
 

@@ -13,7 +13,7 @@ public:
     {
         return 
             FabricOwnerPtr_ != nullptr &&
-            HashIdConstructror::IsValidAPCId(IdxOfThisAPCInFabric_) &&
+            HashIdConstructror::IsValidAPCSlotIdx(IdxOfThisAPCInFabric_) &&
             RangeOfThisAPCInSlab_.IsValid &&
             APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
     }
