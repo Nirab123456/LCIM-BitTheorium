@@ -109,7 +109,7 @@ namespace PredictedAdaptedEncoding
                 return schema.IsValidSchema;
             }
 
-            const std::optional<uint32_t> payload_size_in64bit_cell = Required64BitCellForDesiredPayload(schema);
+            const std::optional<uint32_t> payload_size_in64bit_cell = RequiredFbUnitForDesiredPayload(schema);
             const std::optional<uint32_t> phy_64bit_on_protocol = CountOf64BitBasedOnTypedProtocol(schema);
 
             if (

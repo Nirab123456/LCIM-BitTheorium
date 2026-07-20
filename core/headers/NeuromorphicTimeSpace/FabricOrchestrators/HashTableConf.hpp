@@ -129,16 +129,16 @@ struct HashHelpers : public DescriptorConf
 
         hash ^= static_cast<uint32_t>(carier.HashState);
         hash *= HASH32_GRATIO_2;
-        hash = hash & LeftOverBitMaskUntil32(Pack32_30_4BitIn64BitUnit::LEN_OF_28_BIT);
+        hash = hash & LeftOverBitMaskUntil32(Pack32_28_4BitIn64BitUnit::LEN_OF_28_BIT);
 
         hash ^= hash >> 16u;
         hash *= HASH32_GRATIO_1;
-        hash = hash & LeftOverBitMaskUntil32(Pack32_30_4BitIn64BitUnit::LEN_OF_28_BIT);
+        hash = hash & LeftOverBitMaskUntil32(Pack32_28_4BitIn64BitUnit::LEN_OF_28_BIT);
         if (hash == UNSIGNED_ZERO)
         {
             return 1;
         }
-        if (hash == Pack32_30_4BitIn64BitUnit::UINT28_MAX)
+        if (hash == Pack32_28_4BitIn64BitUnit::UINT28_MAX)
         {
             return hash - 1;
         }
@@ -157,13 +157,13 @@ struct HashHelpers : public DescriptorConf
 
         const uint32_t fingerprint = MakeHashFingerPrint(carrier);
 
-        Pack32_30_4BitIn64BitUnit::Pack32_30_4_Carrier cell_packer_carrier{};
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier cell_packer_carrier{};
 
         cell_packer_carrier.Lowest32Bit = carrier.ProbDistance;
         cell_packer_carrier.Mid28Bit = fingerprint;
         cell_packer_carrier.High4Bit = static_cast<uint8_t>(carrier.HashState);
 
-        return Pack32_30_4BitIn64BitUnit::PackValues(cell_packer_carrier);
+        return Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier);
     }
 
 

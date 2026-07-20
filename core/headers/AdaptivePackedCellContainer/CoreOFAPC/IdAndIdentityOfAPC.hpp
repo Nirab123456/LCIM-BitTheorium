@@ -368,7 +368,7 @@ struct APCGroupReserver : public AxisConstructor
                 {
                     return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
                 }
-                return a_runtime_identity.HorizontalSharedState;
+                return a_runtime_identity.VarticalLogicState;
             }
         }  
     }

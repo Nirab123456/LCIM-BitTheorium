@@ -181,25 +181,18 @@ namespace PredictedAdaptedEncoding
             const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically(description_idx);
             if (
                 desired_files.IsValid && 
-                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfAPC::FREE_OR_EMPTY
+                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfAPC::FREE_OR_EMPTY &&
+                SwitchOwnershipOfAReadyDescription(
+                    description_idx,
+                    DescriptionOfAPC::StateOfAPC::RESERVED
+                )
             )
             {
-                desired_apc_slot = description_idx;
-                break;
+                return desired_apc_slot;
             }
         }
 
-        bool switch_ok = SwitchOwnershipOfAReadyDescription(
-            desired_apc_slot, 
-            DescriptionOfAPC::StateOfAPC::LIVE_OR_PUBLISHED
-        );
-
-        if (!switch_ok)
-        {
-            return std::nullopt;
-        }
-        
-        return desired_apc_slot;
+        return std::nullopt;
     }
 
 

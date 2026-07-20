@@ -257,7 +257,7 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr std::optional<uint32_t> Required64BitCellForDesiredPayload(const RegionSchemaRecord& schema) noexcept
+        static constexpr std::optional<uint32_t> RequiredFbUnitForDesiredPayload(const RegionSchemaRecord& schema) noexcept
         {
             std::optional<uint8_t> count_of_typed_word_in64bit = CountOfTypedWordIn64Bit(schema.Dtype);
             if (
@@ -278,7 +278,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr std::optional<uint32_t>CountOf64BitBasedOnTypedProtocol(const RegionSchemaRecord& schema) noexcept
         {
-            const std::optional<uint32_t> payload_words = Required64BitCellForDesiredPayload(schema);
+            const std::optional<uint32_t> payload_words = RequiredFbUnitForDesiredPayload(schema);
             if (!payload_words.has_value())
             {
                 return std::nullopt;

@@ -39,7 +39,7 @@ namespace PredictedAdaptedEncoding
         const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX));
         const uint64_t prob_st_fp = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK));
         
-        Pack32_30_4BitIn64BitUnit::Pack32_30_4_Carrier prob_st_fp_carrier = Pack32_30_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
 
         carrier.HashKey = key_cell;
         carrier.HashValue = value_cell;

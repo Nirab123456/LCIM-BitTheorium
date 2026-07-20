@@ -40,13 +40,13 @@ namespace PredictedAdaptedEncoding
         }
     };
 
-    struct Pack32_30_4BitIn64BitUnit
+    struct Pack32_28_4BitIn64BitUnit
     {
         static constexpr uint8_t UINT4_MAX = 0xff;
         static constexpr uint8_t LEN_OF_28_BIT = 28u;
         static constexpr uint32_t UINT28_MAX = UINT32_MAX & LeftOverBitMaskUntil32(LEN_OF_28_BIT);
 
-        struct Pack32_30_4_Carrier
+        struct Pack32_28_4_Carrier
         {
             uint32_t Lowest32Bit = UINT32_MAX;
             uint32_t Mid28Bit = UINT32_MAX;
@@ -54,7 +54,7 @@ namespace PredictedAdaptedEncoding
             bool IsValid = false;
         };
         
-        static constexpr bool IsCarrierValid(Pack32_30_4_Carrier& carrier) noexcept
+        static constexpr bool IsCarrierValid(Pack32_28_4_Carrier& carrier) noexcept
         {
             if (
                 !APCDataStructure::IsValidControlAPCUnit(carrier.Lowest32Bit)||
@@ -71,7 +71,7 @@ namespace PredictedAdaptedEncoding
         }
 
         static constexpr uint64_t PackValues(
-            Pack32_30_4_Carrier& carrier
+            Pack32_28_4_Carrier& carrier
         ) noexcept
         {
             if (!IsCarrierValid(carrier))
@@ -81,14 +81,14 @@ namespace PredictedAdaptedEncoding
             
             return(
                 (uint64_t(carrier.Lowest32Bit) << UNSIGNED_ZERO) |
-                (uint64_t(carrier.Mid28Bit) << LEN_OF_28_BIT) |
-                (uint64_t(carrier.High4Bit) << 4u)
+                (uint64_t(carrier.Mid28Bit) << (BIT_LENGTH_OF_FABRIC - LEN_OF_28_BIT)) |
+                (uint64_t(carrier.High4Bit) << (BIT_LENGTH_OF_FABRIC - 4u))
             );
         }
 
-        static constexpr Pack32_30_4_Carrier UnpackUnitToCarrier(uint64_t value) noexcept
+        static constexpr Pack32_28_4_Carrier UnpackUnitToCarrier(uint64_t value) noexcept
         {
-            Pack32_30_4_Carrier carrier{};
+            Pack32_28_4_Carrier carrier{};
 
             if (!APCDataStructure::IsValidFabricUnit(value))
             {
@@ -96,8 +96,8 @@ namespace PredictedAdaptedEncoding
             }
 
             carrier.Lowest32Bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(32u));
-            carrier.Mid28Bit = static_cast<uint32_t>((value >> LEN_OF_28_BIT) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
-            carrier.High4Bit = static_cast<uint8_t>((value >> 4u) & MaskLeftOverBitsUntil64(4u));
+            carrier.Mid28Bit = static_cast<uint32_t>((value >> (BIT_LENGTH_OF_FABRIC - LEN_OF_28_BIT)) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
+            carrier.High4Bit = static_cast<uint8_t>((value >> (BIT_LENGTH_OF_FABRIC - 4u)) & MaskLeftOverBitsUntil64(4u));
             IsCarrierValid(carrier);
             return carrier;
         }
