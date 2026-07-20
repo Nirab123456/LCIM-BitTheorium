@@ -8,14 +8,14 @@ namespace PredictedAdaptedEncoding
         
     protected:
 
-        uint64_t BegainIdxOfAnyFabTableHeader(FabricTableSegmentClasses desired_table) noexcept;
+        uint64_t GetStartingOfAnyFabricTable(FabricTableSegmentClasses desired_table) noexcept;
         
-        bool BegainEndIdxHeaderPairGet(
+        bool GetRecordMapCarrierRanges(
             const FabricTableSegmentClasses table_class,
             RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
         ) noexcept;
 
-        /// @brief FILL: DESIRED: FabricTableSegmentClasses with Idle Fabric Cell -> CALLS: BegainEndIdxHeaderPairGet TO: Get Range In SLab
+        /// @brief FILL: DESIRED: FabricTableSegmentClasses with Idle Fabric Cell -> CALLS: GetRecordMapCarrierRanges TO: Get Range In SLab
         /// @param table_class Desired FabricTableSegmentClasses You want Idle
         void IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept;
 

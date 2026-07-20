@@ -4,19 +4,8 @@
 namespace PredictedAdaptedEncoding
 {
 
-struct HashHelpers : public DescriptorConf
+struct DefaultHashings : public DescriptorConf
 {
-    struct HashFilesCarrier
-    {
-        uint64_t HashValue = FABRIC_CELL_SENTINAL;
-        uint64_t HashKey = FABRIC_CELL_SENTINAL;
-        uint32_t ProbDistance = UNSIGNED_ZERO;
-        FabricTableSegmentClasses HashTable = FabricTableSegmentClasses::NONE;
-        StateOfAPC HashState = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
-        bool IsValid = false;
-    };
-    static_assert(sizeof(HashFilesCarrier) <= CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC * sizeof(uint64_t));
-    static_assert(alignof(HashFilesCarrier) == alignof(uint64_t));
 
     static constexpr uint8_t HASH_SHIFT_1 = 30u;
     static constexpr uint8_t HASH_SHIFT_2 = 27u;
@@ -85,6 +74,47 @@ struct HashHelpers : public DescriptorConf
         return NextPowerOf2Unsigned64(wanted_bucket_count);
         
     }
+
+    static constexpr uint32_t MakeGroupIdFromBranchId(
+        uint64_t branch_id,
+        APCGroupReserver::BidirectionalAxis axis
+    ) noexcept
+    {
+        const uint64_t salt = (axis == APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED) ? 
+            HashIdConstructror::HASH_64BIT_GRATIO_1 : HashIdConstructror::HASH_64BIT_GRATIO_2;
+
+        uint32_t group_id = static_cast<uint32_t>(HashUnsigned64(branch_id ^ salt));
+        if (group_id == UNSIGNED_ZERO)
+        {
+            return 1;
+        }
+
+        if (!APCDataStructure::IsValidControlAPCUnit(group_id))
+        {
+            return group_id - 1;
+        }
+        
+        return group_id;
+    }
+
+};
+
+
+struct HashHelpers : public DefaultHashings
+{
+    struct HashFilesCarrier
+    {
+        uint64_t HashValue = FABRIC_CELL_SENTINAL;
+        uint64_t HashKey = FABRIC_CELL_SENTINAL;
+        uint32_t ProbDistance = UNSIGNED_ZERO;
+        FabricTableSegmentClasses HashTable = FabricTableSegmentClasses::NONE;
+        StateOfAPC HashState = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
+        bool IsValid = false;
+    };
+    static_assert(sizeof(HashFilesCarrier) <= CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC * sizeof(uint64_t));
+    static_assert(alignof(HashFilesCarrier) == alignof(uint64_t));
+
+
 
     static constexpr bool ValidHashFilesCarrier(
         HashFilesCarrier& hash_files,
@@ -165,31 +195,6 @@ struct HashHelpers : public DescriptorConf
 
         return Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier);
     }
-
-
-    static constexpr uint32_t MakeGroupIdFromBranchId(
-        uint64_t branch_id,
-        APCGroupReserver::BidirectionalAxis axis
-    ) noexcept
-    {
-        const uint64_t salt = (axis == APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED) ? 
-            HashIdConstructror::HASH_64BIT_GRATIO_1 : HashIdConstructror::HASH_64BIT_GRATIO_2;
-
-        uint32_t group_id = static_cast<uint32_t>(HashUnsigned64(branch_id ^ salt));
-        if (group_id == UNSIGNED_ZERO)
-        {
-            return 1;
-        }
-
-        if (!APCDataStructure::IsValidControlAPCUnit(group_id))
-        {
-            return group_id - 1;
-        }
-        
-        return group_id;
-    }
-
-
 };
 
 
@@ -237,7 +242,7 @@ public:
     /// @brief CREATES: A buffer array of HASH: [KEY | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
     /// @param carrier TAKES: A valid HashFilesCarrier
     /// @return 
-    static constexpr void BuildValidatedHashBuffer(
+    static constexpr bool BuildValidatedHashBuffer(
         HashFilesCarrier& carrier,
         SingleHashBuffer& hash_buffer
     ) noexcept
@@ -258,9 +263,10 @@ public:
         if (!APCDataStructure::IsValidFabricUnit(hash_buffer[probe_state_fp]))
         {
             BuildEmptyHashBuffer(hash_buffer);
-            return;
+            return false;
         }
         hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
+        return true;
     }
 
 

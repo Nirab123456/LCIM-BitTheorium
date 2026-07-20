@@ -11,7 +11,7 @@ namespace PredictedAdaptedEncoding
         }
 
         RecordBookConf::RecordBookTablesBoundsCarrier bounds{};
-        bool bounds_ok = BegainEndIdxHeaderPairGet(hash_table, bounds);
+        bool bounds_ok = GetRecordMapCarrierRanges(hash_table, bounds);
         if (!bounds_ok)
         {
             return;
@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    HashTableConf::HashFilesCarrier HashTablesConstructor::ReadHashFilesFromSlab(size_t bucked_base_index) noexcept
+    HashTableConf::HashFilesCarrier HashTablesConstructor::ReadHashFilesFromSlab(uint64_t bucked_base_index) noexcept
     {
         HashTableConf::HashFilesCarrier carrier{};
         
@@ -35,9 +35,9 @@ namespace PredictedAdaptedEncoding
             return carrier;
         }
 
-        const uint64_t key_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX));
-        const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX));
-        const uint64_t prob_st_fp = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<size_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK));
+        const uint64_t key_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX));
+        const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX));
+        const uint64_t prob_st_fp = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK));
         
         Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
 
@@ -70,7 +70,7 @@ namespace PredictedAdaptedEncoding
 
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
 
-        bool is_valid_bounds = BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds);
+        bool is_valid_bounds = GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds);
         if (!is_valid_bounds)
         {
             return false;
@@ -126,12 +126,7 @@ namespace PredictedAdaptedEncoding
         ) -> bool
         {
             MakeAHashCarrierInternal(a_key, a_value, prob_dist, state);
-            HashTableConf::BuildValidatedHashBuffer(reuseable_carrier, reuseable_hash_buffer);
-            if (!HashTableConf::IfHashBufferHaveValidationMark(reuseable_hash_buffer))
-            {
-                return false;
-            }
-            return true;
+            return HashTableConf::BuildValidatedHashBuffer(reuseable_carrier, reuseable_hash_buffer);
         };
 
         for (uint64_t steps = 0; steps < bucket_count && incoming_prob != HashTableConf::PROB_DISTANCE_SENTINAL; steps++)
@@ -247,7 +242,7 @@ namespace PredictedAdaptedEncoding
         
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
 
-        if (!BegainEndIdxHeaderPairGet(hash_table, desired_hash_table_bounds))
+        if (!GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds))
         {
             return std::nullopt;
         }
@@ -297,6 +292,58 @@ namespace PredictedAdaptedEncoding
         return std::nullopt;
     }
 
+    bool HashTablesConstructor::RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept
+    {
+        RecordBookConf::RecordBookTablesBoundsCarrier hash_table_bounds{};
+        if (!GetRecordMapCarrierRanges(table, hash_table_bounds))
+        {
+            return false;
+        }
 
+        const uint64_t bucket_count = (hash_table_bounds.EndIndex - hash_table_bounds.BeginIndex) / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
+
+        if (!APCDataStructure::IsPowerOfTwoValue(bucket_count))
+        {
+            return false;
+        }
+        
+        uint64_t bucket = HashTableConf::HashUnsigned64(hash_key) & (bucket_count - 1);
+        HashTableConf::SingleHashBuffer hash_buffer{};
+
+        for (uint64_t i = 0; i < bucket_count; i++)
+        {
+            const uint64_t base = static_cast<uint64_t>(
+                hash_table_bounds.BeginIndex + bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC
+            );
+
+            HashTableConf::HashFilesCarrier cur_hash_files = ReadHashFilesFromSlab(base);
+            if (
+                !cur_hash_files.IsValid ||
+                cur_hash_files.HashState == HashTableConf::StateOfAPC::FREE_OR_EMPTY
+            )
+            {
+                return false;
+            }
+
+            if (
+                cur_hash_files.HashState == HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED &&
+                cur_hash_files.HashKey == hash_key
+            )
+            {
+                cur_hash_files.HashState = HashTableConf::StateOfAPC::RETIRED_OR_TOMBSTONE;
+                HashTableConf::BuildEmptyHashBuffer(hash_buffer);
+                const bool buffer_ok = HashTableConf::BuildValidatedHashBuffer(cur_hash_files, hash_buffer);
+                return buffer_ok &&
+                    CompareExchangeStrongSequentiallyOrRevert(
+                        base,
+                        HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC,
+                        hash_buffer.data()
+                    );
+            }
+            
+            bucket = (bucket + 1u) & (bucket_count - 1u);
+        }
+        return false;
+    }
 
 }

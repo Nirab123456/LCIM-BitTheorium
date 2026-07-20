@@ -19,10 +19,12 @@ namespace PredictedAdaptedEncoding
     public:
 
         HashTableConf::HashFilesCarrier ReadHashFilesFromSlab(
-            size_t bucked_base_index
+            uint64_t bucked_base_index
         ) noexcept;
 
         void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
+
+        bool RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
 
     };
 

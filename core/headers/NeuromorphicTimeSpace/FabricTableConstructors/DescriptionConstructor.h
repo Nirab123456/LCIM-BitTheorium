@@ -9,20 +9,7 @@ namespace PredictedAdaptedEncoding
 
         DescriptorConf::APCDescriptorRange ReadAPCDescriptionRanges(uint64_t apc_slot_index) noexcept;
     
-        std::optional<size_t> GetIdStateIdxOnDescriptionIdx(uint64_t description_idx) noexcept
-        {
-            const DescriptionOfAPC::APCDescriptorRange desired_description_range = ReadAPCDescriptionRanges(description_idx);
-            if (!desired_description_range.IsValid)
-            {
-                return std::nullopt;
-            }
-
-            const size_t state_cell_idx = desired_description_range.BeginIndex + 
-                static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT);
-            
-            return state_cell_idx;
-        }
-
+        std::optional<size_t> GetIdStateIdxByDescriptionIdx(uint64_t description_idx) noexcept;
 
     public:
 
@@ -49,11 +36,7 @@ namespace PredictedAdaptedEncoding
             DescriptionOfAPC::StateOfAPC updated_state
         ) noexcept;
 
-        std::optional<uint64_t> GetASlotForNewAPCLink() noexcept;
-
-
-
-        
+        std::optional<uint64_t> GetASlotForNewAPCLink() noexcept;        
     };
 
 }

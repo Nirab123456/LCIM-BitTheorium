@@ -37,7 +37,7 @@ namespace PredictedAdaptedEncoding
     DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionRanges(uint64_t apc_slot_index) noexcept
     {
         RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
-        const bool ok = BegainEndIdxHeaderPairGet(
+        const bool ok = GetRecordMapCarrierRanges(
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             descripor_directory_map
         );
@@ -112,7 +112,7 @@ namespace PredictedAdaptedEncoding
     DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::ReadAPCStateAtomically(uint64_t apc_description_index) noexcept
     {
         DescriptionOfAPC::DescriptorSaftyFiles return_files{};
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxOnDescriptionIdx(apc_description_index);
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx(apc_description_index);
         if (!maybe_id_state_idx.has_value())
         {
             return return_files;
@@ -138,7 +138,7 @@ namespace PredictedAdaptedEncoding
             desc_buffer, desired_state
         );
         uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, desired_state);
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxOnDescriptionIdx(description_idx);
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx(description_idx);
 
         uint64_t expected_id_state = desc_buffer[
             static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
@@ -198,6 +198,22 @@ namespace PredictedAdaptedEncoding
 
         return std::nullopt;
     }
+
+
+    std::optional<size_t> APCHandleDescriptorConstructor::GetIdStateIdxByDescriptionIdx(uint64_t description_idx) noexcept
+    {
+        const DescriptionOfAPC::APCDescriptorRange desired_description_range = ReadAPCDescriptionRanges(description_idx);
+        if (!desired_description_range.IsValid)
+        {
+            return std::nullopt;
+        }
+
+        const size_t state_cell_idx = desired_description_range.BeginIndex + 
+            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT);
+        
+        return state_cell_idx;
+    }
+
 
 
 }
