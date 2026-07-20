@@ -1,5 +1,5 @@
 #pragma once 
-#include "FabricTableConstructors/HashTablesConstructor.h"
+#include "FabricTableConstructors/CompleteFabric.h"
 
 namespace PredictedAdaptedEncoding
 {
