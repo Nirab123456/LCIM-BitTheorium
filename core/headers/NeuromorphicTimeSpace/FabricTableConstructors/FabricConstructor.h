@@ -70,6 +70,13 @@ namespace PredictedAdaptedEncoding
             const uint64_t* desired_cells
         ) noexcept;
 
+        bool ReadASnapShotFromSlab(
+            size_t slab_starting_idx, 
+            size_t sequential_number_of_cells, 
+            uint64_t* return_buffer,
+            bool atomic_required = false
+        ) noexcept;
+
         constexpr bool IsDesiredIndexValidInSLab(size_t desired_idx) noexcept
         {
             if (SlabBasePtr_ && desired_idx < SlabCellCount_)

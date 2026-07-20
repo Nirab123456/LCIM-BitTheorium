@@ -282,6 +282,8 @@ struct APCGroupReserver : public AxisConstructor
     static constexpr APCInitialIdentityStruct MakeDefaultIdentityForAPC() noexcept
     {
         APCInitialIdentityStruct requested_identity{};
+        requested_identity.SharedSequentialCount = UNSIGNED_ZERO;
+        requested_identity.LogicalSequentalCount = UNSIGNED_ZERO;
         requested_identity.HorizontalSharedState = APCIdentityDef::NULL_USER_INSTRUCTION;
         requested_identity.VarticalLogicState = APCIdentityDef::NULL_USER_INSTRUCTION;
         return requested_identity;

@@ -1,14 +1,14 @@
 #pragma once 
-#include "ReadWriteConstructor.h"
+#include "FabricConstructor.h"
 
 namespace PredictedAdaptedEncoding
 {
-    class RecordBookConstructor : public ReadWriteConstructor
+    class RecordBookConstructor : public FabricConstructor
     {
         
     protected:
 
-        size_t BegainIdxOfAnyFabTableHeader(FabricTableSegmentClasses desired_table) noexcept;
+        uint64_t BegainIdxOfAnyFabTableHeader(FabricTableSegmentClasses desired_table) noexcept;
         
         bool BegainEndIdxHeaderPairGet(
             const FabricTableSegmentClasses table_class,

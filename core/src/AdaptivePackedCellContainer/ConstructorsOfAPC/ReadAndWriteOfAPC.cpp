@@ -76,23 +76,4 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    uint64_t ReadAndWriteOfAPC::AtomicallyUpdateACounterFromAPC(uint16_t desired_idx, uint32_t delta) noexcept
-    {
-        if (!IsValidAPCRange(desired_idx, 1))
-        {
-            return FABRIC_CELL_SENTINAL;
-        }
-        const uint64_t desired_slab_idx = RangeOfThisAPCInSlab_.BeginIndex + desired_idx;
-        return FabricOwnerPtr_->UpdateACounterAtomically(desired_slab_idx, delta);
-    }
-
-    uint64_t ReadAndWriteOfAPC::AtomicallyUpdateMetaCellCounter(HeaderIdentifierOfAPC meta_idx, uint32_t delta) noexcept
-    {
-        const uint16_t desired_idx = static_cast<uint16_t>(meta_idx);
-        if (desired_idx < APCDataStructure::METACELL_COUNT)
-        {
-            return AtomicallyUpdateACounterFromAPC(desired_idx, delta);
-        }
-        return FABRIC_CELL_SENTINAL;
-    }
 }

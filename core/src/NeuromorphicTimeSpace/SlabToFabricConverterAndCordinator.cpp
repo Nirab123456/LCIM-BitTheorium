@@ -187,52 +187,52 @@ namespace PredictedAdaptedEncoding
         RelationRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
         DeviceViewRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
 
-        size_t cursor = DefaultFabricAlignment16Cell_(APCDataStructure::METACELL_COUNT);
+        size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(APCDataStructure::METACELL_COUNT);
         const size_t record_book_begin = cursor;
         const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH;
 
-        cursor = DefaultFabricAlignment16Cell_(record_book_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(record_book_end);
         const size_t apc_description_begin = cursor;
         const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
 
-        cursor = DefaultFabricAlignment16Cell_(apc_description_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_description_end);
         const size_t branch_hash_begin = cursor;
         const size_t branch_hash_end = branch_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(branch_hash_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(branch_hash_end);
         const size_t logical_hash_begin = cursor;
         const size_t logical_hash_end = logical_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
         
-        cursor = DefaultFabricAlignment16Cell_(logical_hash_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(logical_hash_end);
         const size_t shared_hash_begin = cursor;
         const size_t shared_hash_end = shared_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(shared_hash_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(shared_hash_end);
         const size_t edge_table_begin = cursor;
         const size_t edge_table_end = edge_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(edge_table_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(edge_table_end);
         const size_t free_list_begin = cursor;
         const size_t free_list_end = free_list_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(free_list_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(free_list_end);
         const size_t ready_queue_begin = cursor;
         const size_t ready_queue_end = ready_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(ready_queue_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(ready_queue_end);
         const size_t work_queue_begin = cursor;
         const size_t work_queue_end = work_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::WORK_RECORD_WIDTH_OF_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(work_queue_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
         const size_t device_view_table_begin = cursor;
         const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(DeviceViewRecordCount_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
-        cursor = DefaultFabricAlignment16Cell_(device_view_table_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_view_table_end);
         const size_t thread_table_begin = cursor;
         const size_t thread_table_end = thread_table_begin + static_cast<size_t>(ThreadTableCapacity_ * CoreOfFabricCoordinator::THREAD_TABLE_RECORD_WIDTH);
 
-        cursor = DefaultFabricAlignment16Cell_(thread_table_end);
-        SegmentPoolBegin_ = DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(thread_table_end);
+        SegmentPoolBegin_ = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
         SegmentPoolEnd_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
         SlabCellCount_ = SegmentPoolEnd_;
 

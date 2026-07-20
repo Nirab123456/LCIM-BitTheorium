@@ -162,11 +162,31 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsKnownDescriptionIdentity(DescriptionUnitIdentity identity_of_unit) noexcept
         {
-            if (identity_of_unit < DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL)
+            return identity_of_unit < DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL;
+        }
+
+        static constexpr bool IsKnownFabricTable(FabricTableSegmentClasses table) noexcept
+        {
+            return table > FabricTableSegmentClasses::NONE &&
+                table < FabricTableSegmentClasses::NULLNAN;
+        }
+
+        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricTableSegmentClasses table) noexcept
+        {
+            if (!IsKnownFabricTable(table))
             {
-                return true;
+                return std::nullopt;
             }
-            return false;
+            
+            return static_cast<uint8_t>(
+                static_cast<uint8_t>(table) - 1
+            );
+        }
+
+        static constexpr size_t DefaultFabricAlignment16Cell_(size_t value) noexcept
+        {
+            const uint8_t alignment_value_15 = 16 - 1;
+            return (value + alignment_value_15) & ~static_cast<size_t>(alignment_value_15);
         }
     
     };

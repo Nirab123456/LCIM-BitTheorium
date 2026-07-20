@@ -23,16 +23,22 @@ namespace PredictedAdaptedEncoding
         RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
     ) noexcept
     {
-        const size_t begin_of_desired_table = BegainIdxOfAnyFabTableHeader(table_class);
+        return_bounds = {};
+        const uint64_t begin_of_desired_table = BegainIdxOfAnyFabTableHeader(table_class);
         
-        const size_t end_idx = begin_of_desired_table + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64);
+        const uint64_t end_idx = begin_of_desired_table + static_cast<uint64_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64);
 
-        if (end_idx >= SlabCellCount_ || begin_of_desired_table < APCDataStructure::METACELL_COUNT)
+        if (
+            end_idx > SlabCellCount_ || 
+            begin_of_desired_table < APCDataStructure::METACELL_COUNT ||
+            !APCDataStructure::IsValidFabricUnit(begin_of_desired_table)
+        )
         {
             return false;
         }
 
         return_bounds.BeginIndex = begin_of_desired_table;
+        return_bounds.EndIndex = end_idx;
         return_bounds.IsValid = true;
         return return_bounds.IsValid;
     }
@@ -46,7 +52,7 @@ namespace PredictedAdaptedEncoding
     {
         const size_t base_idx = BegainIdxOfAnyFabTableHeader(table_class);
         if (
-            base_idx == SIZE_MAX || 
+            !APCDataStructure::IsValidFabricUnit(base_idx) || 
             (base_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_) ||
             begin >= end || end > SlabCellCount_
         )
@@ -67,14 +73,20 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    size_t RecordBookConstructor::BegainIdxOfAnyFabTableHeader(
+    uint64_t RecordBookConstructor::BegainIdxOfAnyFabTableHeader(
         FabricTableSegmentClasses table_class
     ) noexcept
     {
-        /// ALways same derives from -> FabricMetaIndicies
         const uint64_t record_map_begin = ReadAFabricU64Directly(static_cast<size_t>(CoreOfFabricCoordinator::FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
-
-        return static_cast<size_t>(record_map_begin + (static_cast<size_t>(table_class) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH));        
+        const std::optional<uint8_t> table_ordinal = CoreOfFabricCoordinator::GetOrdinalOfFabricTable(table_class);
+        if (
+            !table_ordinal.has_value() ||
+            !APCDataStructure::IsValidFabricUnit(record_map_begin)
+        )
+        {
+            return FABRIC_CELL_SENTINAL;
+        }
+        return static_cast<uint64_t>(record_map_begin + (table_ordinal.value() * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH));        
     }
 
         
