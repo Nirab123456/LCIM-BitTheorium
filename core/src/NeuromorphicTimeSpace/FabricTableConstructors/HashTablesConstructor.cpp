@@ -234,7 +234,7 @@ namespace PredictedAdaptedEncoding
 
 
 
-    std::optional<uint64_t> HashTablesConstructor::FindHashValue48_(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
+    std::optional<uint64_t> HashTablesConstructor::FindUsedHashValue(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
     {
         if (
             !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
@@ -273,14 +273,22 @@ namespace PredictedAdaptedEncoding
                 return std::nullopt;
             }
 
-            if (existing_hash.HashKey == hash_key)
-            {
-                return existing_hash.HashValue;
-            }
-
-            if (existing_hash.ProbDistance < prob)
+            if (existing_hash.HashState == HashTableConf::StateOfAPC::FREE_OR_EMPTY)
             {
                 return std::nullopt;
+            }
+            
+            if (existing_hash.HashState == HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
+            {
+                if (existing_hash.HashKey == hash_key)
+                {
+                    return HashIdConstructror::IsValidHashHandle(existing_hash.HashValue) ? 
+                        std::optional<uint64_t>{existing_hash.HashValue} : std::nullopt;
+                }
+                if (existing_hash.ProbDistance < prob)
+                {
+                    return std::nullopt;
+                }
             }
             
             bucket = (bucket + 1u) & (bucket_count_dht - 1u);

@@ -274,7 +274,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const std::optional<uint64_t> maybe_root_handle = FindHashValue48_(desired_axis_map.HashTable, probable_root_key);
+        const std::optional<uint64_t> maybe_root_handle = FindUsedHashValue(desired_axis_map.HashTable, probable_root_key);
         if (!maybe_root_handle.has_value())
         {
             if (!InsertOrUpdateRobinHoodHash48_(desired_axis_map.HashTable, probable_root_key, this_handle))
@@ -310,7 +310,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        const std::optional<uint64_t> maybe_previous_handle = FindHashValue48_(desired_axis_map.HashTable, previous_key);
+        const std::optional<uint64_t> maybe_previous_handle = FindUsedHashValue(desired_axis_map.HashTable, previous_key);
         if (
             !maybe_previous_handle.has_value() ||
             !HashIdConstructror::IsValidAPCId(maybe_previous_handle.value())

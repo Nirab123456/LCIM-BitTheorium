@@ -14,7 +14,7 @@ namespace PredictedAdaptedEncoding
             std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
         ) noexcept;
 
-        std::optional<uint64_t> FindHashValue48_(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
+        std::optional<uint64_t> FindUsedHashValue(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
 
     public:
 

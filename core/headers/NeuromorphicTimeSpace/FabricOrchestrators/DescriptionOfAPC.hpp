@@ -76,6 +76,20 @@ namespace PredictedAdaptedEncoding
 
         }
 
+        static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
+        {
+            if (
+                !IsKnownStateOfAPC(current_state) ||
+                !IsKnownStateOfAPC(desired_state)
+            )
+            {
+                return false;
+            }
+            return (current_state == StateOfAPC::FREE_OR_EMPTY && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE_OR_PUBLISHED) ||
+                (current_state == StateOfAPC::LIVE_OR_PUBLISHED && desired_state == StateOfAPC::RETIRED_OR_TOMBSTONE);
+        }
+
     };
 
     struct DescriptionBuffer : public DescriptorConf

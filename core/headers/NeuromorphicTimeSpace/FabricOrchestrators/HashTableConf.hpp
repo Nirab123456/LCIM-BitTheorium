@@ -104,10 +104,10 @@ struct HashHelpers : public DescriptorConf
 
         if (
             check_prod_distance &&
-            hash_files.ProbDistance == UNSIGNED_ZERO
+            !APCDataStructure::IsValidControlAPCUnit(hash_files.ProbDistance)
         )
         {
-            hash_files.ProbDistance = false;
+            hash_files.IsValid = false;
             return false;
         }
         

@@ -125,7 +125,7 @@ namespace PredictedAdaptedEncoding
 
     bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
-        DescriptionOfAPC::StateOfAPC updated_state
+        DescriptionOfAPC::StateOfAPC desired_state
     ) noexcept
     {
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desc_buffer{};
@@ -135,24 +135,28 @@ namespace PredictedAdaptedEncoding
             desc_buffer
         );
         const uint32_t updated_id = DescriptionOfAPC::ComposeDescriptionId(
-            desc_buffer, updated_state
+            desc_buffer, desired_state
         );
-        uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, updated_state);
+        uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, desired_state);
         std::optional<size_t> maybe_id_state_idx = GetIdStateIdxOnDescriptionIdx(description_idx);
+
+        uint64_t expected_id_state = desc_buffer[
+            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
+        ];
+
+        const DescriptionOfAPC::DescriptorSaftyFiles expected_desc_files = DescriptionOfAPC::GetDescriptionFile(expected_id_state);
 
         if (
             !buffer_ok ||
             !APCDataStructure::IsValidControlAPCUnit(updated_id) ||
             !APCDataStructure::IsValidFabricUnit(updated_id_state) ||
-            !maybe_id_state_idx.has_value()
+            !maybe_id_state_idx.has_value() ||
+            !expected_desc_files.IsValid ||
+            !DescriptionOfAPC::IsTransitionStateLeagal(expected_desc_files.StateOfTheAPC, desired_state)
         )
         {
             return false;
         }
-
-        uint64_t expected_id_state = desc_buffer[
-            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
-        ];
 
         return CompareExchangeStrongFromFabric(
             maybe_id_state_idx.value(),

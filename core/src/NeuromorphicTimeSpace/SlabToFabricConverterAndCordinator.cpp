@@ -350,7 +350,7 @@ namespace PredictedAdaptedEncoding
             const uint64_t random_bid = HashIdConstructror::MakeARandomFabricValid64();
             if (
                 HashIdConstructror::IsValidAPCId(random_bid) && 
-                !FindHashValue48_(FabricTableSegmentClasses::BRANCH_HASH, random_bid).has_value()
+                !FindUsedHashValue(FabricTableSegmentClasses::BRANCH_HASH, random_bid).has_value()
             )
             {
                 return random_bid;
