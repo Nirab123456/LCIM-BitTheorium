@@ -157,7 +157,7 @@ struct HashIdConstructror
 
 };
 
-struct AxisConstructor
+struct AxisConstructor : public HashIdConstructror
 {
     enum class BidirectionalAxis : uint8_t
     {
@@ -181,7 +181,7 @@ struct AxisConstructor
         {
             return AxisConstructionMap{
                 FabricTableSegmentClasses::SHARED_HASH,
-                HeaderIdentifierOfAPC::TOTAL_HORIZONTAL_COUNT_S,
+                HeaderIdentifierOfAPC::HORIZONTALLY_SHARED_COUNT,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE,
                 true
@@ -190,7 +190,7 @@ struct AxisConstructor
 
         return AxisConstructionMap{
             FabricTableSegmentClasses::LOGICAL_HASH,
-            HeaderIdentifierOfAPC::TOTAL_VERTICAL_COUNT_L,
+            HeaderIdentifierOfAPC::VARTICALLY_LOGICAL_COUNT,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE,
             true

@@ -76,4 +76,35 @@ namespace PredictedAdaptedEncoding
     }
 
 
+    uint64_t ReadAndWriteOfAPC::ReadAPCMetaUnit(HeaderIdentifierOfAPC meta_idx, bool atomic_required) noexcept
+    {
+        const uint8_t idx_u = static_cast<uint8_t>(meta_idx);
+        if (!IsValidAPCRange(idx_u, 1u))
+        {
+            return FABRIC_CELL_SENTINAL;
+        }
+        
+        const size_t slab_idx = static_cast<uint64_t>(RangeOfThisAPCInSlab_.BeginIndex + idx_u);
+        return atomic_required ? 
+            FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx) :
+            FabricOwnerPtr_->ReadAFabricU64Directly(slab_idx);
+    }
+
+
+    bool ReadAndWriteOfAPC::CompareExchangeAPCMetaUinit(
+        HeaderIdentifierOfAPC meta_idx,
+        uint64_t& expected_value,
+        uint64_t desired_value
+    ) noexcept
+    {
+        const uint8_t local_idx_u = static_cast<uint8_t>(meta_idx);
+
+        return IsValidAPCRange(local_idx_u, 1u) &&
+            FabricOwnerPtr_->CompareExchangeStrongFromFabric(
+                RangeOfThisAPCInSlab_.BeginIndex + local_idx_u,
+                expected_value,
+                desired_value
+            );
+    }
+
 }

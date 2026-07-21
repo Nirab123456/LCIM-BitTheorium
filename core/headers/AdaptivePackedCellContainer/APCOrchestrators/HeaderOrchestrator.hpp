@@ -49,8 +49,8 @@ namespace PredictedAdaptedEncoding
             header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE)] = identity_cfg.SharedPreviousHandle;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE)] = identity_cfg.LogicalNextHandle;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE)] = identity_cfg.LogicalPreviousHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::TOTAL_HORIZONTAL_COUNT_S)] = identity_cfg.SharedSequentialCount;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::TOTAL_VERTICAL_COUNT_L)] = identity_cfg.LogicalSequentalCount;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::HORIZONTALLY_SHARED_COUNT)] = identity_cfg.SharedSequentialCount;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::VARTICALLY_LOGICAL_COUNT)] = identity_cfg.LogicalSequentalCount;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD)] = identity_cfg.AccessPassword;
         }
 

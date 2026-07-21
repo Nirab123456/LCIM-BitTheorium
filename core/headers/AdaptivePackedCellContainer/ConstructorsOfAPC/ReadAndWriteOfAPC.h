@@ -30,7 +30,13 @@ namespace PredictedAdaptedEncoding
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept;
 
-        ////// SINGLE READ WRITE/////
+        uint64_t ReadAPCMetaUnit(HeaderIdentifierOfAPC meta_idx, bool atomic_required = true) noexcept;
+
+        bool CompareExchangeAPCMetaUinit(
+            HeaderIdentifierOfAPC meta_idx,
+            uint64_t& expected_value,
+            uint64_t desired_value
+        ) noexcept;
 
         /// @return The Update only ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED
         uint64_t AtomicallyUpdateACounterFromAPC(uint16_t desired_idx, uint32_t delta) noexcept;

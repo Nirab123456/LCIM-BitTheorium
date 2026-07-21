@@ -11,9 +11,9 @@ namespace PredictedAdaptedEncoding
     {
         // identity
         MAGIC_ID = 0,
-        SEGMENT_CONF_FLAGS = 1,
 
         // FABRIC_INFO
+        IDENTITY_FINGERPRINT = 1,
         APC_SLOT_IDX = 2,
             //ID
             BRANCH_ID = 3,
@@ -23,14 +23,15 @@ namespace PredictedAdaptedEncoding
             SHARED_ID_HASH_KEY = 6,
             LOGICAL_ID_HASH_KEY = 7,
             //LINKED SEQUENTIAL CHAIN
-            TOTAL_HORIZONTAL_COUNT_S = 8,
-            TOTAL_VERTICAL_COUNT_L = 9,
+            HORIZONTALLY_SHARED_COUNT = 8,
+            VARTICALLY_LOGICAL_COUNT = 9,
 
             PREVIOUS_HORIZONTAL_HANDLE = 10,
             NEXT_HORIZONTAL_HANDLE = 11,
             NEXT_VERTICAL_HANDLE = 12,
             PREVIOUS_VERTICAL_HANDLE = 13,
         ACCESS_PASSWORD = 14,
+
         ///
 
         // payload bounds versions
@@ -89,6 +90,7 @@ namespace PredictedAdaptedEncoding
         
         ////-------NEEDS UPDATE IN FUTURE---------
         // runtime-control
+        SEGMENT_CONF_FLAGS = 85,
         BRANCH_PRIORITY = 86,
         CURRENT_ACTIVE_THREADS = 87,
         SPLIT_THRESHOLD_PERCENTAGE = 88,

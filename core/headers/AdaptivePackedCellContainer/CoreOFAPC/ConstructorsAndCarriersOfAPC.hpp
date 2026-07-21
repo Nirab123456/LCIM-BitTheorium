@@ -128,6 +128,12 @@ namespace PredictedAdaptedEncoding
             return value != UNSIGNED_ZERO && (value & (value - 1u)) == UNSIGNED_ZERO;
         }
 
+        static constexpr uint8_t TotalIdentityUnitCount() noexcept
+        {
+            return static_cast<uint8_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD) - 
+                static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) + 1;
+        }
+
 
     protected:
             static constexpr void FreeAlignedRawPackedCells_(uint64_t* backing_ptr) noexcept
