@@ -148,7 +148,7 @@ namespace PredictedAdaptedEncoding
 
         if (
             !buffer_ok ||
-            !APCDataStructure::IsValidControlAPCUnit(updated_id) ||
+            !APCDataStructure::IsValid32BitAPCUnit(updated_id) ||
             !APCDataStructure::IsValidFabricUnit(updated_id_state) ||
             !maybe_id_state_idx.has_value() ||
             !expected_desc_files.IsValid ||

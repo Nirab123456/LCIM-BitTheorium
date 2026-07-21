@@ -16,6 +16,13 @@ struct HashIdConstructror
 
     static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
     static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
+    static constexpr uint64_t HASH_64BIT_GRATIO_3 = 0xbf58476d1ce4e5b9ull;
+    static constexpr uint64_t HASH_64BIT_GRATIO_4 = 0x94d049bb133111ebull;
+
+    static constexpr uint8_t HASH_SHIFT_FOR_64_C1 = 30u;
+    static constexpr uint8_t HASH_SHIFT_FOR_64_C2 = 27u;
+    static constexpr uint8_t HASH_SHIFT_FOR_64_C3 = 31u;
+
 
     /// @brief VALIDATES THE RAW ID 
     static constexpr bool IsValidAPCId(uint64_t value) noexcept
@@ -26,7 +33,7 @@ struct HashIdConstructror
     static constexpr bool IsValidGroupId(uint64_t value) noexcept
     {
         return value > UNSIGNED_ZERO && 
-            APCDataStructure::IsValidControlAPCUnit(value);
+            APCDataStructure::IsValid32BitAPCUnit(value);
     }
 
     static constexpr bool IsValidAPCSlotIdx(uint64_t slot_idx) noexcept
@@ -64,7 +71,7 @@ struct HashIdConstructror
     {
         if (
             !IsValidGroupId(group_id) ||
-            !APCDataStructure::IsValidControlAPCUnit(child_ordinal)
+            !APCDataStructure::IsValid32BitAPCUnit(child_ordinal)
         )
         {
             return FABRIC_CELL_SENTINAL;
@@ -72,7 +79,7 @@ struct HashIdConstructror
 
         const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | static_cast<uint64_t>(child_ordinal);
 
-        return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL;
+        return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL - 1;
     }
 
     /// @brief Get 32 Bit Prefix of A Group Key Can be used to set a Different sequential idx to find linked APC's
@@ -84,8 +91,19 @@ struct HashIdConstructror
         {
             return std::nullopt;
         }
+
+        const uint32_t prefix_32 = static_cast<uint32_t>((group_key >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
+
+        if (prefix_32 == UNSIGNED_ZERO)
+        {
+            return 1;
+        }
+        if (!APCDataStructure::IsValid32BitAPCUnit(prefix_32))
+        {
+            return prefix_32 - 1;
+        }
+        return prefix_32;
         
-        return static_cast<uint32_t>((group_key >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
     }
 
     /// @brief Get 16 Bit Sequential Linked Idx From Key
@@ -155,6 +173,27 @@ struct HashIdConstructror
 
     }
 
+
+    static constexpr uint64_t HashUnsigned64(uint64_t given_value) noexcept
+    {
+        given_value ^= given_value >> HASH_SHIFT_FOR_64_C1;
+        given_value *= HASH_64BIT_GRATIO_3;
+        given_value ^= given_value >> HASH_SHIFT_FOR_64_C2;
+        given_value *= HASH_64BIT_GRATIO_4;
+        given_value ^=  given_value >> HASH_SHIFT_FOR_64_C3;
+
+        if (!APCDataStructure::IsValidFabricUnit(given_value))
+        {
+            return given_value - 1u;
+        }
+
+        if (given_value == UNSIGNED_ZERO)
+        {
+            return 1u;
+        }
+        return given_value;
+    }
+
 };
 
 struct AxisConstructor : public HashIdConstructror
@@ -171,7 +210,8 @@ struct AxisConstructor : public HashIdConstructror
         HeaderIdentifierOfAPC CountTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        bool IsValid = false;
+        HeaderIdentifierOfAPC ID{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC KEY{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
 
@@ -184,7 +224,8 @@ struct AxisConstructor : public HashIdConstructror
                 HeaderIdentifierOfAPC::HORIZONTALLY_SHARED_COUNT,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE,
-                true
+                HeaderIdentifierOfAPC::SHARED_GROUP_ID,
+                HeaderIdentifierOfAPC::SHARED_ID_HASH_KEY
             };
         }
 
@@ -193,7 +234,8 @@ struct AxisConstructor : public HashIdConstructror
             HeaderIdentifierOfAPC::VARTICALLY_LOGICAL_COUNT,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE,
-            true
+            HeaderIdentifierOfAPC::LOGICAL_GROUP_ID,
+            HeaderIdentifierOfAPC::LOGICAL_ID_HASH_KEY
         };
     }
 

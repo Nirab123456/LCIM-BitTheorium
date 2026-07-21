@@ -8,8 +8,8 @@ namespace PredictedAdaptedEncoding
         static constexpr uint64_t PackDoubleUnsigned32In64(uint32_t low_32, uint32_t high_32) noexcept
         {
             if (
-                !APCDataStructure::IsValidControlAPCUnit(low_32) ||
-                !APCDataStructure::IsValidControlAPCUnit(high_32)
+                !APCDataStructure::IsValid32BitAPCUnit(low_32) ||
+                !APCDataStructure::IsValid32BitAPCUnit(high_32)
             )
             {
                 return FABRIC_CELL_SENTINAL;
@@ -57,7 +57,7 @@ namespace PredictedAdaptedEncoding
         static constexpr bool IsCarrierValid(Pack32_28_4_Carrier& carrier) noexcept
         {
             if (
-                !APCDataStructure::IsValidControlAPCUnit(carrier.Lowest32Bit)||
+                !APCDataStructure::IsValid32BitAPCUnit(carrier.Lowest32Bit)||
                 carrier.Mid28Bit >= UINT28_MAX ||
                 carrier.High4Bit >= UINT4_MAX
             )

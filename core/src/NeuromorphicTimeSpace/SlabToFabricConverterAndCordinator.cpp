@@ -162,7 +162,7 @@ namespace PredictedAdaptedEncoding
 
         InitializationInProgress_.store(true, std::memory_order_release);
 
-        if (slot_count == UNSIGNED_ZERO || !APCDataStructure::IsValidControlAPCUnit(slot_count))
+        if (slot_count == UNSIGNED_ZERO || !APCDataStructure::IsValid32BitAPCUnit(slot_count))
         {
             return false;
         }

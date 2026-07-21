@@ -93,7 +93,7 @@ namespace PredictedAdaptedEncoding
         
         uint64_t incoming_key = hash_key;
         uint64_t incoming_value = hash_value;
-        uint64_t incoming_hash = HashTableConf::HashUnsigned64(incoming_key);
+        uint64_t incoming_hash = HashIdConstructror::HashUnsigned64(incoming_key);
         uint32_t incoming_prob = UNSIGNED_ZERO;
 
         uint64_t incoming_bucket = incoming_hash & (bucket_count - 1u);
@@ -201,7 +201,7 @@ namespace PredictedAdaptedEncoding
 
                 incoming_key = currrent_hash_data.HashKey;
                 incoming_value = currrent_hash_data.HashValue;
-                incoming_hash = HashTableConf::HashUnsigned64(incoming_key);
+                incoming_hash = HashIdConstructror::HashUnsigned64(incoming_key);
 
                 if (currrent_hash_data.ProbDistance == HashTableConf::PROB_DISTANCE_SENTINAL)
                 {
@@ -256,7 +256,7 @@ namespace PredictedAdaptedEncoding
         const uint64_t bucket_count_dht = table_cell_count / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
 
 
-        uint64_t bucket = HashHelpers::HashUnsigned64(hash_key) & (bucket_count_dht - 1u);
+        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count_dht - 1u);
 
         for (uint64_t prob = 0; prob < bucket_count_dht; prob++)
         {
@@ -307,7 +307,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        uint64_t bucket = HashTableConf::HashUnsigned64(hash_key) & (bucket_count - 1);
+        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count - 1);
         HashTableConf::SingleHashBuffer hash_buffer{};
 
         for (uint64_t i = 0; i < bucket_count; i++)

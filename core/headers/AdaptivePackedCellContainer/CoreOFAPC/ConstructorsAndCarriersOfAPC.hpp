@@ -101,7 +101,7 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
 
 
-        static constexpr bool IsValidControlAPCUnit(uint64_t index) noexcept
+        static constexpr bool IsValid32BitAPCUnit(uint64_t index) noexcept
         {
             return index < APC_INDEX_BOUND_SENTINAL;
         }
@@ -120,7 +120,7 @@ namespace PredictedAdaptedEncoding
         static constexpr bool IsCapacityOfAPCValid(uint32_t capacity) noexcept
         {
             return capacity >= MINIMUM_APC_CELL_COUNT &&
-                IsValidControlAPCUnit(capacity);
+                IsValid32BitAPCUnit(capacity);
         }
 
         static constexpr bool IsPowerOfTwoValue(uint64_t value) noexcept

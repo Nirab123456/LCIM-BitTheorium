@@ -234,7 +234,7 @@ namespace PredictedAdaptedEncoding
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
             const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
             if (
-                !APCDataStructure::IsValidControlAPCUnit(desc_id) ||
+                !APCDataStructure::IsValid32BitAPCUnit(desc_id) ||
                 !APCDataStructure::IsValidFabricUnit(id_state_unit)
             )
             {

@@ -6,12 +6,6 @@ namespace PredictedAdaptedEncoding
 
 struct DefaultHashings : public DescriptorConf
 {
-
-    static constexpr uint8_t HASH_SHIFT_1 = 30u;
-    static constexpr uint8_t HASH_SHIFT_2 = 27u;
-    static constexpr uint8_t HASH_SHIFT_3 = 31u;
-    static constexpr uint64_t DEFAULT_HAS_CONST_1 = 0xbf58476d1ce4e5b9ull;
-    static constexpr uint64_t DEFAULT_HAS_CONST_2 = 0x94d049bb133111ebull;
     static constexpr uint64_t HASH_TOMBSTONE_KEY = FABRIC_CELL_SENTINAL;
     static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
     static constexpr uint8_t DEFAULT_TABLE_TAILROOM_MULT = 2u;
@@ -38,25 +32,7 @@ struct DefaultHashings : public DescriptorConf
     /// @brief Convert A Value to Hash
     /// @param given_value Must be 
     /// @return 
-    static constexpr uint64_t HashUnsigned64(uint64_t given_value) noexcept
-    {
-        given_value ^= given_value >> HASH_SHIFT_1;
-        given_value *= DEFAULT_HAS_CONST_1;
-        given_value ^= given_value >> HASH_SHIFT_2;
-        given_value *= DEFAULT_HAS_CONST_2;
-        given_value ^=  given_value >> HASH_SHIFT_3;
 
-        if (!APCDataStructure::IsValidFabricUnit(given_value))
-        {
-            return given_value - 1u;
-        }
-
-        if (given_value == UNSIGNED_ZERO)
-        {
-            return 1u;
-        }
-        return given_value;
-    }
 
 
     static constexpr uint64_t BucketCountForExpectedEntries(uint64_t count_of_entries) noexcept
@@ -83,13 +59,13 @@ struct DefaultHashings : public DescriptorConf
         const uint64_t salt = (axis == APCGroupReserver::BidirectionalAxis::HORIZONTALLY_SHARED) ? 
             HashIdConstructror::HASH_64BIT_GRATIO_1 : HashIdConstructror::HASH_64BIT_GRATIO_2;
 
-        uint32_t group_id = static_cast<uint32_t>(HashUnsigned64(branch_id ^ salt));
+        uint32_t group_id = static_cast<uint32_t>(HashIdConstructror::HashUnsigned64(branch_id ^ salt));
         if (group_id == UNSIGNED_ZERO)
         {
             return 1;
         }
 
-        if (!APCDataStructure::IsValidControlAPCUnit(group_id))
+        if (!APCDataStructure::IsValid32BitAPCUnit(group_id))
         {
             return group_id - 1;
         }
@@ -134,7 +110,7 @@ struct HashHelpers : public DefaultHashings
 
         if (
             check_prod_distance &&
-            !APCDataStructure::IsValidControlAPCUnit(hash_files.ProbDistance)
+            !APCDataStructure::IsValid32BitAPCUnit(hash_files.ProbDistance)
         )
         {
             hash_files.IsValid = false;
