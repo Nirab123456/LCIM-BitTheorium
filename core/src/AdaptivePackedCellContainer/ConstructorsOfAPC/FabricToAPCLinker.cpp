@@ -3,15 +3,19 @@
 
 namespace PredictedAdaptedEncoding
 {
-    uint64_t FabricToAPCLinker::AtomicallyReadLongLongAPCUnit(uint64_t idx) noexcept
+    bool FabricToAPCLinker::AtomicallyReadLongLongAPCUnit(
+        uint64_t idx,
+        uint64_t& return_value
+    ) noexcept
     {
         if (!IsValidAPCRange(idx, 1))
         {
-            return FABRIC_CELL_SENTINAL;
+            return false;
         }
 
         return FabricOwnerPtr_->AtomicallyLoadReadAUnit(
-            RangeOfThisAPCInSlab_.BeginIndex + idx
+            RangeOfThisAPCInSlab_.BeginIndex + idx,
+            return_value
         );
     }
 
@@ -151,10 +155,13 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    std::optional<uint64_t> FabricToAPCLinker::TryToOwnSealedFingerprintIdentity() noexcept
+    std::optional<uint64_t> FabricToAPCLinker::HoldStateOfIdentyFingerprint(
+        InstallAxisToBuffer::FingerprintHashState desired_state
+    ) noexcept
     {
+        using IA = InstallAxisToBuffer;
 
-        InstallAxisToBuffer::BufferOfAPCIdentity identity_buffer{};
+        IA::BufferOfAPCIdentity identity_buffer{};
 
         bool copy_ok = CopyFromAPCToBuffer(
             static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
@@ -163,40 +170,61 @@ namespace PredictedAdaptedEncoding
             true
         );
 
-        if (!copy_ok || !InstallAxisToBuffer::ValidateAIdentityBuffer(identity_buffer))
+        if (
+            !copy_ok || 
+            !IA::ValidateAIdentityBuffer(identity_buffer) ||
+            !IA::IsHoldFingerprintState(desired_state)
+        )
         {
             return std::nullopt;
         }
         
         uint64_t sealed_fingerprint = UNSIGNED_ZERO;
 
-        if (InstallAxisToBuffer::GetStateFingerprint(identity_buffer, &sealed_fingerprint) == InstallAxisToBuffer::FingerprintHashState::VALID)
+        if (IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint) == IA::FingerprintHashState::VALID)
         {
             return std::nullopt;
         }
         
-        return CompareExchangeStrongFromAPC(
+        bool comp_exg_ok = CompareExchangeStrongFromAPC(
             static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
             sealed_fingerprint,
-            InstallAxisToBuffer::IDENTY_FINGERPRINT_WRITE_LOCK
-        ) ? 
+            desired_state == IA::FingerprintHashState::WRITE_LOCK ?
+                IA::IDENTY_FINGERPRINT_WRITE_LOCK : IA::IDENTITY_FINGERPRINT_CONSUMED
+        );
+        return comp_exg_ok ?
             std::optional<uint64_t>{sealed_fingerprint} : 
             std::nullopt;
     }
 
-    // bool FabricToAPCLinker::RestoreClaimedIdentityFingerprint(
-    //     uint64_t sealed_fingerprint
-    // ) noexcept
-    // {
-    //     const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
-    //     if (!IsValidAPCRange(fp_idx, 1))
-    //     {
-    //         return false;
-    //     }
+    bool FabricToAPCLinker::RestorIdentityFingerprint(
+        uint64_t sealed_fingerprint,
+        InstallAxisToBuffer::FingerprintHashState current_state
+    ) noexcept
+    {
+        using IFS = InstallAxisToBuffer::FingerprintHashState;
+
+        const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+        uint64_t current_fp = UNSIGNED_ZERO;
+        if (!AtomicallyReadLongLongAPCUnit(fp_idx, current_fp))
+        {
+            return false;
+        }
         
-    //     const InstallAxisToBuffer::FingerprintHashState sealed_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(sealed_fingerprint);
-    //     const InstallAxisToBuffer::FingerprintHashState current_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(
-    //         FabricOwnerPtr_->AtomicallyLoadReadAUnit()
-    //     );
-    // }
+        const IFS sealed_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(sealed_fingerprint);
+        const IFS current_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(current_fp);
+
+        if (
+            sealed_fp_state == IFS::VALID &&
+            current_fp_state == current_state
+        )
+        {
+            return CompareExchangeStrongFromAPC(
+                fp_idx,
+                current_fp,
+                sealed_fingerprint
+            );
+        }
+        return false;
+    }
 }

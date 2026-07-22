@@ -34,10 +34,12 @@ namespace PredictedAdaptedEncoding
         {
             return carrier;
         }
-
-        const uint64_t key_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX));
-        const uint64_t value_cell = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX));
-        const uint64_t prob_st_fp = AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK));
+        uint64_t key_cell = UNSIGNED_ZERO;
+        uint64_t value_cell = UNSIGNED_ZERO;
+        uint64_t prob_st_fp = UNSIGNED_ZERO;
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX), key_cell);
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX), value_cell);
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK), prob_st_fp);
         
         Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
 

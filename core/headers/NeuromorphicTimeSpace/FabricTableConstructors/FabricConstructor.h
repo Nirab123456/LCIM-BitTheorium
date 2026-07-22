@@ -31,9 +31,15 @@ namespace PredictedAdaptedEncoding
 
     public:
 
-        uint64_t ReadAFabricU64Directly(size_t slab_index) noexcept;
+        bool ReadAFabricU64Directly(
+            size_t slab_index,
+            uint64_t& return_value
+        ) noexcept;
 
-        constexpr uint64_t AtomicallyLoadReadAUnit(size_t slab_index) noexcept;
+        bool AtomicallyLoadReadAUnit(
+            size_t slab_index,
+            uint64_t& return_value
+        ) noexcept;
         
         constexpr void DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept;
 

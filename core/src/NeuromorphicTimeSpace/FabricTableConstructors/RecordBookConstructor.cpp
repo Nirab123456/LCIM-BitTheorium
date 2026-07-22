@@ -76,10 +76,14 @@ namespace PredictedAdaptedEncoding
     uint64_t RecordBookConstructor::GetStartingOfAnyFabricTable(
         FabricTableSegmentClasses table_class
     ) noexcept
-    {
-        const uint64_t record_map_begin = ReadAFabricU64Directly(static_cast<size_t>(CoreOfFabricCoordinator::FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN));
+    {   uint64_t record_map_begin = UNSIGNED_ZERO;
+        const bool read_ok = ReadAFabricU64Directly(
+            static_cast<size_t>(CoreOfFabricCoordinator::FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN),
+            record_map_begin
+        );
         const std::optional<uint8_t> table_ordinal = CoreOfFabricCoordinator::GetOrdinalOfFabricTable(table_class);
         if (
+            !read_ok ||
             !table_ordinal.has_value() ||
             !APCDataStructure::IsValidFabricUnit(record_map_begin)
         )

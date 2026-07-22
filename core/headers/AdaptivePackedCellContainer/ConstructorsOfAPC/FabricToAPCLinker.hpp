@@ -59,7 +59,10 @@ public:
         uint64_t fabric_slot_idx
     ) noexcept;
 
-    uint64_t AtomicallyReadLongLongAPCUnit(uint64_t idx) noexcept;
+    bool AtomicallyReadLongLongAPCUnit(
+        uint64_t idx,
+        uint64_t& return_value
+    ) noexcept;
 
     bool IsFabricBackend() const noexcept
     {
@@ -90,13 +93,13 @@ public:
             sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
     }
 
-    
+    std::optional<uint64_t> HoldStateOfIdentyFingerprint(
+        InstallAxisToBuffer::FingerprintHashState desired_state
+    ) noexcept;
 
-
-    std::optional<uint64_t> TryToOwnSealedFingerprintIdentity() noexcept;
-
-    bool RestoreClaimedIdentityFingerprint(
-        uint64_t sealed_fingerprint
+    bool RestorIdentityFingerprint(
+        uint64_t sealed_fingerprint,
+        InstallAxisToBuffer::FingerprintHashState current_state
     ) noexcept;
 
 };

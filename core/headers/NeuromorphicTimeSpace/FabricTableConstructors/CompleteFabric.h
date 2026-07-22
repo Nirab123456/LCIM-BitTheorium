@@ -8,6 +8,7 @@ namespace PredictedAdaptedEncoding
         
     protected:
 
+        /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
         uint64_t GetStartingOfAnyFabricTable(FabricTableSegmentClasses desired_table) noexcept;
         
         bool GetRecordMapCarrierRanges(

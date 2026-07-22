@@ -3,24 +3,32 @@
 namespace PredictedAdaptedEncoding
 {
 
-    uint64_t FabricConstructor::ReadAFabricU64Directly(size_t slab_index) noexcept
+    bool FabricConstructor::ReadAFabricU64Directly(
+        size_t slab_index,
+        uint64_t& return_value
+    ) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
-            return FABRIC_CELL_SENTINAL;
+            return false;
         }
-        return SlabBasePtr_[slab_index];
-    } 
+        return_value = SlabBasePtr_[slab_index];
+        return true;
+    }
 
-    constexpr uint64_t FabricConstructor::AtomicallyLoadReadAUnit(size_t slab_index) noexcept
+    bool FabricConstructor::AtomicallyLoadReadAUnit(
+        size_t slab_index,
+        uint64_t& return_value
+    ) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
-            return FABRIC_CELL_SENTINAL;
+            return false;
         }
         std::atomic_ref<const uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
-        const uint64_t desired_cell_raw = fab_u64_ref.load(std::memory_order_acquire);
-        return desired_cell_raw;
+        uint64_t desired_cell_raw = fab_u64_ref.load(std::memory_order_acquire);
+        return_value = desired_cell_raw;
+        return true;
     }
 
     constexpr void FabricConstructor::DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept
@@ -146,7 +154,8 @@ namespace PredictedAdaptedEncoding
         for (uint16_t i = 0; i < number_of_cells; i++)
         {
             const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
-            uint64_t expected_unit = AtomicallyLoadReadAUnit(current_slab_idx);
+            uint64_t expected_unit = UNSIGNED_ZERO;
+            AtomicallyLoadReadAUnit(current_slab_idx, expected_unit);
             comp_ex_buffer[i] = expected_unit;
             if (
                 !CompareExchangeStrongFromFabric(
@@ -209,7 +218,7 @@ namespace PredictedAdaptedEncoding
             for (size_t i = 0; i < sequential_number_of_cells; i++)
             {
                 const size_t current_slab_idx = slab_starting_idx + i;
-                return_buffer[i] = AtomicallyLoadReadAUnit(current_slab_idx);
+                AtomicallyLoadReadAUnit(current_slab_idx, return_buffer[i]);
             }
             return true;
         }

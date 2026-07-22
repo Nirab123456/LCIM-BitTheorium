@@ -117,7 +117,8 @@ namespace PredictedAdaptedEncoding
         {
             return return_files;
         }
-        const uint64_t state_of_apc_cell = AtomicallyLoadReadAUnit(maybe_id_state_idx.value());
+        uint64_t state_of_apc_cell = UNSIGNED_ZERO;
+        AtomicallyLoadReadAUnit(maybe_id_state_idx.value(), state_of_apc_cell);
         return_files = DescriptionOfAPC::GetDescriptionFile(state_of_apc_cell);
         return return_files;
     }

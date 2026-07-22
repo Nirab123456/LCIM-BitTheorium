@@ -33,6 +33,12 @@ namespace PredictedAdaptedEncoding
                 identity_unit <= HeaderIdentifierOfAPC::ACCESS_PASSWORD;
         }
 
+        static constexpr bool IsHoldFingerprintState(FingerprintHashState state) noexcept
+        {
+            return state == FingerprintHashState::WRITE_LOCK ||
+                state == FingerprintHashState::CONSUME_LOCK;
+        }
+
         static constexpr FingerprintHashState StateOfIdentityFingerprint(uint64_t hash_value) noexcept
         {
             if (

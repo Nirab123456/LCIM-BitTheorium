@@ -30,7 +30,11 @@ namespace PredictedAdaptedEncoding
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept;
 
-        uint64_t ReadAPCMetaUnit(HeaderIdentifierOfAPC meta_idx, bool atomic_required = true) noexcept;
+        bool ReadAPCMetaUnit(
+            HeaderIdentifierOfAPC meta_idx,
+            uint64_t& return_value,
+            bool atomic_required = true
+        ) noexcept;
 
         bool CompareExchangeAPCMetaUinit(
             HeaderIdentifierOfAPC meta_idx,
