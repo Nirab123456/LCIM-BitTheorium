@@ -62,7 +62,7 @@ namespace PredictedAdaptedEncoding
 
     AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept
     {
-        if (!HashIdConstructror::IsValidHashHandle(apc_handle))
+        if (!HashIdConstructror::IsValidAPCId(apc_handle))
         {
             return nullptr;
         }
@@ -358,7 +358,7 @@ namespace PredictedAdaptedEncoding
     //     if (
     //         !previous_grouped_apc ||
     //         !previous_grouped_apc->IsThisAPCValid() ||
-    //         !HashIdConstructror::IsValidHashHandle(this_handle)
+    //         !HashIdConstructror::IsValidAPCId(this_handle)
     //     )
     //     {
     //         return false;

@@ -86,8 +86,11 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             return (current_state == StateOfAPC::FREE_OR_EMPTY && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE_OR_EMPTY) ||
                 (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE_OR_PUBLISHED) ||
-                (current_state == StateOfAPC::LIVE_OR_PUBLISHED && desired_state == StateOfAPC::RETIRED_OR_TOMBSTONE);
+                (current_state == StateOfAPC::LIVE_OR_PUBLISHED && desired_state == StateOfAPC::RETIRED_OR_TOMBSTONE) ||
+                (current_state == StateOfAPC::RETIRED_OR_TOMBSTONE && desired_state == StateOfAPC::RESERVED);
+                
         }
 
     };

@@ -178,8 +178,6 @@ namespace PredictedAdaptedEncoding
             return std::nullopt;
         }
 
-        uint64_t desired_apc_slot = FABRIC_CELL_SENTINAL;
-
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
             const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically(description_idx);
@@ -192,7 +190,7 @@ namespace PredictedAdaptedEncoding
                 )
             )
             {
-                return desired_apc_slot;
+                return static_cast<uint64_t>(description_idx);
             }
         }
 

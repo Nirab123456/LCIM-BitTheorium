@@ -322,7 +322,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const uint64_t handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex);
-        if (!HashIdConstructror::IsValidHashHandle(handle))
+        if (!HashIdConstructror::IsValidAPCId(handle))
         {
             container_initial_conf.IsAssignable = false;
             return false;

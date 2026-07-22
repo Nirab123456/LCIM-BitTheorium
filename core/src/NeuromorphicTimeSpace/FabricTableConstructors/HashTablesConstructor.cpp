@@ -277,7 +277,7 @@ namespace PredictedAdaptedEncoding
             {
                 if (existing_hash.HashKey == hash_key)
                 {
-                    return HashIdConstructror::IsValidHashHandle(existing_hash.HashValue) ? 
+                    return HashIdConstructror::IsValidAPCId(existing_hash.HashValue) ? 
                         std::optional<uint64_t>{existing_hash.HashValue} : std::nullopt;
                 }
                 if (existing_hash.ProbDistance < prob)

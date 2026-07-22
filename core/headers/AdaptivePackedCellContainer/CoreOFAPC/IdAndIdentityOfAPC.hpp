@@ -41,11 +41,6 @@ struct HashIdConstructror
         return slot_idx < FABRIC_CELL_SENTINAL - 1;
     }
 
-    static constexpr bool IsValidHashHandle(uint64_t handle) noexcept
-    {
-        return handle > UNSIGNED_ZERO && handle < FABRIC_CELL_SENTINAL;
-    }
-
     static constexpr uint64_t APCSlotIdxToHashTableHandler(uint64_t apc_slot_idx) noexcept
     {
         if (IsValidAPCSlotIdx(apc_slot_idx))
@@ -57,7 +52,7 @@ struct HashIdConstructror
 
     static constexpr uint64_t HashTableHandlerToAPCSlotIdx(uint64_t handler) noexcept
     {
-        if (IsValidHashHandle(handler))
+        if (IsValidAPCId(handler))
         {
             return handler - 1;
         }
@@ -109,14 +104,14 @@ struct HashIdConstructror
     /// @brief Get 16 Bit Sequential Linked Idx From Key
     /// @param group_key Raw Key
     /// @return if Key VALID: -> 16 BIT SEQUENTIAL IDX / std::nullopt
-    static constexpr std::optional<uint16_t> GetSeqIndexOfAHashKey(uint64_t group_key) noexcept
+    static constexpr std::optional<uint32_t> GetSeqIndexOfAHashKey(uint64_t group_key) noexcept
     {
         if (!IsValidAPCId(group_key))
         {
             return std::nullopt;
         }
 
-        return static_cast<uint16_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
+        return static_cast<uint32_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
     }
 
     static constexpr uint64_t RebuildOriginalKey(uint32_t prefix32, uint32_t index_32) noexcept
@@ -311,7 +306,7 @@ struct APCGroupReserver : public AxisConstructor
         requested_conf.IsAssignable = (
             HashIdConstructror::IsValidAPCSlotIdx(requested_conf.APCSlotIndex) &&
             HashIdConstructror::IsValidAPCId(requested_conf.BranchID) &&
-            HashIdConstructror::IsValidHashHandle(
+            HashIdConstructror::IsValidAPCId(
                 HashIdConstructror::APCSlotIdxToHashTableHandler(requested_conf.APCSlotIndex)
             ) &&
             HashIdConstructror::IsValidAPCId(requested_conf.AccessPassword) &&
