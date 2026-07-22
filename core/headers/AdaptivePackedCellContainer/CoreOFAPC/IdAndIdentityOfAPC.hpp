@@ -231,14 +231,14 @@ struct AxisConstructor : public HashIdConstructror
         return false;
     }
 
-    static constexpr uint32_t DerivedGroupId(
+    static constexpr uint32_t DeriveGroupId(
         uint64_t branch_id,
         BidirectionalAxis axis
     ) noexcept
     {
         const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
         uint32_t group_id = static_cast<uint32_t>(
-            HashUnsigned64(branch_id)
+            HashUnsigned64(branch_id ^ axis_salt)
         );
         if (!IsValidGroupId(group_id))
         {
@@ -256,7 +256,7 @@ struct AxisConstructor : public HashIdConstructror
     ) noexcept
     {
         return MakeGroupKeyFromParentGroupId(
-            DerivedGroupId(branch_id, axis),
+            DeriveGroupId(branch_id, axis),
             ordinal
         );
     }

@@ -222,7 +222,7 @@ namespace PredictedAdaptedEncoding
             const uint32_t group_prefix = static_cast<uint32_t>(group_id);
             if (previous_handle == FABRIC_CELL_SENTINAL)
             {
-                if (key != MakeGroupKeyFromParentGroupId(group_id, UNSIGNED_ZERO))
+                if (key != MakeGroupKeyFromParentGroupId(group_prefix, UNSIGNED_ZERO))
                 {
                     return  false;
                 }
@@ -231,7 +231,7 @@ namespace PredictedAdaptedEncoding
             {
                 if (
                     !IsValidGroupId(count_of_ordinal) ||
-                    key != MakeGroupKeyFromParentGroupId(group_id, count_of_ordinal)
+                    key != MakeGroupKeyFromParentGroupId(group_prefix, count_of_ordinal)
                 )
                 {
                     return false;
@@ -364,7 +364,7 @@ namespace PredictedAdaptedEncoding
                 InsertAnIdentityInBuffer(identity_buffer, map.NextTarget, FABRIC_CELL_SENTINAL);
         }
 
-        static constexpr bool InstallTopChild(
+        static constexpr bool InstallChildAxis(
             BufferOfAPCIdentity& parent_identity_buffer,
             BufferOfAPCIdentity& own_identity_buffer,
             BidirectionalAxis axis,
