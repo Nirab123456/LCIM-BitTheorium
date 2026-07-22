@@ -99,14 +99,18 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const std::optional<uint8_t> buffer_idx = GetBufferIdxFromIdentityUnit(identity);
-            if (
-                !buffer_idx.has_value() ||
-                !(value == FABRIC_CELL_SENTINAL && CanIdentityContainRuntimeSentinal(identity))
-            )
+            if (!buffer_idx.has_value())
             {
                 return false;
             }
 
+            if (
+                !APCDataStructure::IsValidFabricUnit(value) &&
+                !CanIdentityContainRuntimeSentinal(identity)
+            )
+            {
+                return false;
+            }
             identity_buffer[buffer_idx.value()] = value;
             return true;
         }
@@ -215,22 +219,25 @@ namespace PredictedAdaptedEncoding
             {
                 return false;
             }
-
             const uint32_t group_prefix = static_cast<uint32_t>(group_id);
-            const uint64_t parent_key = MakeGroupKeyFromParentGroupId(group_prefix , UNSIGNED_ZERO);
-            const uint64_t top_ordinal_key = MakeGroupKeyFromParentGroupId(group_prefix, count_of_ordinal);
-
-            if (!APCDataStructure::IsValidFabricUnit(previous_handle))
+            if (previous_handle == FABRIC_CELL_SENTINAL)
             {
-                return key == parent_key &&
-                    next_handle != UNSIGNED_ZERO;
+                if (key != MakeGroupKeyFromParentGroupId(group_id, UNSIGNED_ZERO))
+                {
+                    return  false;
+                }
             }
-            
-            return count_of_ordinal > UNSIGNED_ZERO &&
-                key == top_ordinal_key &&
-                IsValidAPCId(previous_handle) &&
-                next_handle != UNSIGNED_ZERO;
-            
+            else
+            {
+                if (
+                    !IsValidGroupId(count_of_ordinal) ||
+                    key != MakeGroupKeyFromParentGroupId(group_id, count_of_ordinal)
+                )
+                {
+                    return false;
+                }
+            }
+            return next_handle == FABRIC_CELL_SENTINAL || IsValidAPCId(next_handle);
         }
 
         static constexpr bool DoseBufferContainsIdentity(const BufferOfAPCIdentity& identity_buffer) noexcept
@@ -302,15 +309,14 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const uint64_t identity_value = identity_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)];
-            if (fingerprint)
-            {
-                *fingerprint = identity_value;
-            }
             if (!ValidateAIdentityBuffer(identity_buffer))
             {
                 return FingerprintHashState::INVALID;
             }
-
+            if (fingerprint)
+            {
+                *fingerprint = identity_value;
+            }
             return StateOfIdentityFingerprint(identity_value);
         }
 
@@ -344,14 +350,15 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             const uint64_t branch_id = identity_buffer[GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::BRANCH_ID).value()];
-            const uint64_t root_key = HashGroupId(
+            const uint64_t root_key_group_id = HashGroupId(
                 branch_id,
                 axis,
                 UNSIGNED_ZERO
             );
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            return InsertAnIdentityInBuffer(identity_buffer, map.ID, static_cast<uint32_t>(branch_id)) &&
-                InsertAnIdentityInBuffer(identity_buffer, map.KEY, root_key) &&
+
+            return InsertAnIdentityInBuffer(identity_buffer, map.ID, static_cast<uint32_t>(root_key_group_id)) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.KEY, root_key_group_id) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.CountTarget, UNSIGNED_ZERO) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.PreviousTarget, FABRIC_CELL_SENTINAL) && 
                 InsertAnIdentityInBuffer(identity_buffer, map.NextTarget, FABRIC_CELL_SENTINAL);

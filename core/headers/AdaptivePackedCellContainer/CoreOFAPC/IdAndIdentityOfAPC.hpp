@@ -72,9 +72,7 @@ struct HashIdConstructror
             return FABRIC_CELL_SENTINAL;
         }
 
-        const uint64_t key = ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | static_cast<uint64_t>(child_ordinal);
-
-        return IsValidAPCId(key) ? key : FABRIC_CELL_SENTINAL - 1;
+        return ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | static_cast<uint64_t>(child_ordinal);
     }
 
     /// @brief Get 32 Bit Prefix of A Group Key Can be used to set a Different sequential idx to find linked APC's
@@ -86,19 +84,8 @@ struct HashIdConstructror
         {
             return std::nullopt;
         }
-
         const uint32_t prefix_32 = static_cast<uint32_t>((group_key >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
-
-        if (prefix_32 == UNSIGNED_ZERO)
-        {
-            return 1;
-        }
-        if (!APCDataStructure::IsValid32BitAPCUnit(prefix_32))
-        {
-            return prefix_32 - 1;
-        }
-        return prefix_32;
-        
+        return IsValidGroupId(prefix_32) ? std::optional<uint32_t>(prefix_32) : std::nullopt;
     }
 
     /// @brief Get 16 Bit Sequential Linked Idx From Key
@@ -244,6 +231,23 @@ struct AxisConstructor : public HashIdConstructror
         return false;
     }
 
+    static constexpr uint32_t DerivedGroupId(
+        uint64_t branch_id,
+        BidirectionalAxis axis
+    ) noexcept
+    {
+        const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
+        uint32_t group_id = static_cast<uint32_t>(
+            HashUnsigned64(branch_id)
+        );
+        if (!IsValidGroupId(group_id))
+        {
+            group_id ^= HASH_64BIT_GRATIO_3;
+            group_id = IsValidAPCId(group_id) ? group_id : 1u;
+        }
+        return group_id;
+    }
+
 
     static constexpr uint64_t HashGroupId(
         uint64_t branch_id,
@@ -251,16 +255,11 @@ struct AxisConstructor : public HashIdConstructror
         uint32_t ordinal
     ) noexcept
     {
-        const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
-
-        uint32_t group_id = static_cast<uint32_t>(
-            HashUnsigned64(branch_id)
+        return MakeGroupKeyFromParentGroupId(
+            DerivedGroupId(branch_id, axis),
+            ordinal
         );
-
-        const uint64_t root_key = MakeGroupKeyFromParentGroupId(group_id ^ axis_salt, ordinal);
-        return root_key;
     }
-
 
 };
 
