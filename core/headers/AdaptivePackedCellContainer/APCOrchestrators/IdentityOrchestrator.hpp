@@ -164,6 +164,12 @@ namespace PredictedAdaptedEncoding
         }
 
 
+        static constexpr bool DoseIdentityBufferContainsValidationMarker(const BufferOfAPCIdentity& identity_buffer) noexcept
+        {
+            return identity_buffer[IDENTITY_VALIDATION_IDX] == VALIDATION_IDENTITY_MARK;
+        }
+
+
     };
 
 
@@ -191,7 +197,7 @@ namespace PredictedAdaptedEncoding
         {
             if (IsAxisDisabled(identity_buffer, axis))
             {
-                return true;
+                return false;
             }
 
             const AxisConstructionMap map = ConstructAxisMap(axis);
@@ -211,8 +217,8 @@ namespace PredictedAdaptedEncoding
             }
 
             const uint32_t group_prefix = static_cast<uint32_t>(group_id);
-            const uint64_t parent_key = MakeGroupAccessKey(group_prefix , UNSIGNED_ZERO);
-            const uint64_t top_ordinal_key = MakeGroupAccessKey(group_prefix, count_of_ordinal);
+            const uint64_t parent_key = MakeGroupKeyFromParentGroupId(group_prefix , UNSIGNED_ZERO);
+            const uint64_t top_ordinal_key = MakeGroupKeyFromParentGroupId(group_prefix, count_of_ordinal);
 
             if (!APCDataStructure::IsValidFabricUnit(previous_handle))
             {
@@ -233,9 +239,8 @@ namespace PredictedAdaptedEncoding
                 !IsValidAPCSlotIdx(ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX)) ||
                 !IsValidAPCId(ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BRANCH_ID)) ||
                 !IsValidAPCId(ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::ACCESS_PASSWORD)) ||
-                !IsLinkedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) ||
-                !IsLinkedAxis(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL)
-            )
+                (!IsLinkedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) && !IsAxisDisabled(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED)) ||
+                (!IsLinkedAxis(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL) && !IsAxisDisabled(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL))             )
             {
                 return false;
             }
@@ -310,30 +315,95 @@ namespace PredictedAdaptedEncoding
         }
 
 
-
-        static constexpr bool PlaceholderAxisCreation(
+        static constexpr bool DisableAxis (
             BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis
         ) noexcept
         {
-            const uint64_t branch_id = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BRANCH_ID);
-            const AxisConstructionMap axis_construction_map = ConstructAxisMap(axis);
-            const uint64_t placeholder_key = HashUnsigned64(branch_id);
-            const std::optional<uint32_t> group_shared_id_and_prfefix = GroupPreFix32FromKey(placeholder_key);
+            const AxisConstructionMap map = ConstructAxisMap(axis);
 
+            return InsertAnIdentityInBuffer(identity_buffer, map.ID, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.KEY, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.CountTarget, UNSIGNED_ZERO) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.PreviousTarget, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.NextTarget, FABRIC_CELL_SENTINAL);
+        }
+
+
+        static constexpr bool InstallRootAxis(
+            BufferOfAPCIdentity& identity_buffer,
+            BidirectionalAxis axis,
+            bool is_destructive = false
+        ) noexcept
+        {
             if (
-                !IsValidAPCId(branch_id) ||
-                !group_shared_id_and_prfefix.has_value()
+                !DoseBufferContainsIdentity(identity_buffer) ||
+                (!is_destructive && !IsAxisDisabled(identity_buffer, axis))
+            )
+            {
+                return false;
+            }
+            const uint64_t branch_id = identity_buffer[GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::BRANCH_ID).value()];
+            const uint64_t root_key = HashGroupId(
+                branch_id,
+                axis,
+                UNSIGNED_ZERO
+            );
+            const AxisConstructionMap map = ConstructAxisMap(axis);
+            return InsertAnIdentityInBuffer(identity_buffer, map.ID, static_cast<uint32_t>(branch_id)) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.KEY, root_key) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.CountTarget, UNSIGNED_ZERO) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.PreviousTarget, FABRIC_CELL_SENTINAL) && 
+                InsertAnIdentityInBuffer(identity_buffer, map.NextTarget, FABRIC_CELL_SENTINAL);
+        }
+
+        static constexpr bool InstallTopChild(
+            BufferOfAPCIdentity& parent_identity_buffer,
+            BufferOfAPCIdentity& own_identity_buffer,
+            BidirectionalAxis axis,
+            bool is_destructive = false
+        ) noexcept
+        {
+            if (
+                !IsLinkedAxis(parent_identity_buffer, axis) ||
+                (!is_destructive && !IsAxisDisabled(own_identity_buffer, axis))
             )
             {
                 return false;
             }
 
-            InsertAnIdentityInBuffer(identity_buffer, axis_construction_map.ID, group_shared_id_and_prfefix.value());
-            InsertAnIdentityInBuffer(identity_buffer, axis_construction_map.CountTarget, UNSIGNED_ZERO);
-            InsertAnIdentityInBuffer(identity_buffer, axis_construction_map.PreviousTarget, UNSIGNED_ZERO);
-            InsertAnIdentityInBuffer(identity_buffer, axis_construction_map.NextTarget, UNSIGNED_ZERO);
-            InsertAnIdentityInBuffer(identity_buffer, axis_construction_map.KEY, placeholder_key);
+            const AxisConstructionMap map = ConstructAxisMap(axis);
+
+            const uint32_t group_id = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(parent_identity_buffer, map.ID));
+            const uint32_t cur_ordinal = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(parent_identity_buffer, map.CountTarget)) + 1u;
+            const uint32_t next_of_parent = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(parent_identity_buffer, map.NextTarget));
+            const uint64_t child_key = MakeGroupKeyFromParentGroupId(group_id, cur_ordinal);
+
+            if (
+                !IsValidGroupId(group_id) ||
+                !IsValidGroupId(cur_ordinal) ||
+                !IsValidAPCId(child_key) ||
+                !APCDataStructure::IsValid32BitAPCUnit(next_of_parent)
+            )
+            {
+                return false;
+            }
+
+            if (
+                next_of_parent == UNSIGNED_ZERO ||
+                next_of_parent == cur_ordinal - 1u
+            )
+            {
+                InsertAnIdentityInBuffer(parent_identity_buffer, map.NextTarget, next_of_parent);
+            }
+            
+            
+            return InsertAnIdentityInBuffer(own_identity_buffer, map.ID, group_id) &&
+                InsertAnIdentityInBuffer(own_identity_buffer, map.KEY, child_key) &&
+                InsertAnIdentityInBuffer(own_identity_buffer, map.CountTarget, cur_ordinal) &&
+                InsertAnIdentityInBuffer(own_identity_buffer, map.PreviousTarget, cur_ordinal - 1u) &&
+                InsertAnIdentityInBuffer(own_identity_buffer, map.NextTarget, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(parent_identity_buffer, map.CountTarget, cur_ordinal);
         }
 
         static constexpr bool MutateAxisAsChild(

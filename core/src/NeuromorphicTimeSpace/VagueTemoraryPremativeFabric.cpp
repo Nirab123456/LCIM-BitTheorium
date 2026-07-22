@@ -264,7 +264,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        const uint64_t probable_root_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, UNSIGNED_ZERO);
+        const uint64_t probable_root_key = HashIdConstructror::MakeGroupKeyFromParentGroupId(current_group_id, UNSIGNED_ZERO);
         const uint64_t this_handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_cfg.APCSlotIndex);
         if (
             !HashIdConstructror::IsValidAPCId(probable_root_key) ||
@@ -299,8 +299,8 @@ namespace PredictedAdaptedEncoding
         
         uint64_t new_sequense_count = root_apc->AtomicallyUpdateMetaCellCounter(desired_axis_map.CountTarget, 1);
 
-        const uint64_t next_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, static_cast<uint16_t>(new_sequense_count));
-        const uint64_t previous_key = HashIdConstructror::MakeGroupAccessKey(current_group_id, static_cast<uint16_t>(new_sequense_count - 1));
+        const uint64_t next_key = HashIdConstructror::MakeGroupKeyFromParentGroupId(current_group_id, static_cast<uint16_t>(new_sequense_count));
+        const uint64_t previous_key = HashIdConstructror::MakeGroupKeyFromParentGroupId(current_group_id, static_cast<uint16_t>(new_sequense_count - 1));
 
         if (
             !HashIdConstructror::IsValidAPCId(next_key) ||

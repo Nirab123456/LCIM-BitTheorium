@@ -62,7 +62,7 @@ struct HashIdConstructror
     /// @brief CREATS: HASH KEY: Based On a Desired SHARED / LOGICAL Group ID
     /// @param child_ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
-    static constexpr uint64_t MakeGroupAccessKey(uint64_t group_id, uint32_t child_ordinal) noexcept
+    static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t child_ordinal) noexcept
     {
         if (
             !IsValidGroupId(group_id) ||
@@ -244,6 +244,24 @@ struct AxisConstructor : public HashIdConstructror
         return false;
     }
 
+
+    static constexpr uint64_t HashGroupId(
+        uint64_t branch_id,
+        BidirectionalAxis axis,
+        uint32_t ordinal
+    ) noexcept
+    {
+        const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
+
+        uint32_t group_id = static_cast<uint32_t>(
+            HashUnsigned64(branch_id)
+        );
+
+        const uint64_t root_key = MakeGroupKeyFromParentGroupId(group_id ^ axis_salt, ordinal);
+        return root_key;
+    }
+
+
 };
 
 
@@ -362,14 +380,14 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.HorizontalSharedState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
@@ -387,14 +405,14 @@ struct APCGroupReserver : public AxisConstructor
         {
             if (a_runtime_identity.VarticalLogicState == APCIdentityDef::DEFAULT_ASSIGNMENT)
             {
-                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
             }
 
             switch (a_runtime_identity.VarticalLogicState)
             {
             case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupAccessKey(a_runtime_identity.BranchID, UNSIGNED_ZERO);
+                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
                 return APCIdentityDef::DEFAULT_ASSIGNMENT;
 
             case APCIdentityDef::NULL_USER_INSTRUCTION:
