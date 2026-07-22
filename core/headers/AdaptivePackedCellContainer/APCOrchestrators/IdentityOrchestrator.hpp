@@ -33,28 +33,27 @@ namespace PredictedAdaptedEncoding
                 identity_unit <= HeaderIdentifierOfAPC::ACCESS_PASSWORD;
         }
 
-        static constexpr FingerprintHashState StateOfIdentityFingerprint(uint64_t hash) noexcept
+        static constexpr FingerprintHashState StateOfIdentityFingerprint(uint64_t hash_value) noexcept
         {
             if (
-                !IsValidAPCId(hash)
+                !IsValidAPCId(hash_value)
             )
             {
                 return FingerprintHashState::INVALID;
             }
 
-            if (hash == IDENTITY_FINGERPRINT_CONSUMED)
+            if (hash_value == IDENTITY_FINGERPRINT_CONSUMED)
             {
                 return FingerprintHashState::CONSUME_LOCK;
             }
 
-            if (hash == IDENTY_FINGERPRINT_WRITE_LOCK)
+            if (hash_value == IDENTY_FINGERPRINT_WRITE_LOCK)
             {
                 return FingerprintHashState::WRITE_LOCK;
             }
             
             return FingerprintHashState::VALID;
         }
-
 
         static constexpr std::optional<uint8_t> GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC identity_unit) noexcept
         {
@@ -286,6 +285,23 @@ namespace PredictedAdaptedEncoding
         }
 
 
+        static constexpr FingerprintHashState GetStateFingerprint(
+            BufferOfAPCIdentity& identity_buffer,
+            uint64_t* fingerprint = nullptr
+        ) noexcept
+        {
+            const uint64_t identity_value = identity_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)];
+            if (fingerprint)
+            {
+                *fingerprint = identity_value;
+            }
+            if (!ValidateAIdentityBuffer(identity_buffer))
+            {
+                return FingerprintHashState::INVALID;
+            }
+
+            return StateOfIdentityFingerprint(identity_value);
+        }
 
 
 

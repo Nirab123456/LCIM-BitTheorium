@@ -32,16 +32,24 @@ public:
     ) noexcept;
 
     bool ForceCopyToAPCFromBuffer(
-        uint16_t starting_idx_in_apc,
-        uint16_t sequential_number_of_cells,
+        uint32_t tarting_idx_in_apc,
+        uint8_t sequential_number_of_cells,
         const uint64_t* source_cells
     ) noexcept;
 
     bool CopyFromAPCToBuffer(
-        uint16_t starting_idx_in_apc,
-        uint16_t sequential_number_of_cells,
+        uint32_t starting_idx_in_apc,
+        uint8_t sequential_number_of_cells,
         uint64_t* return_buffer,
         bool atomic_required = true
+    ) noexcept;
+
+    bool CompareExchangeStrongFromAPC(
+        size_t apc_idx, 
+        uint64_t& expected_unit, 
+        uint64_t desired_unit,
+        std::memory_order mem_order_success = std::memory_order_acq_rel,
+        std::memory_order mem_order_failure = std::memory_order_acquire
     ) noexcept;
 
     bool BindExternalRawFabricBacking_(
@@ -50,6 +58,8 @@ public:
         VagueTemoraryPremativeFabric* fabric_owner,
         uint64_t fabric_slot_idx
     ) noexcept;
+
+    uint64_t AtomicallyReadLongLongAPCUnit(uint64_t idx) noexcept;
 
     bool IsFabricBackend() const noexcept
     {
@@ -80,7 +90,14 @@ public:
             sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
     }
 
+    
 
+
+    std::optional<uint64_t> TryToOwnSealedFingerprintIdentity() noexcept;
+
+    bool RestoreClaimedIdentityFingerprint(
+        uint64_t sealed_fingerprint
+    ) noexcept;
 
 };
     
