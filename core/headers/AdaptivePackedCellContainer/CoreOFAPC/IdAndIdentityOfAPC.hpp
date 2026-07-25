@@ -3,6 +3,7 @@
 #include <array>
 #include <utility>
 #include "ConstructorsAndCarriersOfAPC.hpp"
+#include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
 namespace PredictedAdaptedEncoding
 {
@@ -60,53 +61,50 @@ struct HashIdConstructror
     }
 
     /// @brief CREATS: HASH KeyAndID: Based On a Desired SHARED / LOGICAL Group ID
-    /// @param child_ordinal ORDINAL IDX < UINT32_MAX - 1
+    /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
-    static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t child_ordinal) noexcept
+    static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
     {
-        if (
-            !IsValidGroupId(group_id) ||
-            !APCDataStructure::IsValid32BitAPCUnit(child_ordinal)
-        )
+        if (!IsValidGroupId(group_id))
         {
             return FABRIC_CELL_SENTINAL;
         }
-
-        return ((group_id & GROUP_PREFIX_MASK) << GROUP_IDX_BIT_BOUNDRY) | static_cast<uint64_t>(child_ordinal);
+        return Double32In64ExPa::PackDoubleUnsigned32In64(
+            static_cast<uint32_t>(ordinal),
+            static_cast<uint32_t>(group_id)
+        );
     }
 
-    /// @brief Get 32 Bit Prefix of A Group Key Can be used to set a Different sequential idx to find linked APC's
-    /// @param group_key Raw key
-    /// @return If Key VALID: -> 32 BIT PREFIX / std::nullopt
+
     static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
     {
-        if (!IsValidAPCId(group_key))
+        const std::optional<uint32_t> prefix_32 = Double32In64ExPa::ExtractHigh32Of64(group_key);
+        if (
+            !IsValidAPCId(group_key) ||
+            !prefix_32.has_value()||
+            !IsValidGroupId(prefix_32.value())
+        )
         {
             return std::nullopt;
         }
-        const uint32_t prefix_32 = static_cast<uint32_t>((group_key >> GROUP_IDX_BIT_BOUNDRY) & GROUP_PREFIX_MASK);
-        return IsValidGroupId(prefix_32) ? std::optional<uint32_t>(prefix_32) : std::nullopt;
+        
+        return prefix_32;
     }
 
-    /// @brief Get 16 Bit Sequential Linked Idx From Key
-    /// @param group_key Raw Key
-    /// @return if Key VALID: -> 16 BIT SEQUENTIAL IDX / std::nullopt
+
     static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
     {
-        if (!IsValidAPCId(group_key))
+        const std::optional<uint32_t> ordinal = Double32In64ExPa::ExtractLow32Of64(group_key);
+        if (
+            !IsValidAPCId(group_key) ||
+            !ordinal.has_value()||
+            !IsValidGroupId(ordinal.value())
+        )
         {
             return std::nullopt;
         }
-
-        const uint32_t ordinal = static_cast<uint32_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
-        return IsValidGroupId(ordinal) ? ordinal : std::optional<uint32_t>(std::nullopt);
-    }
-
-    static constexpr uint64_t RebuildOriginalKey(uint32_t prefix32, uint32_t index_32) noexcept
-    {
-        const uint64_t original_key = (static_cast<uint64_t>(prefix32) << GROUP_IDX_BIT_BOUNDRY | static_cast<uint64_t>(index_32));
-
-        return IsValidAPCId(original_key) ? original_key : FABRIC_CELL_SENTINAL;
+        
+        return ordinal;
     }
 
     static uint64_t MakeARandomFabricValid64() noexcept
@@ -194,6 +192,7 @@ struct AxisConstructor : public HashIdConstructror
         HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC KeyAndID{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC RootNext{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
 
@@ -204,18 +203,21 @@ struct AxisConstructor : public HashIdConstructror
             return AxisConstructionMap{
                 FabricTableSegmentClasses::HORIZONTAL_HASH,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
-                HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE,
+                HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY,
-                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY
+                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY,
+                HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT
             };
         }
 
         return AxisConstructionMap{
             FabricTableSegmentClasses::VERTICAL_HASH,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
-            HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE,
+            HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY,
-            HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY
+            HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY,
+            HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT
+
         };
     }
 
@@ -260,180 +262,5 @@ struct AxisConstructor : public HashIdConstructror
     }
 
 };
-
-
-struct APCGroupReserver : public AxisConstructor
-{
-    enum class APCIdentityDef : uint8_t
-    {
-        UNASSIGNED_UNUSED_NANNULL = 0,
-        ROOT = 1,
-        CHILD = 2,
-        DEFAULT_ASSIGNMENT = 3,
-        NULL_USER_INSTRUCTION = 4
-    };
-
-    struct APCInitialIdentityStruct
-    {
-        uint64_t APCSlotIndex = FABRIC_CELL_SENTINAL;
-        uint64_t BranchID = FABRIC_CELL_SENTINAL;
-        uint64_t SharedGroupId = FABRIC_CELL_SENTINAL;
-        uint64_t LogicalGroupId = FABRIC_CELL_SENTINAL;
-
-        uint64_t AccessPassword = FABRIC_CELL_SENTINAL;
-        uint64_t SharedHashKey = FABRIC_CELL_SENTINAL;
-        uint64_t LogicalHashKey = FABRIC_CELL_SENTINAL;
-
-        uint64_t SharedPreviousHandle = FABRIC_CELL_SENTINAL;
-        uint64_t SharedNextHandle = FABRIC_CELL_SENTINAL;
-        uint64_t LogicalPreviousHandle = FABRIC_CELL_SENTINAL;
-        uint64_t LogicalNextHandle = FABRIC_CELL_SENTINAL;
-
-        uint32_t SharedSequentialCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        uint32_t LogicalSequentalCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-
-        bool IsAssignable = false;
-        APCIdentityDef HorizontalSharedState = APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-        APCIdentityDef VarticalLogicState  = APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-        bool IsAPCRootOfThisLocic = false;
-    };
-
-    static constexpr bool IsRequestedAxisValid(APCIdentityDef desired_axis) noexcept
-    {
-        return desired_axis != APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-    }
-
-    static constexpr bool IfSystemDefinedAxis(APCIdentityDef desired_axis) noexcept
-    {
-        return desired_axis == APCIdentityDef::ROOT ||
-            desired_axis == APCIdentityDef::CHILD ||
-            desired_axis == APCIdentityDef::NULL_USER_INSTRUCTION;
-    }
-
-    static constexpr bool IsMinimalValidCreateRequestOfAPC(const APCInitialIdentityStruct& requested_conf) noexcept
-    {
-        return IsRequestedAxisValid(requested_conf.HorizontalSharedState) &&
-            IsRequestedAxisValid(requested_conf.VarticalLogicState);
-    }
-
-    static constexpr bool IfSystemResolvedIdentityValid(APCInitialIdentityStruct& requested_conf) noexcept
-    {
-        requested_conf.IsAssignable = (
-            HashIdConstructror::IsValidAPCSlotIdx(requested_conf.APCSlotIndex) &&
-            HashIdConstructror::IsValidAPCId(requested_conf.BranchID) &&
-            HashIdConstructror::IsValidAPCId(
-                HashIdConstructror::APCSlotIdxToHashTableHandler(requested_conf.APCSlotIndex)
-            ) &&
-            HashIdConstructror::IsValidAPCId(requested_conf.AccessPassword) &&
-            IfSystemDefinedAxis(requested_conf.HorizontalSharedState) &&
-            IfSystemDefinedAxis(requested_conf.VarticalLogicState)
-        );
-        return requested_conf.IsAssignable;
-    }
-
-    static constexpr APCInitialIdentityStruct MakeDefaultIdentityForAPC() noexcept
-    {
-        APCInitialIdentityStruct requested_identity{};
-        requested_identity.SharedSequentialCount = UNSIGNED_ZERO;
-        requested_identity.LogicalSequentalCount = UNSIGNED_ZERO;
-        requested_identity.HorizontalSharedState = APCIdentityDef::NULL_USER_INSTRUCTION;
-        requested_identity.VarticalLogicState = APCIdentityDef::NULL_USER_INSTRUCTION;
-        return requested_identity;
-    }
-
-    static constexpr APCInitialIdentityStruct MakeAGroupedIdentityForAPC(
-        uint64_t shared_id,
-        uint64_t logical_id
-    ) noexcept
-    {
-
-        APCInitialIdentityStruct user_defined_identity = MakeDefaultIdentityForAPC();
-
-        if (HashIdConstructror::IsValidAPCId(shared_id))
-        {
-            user_defined_identity.SharedGroupId = shared_id;
-            user_defined_identity.HorizontalSharedState = APCIdentityDef::DEFAULT_ASSIGNMENT;
-        }
-
-        if (HashIdConstructror::IsValidAPCId(logical_id))
-        {
-            user_defined_identity.LogicalGroupId = logical_id;
-            user_defined_identity.VarticalLogicState = APCIdentityDef::DEFAULT_ASSIGNMENT;
-        }
-        return user_defined_identity;
-    }
-
-    static constexpr APCIdentityDef RuntimeAxisIdentityResolved(BidirectionalAxis desired_axis, APCInitialIdentityStruct a_runtime_identity) noexcept
-    {
-        if (
-            !IsMinimalValidCreateRequestOfAPC(a_runtime_identity) ||
-            !HashIdConstructror::IsValidAPCId(a_runtime_identity.BranchID)
-        )
-        {
-            return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-        }
-        
-        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
-        {
-            if (a_runtime_identity.HorizontalSharedState == APCIdentityDef::DEFAULT_ASSIGNMENT)
-            {
-                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
-                return APCIdentityDef::DEFAULT_ASSIGNMENT;
-            }
-
-            switch (a_runtime_identity.HorizontalSharedState)
-            {
-            case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.SharedGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
-                return APCIdentityDef::DEFAULT_ASSIGNMENT;
-
-            case APCIdentityDef::NULL_USER_INSTRUCTION:
-                return APCIdentityDef::NULL_USER_INSTRUCTION;
-                        
-            default:
-                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.SharedGroupId))
-                {
-                    return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-                }
-                return a_runtime_identity.HorizontalSharedState;
-            }
-        }
-        else
-        {
-            if (a_runtime_identity.VarticalLogicState == APCIdentityDef::DEFAULT_ASSIGNMENT)
-            {
-                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
-                return APCIdentityDef::DEFAULT_ASSIGNMENT;
-            }
-
-            switch (a_runtime_identity.VarticalLogicState)
-            {
-            case APCIdentityDef::DEFAULT_ASSIGNMENT:
-                a_runtime_identity.LogicalGroupId = HashIdConstructror::MakeGroupKeyFromParentGroupId(a_runtime_identity.BranchID, UNSIGNED_ZERO);
-                return APCIdentityDef::DEFAULT_ASSIGNMENT;
-
-            case APCIdentityDef::NULL_USER_INSTRUCTION:
-                return APCIdentityDef::NULL_USER_INSTRUCTION;
-                        
-            default:
-                if (!HashIdConstructror::IsValidAPCId(a_runtime_identity.LogicalGroupId))
-                {
-                    return APCIdentityDef::UNASSIGNED_UNUSED_NANNULL;
-                }
-                return a_runtime_identity.VarticalLogicState;
-            }
-        }  
-    }
-
-
-
-
-
-};
-
-
-
-
-
 
 }

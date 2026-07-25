@@ -2,7 +2,6 @@
 #include <array>
 #include <utility>
 #include "../CoreOFAPC/IdAndIdentityOfAPC.hpp"
-#include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
 
 namespace PredictedAdaptedEncoding
@@ -166,8 +165,10 @@ namespace PredictedAdaptedEncoding
                 identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT ||
-                identity == HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE ||
-                identity == HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE;
+                identity == HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT;
         }
 
 
@@ -234,6 +235,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
             const uint64_t slot_idx = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX);
             const uint64_t root_key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
+            const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootNext);
 
             const uint64_t check_key = HashGroupId(
                 APCSlotIdxToHashTableHandler(slot_idx),
@@ -244,7 +246,8 @@ namespace PredictedAdaptedEncoding
             if (
                 APCDataStructure::IsValid32BitAPCUnit(slot_idx) &&
                 IsValidAPCId(root_key) &&
-                root_key == check_key
+                root_key == check_key &&
+                APCDataStructure::IsValid32BitAPCUnit(next_slot)
             )
             {
                 return true;

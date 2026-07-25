@@ -42,9 +42,9 @@ namespace PredictedAdaptedEncoding
             header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)] = identity_cfg.APCSlotIndex;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY)] = identity_cfg.SharedHashKey;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY)] = identity_cfg.LogicalHashKey;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE)] = identity_cfg.SharedNextHandle;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT)] = identity_cfg.SharedNextHandle;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT)] = identity_cfg.SharedPreviousHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE)] = identity_cfg.LogicalNextHandle;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT)] = identity_cfg.LogicalNextHandle;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT)] = identity_cfg.LogicalPreviousHandle;
         }
 

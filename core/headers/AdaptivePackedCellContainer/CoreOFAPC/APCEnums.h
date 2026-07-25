@@ -29,10 +29,12 @@ namespace PredictedAdaptedEncoding
         VERTICAL_ORDINAL_KEY = 4,
         HORIZONTAL_ROOT_KEY = 5,
         VERTICAL_ROOT_KEY = 6,
-        NEXT_HORIZONTAL_HANDLE = 7,
-        NEXT_VERTICAL_HANDLE = 8,
-        PREVIOUS_HORIZONTAL_SLOT = 9,
-        PREVIOUS_VERTICAL_SLOT = 10,
+        HORIZONTAL_NEXT_OF_ROOT = 7,
+        VERTICAL_NEXT_OF_ROOT = 8,
+        NEXT_HORIZONTAL_SLOT = 9,
+        NEXT_VERTICAL_SLOT = 10,
+        PREVIOUS_HORIZONTAL_SLOT = 11,
+        PREVIOUS_VERTICAL_SLOT = 12,
 
         // payload bounds versions
         FEEDFORWARD_BOUNDS = 15,
