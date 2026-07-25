@@ -193,7 +193,7 @@ public:
     }
 
 
-    /// @brief CREATES: A buffer array of HASH: [KeyAndID | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
+    /// @brief CREATES: A buffer array of HASH: [OrdinalKey | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
     /// @param carrier TAKES: A valid HashFilesCarrier
     /// @return 
     static constexpr bool BuildValidatedHashBuffer(

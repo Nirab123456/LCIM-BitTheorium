@@ -60,7 +60,7 @@ struct HashIdConstructror
         return FABRIC_CELL_SENTINAL;
     }
 
-    /// @brief CREATS: HASH KeyAndID: Based On a Desired SHARED / LOGICAL Group ID
+    /// @brief CREATS: HASH OrdinalKey: Based On a Desired SHARED / LOGICAL Group ID
     /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
@@ -188,11 +188,11 @@ struct AxisConstructor : public HashIdConstructror
     struct AxisConstructionMap
     {
         FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
-        HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC KeyAndID{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC PreviousInharitance{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC NextInharitance{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC OrdinalKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC RootNext{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
 
@@ -232,13 +232,13 @@ struct AxisConstructor : public HashIdConstructror
     }
 
     static constexpr uint32_t DeriveGroupId(
-        uint64_t branch_id,
+        uint64_t slot_handle,
         BidirectionalAxis axis
     ) noexcept
     {
         const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
         uint32_t group_id = static_cast<uint32_t>(
-            HashUnsigned64(branch_id ^ axis_salt)
+            HashUnsigned64(slot_handle ^ axis_salt)
         );
         if (!IsValidGroupId(group_id))
         {
@@ -249,16 +249,22 @@ struct AxisConstructor : public HashIdConstructror
     }
 
 
-    static constexpr uint64_t HashGroupId(
-        uint64_t branch_id,
+    static constexpr uint64_t ComposeNewGroupKey(
+        uint64_t slot_handle,
         BidirectionalAxis axis,
         uint32_t ordinal
     ) noexcept
     {
         return MakeGroupKeyFromParentGroupId(
-            DeriveGroupId(branch_id, axis),
+            DeriveGroupId(slot_handle, axis),
             ordinal
         );
+    }
+
+    static constexpr bool IsValidEven64(uint64_t value) noexcept
+    {
+        return APCDataStructure::IsValidFabricUnit(value) &&
+            (value & 1u) == UNSIGNED_ZERO;
     }
 
 };
