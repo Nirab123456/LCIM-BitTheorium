@@ -16,6 +16,8 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 1024u;
         ///--------------------------
 
+        static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;
+
 
         enum class RecordBookInternalIndexing : uint8_t
         {
@@ -40,9 +42,9 @@ namespace PredictedAdaptedEncoding
             APC_INDEX = 0,
             APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
             APC_SEGMENTPOOL_END_SLAB = 2,
-            NEXT_APC_SAGMANTPOOL_BEGAIN = 3,
-            LOGICAL_ID = 4,
-            SHARED_GROUP_ID = 5,
+            VERTICAL_KEY = 3,
+            HORIZONTAL_KEY = 4,
+            NEXT_SLOT_SEGMENTPOOL_BEGAIN = 5,
             RELATION_HEADS = 6,
             RETIRE_EPOCH = 7,
             APC_FLAGS_FOR_THIS = 8,
@@ -117,7 +119,7 @@ namespace PredictedAdaptedEncoding
 
             RESERVED_57_UPTO_94 = 57,
 
-            EOF_FABRIC_HEADER = 95
+            EOF_FABRIC_HEADER = 63
 
         };
 

@@ -40,8 +40,8 @@ namespace PredictedAdaptedEncoding
         CountOfAPC_ = UNSIGNED_ZERO;
         SlabId_ = APCDataStructure::BRANCH_VERSION;
 
-        SegmentPoolBegin_ = APCDataStructure::METACELL_COUNT;
-        SegmentPoolEnd_ = APCDataStructure::METACELL_COUNT;
+        SegmentPoolBegin_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
+        SegmentPoolEnd_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
 
         HashBucketCount_ = UNSIGNED_ZERO;
         RelationRecordCount_ = UNSIGNED_ZERO;
@@ -58,7 +58,7 @@ namespace PredictedAdaptedEncoding
     {
         using FMI = CoreOfFabricCoordinator::FabricMetaIndicies;
 
-        for (size_t i = 0; i < APCDataStructure::METACELL_COUNT; i++)
+        for (size_t i = 0; i < CoreOfFabricCoordinator::FABRIC_UNIT_COUNT; i++)
         {
             DirectlyStoreFabricUnit64(i, UNSIGNED_ZERO);
         }
@@ -187,7 +187,7 @@ namespace PredictedAdaptedEncoding
         RelationRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
         DeviceViewRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
 
-        size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(APCDataStructure::METACELL_COUNT);
+        size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);
         const size_t record_book_begin = cursor;
         const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH;
 

@@ -11,30 +11,21 @@ namespace PredictedAdaptedEncoding
     {
         // identity
         MAGIC_ID = 0,
-        //ID
-        // BRANCH_ID = 3,
-        // LOGICAL_GROUP_ID = 4,
-        // SHARED_GROUP_ID = 5,
-        // //KeyAndID
-        // FABRIC_INFO
-
-        // //LINKED SEQUENTIAL CHAIN
-        // HORIZONTALLY_SHARED_COUNT = 8,
-        // VARTICALLY_LOGICAL_COUNT = 9,
-        // ACCESS_PASSWORD = 14,
 
         IDENTITY_FINGERPRINT = 1,
         APC_SLOT_IDX = 2,
-        HORIZONTAL_ORDINAL_KEY = 3,
-        VERTICAL_ORDINAL_KEY = 4,
-        HORIZONTAL_ROOT_KEY = 5,
-        VERTICAL_ROOT_KEY = 6,
-        HORIZONTAL_NEXT_OF_ROOT = 7,
-        VERTICAL_NEXT_OF_ROOT = 8,
-        NEXT_HORIZONTAL_SLOT = 9,
-        NEXT_VERTICAL_SLOT = 10,
-        PREVIOUS_HORIZONTAL_SLOT = 11,
-        PREVIOUS_VERTICAL_SLOT = 12,
+        BOUNDS_BEGIN = 3,
+        BOUNDS_END = 4,
+        HORIZONTAL_ORDINAL_KEY = 5,
+        VERTICAL_ORDINAL_KEY = 6,
+        HORIZONTAL_ROOT_KEY = 7,
+        VERTICAL_ROOT_KEY = 8,
+        HORIZONTAL_NEXT_OF_ROOT = 9,
+        VERTICAL_NEXT_OF_ROOT = 10,
+        NEXT_HORIZONTAL_SLOT = 11,
+        NEXT_VERTICAL_SLOT = 12,
+        PREVIOUS_HORIZONTAL_SLOT = 13,
+        PREVIOUS_VERTICAL_SLOT = 14,
 
         // payload bounds versions
         FEEDFORWARD_BOUNDS = 15,
@@ -96,7 +87,7 @@ namespace PredictedAdaptedEncoding
         BRANCH_PRIORITY = 86,
         CURRENT_ACTIVE_THREADS = 87,
         SPLIT_THRESHOLD_PERCENTAGE = 88,
-        CAPACITY = 89,
+        RESERVED_89 = 89,
         PAGED_NODE_READY_BIT = 90,
         APC_SCHEMA_ID = 91,
         TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH = 92,

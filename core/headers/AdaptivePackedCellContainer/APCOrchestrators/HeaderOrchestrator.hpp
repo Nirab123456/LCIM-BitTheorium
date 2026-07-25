@@ -34,24 +34,28 @@ namespace PredictedAdaptedEncoding
             }
         }
 
-        static constexpr void ConfigureThisMetaBufferIdentity(
-            const APCGroupReserver::APCInitialIdentityStruct& identity_cfg,
+        static constexpr bool ConfigureThisMetaBufferIdentity(
+           InstallAxisToBuffer::BufferOfAPCIdentity identity_buffer,
             APCMetaBuffer& header
         ) noexcept
         {
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)] = identity_cfg.APCSlotIndex;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY)] = identity_cfg.SharedHashKey;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY)] = identity_cfg.LogicalHashKey;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT)] = identity_cfg.SharedNextHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT)] = identity_cfg.SharedPreviousHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT)] = identity_cfg.LogicalNextHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT)] = identity_cfg.LogicalPreviousHandle;
+            if (!InstallAxisToBuffer::ValidateAIdentityBuffer(identity_buffer))
+            {
+                return false;
+            }
+
+            for (uint8_t i = 0; i < APCDataStructure::TotalIdentityUnitCount(); i++)
+            {
+                const std::optional<HeaderIdentifierOfAPC> identity = InstallAxisToBuffer::GetIdentityUnitFromBufferIdx(i);
+                header[static_cast<uint8_t>(identity.value())] = identity_buffer[i];
+            }
+            return true;
         }
 
 
         static constexpr bool InitializeDefaultHeaderBuffer(
             APCMetaBuffer& header_buffer,
-            APCGroupReserver::APCInitialIdentityStruct& identity_apc,
+            InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
             uint32_t capacity_of_apc,
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
             const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
@@ -111,7 +115,7 @@ namespace PredictedAdaptedEncoding
             CopyAllBuffersToHeaderBuffer_(header_buffer, layout_buffer, schema_buffer, cursors_buffrers);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::CAPACITY)] = capacity_of_apc;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::BOUNDS_BEGIN)] = capacity_of_apc;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
 
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
@@ -165,7 +169,7 @@ namespace PredictedAdaptedEncoding
                 enq_dq_cursors
             );
 
-            const uint32_t total_64Bit_unit_count_in_apc = static_cast<uint32_t>(header[static_cast<size_t>(HeaderIdentifierOfAPC::CAPACITY)]);
+            const uint32_t total_64Bit_unit_count_in_apc = static_cast<uint32_t>(header[static_cast<size_t>(HeaderIdentifierOfAPC::BOUNDS_BEGIN)]);
             
             bool layout_ok = LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, total_64Bit_unit_count_in_apc);
             

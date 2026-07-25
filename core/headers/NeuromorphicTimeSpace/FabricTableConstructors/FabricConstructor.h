@@ -15,8 +15,8 @@ namespace PredictedAdaptedEncoding
         uint64_t CountOfAPC_{UNSIGNED_ZERO};
         uint8_t SlabId_{UNSIGNED_ZERO};
 
-        size_t SegmentPoolBegin_{APCDataStructure::METACELL_COUNT};
-        size_t SegmentPoolEnd_{APCDataStructure::METACELL_COUNT};
+        size_t SegmentPoolBegin_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
+        size_t SegmentPoolEnd_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
         
         uint64_t HashBucketCount_{UNSIGNED_ZERO};
         uint64_t RelationRecordCount_{UNSIGNED_ZERO};

@@ -92,7 +92,10 @@ namespace PredictedAdaptedEncoding
     struct APCDataStructure : public ColumnConf
     {
 
-        static constexpr size_t METACELL_COUNT = 96;
+        static constexpr uint8_t METACELL_COUNT = 96;
+        static constexpr uint8_t FABRIC_CELL_COUNT = 64;
+
+
         static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
         static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
         static constexpr uint8_t BRANCH_VERSION = 1u;

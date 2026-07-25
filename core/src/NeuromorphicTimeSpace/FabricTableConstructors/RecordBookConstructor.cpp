@@ -30,7 +30,7 @@ namespace PredictedAdaptedEncoding
 
         if (
             end_idx > SlabCellCount_ || 
-            begin_of_desired_table < APCDataStructure::METACELL_COUNT ||
+            begin_of_desired_table < CoreOfFabricCoordinator::FABRIC_UNIT_COUNT ||
             !APCDataStructure::IsValidFabricUnit(begin_of_desired_table)
         )
         {

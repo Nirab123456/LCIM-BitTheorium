@@ -263,4 +263,179 @@ struct AxisConstructor : public HashIdConstructror
 
 };
 
+struct DefineIdentityBuffer : public AxisConstructor
+{
+    static constexpr uint8_t IDENTITY_BUFFER_LEN = APCDataStructure::TotalIdentityUnitCount() + 1;
+    static constexpr uint8_t IDENTITY_VALIDATION_IDX = IDENTITY_BUFFER_LEN - 1;
+    static constexpr uint64_t VALIDATION_IDENTITY_MARK = 987987;
+
+    static constexpr uint64_t IDENTY_FINGERPRINT_WRITE_LOCK = FABRIC_CELL_SENTINAL - 1u;
+    static constexpr uint64_t IDENTITY_FINGERPRINT_CONSUMED = FABRIC_CELL_SENTINAL - 3u;
+
+    enum class FingerprintHashState : uint8_t
+    {
+        WRITE_LOCK = 0,
+        CONSUME_LOCK = 1,
+        VALID = 2,
+        INVALID = 3
+    };
+
+    using BufferOfAPCIdentity = std::array<uint64_t, IDENTITY_BUFFER_LEN>;
+
+    static constexpr bool IsKnownIdentity(HeaderIdentifierOfAPC identity_unit) noexcept
+    {
+        return identity_unit >= HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT &&
+            identity_unit <= HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT;
+    }
+
+    static constexpr bool IsHoldFingerprintState(FingerprintHashState state) noexcept
+    {
+        return state == FingerprintHashState::WRITE_LOCK ||
+            state == FingerprintHashState::CONSUME_LOCK;
+    }
+
+
+    static constexpr std::optional<uint8_t> GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC identity_unit) noexcept
+    {
+        if (!IsKnownIdentity(identity_unit))
+        {
+            return std::nullopt;
+        }
+        
+        return static_cast<uint8_t>(
+            static_cast<uint8_t>(identity_unit) - static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
+        );
+    }
+
+    static constexpr std::optional<HeaderIdentifierOfAPC> GetIdentityUnitFromBufferIdx(uint8_t buffer_idx) noexcept
+    {
+        if (
+            buffer_idx >= APCDataStructure::TotalIdentityUnitCount()
+        )
+        {
+            return std::nullopt;
+        }
+        return static_cast<HeaderIdentifierOfAPC>(
+            buffer_idx + static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
+        );
+    }
+
+        static constexpr FingerprintHashState StateOfIdentityFingerprint(uint64_t hash_value) noexcept
+        {
+            if (
+                !IsValidAPCId(hash_value)
+            )
+            {
+                return FingerprintHashState::INVALID;
+            }
+
+            if (hash_value == IDENTITY_FINGERPRINT_CONSUMED)
+            {
+                return FingerprintHashState::CONSUME_LOCK;
+            }
+
+            if (hash_value == IDENTY_FINGERPRINT_WRITE_LOCK)
+            {
+                return FingerprintHashState::WRITE_LOCK;
+            }
+            
+            return FingerprintHashState::VALID;
+        }
+
+        static constexpr void BuildNullIdentityBuffer(BufferOfAPCIdentity& identity_buffer) noexcept
+        {
+            identity_buffer.fill(FABRIC_CELL_SENTINAL);
+            identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
+        }
+
+        static constexpr bool InsertAnIdentityInBuffer(
+            BufferOfAPCIdentity& identity_buffer,
+            HeaderIdentifierOfAPC identity,
+            uint64_t value
+        ) noexcept
+        {
+            const std::optional<uint8_t> buffer_idx = GetBufferIdxFromIdentityUnit(identity);
+            if (!buffer_idx.has_value())
+            {
+                return false;
+            }
+
+            if (
+                !APCDataStructure::IsValidFabricUnit(value) &&
+                !(value == FABRIC_CELL_SENTINAL && CanIdentityContainRuntimeSentinal(identity))
+            )
+            {
+                return false;
+            }
+            identity_buffer[buffer_idx.value()] = value;
+            identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
+            return true;
+        }
+
+        static constexpr uint64_t ValueOfAnIdentityFromBuffer(
+            const BufferOfAPCIdentity& identity_buffer,
+            HeaderIdentifierOfAPC identity
+        ) noexcept
+        {
+            const std::optional<uint8_t> buffer_idx = GetBufferIdxFromIdentityUnit(identity);
+            if (!buffer_idx.has_value())
+            {
+                return FABRIC_CELL_SENTINAL;
+            }
+
+            return identity_buffer[buffer_idx.value()];
+        }
+
+        static constexpr bool CanIdentityContainRuntimeSentinal(HeaderIdentifierOfAPC identity) noexcept
+        {
+
+            return 
+                identity == HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY ||
+                identity == HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT;
+        }
+
+
+        static constexpr bool DoseIdentityBufferContainsValidationMarker(const BufferOfAPCIdentity& identity_buffer) noexcept
+        {
+            return identity_buffer[IDENTITY_VALIDATION_IDX] == VALIDATION_IDENTITY_MARK;
+        }
+
+        static constexpr uint64_t ComposeIdentityFingerprint(
+            const BufferOfAPCIdentity& identity_buffer
+        ) noexcept
+        {
+            uint64_t hash = HASH_64BIT_GRATIO_1;
+            for (uint8_t i = 1u; i < APCDataStructure::TotalIdentityUnitCount(); ++i)
+            {
+                hash ^= identity_buffer[i] + HASH_64BIT_GRATIO_1 + (hash << 6u) + (hash >> 2u);
+                hash = HashUnsigned64(hash);
+            }
+
+            hash &= ~uint64_t{1};
+
+            const FingerprintHashState state_fp = StateOfIdentityFingerprint(hash);
+
+
+            if (
+                state_fp != FingerprintHashState::VALID
+            )
+            {
+                return 2u;
+            }
+            return hash;
+        }
+
+
+};
+
+
 }
