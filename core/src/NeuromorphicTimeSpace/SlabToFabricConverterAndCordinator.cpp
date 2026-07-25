@@ -308,41 +308,6 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    bool SlabToFabricConverterAndCordinator::ResolveIDConfOfAPC(
-        APCGroupReserver::APCInitialIdentityStruct& container_initial_conf
-    ) noexcept
-    {
-        if (
-            !APCGroupReserver::IsMinimalValidCreateRequestOfAPC(container_initial_conf) || 
-            container_initial_conf.APCSlotIndex >= CountOfAPC_ 
-        )
-        {
-            container_initial_conf.IsAssignable = false;
-            return false;
-        }
-
-        const uint64_t handle = HashIdConstructror::APCSlotIdxToHashTableHandler(container_initial_conf.APCSlotIndex);
-        if (!HashIdConstructror::IsValidAPCId(handle))
-        {
-            container_initial_conf.IsAssignable = false;
-            return false;
-        }
-
-        container_initial_conf.BranchID = MakeUniqueBranchIdForHashAndAPC();
-        container_initial_conf.AccessPassword = HashIdConstructror::MakeARandomFabricValid64();
-        if (
-            !HashIdConstructror::IsValidAPCId(container_initial_conf.BranchID) ||
-            !HashIdConstructror::IsValidAPCId(container_initial_conf.AccessPassword)
-        )
-        {
-            container_initial_conf.IsAssignable = false;
-            return false;
-        }
-
-        return true;
-    }
-
-
     uint64_t SlabToFabricConverterAndCordinator::MakeUniqueBranchIdForHashAndAPC() noexcept
     {
         for (size_t i = 0; i < DEFAULT_MAX_TRIES; i++)

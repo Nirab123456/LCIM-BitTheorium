@@ -43,10 +43,6 @@ namespace PredictedAdaptedEncoding
             uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
 
-        bool ResolveIDConfOfAPC(
-            APCGroupReserver::APCInitialIdentityStruct& a_initial_acp_conf
-        ) noexcept;
-
         uint64_t MakeUniqueBranchIdForHashAndAPC() noexcept;
         
     };

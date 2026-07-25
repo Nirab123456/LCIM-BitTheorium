@@ -21,25 +21,7 @@ private:
     AdaptivePackedCellContainer* GetAPCRuntimePtrBySlotIndex_(size_t apc_idx) noexcept;
     AdaptivePackedCellContainer* HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept;
 
-    bool InitiateABidirectionalAxis_(
-        APCGroupReserver::APCInitialIdentityStruct& container_cfg,
-        APCGroupReserver::BidirectionalAxis desired_axis
-    ) noexcept;
-    
-    bool ResolveBothAxis_(APCGroupReserver::APCInitialIdentityStruct& container_cfg) noexcept;
-
-    bool InstallAxisMirrorLinksAfterPublish_(
-        const APCGroupReserver::APCInitialIdentityStruct& complete_cfg,
-        APCGroupReserver::BidirectionalAxis desired_axis
-    ) noexcept;
-
 public:
-
-    std::optional<uint64_t> ConstructAnAPC_(   
-        AdaptivePackedCellContainer& desired_apc,     
-        APCGroupReserver::APCInitialIdentityStruct& container_conf,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT
-    ) noexcept;
 
     bool InitializeFabricWithPtrTable(
         uint16_t slot_count,
