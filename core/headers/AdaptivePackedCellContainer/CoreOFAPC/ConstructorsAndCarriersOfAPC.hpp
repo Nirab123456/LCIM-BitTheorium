@@ -130,7 +130,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr uint8_t TotalIdentityUnitCount() noexcept
         {
-            return static_cast<uint8_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD) - 
+            return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) - 
                 static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) + 1;
         }
 

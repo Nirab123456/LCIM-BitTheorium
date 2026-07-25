@@ -40,18 +40,12 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)] = identity_cfg.APCSlotIndex;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::BRANCH_ID)] = identity_cfg.BranchID;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::LOGICAL_GROUP_ID)] = identity_cfg.LogicalGroupId;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::SHARED_GROUP_ID)] = identity_cfg.SharedGroupId;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::SHARED_ID_HASH_KEY)] = identity_cfg.SharedHashKey;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::LOGICAL_ID_HASH_KEY)] = identity_cfg.LogicalHashKey;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY)] = identity_cfg.SharedHashKey;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY)] = identity_cfg.LogicalHashKey;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE)] = identity_cfg.SharedNextHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE)] = identity_cfg.SharedPreviousHandle;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT)] = identity_cfg.SharedPreviousHandle;
             header[static_cast<size_t>(HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE)] = identity_cfg.LogicalNextHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE)] = identity_cfg.LogicalPreviousHandle;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::HORIZONTALLY_SHARED_COUNT)] = identity_cfg.SharedSequentialCount;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::VARTICALLY_LOGICAL_COUNT)] = identity_cfg.LogicalSequentalCount;
-            header[static_cast<size_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD)] = identity_cfg.AccessPassword;
+            header[static_cast<size_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT)] = identity_cfg.LogicalPreviousHandle;
         }
 
 
@@ -134,9 +128,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool ValidateFabricResolvedIdentity(APCMetaBuffer& header_buffer) noexcept
         {
-            bool ok = HashIdConstructror::IsValidAPCSlotIdx(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)]) &&
-                HashIdConstructror::IsValidAPCId(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::BRANCH_ID)]) &&
-                HashIdConstructror::IsValidAPCId(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::ACCESS_PASSWORD)]);
+            bool ok = HashIdConstructror::IsValidAPCSlotIdx(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)]);
             if (!ok)
             {
                 header_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;

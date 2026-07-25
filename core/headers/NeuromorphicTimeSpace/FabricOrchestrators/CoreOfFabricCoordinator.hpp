@@ -156,8 +156,8 @@ namespace PredictedAdaptedEncoding
         static constexpr bool IsValidHashTable(FabricTableSegmentClasses table_class) noexcept
         {
             return table_class == FabricTableSegmentClasses::BRANCH_HASH ||
-                table_class == FabricTableSegmentClasses::LOGICAL_HASH ||
-                table_class == FabricTableSegmentClasses::SHARED_HASH;
+                table_class == FabricTableSegmentClasses::VERTICAL_HASH ||
+                table_class == FabricTableSegmentClasses::HORIZONTAL_HASH;
         }
 
         static constexpr bool IsKnownDescriptionIdentity(DescriptionUnitIdentity identity_of_unit) noexcept

@@ -52,8 +52,8 @@ namespace PredictedAdaptedEncoding
     /// @param SLAB_RECORD_MAP STORES:All Begin & End Pair of indicies for every class of FabricTableSegmentClasses
     /// @param APC_HANDLE_DESCRIPTOR HOLDS:Each APC x RECORD:DescriptionUnitIdentity -> DESCRIBS: Initial Fundamental Meta for An APC When Created 
     /// @param BRANCH_HASH
-    /// @param LOGICAL_HASH
-    /// @param SHARED_HASH
+    /// @param VERTICAL_HASH
+    /// @param HORIZONTAL_HASH
     /// @param CONTROL_HEADER USED:FOR: first 96 FabricMetaIndicies
     /// @param NULLNAN Uppper Guard Prevents Pack-ed Cell to be VALID: UINT64_MAX
     enum class FabricTableSegmentClasses : uint8_t
@@ -63,8 +63,8 @@ namespace PredictedAdaptedEncoding
         SLAB_RECORD_MAP = 2,
         APC_HANDLE_DESCRIPTOR = 3,
         BRANCH_HASH = 4,
-        LOGICAL_HASH = 5,
-        SHARED_HASH = 6,
+        VERTICAL_HASH = 5,
+        HORIZONTAL_HASH = 6,
         EDGE_TABLE = 7,
         FREE_APC_LIST = 8,
         READY_QUEUE = 9,

@@ -11,28 +11,28 @@ namespace PredictedAdaptedEncoding
     {
         // identity
         MAGIC_ID = 0,
-
+        //ID
+        // BRANCH_ID = 3,
+        // LOGICAL_GROUP_ID = 4,
+        // SHARED_GROUP_ID = 5,
+        // //KeyAndID
         // FABRIC_INFO
+
+        // //LINKED SEQUENTIAL CHAIN
+        // HORIZONTALLY_SHARED_COUNT = 8,
+        // VARTICALLY_LOGICAL_COUNT = 9,
+        // ACCESS_PASSWORD = 14,
+
         IDENTITY_FINGERPRINT = 1,
         APC_SLOT_IDX = 2,
-            //ID
-            BRANCH_ID = 3,
-            LOGICAL_GROUP_ID = 4,
-            SHARED_GROUP_ID = 5,
-            //KEY
-            SHARED_ID_HASH_KEY = 6,
-            LOGICAL_ID_HASH_KEY = 7,
-            //LINKED SEQUENTIAL CHAIN
-            HORIZONTALLY_SHARED_COUNT = 8,
-            VARTICALLY_LOGICAL_COUNT = 9,
-
-            PREVIOUS_HORIZONTAL_HANDLE = 10,
-            NEXT_HORIZONTAL_HANDLE = 11,
-            NEXT_VERTICAL_HANDLE = 12,
-            PREVIOUS_VERTICAL_HANDLE = 13,
-        ACCESS_PASSWORD = 14,
-
-        ///
+        HORIZONTAL_ORDINAL_KEY = 3,
+        VERTICAL_ORDINAL_KEY = 4,
+        HORIZONTAL_ROOT_KEY = 5,
+        VERTICAL_ROOT_KEY = 6,
+        NEXT_HORIZONTAL_HANDLE = 7,
+        NEXT_VERTICAL_HANDLE = 8,
+        PREVIOUS_HORIZONTAL_SLOT = 9,
+        PREVIOUS_VERTICAL_SLOT = 10,
 
         // payload bounds versions
         FEEDFORWARD_BOUNDS = 15,

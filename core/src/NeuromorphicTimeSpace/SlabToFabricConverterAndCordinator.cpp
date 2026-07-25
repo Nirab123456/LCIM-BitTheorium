@@ -257,8 +257,8 @@ namespace PredictedAdaptedEncoding
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SLAB_RECORD_MAP, record_book_begin, record_book_end);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_begin, branch_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::LOGICAL_HASH, logical_hash_begin, logical_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SHARED_HASH, shared_hash_begin, shared_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::VERTICAL_HASH, logical_hash_begin, logical_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::HORIZONTAL_HASH, shared_hash_begin, shared_hash_end);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::EDGE_TABLE, edge_table_begin, edge_table_end);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::FREE_APC_LIST, free_list_begin, free_list_end);
         WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::READY_QUEUE, ready_queue_begin, ready_queue_end);
@@ -279,8 +279,8 @@ namespace PredictedAdaptedEncoding
 
         //INIT: HASH TABLES
         InitializeHashTable_(FabricTableSegmentClasses::BRANCH_HASH);
-        InitializeHashTable_(FabricTableSegmentClasses::LOGICAL_HASH);
-        InitializeHashTable_(FabricTableSegmentClasses::SHARED_HASH);
+        InitializeHashTable_(FabricTableSegmentClasses::VERTICAL_HASH);
+        InitializeHashTable_(FabricTableSegmentClasses::HORIZONTAL_HASH);
         //END::: 
         //INIT:DESCRIPTOR TABLE
         InitializeAPCDescriptorTable_();

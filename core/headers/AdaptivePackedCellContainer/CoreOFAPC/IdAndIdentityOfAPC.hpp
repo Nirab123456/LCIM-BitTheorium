@@ -59,7 +59,7 @@ struct HashIdConstructror
         return FABRIC_CELL_SENTINAL;
     }
 
-    /// @brief CREATS: HASH KEY: Based On a Desired SHARED / LOGICAL Group ID
+    /// @brief CREATS: HASH KeyAndID: Based On a Desired SHARED / LOGICAL Group ID
     /// @param child_ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t child_ordinal) noexcept
@@ -91,14 +91,15 @@ struct HashIdConstructror
     /// @brief Get 16 Bit Sequential Linked Idx From Key
     /// @param group_key Raw Key
     /// @return if Key VALID: -> 16 BIT SEQUENTIAL IDX / std::nullopt
-    static constexpr std::optional<uint32_t> GetSeqIndexOfAHashKey(uint64_t group_key) noexcept
+    static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
     {
         if (!IsValidAPCId(group_key))
         {
             return std::nullopt;
         }
 
-        return static_cast<uint32_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
+        const uint32_t ordinal = static_cast<uint32_t>(group_key & GROUP_SEQUENTIAL_INDEX_MASK);
+        return IsValidGroupId(ordinal) ? ordinal : std::optional<uint32_t>(std::nullopt);
     }
 
     static constexpr uint64_t RebuildOriginalKey(uint32_t prefix32, uint32_t index_32) noexcept
@@ -189,11 +190,10 @@ struct AxisConstructor : public HashIdConstructror
     struct AxisConstructionMap
     {
         FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
-        HeaderIdentifierOfAPC CountTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC PreviousTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextTarget{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC ID{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC KEY{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC KeyAndID{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
 
@@ -202,22 +202,20 @@ struct AxisConstructor : public HashIdConstructror
         if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             return AxisConstructionMap{
-                FabricTableSegmentClasses::SHARED_HASH,
-                HeaderIdentifierOfAPC::HORIZONTALLY_SHARED_COUNT,
-                HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_HANDLE,
+                FabricTableSegmentClasses::HORIZONTAL_HASH,
+                HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_HANDLE,
-                HeaderIdentifierOfAPC::SHARED_GROUP_ID,
-                HeaderIdentifierOfAPC::SHARED_ID_HASH_KEY
+                HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY,
+                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY
             };
         }
 
         return AxisConstructionMap{
-            FabricTableSegmentClasses::LOGICAL_HASH,
-            HeaderIdentifierOfAPC::VARTICALLY_LOGICAL_COUNT,
-            HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_HANDLE,
+            FabricTableSegmentClasses::VERTICAL_HASH,
+            HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_HANDLE,
-            HeaderIdentifierOfAPC::LOGICAL_GROUP_ID,
-            HeaderIdentifierOfAPC::LOGICAL_ID_HASH_KEY
+            HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY,
+            HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY
         };
     }
 

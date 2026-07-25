@@ -211,11 +211,11 @@ public:
 
     static constexpr bool IsGroupableHashTable(FabricTableSegmentClasses hash_table) noexcept
     {
-        return hash_table == FabricTableSegmentClasses::LOGICAL_HASH || hash_table == FabricTableSegmentClasses::SHARED_HASH;
+        return hash_table == FabricTableSegmentClasses::VERTICAL_HASH || hash_table == FabricTableSegmentClasses::HORIZONTAL_HASH;
     }
 
 
-    /// @brief CREATES: A buffer array of HASH: [KEY | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
+    /// @brief CREATES: A buffer array of HASH: [KeyAndID | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
     /// @param carrier TAKES: A valid HashFilesCarrier
     /// @return 
     static constexpr bool BuildValidatedHashBuffer(
