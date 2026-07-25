@@ -40,7 +40,7 @@ namespace PredictedAdaptedEncoding
 
     bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
         uint16_t total_capacity,
-        APCGroupReserver::APCInitialIdentityStruct& container_configuration,
+        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
         const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
         const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
         const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
@@ -49,24 +49,22 @@ namespace PredictedAdaptedEncoding
     {
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
 
-        if (!HeaderOrchestrator::InitializeDefaultHeaderBuffer(
+        if (
+            !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
             header_meta_buffer,
-            container_configuration,
+            identity_buffer,
             total_capacity,
             layout_weight,
             dtype_conf,
             protocol_conf,
             version
-        ))
+            ) ||
+            !HeaderOrchestrator::IsHeaderBufferValidationMarked(header_meta_buffer)
+        )
         {
             return false;
         }
         
-        if (!HeaderOrchestrator::IsHeaderBufferValidationMarked(header_meta_buffer))
-        {
-            return false;
-        }
-
         return ForceCopyToAPCFromBuffer(
             UNSIGNED_ZERO,
             APCDataStructure::METACELL_COUNT,

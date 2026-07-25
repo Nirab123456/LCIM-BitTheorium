@@ -10,12 +10,12 @@ namespace PredictedAdaptedEncoding
     struct IdentityBufferConf : public DefineIdentityBuffer
     {
 
-        static constexpr bool ContainsRuntimeIdentity(
-            BufferOfAPCIdentity& identity_buffer
-        ) noexcept
-        {
-            
-        }
+        // static constexpr bool ContainsRuntimeIdentity(
+        //     BufferOfAPCIdentity& identity_buffer
+        // ) noexcept
+        // {
+
+        // }
 
 
 

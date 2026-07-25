@@ -69,7 +69,7 @@ namespace PredictedAdaptedEncoding
             }
 
             if (
-                !APCGroupReserver::IfSystemResolvedIdentityValid(identity_apc) ||
+                !ConfigureThisMetaBufferIdentity(identity_buffer, header_buffer)||
                 !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
                 !APCDataStructure::InLimitOfUint8(version)
             )
