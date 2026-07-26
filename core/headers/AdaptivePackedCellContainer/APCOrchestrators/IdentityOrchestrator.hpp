@@ -9,6 +9,11 @@ namespace PredictedAdaptedEncoding
 
     struct IdentityValidator : public DefineIdentityBuffer
     {
+        enum class DescOfInharitance : uint8_t
+        {
+            FIRST_CHILD = 0,
+            LINKED_CHILD = 1
+        };
 
         // static constexpr bool ContainsRuntimeIdentity(
         //     BufferOfAPCIdentity& identity_buffer
@@ -26,8 +31,8 @@ namespace PredictedAdaptedEncoding
 
             return
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey) == FABRIC_CELL_SENTINAL &&
-                ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousInharitance) == FABRIC_CELL_SENTINAL &&
-                ValueOfAnIdentityFromBuffer(identity_buffer, map.NextInharitance) == FABRIC_CELL_SENTINAL;
+                ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling) == FABRIC_CELL_SENTINAL &&
+                ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling) == FABRIC_CELL_SENTINAL;
         }
 
         static constexpr bool IsOwnedAxisDisabled(
@@ -57,8 +62,8 @@ namespace PredictedAdaptedEncoding
             const uint64_t key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey);
             const std::optional<uint32_t> group_id = GroupPreFix32FromKey(key);
             const std::optional<uint32_t> group_ordinal = GetOrdinalFromKey(key);
-            const uint64_t previous_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousInharitance);
-            const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.NextInharitance);
+            const uint64_t previous_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling);
+            const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling);
 
             return 
                 group_id.has_value() &&
@@ -118,8 +123,8 @@ namespace PredictedAdaptedEncoding
 
             return
                 InsertAnIdentityInBuffer(identity_buffer, map.OrdinalKey, FABRIC_CELL_SENTINAL) &&
-                InsertAnIdentityInBuffer(identity_buffer, map.PreviousInharitance, FABRIC_CELL_SENTINAL) &&
-                InsertAnIdentityInBuffer(identity_buffer, map.NextInharitance, FABRIC_CELL_SENTINAL);
+                InsertAnIdentityInBuffer(identity_buffer, map.PreviousSibling, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.NextSibling, FABRIC_CELL_SENTINAL);
         }
 
 
@@ -166,6 +171,79 @@ namespace PredictedAdaptedEncoding
                 InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, first_child_slot_idx);
         }
 
+        static constexpr bool PrepareInharitedAxis(
+            BufferOfAPCIdentity& parent_identity,
+            BufferOfAPCIdentity& identity_buffer,
+            BidirectionalAxis axis,
+            DescOfInharitance inharitance
+        ) noexcept
+        {
+            if (
+                !ValidateAIdentityBuffer(parent_identity) ||
+                !ValidateAIdentityBuffer(identity_buffer)
+            )
+            {
+                return false;
+            }
+
+            const AxisConstructionMap map = ConstructAxisMap(axis);
+            const uint32_t parent_slot = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(parent_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX));
+            const uint32_t current_slot = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX));
+
+            uint64_t parent_key = UNSIGNED_ZERO;
+            uint32_t parent_id = UNSIGNED_ZERO;
+            uint32_t parent_ordinal = UNSIGNED_ZERO;
+
+            switch (inharitance)
+            {
+            case DescOfInharitance::FIRST_CHILD:
+                if (
+                    (!IsValidOwnedRoot(parent_identity, axis) &&
+                    !InstallOwnedRoot(parent_identity, axis, current_slot, false)) ||
+                    !InsertAnIdentityInBuffer(parent_identity, map.RootOwnedChild, current_slot)
+                )
+                {
+                    return false;
+                }
+                parent_key = ValueOfAnIdentityFromBuffer(parent_identity, map.OwnRootKey);
+                parent_id = static_cast<uint32_t>(parent_key);
+                parent_ordinal = UNSIGNED_ZERO;
+                break;
+
+            case DescOfInharitance::LINKED_CHILD:
+                if (
+                    !IsValidInheritedAxis(parent_identity, axis) ||
+                    ValueOfAnIdentityFromBuffer(parent_identity, map.NextSibling) != FABRIC_CELL_SENTINAL ||
+                    !InsertAnIdentityInBuffer(parent_identity, map.NextSibling, current_slot)
+                )
+                {
+                    return false;
+                }
+                parent_key = ValueOfAnIdentityFromBuffer(parent_identity, map.OrdinalKey);
+                parent_id = static_cast<uint32_t>(parent_key);
+                parent_ordinal = GetOrdinalFromKey(parent_key).value();
+                break;
+
+            default:
+                return false;
+            }
+
+            const uint64_t own_key = MakeGroupKeyFromParentGroupId(parent_id, parent_ordinal + 1);
+
+            if (
+                !InsertAnIdentityInBuffer(identity_buffer, map.OrdinalKey, own_key) ||
+                !InsertAnIdentityInBuffer(identity_buffer, map.PreviousSibling, parent_slot) ||
+                !InsertAnIdentityInBuffer(identity_buffer, map.NextSibling, FABRIC_CELL_SENTINAL)
+            )
+            {
+                return false;
+            }
+            
+            return SealIdentityBuffer(parent_identity) &&
+                SealIdentityBuffer(identity_buffer);
+        }
+
+
         static constexpr bool SealIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
         ) noexcept
@@ -198,55 +276,6 @@ namespace PredictedAdaptedEncoding
             }
             return StateOfIdentityFingerprint(identity_value);
         }
-
-
-
-
-        static constexpr bool InstallChildAxis(
-            BufferOfAPCIdentity& parent_identity_buffer,
-            BufferOfAPCIdentity& own_identity_buffer,
-            BidirectionalAxis axis,
-            bool is_destructive = false
-        ) noexcept
-        {
-            if (
-                (!IsValidInheritedAxis(parent_identity_buffer, axis)) ||
-                (!is_destructive && !IsInheritedAxisDisabled(own_identity_buffer, axis))
-            )
-            {
-                return false;
-            }
-
-            const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint32_t apc_slot_idx = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(own_identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX));
-            const uint64_t parent_key = ValueOfAnIdentityFromBuffer(parent_identity_buffer, map.OrdinalKey);
-            const std::optional<uint32_t> parent_id = GroupPreFix32FromKey(parent_key);
-            const std::optional<uint32_t> parent_ordinal = GetOrdinalFromKey(parent_key);
-            const uint32_t next_of_parent = static_cast<uint32_t>(ValueOfAnIdentityFromBuffer(parent_identity_buffer, map.NextInharitance));
-
-            if (
-                !APCDataStructure::IsValid32BitAPCUnit(apc_slot_idx) ||
-                !parent_id.has_value() ||
-                !!parent_ordinal.has_value() ||
-                !APCDataStructure::IsValid32BitAPCUnit(next_of_parent) ||
-                next_of_parent != apc_slot_idx
-            )
-            {
-                return false;
-            }
-            const uint64_t child_key = MakeGroupKeyFromParentGroupId(parent_id.value(), parent_ordinal.value() + 1);
-            
-            return
-                InsertAnIdentityInBuffer(own_identity_buffer, map.OrdinalKey, child_key) &&
-                InsertAnIdentityInBuffer(own_identity_buffer, map.PreviousInharitance, parent_ordinal.value()) &&
-                InsertAnIdentityInBuffer(own_identity_buffer, map.NextInharitance, FABRIC_CELL_SENTINAL);
-        }
-
-        static constexpr bool MutateAxisAsChild(
-            const BufferOfAPCIdentity& parent_identity_buffer,
-            BufferOfAPCIdentity& own_identity_buffer,
-            BidirectionalAxis axis
-        ) noexcept;
 
 
     };

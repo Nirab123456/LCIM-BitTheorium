@@ -98,7 +98,7 @@ struct HashIdConstructror
         if (
             !IsValidAPCId(group_key) ||
             !ordinal.has_value()||
-            !IsValidGroupId(ordinal.value())
+            !APCDataStructure::IsValid32BitAPCUnit(ordinal.value())
         )
         {
             return std::nullopt;
@@ -188,8 +188,8 @@ struct AxisConstructor : public HashIdConstructror
     struct AxisConstructionMap
     {
         FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
-        HeaderIdentifierOfAPC PreviousInharitance{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC NextInharitance{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC OrdinalKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};

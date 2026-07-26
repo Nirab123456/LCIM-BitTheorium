@@ -42,7 +42,7 @@ namespace PredictedAdaptedEncoding
 
     struct Pack32_28_4BitIn64BitUnit
     {
-        static constexpr uint8_t UINT4_MAX = 0xff;
+        static constexpr uint8_t UINT4_MAX = 0x0fu;
         static constexpr uint8_t LEN_OF_28_BIT = 28u;
         static constexpr uint32_t UINT28_MAX = UINT32_MAX & LeftOverBitMaskUntil32(LEN_OF_28_BIT);
 
