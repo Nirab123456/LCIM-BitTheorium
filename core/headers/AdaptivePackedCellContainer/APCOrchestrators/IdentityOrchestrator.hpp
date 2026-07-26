@@ -277,9 +277,19 @@ namespace PredictedAdaptedEncoding
             BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
-
+            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
+            if (
+                !ValidateIdentityStructure(identity_buffer) ||
+                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
+                StateOfIdentityFingerprint(fingerprint) != FingerprintHashState::VALID
+            )
+            {
+                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
+                return false;
+            }
+            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
+            return true;
         }
-
 
         static constexpr FingerprintHashState GetStateFingerprint(
             BufferOfAPCIdentity& identity_buffer,
