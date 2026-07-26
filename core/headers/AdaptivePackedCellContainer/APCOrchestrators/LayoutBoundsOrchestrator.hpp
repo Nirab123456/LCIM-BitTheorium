@@ -1,7 +1,6 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "../CoreOFAPC/IdAndIdentityOfAPC.hpp"
 #include "IdentityOrchestrator.hpp"
 
 namespace PredictedAdaptedEncoding

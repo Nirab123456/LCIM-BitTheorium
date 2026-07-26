@@ -2,7 +2,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "ConstructorsAndCarriersOfAPC.hpp"
+#include "APCDataStructure.hpp"
 #include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
 namespace PredictedAdaptedEncoding

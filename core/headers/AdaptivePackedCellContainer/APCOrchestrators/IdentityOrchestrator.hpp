@@ -1,7 +1,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "../CoreOFAPC/IdAndIdentityOfAPC.hpp"
+#include "AxisAndHash.hpp"
 
 
 namespace PredictedAdaptedEncoding
