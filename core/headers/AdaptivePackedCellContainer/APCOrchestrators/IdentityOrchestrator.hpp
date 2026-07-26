@@ -15,13 +15,6 @@ namespace PredictedAdaptedEncoding
             LINKED_CHILD = 1
         };
 
-        // static constexpr bool ContainsRuntimeIdentity(
-        //     BufferOfAPCIdentity& identity_buffer
-        // ) noexcept
-        // {
-
-        // }
-
         static constexpr bool IsInheritedAxisDisabled(
             const BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis
@@ -46,19 +39,12 @@ namespace PredictedAdaptedEncoding
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild) == FABRIC_CELL_SENTINAL;
         }
 
-
-        static constexpr bool IsValidInheritedAxis(
+        static constexpr bool IsInharitedChild(
             const BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis
         ) noexcept
         {
-            if (IsInheritedAxisDisabled(identity_buffer, axis))
-            {
-                return true;
-            }
-
             const AxisConstructionMap map = ConstructAxisMap(axis);
-
             const uint64_t key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey);
             const std::optional<uint32_t> group_id = GroupPreFix32FromKey(key);
             const std::optional<uint32_t> group_ordinal = GetOrdinalFromKey(key);
@@ -68,29 +54,53 @@ namespace PredictedAdaptedEncoding
             return 
                 group_id.has_value() &&
                 group_ordinal.has_value() &&
-                APCDataStructure::IsValid32BitAPCUnit(previous_slot) &&
-                (APCDataStructure::IsValid32BitAPCUnit(next_slot) || next_slot == FABRIC_CELL_SENTINAL);
+                group_ordinal.value() > UNSIGNED_ZERO &&
+                IsValidAPCSlotIdx(previous_slot) &&
+                (IsValidAPCSlotIdx(next_slot) || next_slot == FABRIC_CELL_SENTINAL);
         }
 
+
+        static constexpr bool IsValidInheritedAxis(
+            const BufferOfAPCIdentity& identity_buffer,
+            BidirectionalAxis axis
+        ) noexcept
+        {
+            return 
+                IsInheritedAxisDisabled(identity_buffer, axis) ||
+                IsInharitedChild(identity_buffer, axis);
+        }
+
+        static constexpr bool IsDefinedRoot(
+            const BufferOfAPCIdentity& identity_buffer,
+            BidirectionalAxis axis
+        ) noexcept
+        {
+            const AxisConstructionMap map = ConstructAxisMap(axis);
+            const uint64_t root_key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
+            const uint64_t first_child = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild);
+            const std::optional<uint32_t> group_id = GroupPreFix32FromKey(root_key);
+            const std::optional<uint32_t> ordinal = GetOrdinalFromKey(root_key);
+            return 
+                IsValidGroupId(root_key) &&
+                group_id.has_value() &&
+                ordinal.has_value() &&
+                ordinal.value() == UNSIGNED_ZERO &&
+                IsValidAPCSlotIdx(first_child);
+        }
 
         static constexpr bool IsValidOwnedRoot(
             const BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis
         ) noexcept
         {
-            const AxisConstructionMap map = ConstructAxisMap(axis);
-
-            const uint64_t root_key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
-            const uint64_t first_child = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild);
-
             return 
-                IsValidGroupId(root_key) &&
-                APCDataStructure::IsValid32BitAPCUnit(first_child);
+                IsOwnedAxisDisabled(identity_buffer, axis) ||
+                IsDefinedRoot(identity_buffer, axis);
         }
 
 
-        static constexpr bool ValidateAIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer
+        static constexpr bool ValidateIdentityStructure(
+            const BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
             const uint64_t slot = ValueOfAnIdentityFromBuffer(identity_buffer,  HeaderIdentifierOfAPC::APC_SLOT_IDX);
@@ -101,12 +111,13 @@ namespace PredictedAdaptedEncoding
                 IsValidAPCSlotIdx(slot) &&
                 APCDataStructure::IsValidFabricUnit(begin) &&
                 APCDataStructure::IsValidFabricUnit(end) &&
-                APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(end - begin + 1)) &&
+                APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(end - begin)) &&
                 IsValidInheritedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
                 IsValidInheritedAxis(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL) &&
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL);
         }
+
 
     };
 
@@ -149,8 +160,8 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             if (
-                !ValidateAIdentityBuffer(identity_buffer) ||
-                (!is_destructive && IsValidOwnedRoot(identity_buffer, axis)) ||
+                !ValidateIdentityStructure(identity_buffer) ||
+                (!is_destructive && IsDefinedRoot(identity_buffer, axis)) ||
                 !IsValidAPCSlotIdx(first_child_slot_idx)
             )
             {
@@ -179,8 +190,8 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             if (
-                !ValidateAIdentityBuffer(parent_identity) ||
-                !ValidateAIdentityBuffer(identity_buffer)
+                !ValidateIdentityStructure(parent_identity) ||
+                !ValidateIdentityStructure(identity_buffer)
             )
             {
                 return false;
@@ -250,13 +261,23 @@ namespace PredictedAdaptedEncoding
         {
             const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
             if (
+                !ValidateIdentityStructure(identity_buffer) ||
                 !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT, fingerprint)
             )
             {
                 identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
                 return false;
             }
-            return ValidateAIdentityBuffer(identity_buffer);
+            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
+            return true;
+        }
+
+
+        static constexpr bool ValidateAIdentityBuffer(
+            BufferOfAPCIdentity& identity_buffer
+        ) noexcept
+        {
+
         }
 
 
@@ -266,7 +287,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
-            if (!ValidateAIdentityBuffer(identity_buffer))
+            if (!ValidateIdentityStructure(identity_buffer))
             {
                 return FingerprintHashState::INVALID;
             }

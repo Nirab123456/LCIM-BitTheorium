@@ -172,7 +172,7 @@ namespace PredictedAdaptedEncoding
 
         if (
             !copy_ok || 
-            !IA::ValidateAIdentityBuffer(identity_buffer) ||
+            !IA::ValidateIdentityStructure(identity_buffer) ||
             !IA::IsHoldFingerprintState(desired_state)
         )
         {

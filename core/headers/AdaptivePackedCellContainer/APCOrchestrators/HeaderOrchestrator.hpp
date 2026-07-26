@@ -39,7 +39,7 @@ namespace PredictedAdaptedEncoding
             APCMetaBuffer& header
         ) noexcept
         {
-            if (!InstallAxisToBuffer::ValidateAIdentityBuffer(identity_buffer))
+            if (!InstallAxisToBuffer::ValidateIdentityStructure(identity_buffer))
             {
                 return false;
             }
