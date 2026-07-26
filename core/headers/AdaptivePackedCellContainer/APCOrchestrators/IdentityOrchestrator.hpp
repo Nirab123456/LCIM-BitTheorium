@@ -155,14 +155,13 @@ namespace PredictedAdaptedEncoding
         static constexpr bool InstallOwnedRoot(
             BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis,
-            uint32_t first_child_slot_idx,
+            uint32_t axis_id,
             bool is_destructive = false
         ) noexcept
         {
             if (
                 !ValidateIdentityStructure(identity_buffer) ||
-                (!is_destructive && IsDefinedRoot(identity_buffer, axis)) ||
-                !IsValidAPCSlotIdx(first_child_slot_idx)
+                (!is_destructive && IsDefinedRoot(identity_buffer, axis))
             )
             {
                 return false;
@@ -172,14 +171,51 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             const uint64_t root_key = ComposeNewGroupKey(
-                APCSlotIdxToHashTableHandler(slot_idx),
+                axis_id,
                 axis,
                 UNSIGNED_ZERO
             );
 
             return 
                 InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, root_key) &&
-                InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, first_child_slot_idx);
+                InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL);
+        }
+
+
+        static constexpr bool SealIdentityBuffer(
+            BufferOfAPCIdentity& identity_buffer
+        ) noexcept
+        {
+            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
+            if (
+                !ValidateIdentityStructure(identity_buffer) ||
+                !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT, fingerprint)
+            )
+            {
+                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
+                return false;
+            }
+            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
+            return true;
+        }
+
+
+        static constexpr bool ValidateAIdentityBuffer(
+            BufferOfAPCIdentity& identity_buffer
+        ) noexcept
+        {
+            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
+            if (
+                !ValidateIdentityStructure(identity_buffer) ||
+                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
+                StateOfIdentityFingerprint(fingerprint) != FingerprintHashState::VALID
+            )
+            {
+                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
+                return false;
+            }
+            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
+            return true;
         }
 
         static constexpr bool PrepareInharitedAxis(
@@ -255,41 +291,7 @@ namespace PredictedAdaptedEncoding
         }
 
 
-        static constexpr bool SealIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer
-        ) noexcept
-        {
-            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
-            if (
-                !ValidateIdentityStructure(identity_buffer) ||
-                !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT, fingerprint)
-            )
-            {
-                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
-                return false;
-            }
-            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
-            return true;
-        }
 
-
-        static constexpr bool ValidateAIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer
-        ) noexcept
-        {
-            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
-            if (
-                !ValidateIdentityStructure(identity_buffer) ||
-                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
-                StateOfIdentityFingerprint(fingerprint) != FingerprintHashState::VALID
-            )
-            {
-                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
-                return false;
-            }
-            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
-            return true;
-        }
 
         static constexpr FingerprintHashState GetStateFingerprint(
             BufferOfAPCIdentity& identity_buffer,

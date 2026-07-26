@@ -129,7 +129,7 @@ namespace PredictedAdaptedEncoding
         }
 
         static constexpr uint32_t ComposeDescriptionId(
-            SingleAPCDescriptionCellBuffer& description_buffer,
+            const SingleAPCDescriptionCellBuffer& description_buffer,
             StateOfAPC state
         ) noexcept
         {
@@ -266,6 +266,29 @@ namespace PredictedAdaptedEncoding
                 return true;
             }
             return false;
+        }
+
+
+        static constexpr bool BuildIdentityBufferFromDescriptionBuffer(
+            const SingleAPCDescriptionCellBuffer& description,
+            InstallAxisToBuffer::BufferOfAPCIdentity& identity
+        ) noexcept
+        {
+            const uint8_t APC_PHYSICAL_ID_LEN = static_cast<uint8_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB) - static_cast<uint8_t>(DescriptionUnitIdentity::APC_INDEX) + 1;
+            const uint8_t offset_identity = 1u;
+
+            using IAB = InstallAxisToBuffer;
+            IAB::BuildNullIdentityBuffer(identity);
+            if (!HasValidationDescriptionMark(description))
+            {
+                return false;
+            }
+
+            for (uint8_t i = 0; i < APC_PHYSICAL_ID_LEN; i++)
+            {
+                identity[i + offset_identity] = description[i];
+            }
+            return IAB::SealIdentityBuffer(identity);
         }
 
     };
