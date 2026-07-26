@@ -71,8 +71,8 @@ namespace PredictedAdaptedEncoding
     }
 
     bool VagueTemoraryPremativeFabric::InitializeFabricWithPtrTable(
-        uint16_t slot_count,
-        size_t slot_cell_count,
+        uint32_t slot_count,
+        uint32_t slot_cell_count,
         uint8_t slab_id,
         uint32_t fabric_thread_capacity
     ) noexcept

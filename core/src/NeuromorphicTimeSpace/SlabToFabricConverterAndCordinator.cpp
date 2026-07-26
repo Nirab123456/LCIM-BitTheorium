@@ -126,8 +126,8 @@ namespace PredictedAdaptedEncoding
     }
 
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
-        uint16_t slot_count,
-        size_t slot_cell_count,
+        uint32_t slot_count,
+        uint32_t slot_cell_count,
         uint8_t slab_id,
         uint32_t fabric_thread_capacity
     ) noexcept
@@ -167,13 +167,12 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        if (slot_cell_count < MINIMUM_APC_CELL_COUNT)
+        if (!APCDataStructure::IsCapacityOfAPCValid(slot_cell_count))
         {
-            slot_cell_count = MINIMUM_APC_CELL_COUNT;
+            return false;
         }
-
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
-        PerAPCRuntimeCellCount_ = static_cast<uint16_t>(slot_cell_count);
+        PerAPCRuntimeCellCount_ = static_cast<uint32_t>(slot_cell_count);
         SlabId_ = slab_id == UNSIGNED_ZERO ? APCDataStructure::BRANCH_VERSION : slab_id;
         ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 

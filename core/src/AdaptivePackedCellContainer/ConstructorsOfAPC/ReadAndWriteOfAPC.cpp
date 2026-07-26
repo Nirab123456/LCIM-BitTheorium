@@ -39,7 +39,7 @@ namespace PredictedAdaptedEncoding
     }
 
     bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
-        uint16_t total_capacity,
+        uint32_t total_capacity,
         InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
         const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
         const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,

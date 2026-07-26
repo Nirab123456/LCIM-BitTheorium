@@ -50,10 +50,19 @@ struct DefaultHashings : public DescriptorConf
         );
     }
 
-    // static constexpr AxisTopAndCountForBranchHashValue GetBranchHashValues(uint64_t value) noexcept
-    // {
+    static constexpr AxisTopAndCountForBranchHashValue GetBranchHashValues(uint64_t value) noexcept
+    {
+        AxisTopAndCountForBranchHashValue both_value{};
 
-    // }
+        if (!HashIdConstructror::IsValidAPCId(value))
+        {
+            return both_value;
+        }
+
+        both_value.AxisTopWaterMark = Double32In64ForAPCandFabric::ExtractLow32Of64(value);
+        both_value.MemberCount = Double32In64ForAPCandFabric::ExtractHigh32Of64(value);
+        return both_value;
+    }
 
 };
 

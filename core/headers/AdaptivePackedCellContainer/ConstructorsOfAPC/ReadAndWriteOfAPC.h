@@ -22,7 +22,7 @@ namespace PredictedAdaptedEncoding
 
     public:
         bool InitiateAPCMetaHeader(
-            uint16_t total_capacity,
+            uint32_t total_capacity,
             InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
             const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
