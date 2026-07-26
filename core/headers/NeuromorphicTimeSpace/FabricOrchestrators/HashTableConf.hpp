@@ -6,34 +6,16 @@ namespace PredictedAdaptedEncoding
 
 struct DefaultHashings : public DescriptorConf
 {
-    static constexpr uint64_t HASH_TOMBSTONE_KEY = FABRIC_CELL_SENTINAL;
     static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
     static constexpr uint8_t DEFAULT_TABLE_TAILROOM_MULT = 2u;
     static constexpr uint32_t PROB_DISTANCE_SENTINAL = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
     static constexpr uint64_t VALIDATION_MARK_OF_HASH_TABLE_BUFFER = 333;
-    
-    static constexpr uint64_t NextPowerOf2Unsigned64(uint64_t given_value) noexcept
+
+    struct AxisTopAndCountForBranchHashValue
     {
-        if (given_value <= 2u)
-        {
-            return 2u;
-        }
-        --given_value;
-        given_value |= given_value >> 1u;
-        given_value |= given_value >> 2u;
-        given_value |= given_value >> 4u;
-        given_value |= given_value >> 8u;
-        given_value |= given_value >> 16u;
-        given_value |= given_value >> 32u;
-
-        return given_value + 1u;
-    }
-
-    /// @brief Convert A Value to Hash
-    /// @param given_value Must be 
-    /// @return 
-
-
+        uint32_t AxisTopWaterMark = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t MemberCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+    };
 
     static constexpr uint64_t BucketCountForExpectedEntries(uint64_t count_of_entries) noexcept
     {
@@ -47,9 +29,28 @@ struct DefaultHashings : public DescriptorConf
 
         const uint64_t wanted_bucket_count = std::max<uint64_t>(MIN_LIMIT_POW_OF_2, count_of_entries * DEFAULT_TABLE_TAILROOM_MULT);
 
-        return NextPowerOf2Unsigned64(wanted_bucket_count);
-        
+        return HashIdConstructror::NextPowerOf2Unsigned64(wanted_bucket_count);
     }
+
+    static constexpr uint64_t PackAxisTopAndCount(
+        const AxisTopAndCountForBranchHashValue&  hash_values
+    ) noexcept
+    {
+        if (
+            !APCDataStructure::IsValid32BitAPCUnit(hash_values.AxisTopWaterMark) ||
+            !APCDataStructure::IsValid32BitAPCUnit(hash_values.MemberCount) 
+        )
+        {
+            return FABRIC_CELL_SENTINAL;
+        }
+        
+        return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(
+            hash_values.AxisTopWaterMark,
+            hash_values.MemberCount
+        );
+    }
+
+    // static constexpr 
 
 };
 

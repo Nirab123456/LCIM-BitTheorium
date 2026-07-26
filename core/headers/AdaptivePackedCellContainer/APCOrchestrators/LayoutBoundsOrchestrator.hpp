@@ -42,7 +42,7 @@ struct LayoutBuilderAndValidator
             return FABRIC_CELL_SENTINAL;
         }
 
-        const std::optional<uint64_t> layout_cell = Double32In64ExPa::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
+        const std::optional<uint64_t> layout_cell = Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
         return layout_cell;
     }
 
@@ -58,8 +58,8 @@ struct LayoutBuilderAndValidator
             return return_carrier;
         }
         
-        const std::optional<uint32_t> begin_idx = Double32In64ExPa::ExtractLow32Of64(fabric_unit);
-        const std::optional<uint32_t> end_idx = Double32In64ExPa::ExtractHigh32Of64(fabric_unit);
+        const std::optional<uint32_t> begin_idx = Double32In64ForAPCandFabric::ExtractLow32Of64(fabric_unit);
+        const std::optional<uint32_t> end_idx = Double32In64ForAPCandFabric::ExtractHigh32Of64(fabric_unit);
         return_carrier.BeginIndex =  begin_idx.has_value() ? begin_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.EndIndex =  end_idx.has_value() ? end_idx.value() : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         return_carrier.LayoutIdentity = layout_marker;

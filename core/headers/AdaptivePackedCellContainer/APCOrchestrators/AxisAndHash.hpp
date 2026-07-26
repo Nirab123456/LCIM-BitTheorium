@@ -65,11 +65,14 @@ struct HashIdConstructror
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
     {
-        if (!IsValidGroupId(group_id))
+        if (
+            !IsValidGroupId(group_id) ||
+            !APCDataStructure::IsValid32BitAPCUnit(ordinal)
+        )
         {
             return FABRIC_CELL_SENTINAL;
         }
-        return Double32In64ExPa::PackDoubleUnsigned32In64(
+        return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(
             static_cast<uint32_t>(ordinal),
             static_cast<uint32_t>(group_id)
         );
@@ -78,7 +81,7 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
     {
-        const std::optional<uint32_t> prefix_32 = Double32In64ExPa::ExtractHigh32Of64(group_key);
+        const std::optional<uint32_t> prefix_32 = Double32In64ForAPCandFabric::ExtractHigh32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
             !prefix_32.has_value()||
@@ -94,7 +97,7 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
     {
-        const std::optional<uint32_t> ordinal = Double32In64ExPa::ExtractLow32Of64(group_key);
+        const std::optional<uint32_t> ordinal = Double32In64ForAPCandFabric::ExtractLow32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
             !ordinal.has_value()||
@@ -173,6 +176,23 @@ struct HashIdConstructror
             return 1u;
         }
         return given_value;
+    }
+
+    static constexpr uint64_t NextPowerOf2Unsigned64(uint64_t given_value) noexcept
+    {
+        if (given_value <= 2u)
+        {
+            return 2u;
+        }
+        --given_value;
+        given_value |= given_value >> 1u;
+        given_value |= given_value >> 2u;
+        given_value |= given_value >> 4u;
+        given_value |= given_value >> 8u;
+        given_value |= given_value >> 16u;
+        given_value |= given_value >> 32u;
+
+        return given_value + 1u;
     }
 
 };

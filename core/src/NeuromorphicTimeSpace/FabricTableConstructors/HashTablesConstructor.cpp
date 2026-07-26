@@ -235,8 +235,7 @@ namespace PredictedAdaptedEncoding
     {
         if (
             !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
-            hash_key == UNSIGNED_ZERO ||
-            hash_key >= HashTableConf::HASH_TOMBSTONE_KEY
+            !HashIdConstructror::IsValidAPCId(hash_key)
         )
         {
             return std::nullopt;

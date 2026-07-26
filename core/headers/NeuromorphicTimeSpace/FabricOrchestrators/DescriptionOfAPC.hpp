@@ -42,15 +42,21 @@ namespace PredictedAdaptedEncoding
 
         static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
-            return Double32In64ExPa::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
+            if (
+                !APCDataStructure::IsValid32BitAPCUnit(description_id)
+            )
+            {
+                return false;
+            }
+            return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
 
         static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
 
-            const std::optional<uint32_t> description_id_maybe = Double32In64ExPa::ExtractLow32Of64(desc_id_state);
-            const std::optional<uint32_t> ownership_maybe = Double32In64ExPa::ExtractHigh32Of64(desc_id_state);
+            const std::optional<uint32_t> description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
+            const std::optional<uint32_t> ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
 
             if (
                 !description_id_maybe.has_value() ||

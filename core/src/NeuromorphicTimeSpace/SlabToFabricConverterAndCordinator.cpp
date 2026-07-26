@@ -184,8 +184,8 @@ namespace PredictedAdaptedEncoding
             return false;
         }
         
-        RelationRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
-        DeviceViewRecordCount_ = HashHelpers::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
+        RelationRecordCount_ = HashIdConstructror::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
+        DeviceViewRecordCount_ = HashIdConstructror::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
 
         size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);
         const size_t record_book_begin = cursor;

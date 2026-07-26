@@ -3,18 +3,10 @@
 
 namespace PredictedAdaptedEncoding 
 {
-    struct Double32In64ExPa
+    struct Double32In64ForAPCandFabric
     {
         static constexpr uint64_t PackDoubleUnsigned32In64(uint32_t low_32, uint32_t high_32) noexcept
         {
-            if (
-                !APCDataStructure::IsValid32BitAPCUnit(low_32) ||
-                !APCDataStructure::IsValid32BitAPCUnit(high_32)
-            )
-            {
-                return FABRIC_CELL_SENTINAL;
-            }
-
             return (
                 (uint64_t{low_32} << UNSIGNED_ZERO) |
                 (uint64_t{high_32} << BIT_LENGTH_OF_APC)
