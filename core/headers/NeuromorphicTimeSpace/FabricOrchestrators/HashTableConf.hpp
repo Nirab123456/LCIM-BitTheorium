@@ -50,7 +50,10 @@ struct DefaultHashings : public DescriptorConf
         );
     }
 
-    // static constexpr 
+    // static constexpr AxisTopAndCountForBranchHashValue GetBranchHashValues(uint64_t value) noexcept
+    // {
+
+    // }
 
 };
 

@@ -13,21 +13,13 @@ namespace PredictedAdaptedEncoding
             );
         }
 
-        static constexpr std::optional<uint32_t> ExtractLow32Of64(uint64_t packed_value) noexcept
+        static constexpr uint32_t ExtractLow32Of64(uint64_t packed_value) noexcept
         {
-            if (!APCDataStructure::IsValidFabricUnit(packed_value))
-            {
-                return std::nullopt;
-            }
             return static_cast<uint32_t>((packed_value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(BIT_LENGTH_OF_APC));
         }
 
-        static constexpr std::optional<uint32_t> ExtractHigh32Of64(uint64_t packed_value) noexcept
+        static constexpr uint32_t ExtractHigh32Of64(uint64_t packed_value) noexcept
         {
-            if(!APCDataStructure::IsValidFabricUnit(packed_value))
-            {
-                return std::nullopt;
-            }
             return static_cast<uint32_t>((packed_value >> BIT_LENGTH_OF_APC) & MaskLeftOverBitsUntil64(BIT_LENGTH_OF_APC));
         }
     };

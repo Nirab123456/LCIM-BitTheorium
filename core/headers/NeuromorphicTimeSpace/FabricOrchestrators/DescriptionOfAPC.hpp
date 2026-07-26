@@ -54,20 +54,18 @@ namespace PredictedAdaptedEncoding
         static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
-
-            const std::optional<uint32_t> description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
-            const std::optional<uint32_t> ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
-
             if (
-                !description_id_maybe.has_value() ||
-                !ownership_maybe.has_value() 
+                !APCDataStructure::IsValidFabricUnit(desc_id_state)
             )
             {
                 return return_safty_files;
             }
 
-            return_safty_files.DescriptionID = description_id_maybe.value();
-            return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe.value());
+            const uint32_t description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
+            const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
+
+            return_safty_files.DescriptionID = description_id_maybe;
+            return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
 
             if (
                 !IsKnownStateOfAPC(return_safty_files.StateOfTheAPC)

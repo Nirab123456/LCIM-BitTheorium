@@ -81,11 +81,10 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
     {
-        const std::optional<uint32_t> prefix_32 = Double32In64ForAPCandFabric::ExtractHigh32Of64(group_key);
+        const uint32_t prefix_32 = Double32In64ForAPCandFabric::ExtractHigh32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
-            !prefix_32.has_value()||
-            !IsValidGroupId(prefix_32.value())
+            !IsValidGroupId(prefix_32)
         )
         {
             return std::nullopt;
@@ -97,11 +96,10 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
     {
-        const std::optional<uint32_t> ordinal = Double32In64ForAPCandFabric::ExtractLow32Of64(group_key);
+        const uint32_t ordinal = Double32In64ForAPCandFabric::ExtractLow32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
-            !ordinal.has_value()||
-            !APCDataStructure::IsValid32BitAPCUnit(ordinal.value())
+            !APCDataStructure::IsValid32BitAPCUnit(ordinal)
         )
         {
             return std::nullopt;
