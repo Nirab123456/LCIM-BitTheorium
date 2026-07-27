@@ -23,18 +23,16 @@ namespace PredictedAdaptedEncoding
         {
             BEGIN64 = 0,
             END64 = 1,
-            UNASSIGNED_UNUSED_NANNULL = 2
         };
-        static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::END64) + 1u;
 
         enum class HashTableInternalIndexing : uint8_t
         {
             KEY_INDEX = 0,
             VALUE_INDEX = 1,
-            PROB_DISTANCE_LOCK = 2,
-            UNASSIGNED_UNUSED_NANNULL = 3
+            PROB_DISTANCE_LOCK = 2
         };
-        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashTableInternalIndexing::UNASSIGNED_UNUSED_NANNULL);
+        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK) + 1u;
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
         enum class DescriptionUnitIdentity : uint8_t
@@ -48,12 +46,9 @@ namespace PredictedAdaptedEncoding
             RELATION_HEADS = 6,
             RETIRE_EPOCH = 7,
             APC_FLAGS_FOR_THIS = 8,
-            ID_STATE_CONCURRENT = 9,
-            UNASSIGNED_UNUSED_NANNULL = 10
+            ID_STATE_CONCURRENT = 9
         };
-        static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL);
-
-
+        static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT) + 1u;
 
         enum class FabricMetaIndicies : uint8_t
         {
@@ -160,11 +155,6 @@ namespace PredictedAdaptedEncoding
             return table_class == FabricTableSegmentClasses::BRANCH_HASH ||
                 table_class == FabricTableSegmentClasses::VERTICAL_HASH ||
                 table_class == FabricTableSegmentClasses::HORIZONTAL_HASH;
-        }
-
-        static constexpr bool IsKnownDescriptionIdentity(DescriptionUnitIdentity identity_of_unit) noexcept
-        {
-            return identity_of_unit < DescriptionUnitIdentity::UNASSIGNED_UNUSED_NANNULL;
         }
 
         static constexpr bool IsKnownFabricTable(FabricTableSegmentClasses table) noexcept

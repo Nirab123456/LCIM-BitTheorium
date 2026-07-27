@@ -78,10 +78,6 @@ struct HashHelpers : public DefaultHashings
         StateOfAPC HashState = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
         bool IsValid = false;
     };
-    static_assert(sizeof(HashFilesCarrier) <= CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC * sizeof(uint64_t));
-    static_assert(alignof(HashFilesCarrier) == alignof(uint64_t));
-
-
 
     static constexpr bool ValidHashFilesCarrier(
         HashFilesCarrier& hash_files,

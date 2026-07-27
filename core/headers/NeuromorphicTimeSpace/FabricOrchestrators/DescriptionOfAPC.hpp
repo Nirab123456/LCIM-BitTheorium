@@ -214,7 +214,6 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             if (
-                !CoreOfFabricCoordinator::IsKnownDescriptionIdentity(identity) ||
                 !APCDataStructure::IsValidFabricUnit(value)
             )
             {

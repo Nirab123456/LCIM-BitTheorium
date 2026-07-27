@@ -167,7 +167,6 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            const uint64_t slot_idx = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX);
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             const uint64_t root_key = ComposeNewGroupKey(
