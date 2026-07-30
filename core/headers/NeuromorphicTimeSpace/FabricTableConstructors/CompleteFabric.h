@@ -85,13 +85,9 @@ namespace PredictedAdaptedEncoding
 
     public:
 
-        HashTableConf::HashFilesCarrier ReadHashFilesFromSlab(
-            uint64_t bucked_base_index
-        ) noexcept;
-
-        bool ReadHashFilesFromSlab_(
+        bool ReadHashBufferFromSlab(
             uint64_t bucked_base_index,
-            HashTableConf::SingleHashBuffer hash_buffer_return
+            HashTableConf::SingleHashBuffer& hash_buffer_return
         ) noexcept;
         
         void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;

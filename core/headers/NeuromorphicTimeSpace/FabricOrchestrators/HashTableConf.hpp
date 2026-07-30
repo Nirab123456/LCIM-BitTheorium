@@ -137,6 +137,28 @@ struct HashHelpers : public DefaultHashings
         return hash;
     }
 
+    static constexpr bool RecompileStateInBuffer(
+        SingleHashBuffer& hash_buffer,
+        HashState updated_state,
+        std::optional<uint32_t> updated_prob = std::nullopt
+    ) noexcept
+    {
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
+        state_dist_fp.High4Bit = static_cast<uint8_t>(updated_state);
+        if (updated_prob.has_value())
+        {
+            state_dist_fp.Lowest32Bit = updated_prob.value();
+        }
+        state_dist_fp.Mid28Bit = MakeHashFingerPrint(hash_buffer, updated_state);
+        
+        SetHashBufferUnit(
+            hash_buffer,
+            HashBufferIndexing::PROB_DISTANCE_LOCK,
+            Pack32_28_4BitIn64BitUnit::PackValues(state_dist_fp)
+        );
+
+        return ValidateHashBuffer(hash_buffer);
+    }
 
     static constexpr bool SealHashBuffer(
         SingleHashBuffer& hash_buffer,
@@ -144,35 +166,47 @@ struct HashHelpers : public DefaultHashings
         HashState hash_state
     ) noexcept
     {
-        if (
-            !IsValidHashBuffer(hash_buffer) ||
-            !APCDataStructure::IsValid32BitAPCUnit(prob_distance)
-        )
-        {
-            return false;
-        }
-        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier cell_packer_carrier{};
+        return RecompileStateInBuffer(hash_buffer, hash_state, prob_distance);
+    }
 
-        cell_packer_carrier.Lowest32Bit = prob_distance;
-        cell_packer_carrier.Mid28Bit = MakeHashFingerPrint(hash_buffer, hash_state);
-        cell_packer_carrier.High4Bit = static_cast<uint8_t>(hash_state);
+    static constexpr bool MakeValidHashBuffer(
+        SingleHashBuffer& hash_buffer,
+        const uint64_t& key,
+        const uint64_t& value,
+        const uint32_t& prob_distance,
+        HashState hash_state
+    ) noexcept
+    {
         SetHashBufferUnit(
             hash_buffer,
-            HashBufferIndexing::PROB_DISTANCE_LOCK,
-            Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier)
+            HashBufferIndexing::KEY_INDEX,
+            key
         );
 
+        SetHashBufferUnit(
+            hash_buffer,
+            HashBufferIndexing::VALUE_INDEX,
+            value
+        );
 
+        return RecompileStateInBuffer(hash_buffer, hash_state, prob_distance);
     }
+
+    static constexpr Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier GetStDistFp(const SingleHashBuffer& hash_buffer) noexcept
+    {
+        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
+            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK)
+        );
+        return state_dist_fp;
+    }
+
 
     static constexpr bool ValidateHashBuffer(
         SingleHashBuffer& hash_buffer
     ) noexcept
     {
 
-        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
-            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK)
-        );
+        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
 
         if (
             !IsValidHashBuffer(hash_buffer) ||
@@ -207,6 +241,34 @@ struct HashTableConf : public HashHelpers
         a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
     }
 
+
+    static constexpr bool IsExpectedHashStateBuffer(
+        SingleHashBuffer& hash_buffer, 
+        uint64_t desired_key,
+        HashState desired_state =  HashState::LIVE_OR_PUBLISHED,
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* state_distance_fp_carrier = nullptr
+    ) noexcept
+    {
+        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
+        const HashState current_state = static_cast<HashState>(state_dist_fp.High4Bit);
+        const uint64_t current_key = GetAUnitFromHashBuffer(
+            hash_buffer,
+            HashBufferIndexing::KEY_INDEX
+        );
+
+        if (state_distance_fp_carrier)
+        {
+            *state_distance_fp_carrier = state_dist_fp;
+        }
+        
+        return 
+            ValidateHashBuffer(hash_buffer) &&
+            current_key == desired_key &&
+            current_state == desired_state &&
+            HashIdConstructror::IsValidAPCId(
+                GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX)
+            );
+    }
 
 public:
 

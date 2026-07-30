@@ -23,70 +23,29 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    HashTableConf::HashFilesCarrier HashTablesConstructor::ReadHashFilesFromSlab(uint64_t bucked_base_index) noexcept
+    bool HashTablesConstructor::ReadHashBufferFromSlab(
+        uint64_t bucked_base_index,
+        HashTableConf::SingleHashBuffer& hash_buffer_return
+    ) noexcept
     {
-        HashTableConf::HashFilesCarrier carrier{};
-        
+        using HTC = HashTableConf;
         if (
             !SlabBasePtr_ || 
             bucked_base_index + HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_
         )
         {
-            return carrier;
+            return false;
         }
-        uint64_t key_cell = UNSIGNED_ZERO;
-        uint64_t value_cell = UNSIGNED_ZERO;
-        uint64_t prob_st_fp = UNSIGNED_ZERO;
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::KEY_INDEX), key_cell);
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::VALUE_INDEX), value_cell);
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::PROB_DISTANCE_LOCK), prob_st_fp);
-        
-        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
 
-        carrier.HashKey = key_cell;
-        carrier.HashValue = value_cell;
-        carrier.ProbDistance = prob_st_fp_carrier.Lowest32Bit;
-        carrier.HashState = static_cast<HashTableConf::StateOfAPC>(prob_st_fp_carrier.High4Bit);
-
-        const uint32_t reconst_finger_print = HashTableConf::MakeHashFingerPrint(carrier);
-        HashTableConf::IsValidHashBuffer(carrier);
-        if (
-            reconst_finger_print != prob_st_fp_carrier.Mid28Bit 
-        )
+        for (uint8_t i = 0; i < CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC; i++)
         {
-            carrier.IsValid = false;
-            return carrier;
+            if (!AtomicallyLoadReadAUnit(bucked_base_index + i, hash_buffer_return[i]))
+            {
+                return false;
+            }
         }
-        
-        return carrier;
-
+        return HTC::ValidateHashBuffer(hash_buffer_return);
     }
-
-
-    // bool HashTablesConstructor::ReadHashFilesFromSlab_(
-    //     uint64_t bucked_base_index,
-    //     HashTableConf::SingleHashBuffer hash_buffer_return
-    // ) noexcept
-    // {
-    //     using HTC = HashTableConf;
-    //     if (
-    //         !SlabBasePtr_ || 
-    //         bucked_base_index + HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_
-    //     )
-    //     {
-    //         return false;
-    //     }
-
-    //     for (uint8_t i = 0; i < CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC; i++)
-    //     {
-    //         if (!AtomicallyLoadReadAUnit(bucked_base_index + i, hash_buffer_return[i]))
-    //         {
-    //             return false;
-    //         }
-    //     }
-        
-
-    // }
 
     bool HashTablesConstructor::InsertOrUpdateRobinHoodHash48_(
         FabricTableSegmentClasses hash_table, 
@@ -126,36 +85,8 @@ namespace PredictedAdaptedEncoding
 
         uint64_t incoming_bucket = incoming_hash & (bucket_count - 1u);
 
-
-        HashTableConf::HashFilesCarrier reuseable_carrier{};
-        auto MakeAHashCarrierInternal = [&](
-            const uint64_t& desired_key,
-            const uint64_t& desired_value,
-            const uint32_t& desired_prob,
-            const HashTableConf::StateOfAPC state
-        ) noexcept -> void
-        {
-            HashTableConf::RestHashFilesCarrier(reuseable_carrier);
-            reuseable_carrier.HashKey = desired_key;
-            reuseable_carrier.HashValue = desired_value;
-            reuseable_carrier.ProbDistance = desired_prob;
-            reuseable_carrier.HashTable = hash_table;
-            reuseable_carrier.HashState = state;
-            HashTableConf::IsValidHashBuffer(reuseable_carrier);
-        };
-
         HashTableConf::SingleHashBuffer reuseable_hash_buffer{};
 
-        auto MakeReuseableBuffer = [&](
-            const uint64_t& a_key,
-            const uint64_t& a_value,
-            const uint32_t& prob_dist,
-            const HashTableConf::StateOfAPC state
-        ) -> bool
-        {
-            MakeAHashCarrierInternal(a_key, a_value, prob_dist, state);
-            return HashTableConf::BuildValidatedHashBuffer(reuseable_carrier, reuseable_hash_buffer);
-        };
 
         for (uint64_t steps = 0; steps < bucket_count && incoming_prob != HashTableConf::PROB_DISTANCE_SENTINAL; steps++)
         {
@@ -169,12 +100,16 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            HashTableConf::HashFilesCarrier currrent_hash_data = ReadHashFilesFromSlab(base_idx);
+            bool read_buffer_ok = ReadHashBufferFromSlab(base_idx, reuseable_hash_buffer);
+            const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = HashTableConf::GetStDistFp(reuseable_hash_buffer);
+
 
             /// Initialize / Fix Invalid / reuse / reclaim
-            if (!currrent_hash_data.IsValid )
+            if (!read_buffer_ok)
             {
-                const bool reuse_made_ok = MakeReuseableBuffer(
+
+                const bool reuse_made_ok = HashTableConf::MakeValidHashBuffer(
+                    reuseable_hash_buffer,
                     incoming_key, incoming_value, 
                     incoming_prob, 
                     hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
@@ -188,14 +123,18 @@ namespace PredictedAdaptedEncoding
             }
 
             /// update
-            if (currrent_hash_data.HashKey == incoming_key)
+            if (
+                HashTableConf::GetAUnitFromHashBuffer(reuseable_hash_buffer, HashTableConf::HashBufferIndexing::KEY_INDEX) == incoming_key &&
+                state_dist_fp.IsValid
+            )
             {
-                const bool reuse_made_ok = MakeReuseableBuffer(
-                    incoming_key, 
-                    incoming_value, 
-                    currrent_hash_data.ProbDistance, 
-                    hash_state.has_value() ? hash_state.value() : currrent_hash_data.HashState
+                const bool reuse_made_ok = HashTableConf::MakeValidHashBuffer(
+                    reuseable_hash_buffer,
+                    incoming_key, incoming_value, 
+                    state_dist_fp.Lowest32Bit,
+                    hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
                 );
+
                 return reuse_made_ok? CompareExchangeStrongSequentiallyOrRevert(
                     base_idx, 
                     HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC, 
@@ -203,13 +142,17 @@ namespace PredictedAdaptedEncoding
                 ) : false;
             }
             
-            if (incoming_prob > currrent_hash_data.ProbDistance)
+            if (incoming_prob > state_dist_fp.Lowest32Bit)
             {
-                const bool reuse_made_ok = MakeReuseableBuffer(
+                const HashTableConf::SingleHashBuffer buffer = reuseable_hash_buffer;
+
+                const bool reuse_made_ok = HashTableConf::MakeValidHashBuffer(
+                    reuseable_hash_buffer,
                     incoming_key, incoming_value, 
                     incoming_prob, 
                     hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
                 );
+
 
                 if (!reuse_made_ok)
                 {
@@ -227,16 +170,16 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
 
-                incoming_key = currrent_hash_data.HashKey;
-                incoming_value = currrent_hash_data.HashValue;
+                incoming_key = HashTableConf::GetAUnitFromHashBuffer(buffer, HashTableConf::HashBufferIndexing::KEY_INDEX);
+                incoming_value = HashTableConf::GetAUnitFromHashBuffer(buffer, HashTableConf::HashBufferIndexing::KEY_INDEX);
                 incoming_hash = HashIdConstructror::HashUnsigned64(incoming_key);
 
-                if (currrent_hash_data.ProbDistance == HashTableConf::PROB_DISTANCE_SENTINAL)
+                if (state_dist_fp.Lowest32Bit == HashTableConf::PROB_DISTANCE_SENTINAL)
                 {
                     return false;
                 }
 
-                incoming_prob = static_cast<uint32_t>(currrent_hash_data.ProbDistance + 1);
+                incoming_prob = static_cast<uint32_t>(state_dist_fp.Lowest32Bit + 1);
             }
             else
             {
@@ -258,118 +201,125 @@ namespace PredictedAdaptedEncoding
 
 
     std::optional<uint64_t> HashTablesConstructor::FindUsedHashValue(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
-    {
+    {        
+        RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
         if (
             !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
-            !HashIdConstructror::IsValidAPCId(hash_key)
+            !HashIdConstructror::IsValidAPCId(hash_key) ||
+            !GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds)
         )
         {
             return std::nullopt;
         }
-        
-        RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
-
-        if (!GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds))
-        {
-            return std::nullopt;
-        }
-
         const uint64_t table_cell_count = desired_hash_table_bounds.EndIndex - desired_hash_table_bounds.BeginIndex;
         if ((table_cell_count % HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC) != UNSIGNED_ZERO)
         {
             return std::nullopt;
         }
         
-        const uint64_t bucket_count_dht = table_cell_count / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
+        const uint64_t bucket_count = table_cell_count / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
 
 
-        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count_dht - 1u);
+        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count - 1u);
 
-        for (uint64_t prob = 0; prob < bucket_count_dht; prob++)
+        HashTableConf::SingleHashBuffer reuseable_hash_buffer{};
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
+
+        for (uint32_t prob = 0; prob < bucket_count; prob++)
         {
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
-            const HashTableConf::HashFilesCarrier existing_hash = ReadHashFilesFromSlab(base_idx_dht);
+            const bool valid = ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer);
             
-            if (!existing_hash.IsValid)
+            if (!valid)
             {
-                return std::nullopt;
+                bucket = (bucket + 1u) & (bucket_count - 1u);
+                continue;
             }
+            bool is_expected = HashTableConf::IsExpectedHashStateBuffer(
+                reuseable_hash_buffer,
+                hash_key,
+                HashTableConf::HashState::LIVE_OR_PUBLISHED,
+                &state_dist_fp
+            );
 
-            if (existing_hash.HashState == HashTableConf::StateOfAPC::FREE_OR_EMPTY)
+            if (is_expected)
+            {
+                return HashTableConf::GetAUnitFromHashBuffer(reuseable_hash_buffer, HashTableConf::HashBufferIndexing::VALUE_INDEX);
+            }
+            if (state_dist_fp.Lowest32Bit < prob)
             {
                 return std::nullopt;
             }
-            
-            if (existing_hash.HashState == HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
-            {
-                if (existing_hash.HashKey == hash_key)
-                {
-                    return HashIdConstructror::IsValidAPCId(existing_hash.HashValue) ? 
-                        std::optional<uint64_t>{existing_hash.HashValue} : std::nullopt;
-                }
-                if (existing_hash.ProbDistance < prob)
-                {
-                    return std::nullopt;
-                }
-            }
-            
-            bucket = (bucket + 1u) & (bucket_count_dht - 1u);
+            bucket = (bucket + 1u) & (bucket_count - 1u);
         }
         
         return std::nullopt;
     }
 
-    bool HashTablesConstructor::RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept
+
+    bool HashTablesConstructor::RetireHashKey(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
     {
-        RecordBookConf::RecordBookTablesBoundsCarrier hash_table_bounds{};
-        if (!GetRecordMapCarrierRanges(table, hash_table_bounds))
-        {
-            return false;
-        }
+        RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
 
-        const uint64_t bucket_count = (hash_table_bounds.EndIndex - hash_table_bounds.BeginIndex) / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
-
-        if (!APCDataStructure::IsPowerOfTwoValue(bucket_count))
+        if (
+            !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
+            !HashIdConstructror::IsValidAPCId(hash_key) ||
+            !GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds)
+        )
         {
             return false;
         }
         
-        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count - 1);
-        HashTableConf::SingleHashBuffer hash_buffer{};
-
-        for (uint64_t i = 0; i < bucket_count; i++)
+        const uint64_t table_cell_count = desired_hash_table_bounds.EndIndex - desired_hash_table_bounds.BeginIndex;
+        if ((table_cell_count % HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC) != UNSIGNED_ZERO)
         {
-            const uint64_t base = static_cast<uint64_t>(
-                hash_table_bounds.BeginIndex + bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC
+            return false;
+        }
+        
+        const uint64_t bucket_count = table_cell_count / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
+
+        uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count - 1u);
+
+        HashTableConf::SingleHashBuffer reuseable_hash_buffer{};
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
+
+        for (uint32_t prob = 0; prob < bucket_count; prob++)
+        {
+            const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
+            const bool valid = ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer);
+            
+            if (!valid)
+            {
+                bucket = (bucket + 1u) & (bucket_count - 1u);
+                continue;
+            }
+            bool is_expected = HashTableConf::IsExpectedHashStateBuffer(
+                reuseable_hash_buffer,
+                hash_key,
+                HashTableConf::HashState::LIVE_OR_PUBLISHED,
+                &state_dist_fp
             );
 
-            HashTableConf::HashFilesCarrier cur_hash_files = ReadHashFilesFromSlab(base);
-            if (
-                !cur_hash_files.IsValid ||
-                cur_hash_files.HashState == HashTableConf::StateOfAPC::FREE_OR_EMPTY
-            )
+            if (is_expected)
+            {
+                bool recompiled = HashTableConf::RecompileStateInBuffer(
+                    reuseable_hash_buffer, 
+                    HashTableConf::HashState::RETIRED_OR_TOMBSTONE
+                );
+                return recompiled &&
+                    CompareExchangeStrongSequentiallyOrRevert(
+                        base_idx_dht,
+                        HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC,
+                        reuseable_hash_buffer.data()
+                    );
+            }
+            if (state_dist_fp.Lowest32Bit < prob)
             {
                 return false;
             }
-
-            if (
-                cur_hash_files.HashState == HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED &&
-                cur_hash_files.HashKey == hash_key
-            )
-            {
-                cur_hash_files.HashState = HashTableConf::StateOfAPC::RETIRED_OR_TOMBSTONE;
-                HashTableConf::BuildEmptyHashBuffer(hash_buffer);
-                const bool buffer_ok = HashTableConf::BuildValidatedHashBuffer(cur_hash_files, hash_buffer);
-                return buffer_ok &&
-                    CompareExchangeStrongSequentiallyOrRevert(
-                        base,
-                        HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC,
-                        hash_buffer.data()
-                    );
-            }
-            
             bucket = (bucket + 1u) & (bucket_count - 1u);
         }
+        
         return false;
     }
 
