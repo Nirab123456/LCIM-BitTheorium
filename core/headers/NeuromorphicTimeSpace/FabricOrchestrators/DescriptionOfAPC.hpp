@@ -19,26 +19,16 @@ namespace PredictedAdaptedEncoding
             FREE_OR_EMPTY = 0,
             RESERVED = 1,
             LIVE_OR_PUBLISHED = 2,
-            RETIRED_OR_TOMBSTONE = 3,
-            UNASSIGNED_UNUSED_NANNULL = 4
+            RETIRED_OR_TOMBSTONE = 3
         };
 
         struct DescriptorSaftyFiles
         {
             uint32_t DescriptionID = UINT32_MAX;
-            StateOfAPC StateOfTheAPC = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
+            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED_OR_TOMBSTONE;
             bool IsValid = false;
         };
         static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
-
-        static constexpr bool IsKnownStateOfAPC(StateOfAPC state) noexcept
-        {
-            if (state < StateOfAPC::UNASSIGNED_UNUSED_NANNULL)
-            {
-                return true;
-            }
-            return false;
-        }
 
         static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
@@ -66,13 +56,6 @@ namespace PredictedAdaptedEncoding
 
             return_safty_files.DescriptionID = description_id_maybe;
             return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
-
-            if (
-                !IsKnownStateOfAPC(return_safty_files.StateOfTheAPC)
-            )
-            {
-                return return_safty_files;
-            }
             
             return_safty_files.IsValid = true;
 
@@ -82,13 +65,6 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
         {
-            if (
-                !IsKnownStateOfAPC(current_state) ||
-                !IsKnownStateOfAPC(desired_state)
-            )
-            {
-                return false;
-            }
             return (current_state == StateOfAPC::FREE_OR_EMPTY && desired_state == StateOfAPC::RESERVED) ||
                 (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE_OR_EMPTY) ||
                 (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE_OR_PUBLISHED) ||
@@ -133,10 +109,6 @@ namespace PredictedAdaptedEncoding
             StateOfAPC state
         ) noexcept
         {
-            if (!IsKnownStateOfAPC(state))
-            {
-                return APCDataStructure::APC_INDEX_BOUND_SENTINAL; //->UINT32_MAX
-            }
             
             uint32_t hash = HASH32_GRATIO_1 * static_cast<uint32_t>(state);
 

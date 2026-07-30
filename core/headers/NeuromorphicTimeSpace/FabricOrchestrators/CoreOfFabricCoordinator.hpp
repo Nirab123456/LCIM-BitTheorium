@@ -26,13 +26,13 @@ namespace PredictedAdaptedEncoding
         };
         static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::END64) + 1u;
 
-        enum class HashTableInternalIndexing : uint8_t
+        enum class HashBufferIndexing : uint8_t
         {
             KEY_INDEX = 0,
             VALUE_INDEX = 1,
             PROB_DISTANCE_LOCK = 2
         };
-        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK) + 1u;
+        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK) + 1u;
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
         enum class DescriptionUnitIdentity : uint8_t

@@ -37,9 +37,9 @@ namespace PredictedAdaptedEncoding
         uint64_t key_cell = UNSIGNED_ZERO;
         uint64_t value_cell = UNSIGNED_ZERO;
         uint64_t prob_st_fp = UNSIGNED_ZERO;
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX), key_cell);
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX), value_cell);
-        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK), prob_st_fp);
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::KEY_INDEX), key_cell);
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::VALUE_INDEX), value_cell);
+        AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashBufferIndexing::PROB_DISTANCE_LOCK), prob_st_fp);
         
         Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
 
@@ -63,7 +63,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    // bool HashTablesConstructor::ReadHashFilesFromSlab(
+    // bool HashTablesConstructor::ReadHashFilesFromSlab_(
     //     uint64_t bucked_base_index,
     //     HashTableConf::SingleHashBuffer hash_buffer_return
     // ) noexcept
@@ -77,38 +77,14 @@ namespace PredictedAdaptedEncoding
     //         return false;
     //     }
 
-    //     for (uint8_t i = 0; i < count; i++)
+    //     for (uint8_t i = 0; i < CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC; i++)
     //     {
-    //         /* code */
+    //         if (!AtomicallyLoadReadAUnit(bucked_base_index + i, hash_buffer_return[i]))
+    //         {
+    //             return false;
+    //         }
     //     }
         
-
-    //     uint64_t key_cell = UNSIGNED_ZERO;
-    //     uint64_t value_cell = UNSIGNED_ZERO;
-    //     uint64_t prob_st_fp = UNSIGNED_ZERO;
-    //     AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::KEY_INDEX), key_cell);
-    //     AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::VALUE_INDEX), value_cell);
-    //     AtomicallyLoadReadAUnit(bucked_base_index + static_cast<uint64_t>(HashTableConf::HashTableInternalIndexing::PROB_DISTANCE_LOCK), prob_st_fp);
-
-        
-    //     Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier prob_st_fp_carrier = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(prob_st_fp);
-
-    //     carrier.HashKey = key_cell;
-    //     carrier.HashValue = value_cell;
-    //     carrier.ProbDistance = prob_st_fp_carrier.Lowest32Bit;
-    //     carrier.HashState = static_cast<HashTableConf::StateOfAPC>(prob_st_fp_carrier.High4Bit);
-
-    //     const uint32_t reconst_finger_print = HashTableConf::MakeHashFingerPrint(carrier);
-    //     HashTableConf::ValidHashFilesCarrier(carrier);
-    //     if (
-    //         reconst_finger_print != prob_st_fp_carrier.Mid28Bit 
-    //     )
-    //     {
-    //         carrier.IsValid = false;
-    //         return carrier;
-    //     }
-        
-    //     return carrier;
 
     // }
 

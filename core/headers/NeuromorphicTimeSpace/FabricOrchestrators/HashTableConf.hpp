@@ -69,13 +69,35 @@ struct DefaultHashings : public DescriptorConf
 
 struct HashHelpers : public DefaultHashings
 {
+
+    using SingleHashBuffer = std::array<uint64_t, HASH_BUCKED_WIDTH_OF_FABRIC + 1>;
+    static constexpr size_t VALIDATION_INDEX_HASH_BUFFER = static_cast<size_t>(HASH_BUCKED_WIDTH_OF_FABRIC);
+
+
+    static constexpr uint64_t GetAUnitFromHashBuffer(
+        const SingleHashBuffer& hash_buffer,
+        HashBufferIndexing index
+    ) noexcept
+    {
+        return hash_buffer[static_cast<uint8_t>(index)]; 
+    }
+
+    static constexpr void SetHashBufferUnit(
+        SingleHashBuffer& hash_buffer,
+        HashBufferIndexing index,
+        uint64_t unit_value
+    ) noexcept
+    {
+        hash_buffer[static_cast<uint8_t>(index)] = unit_value;
+    }
+
     struct HashFilesCarrier
     {
         uint64_t HashValue = FABRIC_CELL_SENTINAL;
         uint64_t HashKey = FABRIC_CELL_SENTINAL;
         uint32_t ProbDistance = UNSIGNED_ZERO;
         FabricTableSegmentClasses HashTable = FabricTableSegmentClasses::NONE;
-        StateOfAPC HashState = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
+        StateOfAPC HashState = StateOfAPC::RETIRED_OR_TOMBSTONE;
         bool IsValid = false;
     };
 
@@ -87,8 +109,7 @@ struct HashHelpers : public DefaultHashings
         if (
             hash_files.HashKey == UNSIGNED_ZERO ||
             !APCDataStructure::IsValidFabricUnit(hash_files.HashKey) ||
-            !APCDataStructure::IsValidFabricUnit(hash_files.HashValue) ||
-            !IsKnownStateOfAPC(hash_files.HashState) 
+            !APCDataStructure::IsValidFabricUnit(hash_files.HashValue)
         )
         {
             hash_files.IsValid = false;
@@ -158,13 +179,24 @@ struct HashHelpers : public DefaultHashings
 
         return Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier);
     }
+
+
+    // static constexpr bool ValidateHashBuffer(SingleHashBuffer& hash_buffer) noexcept
+    // {
+    //     if (
+            
+    //     )
+    //     {
+    //         /* code */
+    //     }
+        
+    // }
 };
 
 
 struct HashTableConf : public HashHelpers
 {
-    using SingleHashBuffer = std::array<uint64_t, HASH_BUCKED_WIDTH_OF_FABRIC + 1>;
-    static constexpr size_t VALIDATION_INDEX_HASH_BUFFER = static_cast<size_t>(HASH_BUCKED_WIDTH_OF_FABRIC);
+
 
     /// @brief FILL: The buffer with UINT64_MAX EXCEPT:VALIDATION_INDEX_HASH_BUFFER -> 0
     /// @param a_hash_buffer ADDRESS: OF: SingleHashBuffer
@@ -192,7 +224,7 @@ public:
         carrier.HashKey = FABRIC_CELL_SENTINAL;
         carrier.ProbDistance = UNSIGNED_ZERO;
         carrier.HashTable = FabricTableSegmentClasses::NONE;
-        carrier.HashState = StateOfAPC::UNASSIGNED_UNUSED_NANNULL;
+        carrier.HashState = StateOfAPC::RETIRED_OR_TOMBSTONE;
         carrier.IsValid = false;
     }
 
@@ -211,9 +243,9 @@ public:
     ) noexcept
     {
         
-        const size_t key_idx = static_cast<size_t>(HashTableInternalIndexing::KEY_INDEX);
-        const size_t value_idx = static_cast<size_t>(HashTableInternalIndexing::VALUE_INDEX);
-        const size_t probe_state_fp = static_cast<size_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK);
+        const size_t key_idx = static_cast<size_t>(HashBufferIndexing::KEY_INDEX);
+        const size_t value_idx = static_cast<size_t>(HashBufferIndexing::VALUE_INDEX);
+        const size_t probe_state_fp = static_cast<size_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
 
         BuildEmptyHashBuffer(hash_buffer);
 
@@ -306,9 +338,9 @@ public:
     //         return false;
     //     }
 
-    //     const uint8_t key_idx = static_cast<uint8_t>(HashTableInternalIndexing::KEY_INDEX);
-    //     const uint8_t value_idx = static_cast<uint8_t>(HashTableInternalIndexing::VALUE_INDEX);
-    //     const uint8_t control_idx = static_cast<uint8_t>(HashTableInternalIndexing::PROB_DISTANCE_LOCK);
+    //     const uint8_t key_idx = static_cast<uint8_t>(HashBufferIndexing::KEY_INDEX);
+    //     const uint8_t value_idx = static_cast<uint8_t>(HashBufferIndexing::VALUE_INDEX);
+    //     const uint8_t control_idx = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
 
     //     if (branch_hash_buffer[key_idx] != axis_id)
     //     {

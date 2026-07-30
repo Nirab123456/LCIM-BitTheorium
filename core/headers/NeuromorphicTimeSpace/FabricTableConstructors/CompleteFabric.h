@@ -89,6 +89,11 @@ namespace PredictedAdaptedEncoding
             uint64_t bucked_base_index
         ) noexcept;
 
+        bool ReadHashFilesFromSlab_(
+            uint64_t bucked_base_index,
+            HashTableConf::SingleHashBuffer hash_buffer_return
+        ) noexcept;
+        
         void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
 
         bool RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
