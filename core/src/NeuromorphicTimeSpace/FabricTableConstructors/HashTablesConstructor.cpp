@@ -49,7 +49,7 @@ namespace PredictedAdaptedEncoding
         carrier.HashState = static_cast<HashTableConf::StateOfAPC>(prob_st_fp_carrier.High4Bit);
 
         const uint32_t reconst_finger_print = HashTableConf::MakeHashFingerPrint(carrier);
-        HashTableConf::ValidHashFilesCarrier(carrier);
+        HashTableConf::IsValidHashBuffer(carrier);
         if (
             reconst_finger_print != prob_st_fp_carrier.Mid28Bit 
         )
@@ -141,7 +141,7 @@ namespace PredictedAdaptedEncoding
             reuseable_carrier.ProbDistance = desired_prob;
             reuseable_carrier.HashTable = hash_table;
             reuseable_carrier.HashState = state;
-            HashTableConf::ValidHashFilesCarrier(reuseable_carrier);
+            HashTableConf::IsValidHashBuffer(reuseable_carrier);
         };
 
         HashTableConf::SingleHashBuffer reuseable_hash_buffer{};

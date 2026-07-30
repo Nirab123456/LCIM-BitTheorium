@@ -11,6 +11,8 @@ struct DefaultHashings : public DescriptorConf
     static constexpr uint32_t PROB_DISTANCE_SENTINAL = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
     static constexpr uint64_t VALIDATION_MARK_OF_HASH_TABLE_BUFFER = 333;
 
+    using HashState = StateOfAPC;
+
     struct AxisTopAndCountForBranchHashValue
     {
         uint32_t AxisTopWaterMark = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
@@ -91,57 +93,33 @@ struct HashHelpers : public DefaultHashings
         hash_buffer[static_cast<uint8_t>(index)] = unit_value;
     }
 
-    struct HashFilesCarrier
-    {
-        uint64_t HashValue = FABRIC_CELL_SENTINAL;
-        uint64_t HashKey = FABRIC_CELL_SENTINAL;
-        uint32_t ProbDistance = UNSIGNED_ZERO;
-        FabricTableSegmentClasses HashTable = FabricTableSegmentClasses::NONE;
-        StateOfAPC HashState = StateOfAPC::RETIRED_OR_TOMBSTONE;
-        bool IsValid = false;
-    };
-
-    static constexpr bool ValidHashFilesCarrier(
-        HashFilesCarrier& hash_files,
-        bool check_prod_distance = false
-    ) noexcept
+    static constexpr bool IsValidHashBuffer (const SingleHashBuffer& hash_buffer) noexcept
     {
         if (
-            hash_files.HashKey == UNSIGNED_ZERO ||
-            !APCDataStructure::IsValidFabricUnit(hash_files.HashKey) ||
-            !APCDataStructure::IsValidFabricUnit(hash_files.HashValue)
+            !HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX)) ||
+            !HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX))
         )
         {
-            hash_files.IsValid = false;
             return false;
         }
-
-        if (
-            check_prod_distance &&
-            !APCDataStructure::IsValid32BitAPCUnit(hash_files.ProbDistance)
-        )
-        {
-            hash_files.IsValid = false;
-            return false;
-        }
-        
-        hash_files.IsValid = true;
-        return hash_files.IsValid;
+        return true;
     }
 
+
     static constexpr uint32_t MakeHashFingerPrint(
-        const HashFilesCarrier& carier
+        const SingleHashBuffer& buffer,
+        HashState state
     ) noexcept
     {
         uint32_t hash = HASH32_GRATIO_1;
 
-        hash ^= carier.HashValue;
+        hash ^= GetAUnitFromHashBuffer(buffer, HashBufferIndexing::VALUE_INDEX);
         hash *= HASH32_GRATIO_2;
 
-        hash ^= carier.HashKey;
+        hash ^= GetAUnitFromHashBuffer(buffer, HashBufferIndexing::KEY_INDEX);
         hash *= HASH32_GRATIO_2;
 
-        hash ^= static_cast<uint32_t>(carier.HashState);
+        hash ^= static_cast<uint32_t>(state);
         hash *= HASH32_GRATIO_2;
         hash = hash & LeftOverBitMaskUntil32(Pack32_28_4BitIn64BitUnit::LEN_OF_28_BIT);
 
@@ -157,40 +135,59 @@ struct HashHelpers : public DefaultHashings
             return hash - 1;
         }
         return hash;
-        
     }
 
-    static constexpr uint64_t MakeProbdistanceFingerPrintState(
-        HashFilesCarrier& carrier
+
+    static constexpr bool SealHashBuffer(
+        SingleHashBuffer& hash_buffer,
+        uint32_t prob_distance,
+        HashState hash_state
     ) noexcept
     {
-        if (!ValidHashFilesCarrier(carrier, true))
+        if (
+            !IsValidHashBuffer(hash_buffer) ||
+            !APCDataStructure::IsValid32BitAPCUnit(prob_distance)
+        )
         {
-            return FABRIC_CELL_SENTINAL;
+            return false;
         }
-
-        const uint32_t fingerprint = MakeHashFingerPrint(carrier);
-
         Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier cell_packer_carrier{};
 
-        cell_packer_carrier.Lowest32Bit = carrier.ProbDistance;
-        cell_packer_carrier.Mid28Bit = fingerprint;
-        cell_packer_carrier.High4Bit = static_cast<uint8_t>(carrier.HashState);
+        cell_packer_carrier.Lowest32Bit = prob_distance;
+        cell_packer_carrier.Mid28Bit = MakeHashFingerPrint(hash_buffer, hash_state);
+        cell_packer_carrier.High4Bit = static_cast<uint8_t>(hash_state);
+        SetHashBufferUnit(
+            hash_buffer,
+            HashBufferIndexing::PROB_DISTANCE_LOCK,
+            Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier)
+        );
 
-        return Pack32_28_4BitIn64BitUnit::PackValues(cell_packer_carrier);
+
     }
 
+    static constexpr bool ValidateHashBuffer(
+        SingleHashBuffer& hash_buffer
+    ) noexcept
+    {
 
-    // static constexpr bool ValidateHashBuffer(SingleHashBuffer& hash_buffer) noexcept
-    // {
-    //     if (
-            
-    //     )
-    //     {
-    //         /* code */
-    //     }
-        
-    // }
+        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
+            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK)
+        );
+
+        if (
+            !IsValidHashBuffer(hash_buffer) ||
+            !state_dist_fp.IsValid ||
+            state_dist_fp.High4Bit > static_cast<uint8_t>(HashState::RETIRED_OR_TOMBSTONE) ||
+            MakeHashFingerPrint(hash_buffer, static_cast<HashState>(state_dist_fp.High4Bit)) != state_dist_fp.Lowest32Bit
+        )
+        {
+            hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
+            return false;
+        }
+        hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
+        return true;
+    }
+
 };
 
 
@@ -218,50 +215,9 @@ public:
         return a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] == VALIDATION_MARK_OF_HASH_TABLE_BUFFER;  
     }
 
-    static constexpr void RestHashFilesCarrier(HashFilesCarrier& carrier) noexcept
-    {
-        carrier.HashValue = FABRIC_CELL_SENTINAL;
-        carrier.HashKey = FABRIC_CELL_SENTINAL;
-        carrier.ProbDistance = UNSIGNED_ZERO;
-        carrier.HashTable = FabricTableSegmentClasses::NONE;
-        carrier.HashState = StateOfAPC::RETIRED_OR_TOMBSTONE;
-        carrier.IsValid = false;
-    }
-
     static constexpr bool IsGroupableHashTable(FabricTableSegmentClasses hash_table) noexcept
     {
         return hash_table == FabricTableSegmentClasses::VERTICAL_HASH || hash_table == FabricTableSegmentClasses::HORIZONTAL_HASH;
-    }
-
-
-    /// @brief CREATES: A buffer array of HASH: [OrdinalKey | VALUE | PROB DISTANCE | VALIDATION_INDEX_HASH_BUFFER]
-    /// @param carrier TAKES: A valid HashFilesCarrier
-    /// @return 
-    static constexpr bool BuildValidatedHashBuffer(
-        HashFilesCarrier& carrier,
-        SingleHashBuffer& hash_buffer
-    ) noexcept
-    {
-        
-        const size_t key_idx = static_cast<size_t>(HashBufferIndexing::KEY_INDEX);
-        const size_t value_idx = static_cast<size_t>(HashBufferIndexing::VALUE_INDEX);
-        const size_t probe_state_fp = static_cast<size_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
-
-        BuildEmptyHashBuffer(hash_buffer);
-
-        hash_buffer[key_idx] = carrier.HashKey;
-
-        hash_buffer[value_idx] = carrier.HashValue;
-
-        hash_buffer[probe_state_fp] = MakeProbdistanceFingerPrintState(carrier);
-
-        if (!APCDataStructure::IsValidFabricUnit(hash_buffer[probe_state_fp]))
-        {
-            BuildEmptyHashBuffer(hash_buffer);
-            return false;
-        }
-        hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
-        return true;
     }
 
 
