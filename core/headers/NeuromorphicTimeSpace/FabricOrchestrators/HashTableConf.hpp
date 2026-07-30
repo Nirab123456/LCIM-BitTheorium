@@ -283,144 +283,156 @@ public:
     }
 
 
-    // static constexpr bool PrepareInharitedAxis(
-    //     InstallAxisToBuffer::BufferOfAPCIdentity& predessor,
-    //     InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
-    //     InstallAxisToBuffer::BidirectionalAxis axis,
-    //     InstallAxisToBuffer::DescOfInharitance inharitance,
-    //     SingleHashBuffer& axis_hash_buffer,
-    //     SingleHashBuffer& branch_hash_buffer
-    // ) noexcept
-    // {
-    //     using IAB = InstallAxisToBuffer;
+    static constexpr bool PrepareInharitedAxis(
+        InstallAxisToBuffer::BufferOfAPCIdentity& predessor,
+        InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
+        InstallAxisToBuffer::BidirectionalAxis axis,
+        InstallAxisToBuffer::DescOfInharitance inharitance,
+        SingleHashBuffer& axis_hash_buffer,
+        SingleHashBuffer& branch_hash_buffer
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
 
-    //     if (
-    //         !IAB::ValidateAIdentityBuffer(predessor) ||
-    //         !IAB::ValidateAIdentityBuffer(current_identity) ||
-    //         !IAB::IsInheritedAxisDisabled(current_identity, axis) ||
-    //         !IfHashBufferHaveValidationMark(axis_hash_buffer)
+        if (
+            !IAB::ValidateAIdentityBuffer(predessor) ||
+            !IAB::ValidateAIdentityBuffer(current_identity) ||
+            !IAB::IsInheritedAxisDisabled(current_identity, axis) ||
+            !IfHashBufferHaveValidationMark(axis_hash_buffer)
             
-    //     )
-    //     {
-    //         return false;
-    //     }
+        )
+        {
+            return false;
+        }
         
-    //     const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
-    //     const uint64_t predessor_slot = IAB::ValueOfAnIdentityFromBuffer(predessor, HeaderIdentifierOfAPC::APC_SLOT_IDX);
-    //     const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        const uint64_t predessor_slot = IAB::ValueOfAnIdentityFromBuffer(predessor, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
 
-    //     uint32_t axis_id = UNSIGNED_ZERO;
+        uint32_t axis_id = UNSIGNED_ZERO;
 
-    //     auto GetAxisId__ = [&](HeaderIdentifierOfAPC position)
-    //     {
-    //         std::optional<uint32_t> maybe_axis_id = IAB::GroupPreFix32FromKey(
-    //             IAB::ValueOfAnIdentityFromBuffer(
-    //                 predessor, position
-    //             )
-    //         );
-    //         if (!maybe_axis_id.has_value())
-    //         {
-    //             return false;
-    //         }
-    //         axis_id = maybe_axis_id.value();
-    //     };
+        auto GetAxisId__ = [&](HeaderIdentifierOfAPC position)
+        {
+            std::optional<uint32_t> maybe_axis_id = IAB::GroupPreFix32FromKey(
+                IAB::ValueOfAnIdentityFromBuffer(
+                    predessor, position
+                )
+            );
+            if (!maybe_axis_id.has_value())
+            {
+                return false;
+            }
+            axis_id = maybe_axis_id.value();
+        };
 
-    //     if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
-    //     {
-    //         if (
-    //             IAB::IsOwnedAxisDisabled(predessor, axis) ||
-    //             !IAB::IsValidOwnedRoot(current_identity, axis) ||
-    //             IAB::ValueOfAnIdentityFromBuffer(predessor, map.RootOwnedChild) != FABRIC_CELL_SENTINAL
-    //         )
-    //         {
-    //             return false;
-    //         }
+        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
+        {
+            if (
+                IAB::IsOwnedAxisDisabled(predessor, axis) ||
+                !IAB::IsValidOwnedRoot(current_identity, axis) ||
+                IAB::ValueOfAnIdentityFromBuffer(predessor, map.RootOwnedChild) != FABRIC_CELL_SENTINAL
+            )
+            {
+                return false;
+            }
 
-    //         GetAxisId__(map.OwnRootKey);
-    //     }
-    //     else if (inharitance == IAB::DescOfInharitance::LINKED_CHILD)
-    //     {
-    //         if (
-    //             IAB::IsInheritedAxisDisabled(predessor, axis) ||
-    //             !IAB::IsValidInheritedAxis(predessor, axis) ||
-    //             IAB::ValueOfAnIdentityFromBuffer(predessor, map.NextSibling) != FABRIC_CELL_SENTINAL
-    //         )
-    //         {
-    //             return false;
-    //         }
-    //         GetAxisId__(map.OwnRootKey);
-    //     }
-    //     else
-    //     {
-    //         return false;
-    //     }
+            GetAxisId__(map.OwnRootKey);
+        }
+        else if (inharitance == IAB::DescOfInharitance::LINKED_CHILD)
+        {
+            if (
+                IAB::IsInheritedAxisDisabled(predessor, axis) ||
+                !IAB::IsValidInheritedAxis(predessor, axis) ||
+                IAB::ValueOfAnIdentityFromBuffer(predessor, map.NextSibling) != FABRIC_CELL_SENTINAL
+            )
+            {
+                return false;
+            }
+            GetAxisId__(map.OwnRootKey);
+        }
+        else
+        {
+            return false;
+        }
 
-    //     const uint8_t key_idx = static_cast<uint8_t>(HashBufferIndexing::KEY_INDEX);
-    //     const uint8_t value_idx = static_cast<uint8_t>(HashBufferIndexing::VALUE_INDEX);
-    //     const uint8_t control_idx = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
+        const uint8_t key_idx = static_cast<uint8_t>(HashBufferIndexing::KEY_INDEX);
+        const uint8_t value_idx = static_cast<uint8_t>(HashBufferIndexing::VALUE_INDEX);
+        const uint8_t control_idx = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
 
-    //     if (branch_hash_buffer[key_idx] != axis_id)
-    //     {
-    //         return false;
-    //     }
+        if (branch_hash_buffer[key_idx] != axis_id)
+        {
+            return false;
+        }
 
-    //     const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
-    //     if (
-    //         !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.AxisTopWaterMark) ||
-    //         !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.MemberCount)
-    //     )
-    //     {
-    //         return false;
-    //     }
+        const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
+        if (
+            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.AxisTopWaterMark) ||
+            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.MemberCount)
+        )
+        {
+            return false;
+        }
 
-    //     AxisTopAndCountForBranchHashValue updated_branch_hash_values{};
-    //     updated_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark + 1u;
-    //     updated_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount + 1u;
+        AxisTopAndCountForBranchHashValue updated_branch_hash_values{};
+        updated_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark + 1u;
+        updated_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount + 1u;        
+        const uint64_t current_key = IAB::MakeGroupKeyFromParentGroupId(
+            axis_id,
+            updated_branch_hash_values.AxisTopWaterMark
+        );
+
+        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
+        {
+            if (
+                !IAB::InsertAnIdentityInBuffer(predessor, map.RootOwnedChild, current_slot)
+            )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (
+                !IAB::InsertAnIdentityInBuffer(predessor, map.NextSibling, current_slot)
+            )
+            {
+                return false;
+            }
+        }
+
+        if (
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.OrdinalKey, current_key) ||
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
+        )
+        {
+            return false;
+        }
+
+        bool branch_hash_ok = MakeValidHashBuffer(
+            branch_hash_buffer,
+            axis_id,
+            PackAxisTopAndCount(updated_branch_hash_values),
+            Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
+                branch_hash_buffer[control_idx]
+            ).Lowest32Bit,
+            HashTableConf::HashState::LIVE_OR_PUBLISHED
+        );
+
+        bool axis_hash_ok = MakeValidHashBuffer(
+            axis_hash_buffer,
+            current_key,
+            HashIdConstructror::APCSlotIdxToHashTableHandler(current_slot),
+            UNSIGNED_ZERO,
+            HashTableConf::HashState::LIVE_OR_PUBLISHED
+        );
         
-    //     const uint32_t new_ordinal = old_branch_hash_values.AxisTopWaterMark + 1u;
-    //     const uint64_t current_key = IAB::MakeGroupKeyFromParentGroupId(
-    //         axis_id,
-    //         updated_branch_hash_values.AxisTopWaterMark
-    //     );
-
-    //     if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
-    //     {
-    //         if (
-    //             !IAB::InsertAnIdentityInBuffer(predessor, map.RootOwnedChild, current_slot)
-    //         )
-    //         {
-    //             return false;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         if (
-    //             !IAB::InsertAnIdentityInBuffer(predessor, map.NextSibling, current_slot)
-    //         )
-    //         {
-    //             return false;
-    //         }
-    //     }
-
-    //     if (
-    //         !IAB::InsertAnIdentityInBuffer(current_identity, map.OrdinalKey, current_key) ||
-    //         !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
-    //         !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
-    //     )
-    //     {
-    //         return false;
-    //     }
-        
-
-    //     HashFilesCarrier carrier_branch_hash{};
-    //     carrier_branch_hash.HashKey = axis_id; 
-    //     carrier_branch_hash.HashValue = PackAxisTopAndCount(updated_branch_hash_values);
-        
-        
-        
-
-    // }
+        return branch_hash_ok &&
+            axis_hash_ok &&
+            InstallAxisToBuffer::SealIdentityBuffer(predessor) &&
+            InstallAxisToBuffer::SealIdentityBuffer(current_identity);
+    }
 
 };
 
