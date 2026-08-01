@@ -73,7 +73,6 @@ namespace PredictedAdaptedEncoding
         
     }
 
-
     bool ReadAndWriteOfAPC::ReadAPCMetaUnit(
         HeaderIdentifierOfAPC meta_idx,
         uint64_t& return_value,
@@ -100,7 +99,6 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-
     bool ReadAndWriteOfAPC::CompareExchangeAPCMetaUinit(
         HeaderIdentifierOfAPC meta_idx,
         uint64_t& expected_value,
@@ -115,6 +113,51 @@ namespace PredictedAdaptedEncoding
                 expected_value,
                 desired_value
             );
+    }
+
+    bool ReadAndWriteOfAPC::ReadIdentityBufferConcurrently(
+        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
+        uint32_t max_tries
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
+        IAB::BuildNullIdentityBuffer(identity_buffer);
+        const uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+        uint64_t before_fp = UNSIGNED_ZERO;
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !AtomicallyReadLongLongAPCUnit(fp_header_idx, before_fp) ||
+                IAB::StateOfIdentityFingerprint(before_fp) != IAB::FingerprintHashState::VALID
+            )
+            {
+                continue;
+            }
+
+            if (
+                !CopyFromAPCToBuffer(
+                    fp_header_idx,
+                    APCDataStructure::TotalIdentityUnitCount(),
+                    identity_buffer.data(),
+                    true
+                )
+            )
+            {
+                return false;
+            }
+
+            if (
+                IAB::StateOfIdentityFingerprint(
+                    IAB::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
+                ) != IAB::FingerprintHashState::VALID
+            )
+            {
+                continue;
+            }
+        }
+        
+        return 
+            IAB::ValidateIdentityBuffer(identity_buffer);
     }
 
 }

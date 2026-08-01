@@ -22,7 +22,7 @@ protected:
 public:
 
     void FreeAll() noexcept;
-    
+
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
     bool CompareExchangeSequentiallRevertInFail(
@@ -101,7 +101,6 @@ public:
         uint64_t sealed_fingerprint,
         InstallAxisToBuffer::FingerprintHashState current_state
     ) noexcept;
-
 };
     
     

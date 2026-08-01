@@ -15,11 +15,6 @@ namespace PredictedAdaptedEncoding
             bool atomic_required = false
         ) noexcept;
 
-        bool UpdateCompleateLayoutOfAPCFromBuffer_(
-            const LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_valid_layout_buffer,
-            bool caller_holds_the_flag = false
-        ) noexcept;
-
     public:
         bool InitiateAPCMetaHeader(
             uint32_t total_capacity,
@@ -42,11 +37,10 @@ namespace PredictedAdaptedEncoding
             uint64_t desired_value
         ) noexcept;
 
-        /// @return The Update only ContractOfConcurrency::BOUNDED_RETRY_CAS_NO_CLAIMED
-        uint64_t AtomicallyUpdateACounterFromAPC(uint16_t desired_idx, uint32_t delta) noexcept;
-
-        uint64_t AtomicallyUpdateMetaCellCounter(HeaderIdentifierOfAPC meta_idx, uint32_t delta) noexcept;
-
+        bool ReadIdentityBufferConcurrently(
+            InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
 
     };
     
