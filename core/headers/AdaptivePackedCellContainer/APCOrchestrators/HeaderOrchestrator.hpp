@@ -129,7 +129,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool ValidateFabricResolvedIdentity(APCMetaBuffer& header_buffer) noexcept
         {
-            bool ok = HashIdConstructror::IsValidAPCSlotIdx(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)]);
+            bool ok = APCDataStructure::IsValid32BitAPCUnit(header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)]);
             if (!ok)
             {
                 header_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;

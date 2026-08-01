@@ -145,7 +145,7 @@ namespace PredictedAdaptedEncoding
                 return desired_scheme.IsValidSchema;
             
             case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord == 1u;
+                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO;
                 return desired_scheme.IsValidSchema;
 
             case SchemaProtocols::PRIVATE_REGION:

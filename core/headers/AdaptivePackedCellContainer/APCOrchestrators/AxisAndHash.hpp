@@ -37,14 +37,9 @@ struct HashIdConstructror
             APCDataStructure::IsValid32BitAPCUnit(value);
     }
 
-    static constexpr bool IsValidAPCSlotIdx(uint64_t slot_idx) noexcept
-    {
-        return slot_idx < FABRIC_CELL_SENTINAL - 1;
-    }
-
     static constexpr uint64_t APCSlotIdxToHashTableHandler(uint64_t apc_slot_idx) noexcept
     {
-        if (IsValidAPCSlotIdx(apc_slot_idx))
+        if (APCDataStructure::IsValid32BitAPCUnit(apc_slot_idx))
         {
             return apc_slot_idx + 1;
         }
@@ -260,7 +255,7 @@ struct AxisConstructor : public HashIdConstructror
         );
         if (!IsValidGroupId(group_id))
         {
-            group_id ^= HASH_64BIT_GRATIO_3;
+            group_id ^= static_cast<uint32_t>(HASH_64BIT_GRATIO_3);
             group_id = IsValidAPCId(group_id) ? group_id : 1u;
         }
         return group_id;

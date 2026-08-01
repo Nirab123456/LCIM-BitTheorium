@@ -31,7 +31,7 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-    constexpr void FabricConstructor::DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept
+    void FabricConstructor::DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
         {
@@ -40,7 +40,7 @@ namespace PredictedAdaptedEncoding
         SlabBasePtr_[slab_index] = fabric_unit;
     }
 
-    constexpr void FabricConstructor::AtomicallyStoreU64Fab(
+    void FabricConstructor::AtomicallyStoreU64Fab(
         size_t slab_index, uint64_t fabric_unit,
         std::memory_order mem_order
     ) noexcept
@@ -54,7 +54,7 @@ namespace PredictedAdaptedEncoding
         fab_u64_ref.notify_all();
     }
 
-    constexpr bool FabricConstructor::CompareExchangeStrongFromFabric(
+    bool FabricConstructor::CompareExchangeStrongFromFabric(
         size_t slab_index, 
         uint64_t& expected_packed_cell, 
         uint64_t desired_packed_cell,
@@ -70,7 +70,7 @@ namespace PredictedAdaptedEncoding
         return fab_u64_ref.compare_exchange_strong(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
-    constexpr bool FabricConstructor::CompareExchangeWeakInSlab(
+    bool FabricConstructor::CompareExchangeWeakInSlab(
         size_t slab_index, 
         uint64_t& expected_packed_cell, 
         uint64_t desired_packed_cell,

@@ -30,7 +30,7 @@ namespace PredictedAdaptedEncoding
             !words_raw ||
             !fabric_owner ||
             !APCDataStructure::IsCapacityOfAPCValid(cell_count) ||
-            !HashIdConstructror::IsValidAPCSlotIdx(fabric_slot_idx)
+            !APCDataStructure::IsValid32BitAPCUnit(fabric_slot_idx)
         )
         {
             return false;

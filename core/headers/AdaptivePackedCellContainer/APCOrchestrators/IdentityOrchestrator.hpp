@@ -55,10 +55,9 @@ namespace PredictedAdaptedEncoding
                 group_id.has_value() &&
                 group_ordinal.has_value() &&
                 group_ordinal.value() > UNSIGNED_ZERO &&
-                IsValidAPCSlotIdx(previous_slot) &&
-                (IsValidAPCSlotIdx(next_slot) || next_slot == FABRIC_CELL_SENTINAL);
+                APCDataStructure::IsValid32BitAPCUnit(previous_slot) &&
+                (APCDataStructure::IsValid32BitAPCUnit(next_slot) || next_slot == FABRIC_CELL_SENTINAL);
         }
-
 
         static constexpr bool IsValidInheritedAxis(
             const BufferOfAPCIdentity& identity_buffer,
@@ -86,7 +85,7 @@ namespace PredictedAdaptedEncoding
                 ordinal.value() == UNSIGNED_ZERO &&
                 (
                     first_child == FABRIC_CELL_SENTINAL ||
-                    IsValidAPCSlotIdx(first_child)
+                    APCDataStructure::IsValid32BitAPCUnit(first_child)
                 );
         }
 
@@ -100,7 +99,6 @@ namespace PredictedAdaptedEncoding
                 IsDefinedRoot(identity_buffer, axis);
         }
 
-
         static constexpr bool ValidateIdentityStructure(
             const BufferOfAPCIdentity& identity_buffer
         ) noexcept
@@ -110,7 +108,7 @@ namespace PredictedAdaptedEncoding
             const uint64_t end = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BOUNDS_END);
 
             return 
-                IsValidAPCSlotIdx(slot) &&
+                APCDataStructure::IsValid32BitAPCUnit(slot) &&
                 APCDataStructure::IsValidFabricUnit(begin) &&
                 APCDataStructure::IsValidFabricUnit(end) &&
                 APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(end - begin)) &&
@@ -119,8 +117,6 @@ namespace PredictedAdaptedEncoding
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL);
         }
-
-
     };
 
 
@@ -140,7 +136,6 @@ namespace PredictedAdaptedEncoding
                 InsertAnIdentityInBuffer(identity_buffer, map.NextSibling, FABRIC_CELL_SENTINAL);
         }
 
-
         static constexpr bool DisableOwnedRoot(
             BufferOfAPCIdentity& identity_buffer,
             BidirectionalAxis axis
@@ -152,37 +147,6 @@ namespace PredictedAdaptedEncoding
                 InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL);
         }
-
-
-        static constexpr bool InstallOwnedRoot(
-            BufferOfAPCIdentity& identity_buffer,
-            BidirectionalAxis axis,
-            uint32_t axis_id,
-            bool is_destructive = false
-        ) noexcept
-        {
-            if (
-                !ValidateIdentityStructure(identity_buffer) ||
-                !IsValidGroupId(axis_id) ||
-                (!is_destructive && !IsOwnedAxisDisabled(identity_buffer, axis))
-            )
-            {
-                return false;
-            }
-
-            const AxisConstructionMap map = ConstructAxisMap(axis);
-
-            const uint64_t root_key = ComposeNewGroupKey(
-                axis_id,
-                axis,
-                UNSIGNED_ZERO
-            );
-
-            return 
-                InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, root_key) &&
-                InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL);
-        }
-
 
         static constexpr bool SealIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
@@ -200,7 +164,6 @@ namespace PredictedAdaptedEncoding
             identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
             return true;
         }
-
 
         static constexpr bool ValidateAIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
@@ -236,8 +199,6 @@ namespace PredictedAdaptedEncoding
             }
             return StateOfIdentityFingerprint(identity_value);
         }
-
-
     };
     
     

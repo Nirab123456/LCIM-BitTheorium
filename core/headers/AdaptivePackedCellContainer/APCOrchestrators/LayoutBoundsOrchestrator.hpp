@@ -98,7 +98,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
     };
 
 
-    static constexpr LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_WEIGHT{};
+    static const LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_WEIGHT;
 
     static constexpr std::optional<uint32_t> GetDefaultInitialPercentage(
         MacroColumnOfAPC layout_class,
@@ -292,8 +292,12 @@ protected:
     }
 };
 
+
+inline constexpr LayoutPercentageBuilder::LayoutSpanAndPercentageCarrier LayoutPercentageBuilder::DEFAULT_LAYOUT_WEIGHT{};
+
 struct LayoutBoundsOrchestrator : public BufferConfForTracking
 {
+
     static constexpr uint64_t VALIDATION_LAYOUT_BUFFER_MARK = 11111;
 
     static constexpr std::optional<uint8_t> GetBufferIndexForALayout(LayoutCarrier& a_valid_layout) noexcept

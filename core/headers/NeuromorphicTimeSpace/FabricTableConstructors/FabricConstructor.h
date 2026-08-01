@@ -41,14 +41,14 @@ namespace PredictedAdaptedEncoding
             uint64_t& return_value
         ) noexcept;
         
-        constexpr void DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept;
+        void DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept;
 
-        constexpr void AtomicallyStoreU64Fab(
+        void AtomicallyStoreU64Fab(
             size_t slab_index, uint64_t fabric_unit, 
             std::memory_order mem_order = std::memory_order_release
         ) noexcept;
 
-        constexpr bool CompareExchangeStrongFromFabric(
+        bool CompareExchangeStrongFromFabric(
             size_t slab_index, 
             uint64_t& expected_packed_cell, 
             uint64_t desired_packed_cell,
@@ -56,7 +56,7 @@ namespace PredictedAdaptedEncoding
             std::memory_order mem_order_failure = std::memory_order_acquire
         ) noexcept;
 
-        constexpr bool CompareExchangeWeakInSlab(
+        bool CompareExchangeWeakInSlab(
             size_t slab_index, 
             uint64_t& expected_packed_cell, 
             uint64_t desired_packed_cell,
