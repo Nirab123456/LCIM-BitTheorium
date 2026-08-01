@@ -57,7 +57,7 @@ namespace PredictedAdaptedEncoding
         RangeOfThisAPCInSlab_ = default_null_range;
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
-        IdxOfThisAPCInFabric_ = SIZE_MAX;
+        IdxOfThisAPCInFabric_ = FABRIC_CELL_COUNT;
     }
 
     void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept
@@ -88,7 +88,7 @@ namespace PredictedAdaptedEncoding
 
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
         uint32_t starting_idx_in_apc,
-        uint8_t sequential_number_of_cells,
+        uint32_t sequential_number_of_cells,
         const uint64_t* source_cells
     ) noexcept
     {
@@ -109,7 +109,7 @@ namespace PredictedAdaptedEncoding
 
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
         uint32_t starting_idx_in_apc,
-        uint8_t sequential_number_of_cells,
+        uint32_t sequential_number_of_cells,
         uint64_t* return_buffer,
         bool atomic_required
     ) noexcept
@@ -172,7 +172,7 @@ namespace PredictedAdaptedEncoding
 
         if (
             !copy_ok || 
-            !IA::ValidateIdentityStructure(identity_buffer) ||
+            !IA::ValidateDefaultIdentity(identity_buffer) ||
             !IA::IsHoldFingerprintState(desired_state)
         )
         {
@@ -181,7 +181,7 @@ namespace PredictedAdaptedEncoding
         
         uint64_t sealed_fingerprint = UNSIGNED_ZERO;
 
-        if (IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint) == IA::FingerprintHashState::VALID)
+        if (IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint) != IA::FingerprintHashState::VALID)
         {
             return std::nullopt;
         }

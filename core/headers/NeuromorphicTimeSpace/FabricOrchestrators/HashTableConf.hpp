@@ -279,8 +279,8 @@ public:
         using IAB = InstallAxisToBuffer;
 
         if (
-            !IAB::ValidateAIdentityBuffer(predessor) ||
-            !IAB::ValidateAIdentityBuffer(current_identity) ||
+            !IAB::ValidateIdentityBuffer(predessor) ||
+            !IAB::ValidateIdentityBuffer(current_identity) ||
             !IAB::IsInheritedAxisDisabled(current_identity, axis) ||
             !IfHashBufferHaveValidationMark(axis_hash_buffer)
             
@@ -429,8 +429,8 @@ public:
     {
         using IAB = InstallAxisToBuffer;
         if (
-            !IAB::ValidateAIdentityBuffer(predecessor_identity) ||
-            !IAB::ValidateAIdentityBuffer(current_identity) ||
+            !IAB::ValidateIdentityBuffer(predecessor_identity) ||
+            !IAB::ValidateIdentityBuffer(current_identity) ||
             IAB::IsInheritedAxisDisabled(current_identity, axis) ||
             ValidateHashBuffer(branch_hash_buffer) ||
             ValidateHashBuffer(axis_hash_buffer)

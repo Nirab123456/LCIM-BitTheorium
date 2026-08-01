@@ -39,15 +39,15 @@ namespace PredictedAdaptedEncoding
             APCMetaBuffer& header
         ) noexcept
         {
-            if (!InstallAxisToBuffer::ValidateIdentityStructure(identity_buffer))
+            if (!InstallAxisToBuffer::ValidateIdentityBuffer(identity_buffer))
             {
                 return false;
             }
 
             for (uint8_t i = 0; i < APCDataStructure::TotalIdentityUnitCount(); i++)
             {
-                const std::optional<HeaderIdentifierOfAPC> identity = InstallAxisToBuffer::GetIdentityUnitFromBufferIdx(i);
-                header[static_cast<uint8_t>(identity.value())] = identity_buffer[i];
+                const HeaderIdentifierOfAPC identity = InstallAxisToBuffer::GetIdentityUnitFromBufferIdx(i).value();
+                header[static_cast<uint8_t>(identity)] = identity_buffer[i];
             }
             return true;
         }
@@ -169,7 +169,7 @@ namespace PredictedAdaptedEncoding
                 identity_buffer
             );
 
-            bool identity_ok = InstallAxisToBuffer::ValidateAIdentityBuffer(identity_buffer);
+            bool identity_ok = InstallAxisToBuffer::ValidateIdentityBuffer(identity_buffer);
 
             const uint64_t total_64Bit_unit_count_in_apc = InstallAxisToBuffer::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BOUNDS_END) -
                 InstallAxisToBuffer::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BOUNDS_BEGIN);

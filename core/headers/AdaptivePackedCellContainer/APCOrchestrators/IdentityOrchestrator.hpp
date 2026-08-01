@@ -99,7 +99,7 @@ namespace PredictedAdaptedEncoding
                 IsDefinedRoot(identity_buffer, axis);
         }
 
-        static constexpr bool ValidateIdentityStructure(
+        static constexpr bool ValidateDefaultIdentity(
             const BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
@@ -110,6 +110,7 @@ namespace PredictedAdaptedEncoding
             return 
                 APCDataStructure::IsValid32BitAPCUnit(slot) &&
                 APCDataStructure::IsValidFabricUnit(begin) &&
+                begin < end &&
                 APCDataStructure::IsValidFabricUnit(end) &&
                 APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(end - begin)) &&
                 IsValidInheritedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
@@ -154,7 +155,7 @@ namespace PredictedAdaptedEncoding
         {
             const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
             if (
-                !ValidateIdentityStructure(identity_buffer) ||
+                !ValidateDefaultIdentity(identity_buffer) ||
                 !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT, fingerprint)
             )
             {
@@ -165,13 +166,13 @@ namespace PredictedAdaptedEncoding
             return true;
         }
 
-        static constexpr bool ValidateAIdentityBuffer(
+        static constexpr bool ValidateIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
             const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
             if (
-                !ValidateIdentityStructure(identity_buffer) ||
+                !ValidateDefaultIdentity(identity_buffer) ||
                 fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
                 StateOfIdentityFingerprint(fingerprint) != FingerprintHashState::VALID
             )
@@ -189,7 +190,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
-            if (!ValidateIdentityStructure(identity_buffer))
+            if (!ValidateDefaultIdentity(identity_buffer))
             {
                 return FingerprintHashState::INVALID;
             }

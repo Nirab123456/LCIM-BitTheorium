@@ -22,7 +22,7 @@ protected:
 public:
 
     void FreeAll() noexcept;
-
+    
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
     bool CompareExchangeSequentiallRevertInFail(
@@ -33,13 +33,13 @@ public:
 
     bool ForceCopyToAPCFromBuffer(
         uint32_t tarting_idx_in_apc,
-        uint8_t sequential_number_of_cells,
+        uint32_t sequential_number_of_cells,
         const uint64_t* source_cells
     ) noexcept;
 
     bool CopyFromAPCToBuffer(
         uint32_t starting_idx_in_apc,
-        uint8_t sequential_number_of_cells,
+        uint32_t sequential_number_of_cells,
         uint64_t* return_buffer,
         bool atomic_required = true
     ) noexcept;
@@ -84,7 +84,7 @@ public:
         return METACELL_COUNT;
     }
 
-    constexpr bool IsValidAPCRange(size_t starting_idx_in_slab, uint16_t sequential_number_of_cells) noexcept
+    constexpr bool IsValidAPCRange(size_t starting_idx_in_slab, uint32_t sequential_number_of_cells) noexcept
     {
         return RangeOfThisAPCInSlab_.IsValid && 
             FabricOwnerPtr_ &&

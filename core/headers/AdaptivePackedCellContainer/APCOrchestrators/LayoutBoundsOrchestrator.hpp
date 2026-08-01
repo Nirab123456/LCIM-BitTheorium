@@ -183,10 +183,10 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             const uint32_t weight = static_cast<uint32_t>(*layout_fields_array[i]);
-            const uint32_t scaled = weight * static_cast<uint32_t>(payload_span);
+            const uint64_t scaled = weight * payload_span;
 
-            const uint32_t base_count = scaled / total_weight;
-            const uint32_t reminder = scaled % total_weight;
+            const uint32_t base_count = static_cast<uint32_t>(scaled / total_weight);
+            const uint32_t reminder = static_cast<uint32_t>(scaled % total_weight);
 
             normalize_counts_array[i] = static_cast<uint32_t>(base_count);
             reminders_array[i] = reminder;
