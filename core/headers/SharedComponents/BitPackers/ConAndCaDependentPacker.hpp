@@ -42,8 +42,8 @@ namespace PredictedAdaptedEncoding
         {
             if (
                 !APCDataStructure::IsValid32BitAPCUnit(carrier.Lowest32Bit)||
-                carrier.Mid28Bit >= UINT28_MAX ||
-                carrier.High4Bit >= UINT4_MAX
+                carrier.Mid28Bit > UINT28_MAX ||
+                carrier.High4Bit > UINT4_MAX
             )
             {
                 carrier.IsValid = false;
@@ -65,7 +65,7 @@ namespace PredictedAdaptedEncoding
             
             return(
                 (uint64_t(carrier.Lowest32Bit) << UNSIGNED_ZERO) |
-                (uint64_t(carrier.Mid28Bit) << (BIT_LENGTH_OF_FABRIC - LEN_OF_28_BIT)) |
+                (uint64_t(carrier.Mid28Bit) << (BIT_LENGTH_OF_FABRIC - sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS)) |
                 (uint64_t(carrier.High4Bit) << (BIT_LENGTH_OF_FABRIC - 4u))
             );
         }
@@ -80,7 +80,7 @@ namespace PredictedAdaptedEncoding
             }
 
             carrier.Lowest32Bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(32u));
-            carrier.Mid28Bit = static_cast<uint32_t>((value >> (BIT_LENGTH_OF_FABRIC - LEN_OF_28_BIT)) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
+            carrier.Mid28Bit = static_cast<uint32_t>((value >> (BIT_LENGTH_OF_FABRIC - sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS)) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
             carrier.High4Bit = static_cast<uint8_t>((value >> (BIT_LENGTH_OF_FABRIC - 4u)) & MaskLeftOverBitsUntil64(4u));
             IsCarrierValid(carrier);
             return carrier;

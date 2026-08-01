@@ -115,14 +115,11 @@ namespace PredictedAdaptedEncoding
             CopyAllBuffersToHeaderBuffer_(header_buffer, layout_buffer, schema_buffer, cursors_buffrers);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::BOUNDS_BEGIN)] = capacity_of_apc;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
-
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = 0u;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_FLAGS)] = 0u;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::NODE_GROUP_SIZE)] = 1u;
-
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
 
@@ -156,30 +153,38 @@ namespace PredictedAdaptedEncoding
             BufferConfForTracking::TrackingBufferOfAPC layout_buffer{};
             BufferConfForTracking::TrackingBufferOfAPC schema_buffer{};
             CompleateRegionOrchestrator::CursorBuffers enq_dq_cursors{};
+            InstallAxisToBuffer::BufferOfAPCIdentity identity_buffer{};
 
             BufferConfForTracking::BuildNullTrackingBuffer(layout_buffer);
             BufferConfForTracking::BuildNullTrackingBuffer(schema_buffer);
             BufferConfForTracking::BuildNullTrackingBuffer(enq_dq_cursors.Enqueue);
             BufferConfForTracking::BuildNullTrackingBuffer(enq_dq_cursors.Dequeue);
+            InstallAxisToBuffer::BuildNullIdentityBuffer(identity_buffer);
 
             GetAllBuffersFromHeaderBuffer_(
                 header,
                 layout_buffer,
                 schema_buffer,
-                enq_dq_cursors
+                enq_dq_cursors,
+                identity_buffer
             );
 
-            const uint32_t total_64Bit_unit_count_in_apc = static_cast<uint32_t>(header[static_cast<size_t>(HeaderIdentifierOfAPC::BOUNDS_BEGIN)]);
-            
-            bool layout_ok = LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, total_64Bit_unit_count_in_apc);
+            bool identity_ok = InstallAxisToBuffer::ValidateAIdentityBuffer(identity_buffer);
+
+            const uint64_t total_64Bit_unit_count_in_apc = InstallAxisToBuffer::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BOUNDS_END) -
+                InstallAxisToBuffer::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::BOUNDS_BEGIN);
+
+            bool layout_ok = LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, static_cast<uint32_t>(total_64Bit_unit_count_in_apc));
             
             bool schema_ok = CompleateRegionOrchestrator::ValidateSchemaBufferAgainstLayoutBuffer(schema_buffer, layout_buffer);
 
             bool enq_dq_ok = CompleateRegionOrchestrator::ValidateInitialCursorBuffers(enq_dq_cursors, schema_buffer);
 
             if (
-                !ValidateFabricResolvedIdentity(header) ||
-                !layout_ok || !schema_ok || !enq_dq_ok ||
+                !identity_ok ||
+                !layout_ok ||
+                !schema_ok || 
+                !enq_dq_ok ||
                 header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] != 
                     CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer)
             )
@@ -229,7 +234,8 @@ namespace PredictedAdaptedEncoding
             const APCMetaBuffer& header_buffer,
             BufferConfForTracking::TrackingBufferOfAPC& layout_buffer,
             BufferConfForTracking::TrackingBufferOfAPC& schema_buffer,
-            CompleateRegionOrchestrator::CursorBuffers& cursors_buffrers
+            CompleateRegionOrchestrator::CursorBuffers& cursors_buffrers,
+            InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
             for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
@@ -238,8 +244,13 @@ namespace PredictedAdaptedEncoding
                 schema_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i];
                 cursors_buffrers.Enqueue[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i];
                 cursors_buffrers.Dequeue[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i];
-
             }
+
+            for (size_t i = 0; i < APCDataStructure::TotalIdentityUnitCount(); i++)
+            {
+                identity_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) + i];
+            }
+            
             
         }
 

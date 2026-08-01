@@ -38,14 +38,6 @@ struct DefaultHashings : public DescriptorConf
         const AxisTopAndCountForBranchHashValue&  hash_values
     ) noexcept
     {
-        if (
-            !APCDataStructure::IsValid32BitAPCUnit(hash_values.AxisTopWaterMark) ||
-            !APCDataStructure::IsValid32BitAPCUnit(hash_values.MemberCount) 
-        )
-        {
-            return FABRIC_CELL_SENTINAL;
-        }
-        
         return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(
             hash_values.AxisTopWaterMark,
             hash_values.MemberCount
@@ -56,7 +48,7 @@ struct DefaultHashings : public DescriptorConf
     {
         AxisTopAndCountForBranchHashValue both_value{};
 
-        if (!HashIdConstructror::IsValidAPCId(value))
+        if (!APCDataStructure::IsValidFabricUnit(value))
         {
             return both_value;
         }
@@ -95,14 +87,9 @@ struct HashHelpers : public DefaultHashings
 
     static constexpr bool IsValidHashBuffer (const SingleHashBuffer& hash_buffer) noexcept
     {
-        if (
-            !HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX)) ||
-            !HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX))
-        )
-        {
-            return false;
-        }
-        return true;
+        return 
+            HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX)) &&
+            APCDataStructure::IsValidFabricUnit(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX));
     }
 
 
@@ -212,7 +199,7 @@ struct HashHelpers : public DefaultHashings
             !IsValidHashBuffer(hash_buffer) ||
             !state_dist_fp.IsValid ||
             state_dist_fp.High4Bit > static_cast<uint8_t>(HashState::RETIRED_OR_TOMBSTONE) ||
-            MakeHashFingerPrint(hash_buffer, static_cast<HashState>(state_dist_fp.High4Bit)) != state_dist_fp.Lowest32Bit
+            MakeHashFingerPrint(hash_buffer, static_cast<HashState>(state_dist_fp.High4Bit)) != state_dist_fp.Mid28Bit
         )
         {
             hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
@@ -264,10 +251,7 @@ struct HashTableConf : public HashHelpers
         return 
             ValidateHashBuffer(hash_buffer) &&
             current_key == desired_key &&
-            current_state == desired_state &&
-            HashIdConstructror::IsValidAPCId(
-                GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX)
-            );
+            current_state == desired_state;
     }
 
 public:

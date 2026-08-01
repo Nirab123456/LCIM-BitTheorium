@@ -469,8 +469,8 @@ namespace PredictedAdaptedEncoding
                     }
                 }
                 else if (
-                    !APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Enqueue[i]) ||
-                    !APCDataStructure::IsValidFabricUnit(enqueue_dequeue_buffers.Dequeue[i])
+                    enqueue_dequeue_buffers.Enqueue[i] != FABRIC_CELL_SENTINAL ||
+                    enqueue_dequeue_buffers.Dequeue[i] != FABRIC_CELL_SENTINAL
                 )
                 {
                     SetZeroMark();

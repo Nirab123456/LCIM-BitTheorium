@@ -81,11 +81,13 @@ namespace PredictedAdaptedEncoding
             const std::optional<uint32_t> group_id = GroupPreFix32FromKey(root_key);
             const std::optional<uint32_t> ordinal = GetOrdinalFromKey(root_key);
             return 
-                IsValidGroupId(root_key) &&
                 group_id.has_value() &&
                 ordinal.has_value() &&
                 ordinal.value() == UNSIGNED_ZERO &&
-                IsValidAPCSlotIdx(first_child);
+                (
+                    first_child == FABRIC_CELL_SENTINAL ||
+                    IsValidAPCSlotIdx(first_child)
+                );
         }
 
         static constexpr bool IsValidOwnedRoot(
@@ -161,7 +163,8 @@ namespace PredictedAdaptedEncoding
         {
             if (
                 !ValidateIdentityStructure(identity_buffer) ||
-                (!is_destructive && IsDefinedRoot(identity_buffer, axis))
+                !IsValidGroupId(axis_id) ||
+                (!is_destructive && !IsOwnedAxisDisabled(identity_buffer, axis))
             )
             {
                 return false;
