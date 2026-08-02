@@ -160,49 +160,62 @@ namespace PredictedAdaptedEncoding
             IAB::ValidateIdentityBuffer(identity_buffer);
     }
 
-    // bool ReadAndWriteOfAPC::PublishIdentityBuffer(
-    //     InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
-    //     uint32_t max_tries
-    // ) noexcept
-    // {
-    //     using IAB = InstallAxisToBuffer;
-    //     if (!IAB::SealIdentityBuffer(desired_identity))
-    //     {
-    //         return false;
-    //     }
+    bool ReadAndWriteOfAPC::PublishIdentityBuffer(
+        InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
+        uint32_t max_tries
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
+        if (!IAB::SealIdentityBuffer(desired_identity))
+        {
+            return false;
+        }
 
-    //     uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+        uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
 
-    //     uint64_t current_fp = UNSIGNED_ZERO;
-    //     for (size_t i = 0; i < max_tries; i++)
-    //     {
-    //         if (
-    //             AtomicallyReadLongLongAPCUnit(
-    //             fp_header_idx,
-    //             current_fp
-    //             ) &&(
-    //                 IAB::StateOfIdentityFingerprint(current_fp) != IAB::FingerprintHashState::WRITE_LOCK ||
-    //                 IAB::StateOfIdentityFingerprint(current_fp) != IAB::FingerprintHashState::CONSUME_LOCK
-    //             )
-    //         )
-    //         {
-    //             uint64_t expected = current_fp;
-    //             if (
-    //                 CompareExchangeStrongFromAPC(
-    //                     fp_header_idx, 
-    //                     expected,
-    //                     IAB::IDENTY_FINGERPRINT_WRITE_LOCK
-    //                 )
-    //             )
-    //             {
-    //                 break;
-    //             }
-    //         }
-    //     }
-        
+        uint64_t current_fp = UNSIGNED_ZERO;
 
-        
-        
-    // }
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                AtomicallyReadLongLongAPCUnit(
+                fp_header_idx,
+                current_fp
+                ) &&(
+                    IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::VALID ||
+                    IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::INVALID
+                )
+            )
+            {
+                uint64_t expected = current_fp;
+                if (
+                    CompareExchangeStrongFromAPC(
+                        fp_header_idx, 
+                        expected,
+                        IAB::IDENTY_FINGERPRINT_WRITE_LOCK
+                    )
+                )
+                {
+                    break;
+                }
+            }
+        }
+
+        for (size_t i = 1; i < APCDataStructure::TotalIdentityUnitCount(); i++)
+        {
+            AtomicallyWriteU64ToAPC(fp_header_idx + i, desired_identity[i]);
+        }
+
+        uint64_t expected = IAB::IDENTY_FINGERPRINT_WRITE_LOCK;
+
+        const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT).value();
+
+        return CompareExchangeStrongFromAPC(
+            fp_header_idx,
+            expected,
+            desired_identity[buffer_fp_idx]
+        );
+    }
 
 }

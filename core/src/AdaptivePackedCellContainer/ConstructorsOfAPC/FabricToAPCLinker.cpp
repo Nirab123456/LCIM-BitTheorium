@@ -19,6 +19,21 @@ namespace PredictedAdaptedEncoding
         );
     }
 
+    void FabricToAPCLinker::AtomicallyWriteU64ToAPC(
+        uint64_t idx,
+        const uint64_t& value
+    ) noexcept
+    {
+        if (!IsValidAPCRange(idx, 1))
+        {
+            return;
+        }
+        FabricOwnerPtr_->AtomicallyStoreU64Fab(
+            idx,
+            value
+        );
+    }
+
     bool FabricToAPCLinker::BindExternalRawFabricBacking_(
         uint64_t* words_raw,
         uint32_t cell_count,

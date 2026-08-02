@@ -64,6 +64,11 @@ public:
         uint64_t& return_value
     ) noexcept;
 
+    void AtomicallyWriteU64ToAPC(
+        uint64_t idx,
+        const uint64_t& value
+    ) noexcept;
+
     bool IsFabricBackend() const noexcept
     {
         return FabricOwnerPtr_ != nullptr;
