@@ -189,7 +189,8 @@ struct HashHelpers : public DefaultHashings
 
 
     static constexpr bool ValidateHashBuffer(
-        SingleHashBuffer& hash_buffer
+        SingleHashBuffer& hash_buffer,
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* dist_and_validation_files = nullptr
     ) noexcept
     {
 
@@ -204,6 +205,10 @@ struct HashHelpers : public DefaultHashings
         {
             hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
             return false;
+        }
+        if (dist_and_validation_files)
+        {
+            *dist_and_validation_files = state_dist_fp;
         }
         hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
         return true;
@@ -437,8 +442,8 @@ public:
     {
         using IAB = InstallAxisToBuffer;
         if (
-            !IAB::ValidateIdentityBuffer(predecessor_identity) ||
-            !IAB::ValidateIdentityBuffer(current_identity) ||
+            IAB::ValidateIdentityBuffer(predecessor_identity) ||
+            IAB::ValidateIdentityBuffer(current_identity) ||
             IAB::IsInheritedAxisDisabled(current_identity, axis) ||
             ValidateHashBuffer(branch_hash_buffer) ||
             ValidateHashBuffer(axis_hash_buffer)
@@ -462,19 +467,19 @@ public:
         {
             return false;
         }
-
-        const bool predecessor_is_owner = IAB::IsValidOwnedRoot(predecessor_identity, axis);
         const uint64_t next_of_own_for_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.RootOwnedChild);
+        const uint64_t next_sibbling_of_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.NextSibling);
 
+        const bool predecessor_is_owner = IAB::IsValidOwnedRoot(predecessor_identity, axis) && next_of_own_for_predecessor == current_slot;
 
         if (
             predecessor_is_owner &&
-            next_of_own_for_predecessor != current_slot
+            next_sibbling_of_predecessor != current_slot
         )
         {
             return false;
         }
-        else if (predecessor_is_owner && next_of_own_for_predecessor == current_slot)
+        else if (predecessor_is_owner && next_sibbling_of_predecessor == current_slot)
         {
             if (!IAB::InsertAnIdentityInBuffer(
                 predecessor_identity,
@@ -488,7 +493,7 @@ public:
         else
         {
             if (
-                next_of_own_for_predecessor != current_slot ||
+                next_sibbling_of_predecessor != current_slot ||
                 !IAB::InsertAnIdentityInBuffer(predecessor_identity, map.NextSibling, next_of_current)
             )
             {
@@ -502,6 +507,7 @@ public:
         {
             if (
                 !next_identity ||
+                !IAB::ValidateIdentityBuffer(*next_identity) ||
                 !IAB::ValueOfAnIdentityFromBuffer(*next_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != next_of_current ||
                 !IAB::InsertAnIdentityInBuffer(*next_identity, map.PreviousSibling, predecessor_slot) ||
                 !IAB::SealIdentityBuffer(*next_identity)
@@ -519,7 +525,7 @@ public:
         );
         const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
         if (
-            !HashIdConstructror::IsValidGroupId(old_branch_hash_values.AxisTopWaterMark) ||
+            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.AxisTopWaterMark) ||
             !HashIdConstructror::IsValidGroupId(old_branch_hash_values.MemberCount)
         )
         {
@@ -531,7 +537,16 @@ public:
         const uint64_t new_branch_hash_value = PackAxisTopAndCount(new_branch_hash_values);
         SetHashBufferUnit(branch_hash_buffer, HashBufferIndexing::VALUE_INDEX, new_branch_hash_value);
 
+        const bool branch_hash_buffer_ok = MakeValidHashBuffer(
+            branch_hash_buffer,
+            axis_id.value(),
+            new_branch_hash_value,
+            GetStDistFp(branch_hash_buffer).Lowest32Bit,
+            HashState::LIVE_OR_PUBLISHED
+        );
+
         if (
+            !branch_hash_buffer_ok ||
             !RecompileStateInBuffer(axis_hash_buffer, HashState::RETIRED_OR_TOMBSTONE) ||
             !ValidateHashBuffer(branch_hash_buffer) ||
             !ValidateHashBuffer(axis_hash_buffer) ||

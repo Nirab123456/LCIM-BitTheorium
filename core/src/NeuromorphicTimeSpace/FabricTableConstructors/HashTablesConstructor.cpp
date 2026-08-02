@@ -25,13 +25,14 @@ namespace PredictedAdaptedEncoding
 
     bool HashTablesConstructor::ReadHashBufferFromSlab(
         uint64_t bucked_base_index,
-        HashTableConf::SingleHashBuffer& hash_buffer_return
+        HashTableConf::SingleHashBuffer& hash_buffer_return,
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* dist_and_validation_files
     ) noexcept
     {
         using HTC = HashTableConf;
         if (
             !SlabBasePtr_ || 
-            bucked_base_index + HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_
+            bucked_base_index + HTC::HASH_BUCKED_WIDTH_OF_FABRIC > SlabCellCount_
         )
         {
             return false;
@@ -44,7 +45,8 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
         }
-        return HTC::ValidateHashBuffer(hash_buffer_return);
+        return 
+            HTC::ValidateHashBuffer(hash_buffer_return, dist_and_validation_files);
     }
 
     bool HashTablesConstructor::InsertOrUpdateRobinHoodHash48_(
@@ -54,7 +56,15 @@ namespace PredictedAdaptedEncoding
         std::optional<HashTableConf::StateOfAPC> hash_state 
     ) noexcept
     {
-
+        if (
+            !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
+            !HashIdConstructror::IsValidAPCId(hash_key) ||
+            !APCDataStructure::IsValidFabricUnit(hash_value)
+        )
+        {
+            return false;
+        }
+        
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
 
         bool is_valid_bounds = GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds);
@@ -100,10 +110,13 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
-            bool read_buffer_ok = ReadHashBufferFromSlab(base_idx, reuseable_hash_buffer);
-            const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = HashTableConf::GetStDistFp(reuseable_hash_buffer);
-
-
+            Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
+            bool read_buffer_ok = ReadHashBufferFromSlab(base_idx, reuseable_hash_buffer, &state_dist_fp);
+            const HashTableConf::HashState current_hash_state = static_cast<HashTableConf::HashState>(state_dist_fp.High4Bit);
+            if (current_hash_state == HashTableConf::HashState::RESERVED)
+            {
+                return false;
+            }
             /// Initialize / Fix Invalid / reuse / reclaim
             if (!read_buffer_ok)
             {
@@ -112,7 +125,7 @@ namespace PredictedAdaptedEncoding
                     reuseable_hash_buffer,
                     incoming_key, incoming_value, 
                     incoming_prob, 
-                    hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
+                    hash_state.value_or(HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
                 );
 
                 return reuse_made_ok? AtomicallyCopyFromBufferToFabric(
@@ -132,7 +145,7 @@ namespace PredictedAdaptedEncoding
                     reuseable_hash_buffer,
                     incoming_key, incoming_value, 
                     state_dist_fp.Lowest32Bit,
-                    hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
+                    hash_state.value_or(HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
                 );
 
                 return reuse_made_ok? AtomicallyCopyFromBufferToFabric(
@@ -150,7 +163,7 @@ namespace PredictedAdaptedEncoding
                     reuseable_hash_buffer,
                     incoming_key, incoming_value, 
                     incoming_prob, 
-                    hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
+                    hash_state.value_or(HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
                 );
 
 
@@ -171,7 +184,7 @@ namespace PredictedAdaptedEncoding
                 }
 
                 incoming_key = HashTableConf::GetAUnitFromHashBuffer(buffer, HashTableConf::HashBufferIndexing::KEY_INDEX);
-                incoming_value = HashTableConf::GetAUnitFromHashBuffer(buffer, HashTableConf::HashBufferIndexing::KEY_INDEX);
+                incoming_value = HashTableConf::GetAUnitFromHashBuffer(buffer, HashTableConf::HashBufferIndexing::VALUE_INDEX);
                 incoming_hash = HashIdConstructror::HashUnsigned64(incoming_key);
 
                 if (state_dist_fp.Lowest32Bit == HashTableConf::PROB_DISTANCE_SENTINAL)
@@ -286,7 +299,13 @@ namespace PredictedAdaptedEncoding
         for (uint32_t prob = 0; prob < bucket_count; prob++)
         {
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
-            const bool valid = ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer);
+            Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
+            bool valid = ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer, &state_dist_fp);
+            const HashTableConf::HashState current_hash_state = static_cast<HashTableConf::HashState>(state_dist_fp.High4Bit);
+            if (current_hash_state == HashTableConf::HashState::RESERVED)
+            {
+                return false;
+            }
             
             if (!valid)
             {
