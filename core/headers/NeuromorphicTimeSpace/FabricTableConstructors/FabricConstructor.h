@@ -70,15 +70,15 @@ namespace PredictedAdaptedEncoding
             const uint64_t* desired_cells
         ) noexcept;
 
-        bool CompareExchangeStrongSequentiallyOrRevert(
+        bool AtomicallyCopyFromBufferToFabric(
             size_t slab_starting_idx, 
-            uint8_t number_of_cells, 
+            uint32_t number_of_cells, 
             const uint64_t* desired_cells
         ) noexcept;
 
         bool ReadASnapShotFromSlab(
             size_t slab_starting_idx, 
-            size_t sequential_number_of_cells, 
+            size_t sequential_number_of_cells,
             uint64_t* return_buffer,
             bool atomic_required = false
         ) noexcept;

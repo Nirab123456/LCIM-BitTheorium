@@ -25,7 +25,7 @@ public:
 
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
-    bool CompareExchangeSequentiallRevertInFail(
+    bool AtomicallyCopyFromBufferToAPC(
         uint32_t starting_idx_in_apc,
         uint8_t sequential_number_of_cells,
         const uint64_t* source_cells

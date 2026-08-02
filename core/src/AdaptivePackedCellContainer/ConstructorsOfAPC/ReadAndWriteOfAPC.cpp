@@ -160,4 +160,49 @@ namespace PredictedAdaptedEncoding
             IAB::ValidateIdentityBuffer(identity_buffer);
     }
 
+    // bool ReadAndWriteOfAPC::PublishIdentityBuffer(
+    //     InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     using IAB = InstallAxisToBuffer;
+    //     if (!IAB::SealIdentityBuffer(desired_identity))
+    //     {
+    //         return false;
+    //     }
+
+    //     uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+
+    //     uint64_t current_fp = UNSIGNED_ZERO;
+    //     for (size_t i = 0; i < max_tries; i++)
+    //     {
+    //         if (
+    //             AtomicallyReadLongLongAPCUnit(
+    //             fp_header_idx,
+    //             current_fp
+    //             ) &&(
+    //                 IAB::StateOfIdentityFingerprint(current_fp) != IAB::FingerprintHashState::WRITE_LOCK ||
+    //                 IAB::StateOfIdentityFingerprint(current_fp) != IAB::FingerprintHashState::CONSUME_LOCK
+    //             )
+    //         )
+    //         {
+    //             uint64_t expected = current_fp;
+    //             if (
+    //                 CompareExchangeStrongFromAPC(
+    //                     fp_header_idx, 
+    //                     expected,
+    //                     IAB::IDENTY_FINGERPRINT_WRITE_LOCK
+    //                 )
+    //             )
+    //             {
+    //                 break;
+    //             }
+    //         }
+    //     }
+        
+
+        
+        
+    // }
+
 }

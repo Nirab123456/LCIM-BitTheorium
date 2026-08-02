@@ -115,7 +115,7 @@ namespace PredictedAdaptedEncoding
                     hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
                 );
 
-                return reuse_made_ok? CompareExchangeStrongSequentiallyOrRevert(
+                return reuse_made_ok? AtomicallyCopyFromBufferToFabric(
                     base_idx, 
                     HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC, 
                     reuseable_hash_buffer.data()
@@ -135,7 +135,7 @@ namespace PredictedAdaptedEncoding
                     hash_state.value_or(HashTableConf::StateOfAPC::FREE_OR_EMPTY)
                 );
 
-                return reuse_made_ok? CompareExchangeStrongSequentiallyOrRevert(
+                return reuse_made_ok? AtomicallyCopyFromBufferToFabric(
                     base_idx, 
                     HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC, 
                     reuseable_hash_buffer.data()
@@ -159,7 +159,7 @@ namespace PredictedAdaptedEncoding
                     return false;
                 }
 
-                const bool published_ok = CompareExchangeStrongSequentiallyOrRevert(
+                const bool published_ok = AtomicallyCopyFromBufferToFabric(
                     base_idx, 
                     HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC, 
                     reuseable_hash_buffer.data()
@@ -307,7 +307,7 @@ namespace PredictedAdaptedEncoding
                     HashTableConf::HashState::RETIRED_OR_TOMBSTONE
                 );
                 return recompiled &&
-                    CompareExchangeStrongSequentiallyOrRevert(
+                    AtomicallyCopyFromBufferToFabric(
                         base_idx_dht,
                         HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC,
                         reuseable_hash_buffer.data()

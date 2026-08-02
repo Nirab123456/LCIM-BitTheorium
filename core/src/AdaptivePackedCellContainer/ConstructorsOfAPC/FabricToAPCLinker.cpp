@@ -65,7 +65,7 @@ namespace PredictedAdaptedEncoding
         FabricOwnerPtr_ = fabric_owner;
     }
 
-    bool FabricToAPCLinker::CompareExchangeSequentiallRevertInFail(
+    bool FabricToAPCLinker::AtomicallyCopyFromBufferToAPC(
         uint32_t starting_idx_in_apc,
         uint8_t sequential_number_of_cells,
         const uint64_t* source_cells
@@ -79,7 +79,7 @@ namespace PredictedAdaptedEncoding
             return false;
         }
 
-        return FabricOwnerPtr_->CompareExchangeStrongSequentiallyOrRevert(
+        return FabricOwnerPtr_->AtomicallyCopyFromBufferToFabric(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
             source_cells

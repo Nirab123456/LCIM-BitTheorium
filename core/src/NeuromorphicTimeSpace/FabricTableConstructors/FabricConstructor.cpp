@@ -120,9 +120,9 @@ namespace PredictedAdaptedEncoding
         return true;
     }
 
-    bool FabricConstructor::CompareExchangeStrongSequentiallyOrRevert(
+    bool FabricConstructor::AtomicallyCopyFromBufferToFabric(
         size_t slab_starting_idx, 
-        uint8_t number_of_cells, 
+        uint32_t number_of_cells, 
         const uint64_t* desired_units
     ) noexcept
     {
@@ -130,7 +130,7 @@ namespace PredictedAdaptedEncoding
             !IsDesiredIndexValidInSLab(slab_starting_idx + number_of_cells - 1) ||
             !desired_units ||
             number_of_cells == UNSIGNED_ZERO ||
-            !APCDataStructure::InLimitOfUint8(number_of_cells)
+            number_of_cells > SlabCellCount_ - slab_starting_idx
         )
         {
             return false;
@@ -139,52 +139,23 @@ namespace PredictedAdaptedEncoding
         try
         {
             uint64_t value_of_last_idx = desired_units[number_of_cells - 1];
-            (void) value_of_last_idx;        
+            (void) value_of_last_idx;
         }
         catch(...)
         {
             return false;
         }
-        
 
-        uint16_t changed_count = UNSIGNED_ZERO;
-        HeaderOrchestrator::DefaultMemCopyBuffer comp_ex_buffer{};
-        HeaderOrchestrator::BuildNullMemCopyBuffer(comp_ex_buffer);
-
-        for (uint16_t i = 0; i < number_of_cells; i++)
+        for (size_t i = 0; i < number_of_cells; i++)
         {
-            const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
-            uint64_t expected_unit = UNSIGNED_ZERO;
-            AtomicallyLoadReadAUnit(current_slab_idx, expected_unit);
-            comp_ex_buffer[i] = expected_unit;
-            if (
-                !CompareExchangeStrongFromFabric(
-                    current_slab_idx,
-                    expected_unit,
-                    desired_units[i]
-                )
-            )
-            {
-                break;
-            }
-            changed_count = i + 1;
-        }
-
-        if (changed_count != number_of_cells)
-        {
-            for (size_t i = 0; i < changed_count; i++)
-            {
-                const size_t current_slab_idx = static_cast<size_t>(i + slab_starting_idx);
-
-                DirectlyStoreFabricUnit64(current_slab_idx, comp_ex_buffer[i]);
-            }
-            return false;
+            AtomicallyStoreU64Fab(
+                slab_starting_idx + i,
+                desired_units[i]
+            );
         }
         
         return true;
-        
     }
-
 
     bool FabricConstructor::ReadASnapShotFromSlab(
         size_t slab_starting_idx, 
