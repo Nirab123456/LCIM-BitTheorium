@@ -42,8 +42,6 @@ namespace PredictedAdaptedEncoding
             uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
             uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
-
-        uint64_t MakeUniqueBranchIdForHashAndAPC() noexcept;
         
     };
 

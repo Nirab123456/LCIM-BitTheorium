@@ -307,21 +307,4 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    uint64_t SlabToFabricConverterAndCordinator::MakeUniqueBranchIdForHashAndAPC() noexcept
-    {
-        for (size_t i = 0; i < DEFAULT_MAX_TRIES; i++)
-        {
-            const uint64_t random_bid = HashIdConstructror::MakeARandomFabricValid64();
-            if (
-                HashIdConstructror::IsValidAPCId(random_bid) && 
-                !FindUsedHashValue(FabricTableSegmentClasses::BRANCH_HASH, random_bid).has_value()
-            )
-            {
-                return random_bid;
-            }
-        }
-        return FABRIC_CELL_SENTINAL;
-    }
-
-
 }

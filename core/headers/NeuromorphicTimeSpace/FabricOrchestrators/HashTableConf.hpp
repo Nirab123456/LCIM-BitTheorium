@@ -99,11 +99,16 @@ struct HashHelpers : public DefaultHashings
     ) noexcept
     {
         uint32_t hash = HASH32_GRATIO_1;
-
-        hash ^= GetAUnitFromHashBuffer(buffer, HashBufferIndexing::VALUE_INDEX);
+        uint64_t value = GetAUnitFromHashBuffer(buffer, HashBufferIndexing::VALUE_INDEX);
+        uint64_t key = GetAUnitFromHashBuffer(buffer, HashBufferIndexing::KEY_INDEX);
+        hash ^= static_cast<uint32_t>(value);
+        hash *= HASH32_GRATIO_2;
+        hash ^= static_cast<uint32_t>(value >> 32u);
         hash *= HASH32_GRATIO_2;
 
-        hash ^= GetAUnitFromHashBuffer(buffer, HashBufferIndexing::KEY_INDEX);
+        hash ^= static_cast<uint32_t>(key);
+        hash *= HASH32_GRATIO_2;
+        hash ^= static_cast<uint32_t>(key >> 32u);
         hash *= HASH32_GRATIO_2;
 
         hash ^= static_cast<uint32_t>(state);

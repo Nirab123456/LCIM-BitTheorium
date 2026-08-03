@@ -16,14 +16,8 @@ namespace PredictedAdaptedEncoding
             RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
         ) noexcept;
 
-        /// @brief FILL: DESIRED: FabricTableSegmentClasses with Idle Fabric Cell -> CALLS: GetRecordMapCarrierRanges TO: Get Range In SLab
-        /// @param table_class Desired FabricTableSegmentClasses You want Idle
         void IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept;
 
-        /// @brief WRITES: A Single Entry OF: FabricTableSegmentClasses::SLAB_RECORD_MAP == (2xPackedMode::VALUE48 + 1xPackedMode::Model32)
-        /// @param table_class Desired FabricTableSegmentClasses == FabricTableSegmentClasses
-        /// @param begin Begin Index OF: FabricTableSegmentClasses -> Record
-        /// @param end End Index OF: FabricTableSegmentClasses -> Record
         void WriteARecordBookOfTSCEntry_(
             FabricTableSegmentClasses table_class, 
             size_t begin, 
@@ -55,11 +49,7 @@ namespace PredictedAdaptedEncoding
             const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
         ) noexcept;
 
-        /// @brief Just Reads the DescriptionUnitIdentity::ID_STATE_CONCURRENT Cell  Without Validating with Other Descriptor Cells
-        /// @param apc_description_index 
-        /// @return 
         DescriptionOfAPC::DescriptorSaftyFiles ReadAPCStateAtomically(uint64_t apc_description_index) noexcept;
-
 
         bool SwitchOwnershipOfAReadyDescription(
             uint64_t description_idx,
@@ -76,24 +66,37 @@ namespace PredictedAdaptedEncoding
         
         bool InsertOrUpdateRobinHoodHash48_(
             FabricTableSegmentClasses hash_table, 
-            uint64_t key48, 
-            uint64_t value48,
+            uint64_t key, 
+            uint64_t value,
             std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
         ) noexcept;
-
-        std::optional<uint64_t> FindUsedHashValue(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
 
     public:
 
         bool ReadHashBufferFromSlab(
-            uint64_t bucked_base_index,
-            HashTableConf::SingleHashBuffer& hash_buffer_return,
-            Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* dist_and_validation_files = nullptr
+            uint64_t bucket_idx,
+            HashTableConf::SingleHashBuffer& hash_buffer_return
         ) noexcept;
-        
+
+        /// @brief
+        /// @return Previous State-Distence-Fingerprint / std::nullopt -> MEANS: false
+        std::optional<uint64_t> ReserveHashBuffer(
+            uint64_t bucked_index,
+            HashTableConf::SingleHashBuffer& hash_buffer_return,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool ReleseHashBuffer(
+            uint64_t bucket_base_idx,
+            uint64_t previous_st_dist_fp 
+        ) noexcept;
+
         void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
 
         bool RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
+
+        std::optional<uint64_t> ReadHashValueConcurrently(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
+
 
     };
 

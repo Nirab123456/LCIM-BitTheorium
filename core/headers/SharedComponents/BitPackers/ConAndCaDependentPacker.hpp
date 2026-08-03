@@ -74,11 +74,6 @@ namespace PredictedAdaptedEncoding
         {
             Pack32_28_4_Carrier carrier{};
 
-            if (!APCDataStructure::IsValidFabricUnit(value))
-            {
-                return carrier;
-            }
-
             carrier.Lowest32Bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(32u));
             carrier.Mid28Bit = static_cast<uint32_t>((value >> (BIT_LENGTH_OF_FABRIC - sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS)) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
             carrier.High4Bit = static_cast<uint8_t>((value >> (BIT_LENGTH_OF_FABRIC - 4u)) & MaskLeftOverBitsUntil64(4u));

@@ -43,7 +43,11 @@ namespace PredictedAdaptedEncoding
         );
 
         DescriptorConf::APCDescriptorRange desired_slot_of_apc_descriptor{};
-        if (!ok)
+        if (
+            !ok ||
+            apc_slot_index >= CountOfAPC_ ||
+            descripor_directory_map.EndIndex > SlabCellCount_
+        )
         {
             desired_slot_of_apc_descriptor.IsValid = false;
             return desired_slot_of_apc_descriptor;
@@ -51,7 +55,10 @@ namespace PredictedAdaptedEncoding
 
         desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
         desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
-        desired_slot_of_apc_descriptor.IsValid = true;
+        desired_slot_of_apc_descriptor.IsValid = 
+            desired_slot_of_apc_descriptor.BeginIndex >= descripor_directory_map.BeginIndex &&
+            desired_slot_of_apc_descriptor.BeginIndex < desired_slot_of_apc_descriptor.EndIndex &&
+            desired_slot_of_apc_descriptor.EndIndex <= descripor_directory_map.EndIndex;
         return desired_slot_of_apc_descriptor;
     }
 
@@ -74,13 +81,17 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-
-        std::memcpy(
-            return_buffer.data(),
-            &SlabBasePtr_[this_apc_descriptor_range.BeginIndex],
-            DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX * sizeof(uint64_t)
-        );
-
+        if (
+            !ReadASnapShotFromSlab(
+                this_apc_descriptor_range.BeginIndex,
+                DescriptionBuffer::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
+                return_buffer.data(),
+                true
+            )
+        )
+        {
+            return false;
+        }
         return DescriptionOfAPC::ValidateADescriptionBuffer(return_buffer);
     }
 
