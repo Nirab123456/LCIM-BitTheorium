@@ -321,7 +321,7 @@ public:
         {
             if (
                 IAB::IsOwnedAxisDisabled(predessor, axis) ||
-                !IAB::IsValidOwnedRoot(current_identity, axis) ||
+                !IAB::IsValidOwnedRoot(predessor, axis) ||
                 IAB::ValueOfAnIdentityFromBuffer(predessor, map.RootOwnedChild) != FABRIC_CELL_SENTINAL ||
                 !GetPreDesInfo__(map.OwnRootKey)
             )
@@ -363,17 +363,16 @@ public:
         }
 
         const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
+        AxisTopAndCountForBranchHashValue updated_branch_hash_values{};
+        updated_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark + 1u;
+        updated_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount + 1u;        
         if (
-            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.AxisTopWaterMark) ||
-            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.MemberCount)
+            !APCDataStructure::IsValid32BitAPCUnit(updated_branch_hash_values.AxisTopWaterMark) ||
+            !APCDataStructure::IsValid32BitAPCUnit(updated_branch_hash_values.MemberCount)
         )
         {
             return false;
         }
-
-        AxisTopAndCountForBranchHashValue updated_branch_hash_values{};
-        updated_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark + 1u;
-        updated_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount + 1u;        
         const uint64_t current_key = IAB::MakeGroupKeyFromParentGroupId(
             axis_id,
             updated_branch_hash_values.AxisTopWaterMark
@@ -442,11 +441,11 @@ public:
     {
         using IAB = InstallAxisToBuffer;
         if (
-            IAB::ValidateIdentityBuffer(predecessor_identity) ||
-            IAB::ValidateIdentityBuffer(current_identity) ||
+            !IAB::ValidateIdentityBuffer(predecessor_identity) ||
+            !IAB::ValidateIdentityBuffer(current_identity) ||
             IAB::IsInheritedAxisDisabled(current_identity, axis) ||
-            ValidateHashBuffer(branch_hash_buffer) ||
-            ValidateHashBuffer(axis_hash_buffer)
+            !ValidateHashBuffer(branch_hash_buffer) ||
+            !ValidateHashBuffer(axis_hash_buffer)
         )
         {
             return false;
@@ -472,20 +471,15 @@ public:
 
         const bool predecessor_is_owner = IAB::IsValidOwnedRoot(predecessor_identity, axis) && next_of_own_for_predecessor == current_slot;
 
-        if (
-            predecessor_is_owner &&
-            next_sibbling_of_predecessor != current_slot
-        )
+        if (predecessor_is_owner)
         {
-            return false;
-        }
-        else if (predecessor_is_owner && next_sibbling_of_predecessor == current_slot)
-        {
-            if (!IAB::InsertAnIdentityInBuffer(
-                predecessor_identity,
-                map.RootOwnedChild,
-                next_of_current
-            ))
+            if (
+                !IAB::InsertAnIdentityInBuffer(
+                    predecessor_identity,
+                    map.RootOwnedChild,
+                    next_of_current
+                )
+            )
             {
                 return false;
             }
@@ -494,12 +488,17 @@ public:
         {
             if (
                 next_sibbling_of_predecessor != current_slot ||
-                !IAB::InsertAnIdentityInBuffer(predecessor_identity, map.NextSibling, next_of_current)
+                !IAB::InsertAnIdentityInBuffer(
+                    predecessor_identity,
+                    map.NextSibling,
+                    next_of_current
+                )
             )
             {
                 return false;
             }
         }
+        
 
         if (
             next_of_current != FABRIC_CELL_SENTINAL
@@ -508,7 +507,7 @@ public:
             if (
                 !next_identity ||
                 !IAB::ValidateIdentityBuffer(*next_identity) ||
-                !IAB::ValueOfAnIdentityFromBuffer(*next_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != next_of_current ||
+                IAB::ValueOfAnIdentityFromBuffer(*next_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != next_of_current ||
                 !IAB::InsertAnIdentityInBuffer(*next_identity, map.PreviousSibling, predecessor_slot) ||
                 !IAB::SealIdentityBuffer(*next_identity)
             )

@@ -112,7 +112,7 @@ namespace PredictedAdaptedEncoding
                 APCDataStructure::IsValidFabricUnit(begin) &&
                 begin < end &&
                 APCDataStructure::IsValidFabricUnit(end) &&
-                APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(end - begin)) &&
+                APCDataStructure::IsCapacityOfAPCValid(end - begin) &&
                 IsValidInheritedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
                 IsValidInheritedAxis(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL) &&
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&

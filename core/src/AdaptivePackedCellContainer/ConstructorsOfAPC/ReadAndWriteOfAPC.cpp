@@ -146,18 +146,19 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
 
+            
+            uint64_t after_fp = UNSIGNED_ZERO;
             if (
-                IAB::StateOfIdentityFingerprint(
-                    IAB::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
-                ) != IAB::FingerprintHashState::VALID
+                !AtomicallyReadLongLongAPCUnit(fp_header_idx, after_fp) ||
+                before_fp != after_fp
             )
             {
                 continue;
             }
+            return 
+                IAB::ValidateIdentityBuffer(identity_buffer);
         }
-        
-        return 
-            IAB::ValidateIdentityBuffer(identity_buffer);
+        return false;
     }
 
     bool ReadAndWriteOfAPC::PublishIdentityBuffer(

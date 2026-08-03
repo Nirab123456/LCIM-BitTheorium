@@ -165,7 +165,7 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
             &user_defined_percentage.FreeSlot
         };
 
-        uint32_t total_weight = UNSIGNED_ZERO;
+        uint64_t total_weight = UNSIGNED_ZERO;
         for (size_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
             total_weight += static_cast<uint32_t>(*layout_fields_array[i]);

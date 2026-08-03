@@ -256,7 +256,7 @@ struct AxisConstructor : public HashIdConstructror
         if (!IsValidGroupId(group_id))
         {
             group_id ^= static_cast<uint32_t>(HASH_64BIT_GRATIO_3);
-            group_id = IsValidAPCId(group_id) ? group_id : 1u;
+            group_id = IsValidGroupId(group_id) ? group_id : 1u;
         }
         return group_id;
     }

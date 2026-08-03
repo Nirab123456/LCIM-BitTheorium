@@ -120,7 +120,7 @@ namespace PredictedAdaptedEncoding
                 version > UNSIGNED_ZERO;
         }
 
-        static constexpr bool IsCapacityOfAPCValid(uint32_t capacity) noexcept
+        static constexpr bool IsCapacityOfAPCValid(uint64_t capacity) noexcept
         {
             return capacity >= MINIMUM_APC_CELL_COUNT &&
                 IsValid32BitAPCUnit(capacity);

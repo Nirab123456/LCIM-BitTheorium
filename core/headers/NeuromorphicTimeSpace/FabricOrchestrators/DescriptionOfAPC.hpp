@@ -241,7 +241,7 @@ namespace PredictedAdaptedEncoding
 
 
         static constexpr bool BuildIdentityBufferFromDescriptionBuffer(
-            const SingleAPCDescriptionCellBuffer& description,
+            SingleAPCDescriptionCellBuffer& description,
             InstallAxisToBuffer::BufferOfAPCIdentity& identity
         ) noexcept
         {
@@ -250,7 +250,7 @@ namespace PredictedAdaptedEncoding
 
             using IAB = InstallAxisToBuffer;
             IAB::BuildNullIdentityBuffer(identity);
-            if (!HasValidationDescriptionMark(description))
+            if (!ValidateADescriptionBuffer(description))
             {
                 return false;
             }

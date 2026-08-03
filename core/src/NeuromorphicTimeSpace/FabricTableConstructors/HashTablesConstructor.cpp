@@ -299,7 +299,6 @@ namespace PredictedAdaptedEncoding
         for (uint32_t prob = 0; prob < bucket_count; prob++)
         {
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
-            Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
             bool valid = ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer, &state_dist_fp);
             const HashTableConf::HashState current_hash_state = static_cast<HashTableConf::HashState>(state_dist_fp.High4Bit);
             if (current_hash_state == HashTableConf::HashState::RESERVED)
