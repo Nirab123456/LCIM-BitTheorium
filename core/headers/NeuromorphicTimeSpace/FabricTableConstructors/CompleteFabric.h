@@ -9,9 +9,9 @@ namespace PredictedAdaptedEncoding
     protected:
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
-        uint64_t GetStartingOfAnyFabricTable(FabricTableSegmentClasses desired_table) noexcept;
+        uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
         
-        bool GetRecordMapCarrierRanges(
+        bool GetRecordMapCarrierRanges_(
             const FabricTableSegmentClasses table_class,
             RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
         ) noexcept;
@@ -31,25 +31,24 @@ namespace PredictedAdaptedEncoding
     {
     protected:
 
-        DescriptorConf::APCDescriptorRange ReadAPCDescriptionRanges(uint64_t apc_slot_index) noexcept;
+        DescriptorConf::APCDescriptorRange ReadAPCDescriptionRanges_(uint64_t apc_slot_index) noexcept;
     
-        std::optional<size_t> GetIdStateIdxByDescriptionIdx(uint64_t description_idx) noexcept;
+        std::optional<size_t> GetIdStateIdxByDescriptionIdx_(uint64_t description_idx) noexcept;
 
-    public:
-
-        APCSegmentPoolRange GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept;
-
-        bool ReadACompleateAPCDescriptorBuffer(
+        bool ReadACompleateAPCDescriptorBuffer_(
             uint64_t apc_description_index, 
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
         ) noexcept;
 
         /// @brief UPDATES: A Description In ONE SHOT
-        bool OneShotUpdateAPCDescriptor(
+        bool OneShotUpdateAPCDescriptor_(
             const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
         ) noexcept;
 
-        DescriptionOfAPC::DescriptorSaftyFiles ReadAPCStateAtomically(uint64_t apc_description_index) noexcept;
+        DescriptionOfAPC::DescriptorSaftyFiles ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+
+    public:
+        APCSegmentPoolRange GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept;
 
         bool SwitchOwnershipOfAReadyDescription(
             uint64_t description_idx,
@@ -71,33 +70,30 @@ namespace PredictedAdaptedEncoding
             std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
         ) noexcept;
 
-    public:
-
-        bool ReadHashBufferFromSlab(
+        bool ReadHashBufferFromSlab_(
             uint64_t bucket_idx,
             HashTableConf::SingleHashBuffer& hash_buffer_return
         ) noexcept;
 
         /// @brief
         /// @return Previous State-Distence-Fingerprint / std::nullopt -> MEANS: false
-        std::optional<uint64_t> ReserveHashBuffer(
+        std::optional<uint64_t> ReserveHashBuffer_(
             uint64_t bucked_index,
             HashTableConf::SingleHashBuffer& hash_buffer_return,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        bool ReleseHashBuffer(
+        bool ReleseHashBuffer_(
             uint64_t bucket_base_idx,
             uint64_t previous_st_dist_fp 
         ) noexcept;
 
         void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
 
-        bool RetireHashKey(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
+        bool RetireHashKey_(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
 
+    public:
         std::optional<uint64_t> ReadHashValueConcurrently(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
-
-
     };
 
 }

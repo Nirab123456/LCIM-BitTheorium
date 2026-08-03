@@ -34,10 +34,10 @@ namespace PredictedAdaptedEncoding
         
     }
 
-    DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionRanges(uint64_t apc_slot_index) noexcept
+    DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionRanges_(uint64_t apc_slot_index) noexcept
     {
         RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
-        const bool ok = GetRecordMapCarrierRanges(
+        const bool ok = GetRecordMapCarrierRanges_(
             FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
             descripor_directory_map
         );
@@ -63,7 +63,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    bool APCHandleDescriptorConstructor::ReadACompleateAPCDescriptorBuffer(
+    bool APCHandleDescriptorConstructor::ReadACompleateAPCDescriptorBuffer_(
         uint64_t apc_description_index, 
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
     ) noexcept
@@ -75,7 +75,7 @@ namespace PredictedAdaptedEncoding
 
         DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
 
-        const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges(apc_description_index);
+        const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(apc_description_index);
 
         if (!this_apc_descriptor_range.IsValid)
         {
@@ -97,11 +97,11 @@ namespace PredictedAdaptedEncoding
 
 
 
-    bool APCHandleDescriptorConstructor::OneShotUpdateAPCDescriptor(
+    bool APCHandleDescriptorConstructor::OneShotUpdateAPCDescriptor_(
         const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
     ) noexcept
     {
-        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges(
+        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(
             desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::APC_INDEX)]
         );
 
@@ -120,10 +120,10 @@ namespace PredictedAdaptedEncoding
         );
     }
     
-    DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::ReadAPCStateAtomically(uint64_t apc_description_index) noexcept
+    DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
         DescriptionOfAPC::DescriptorSaftyFiles return_files{};
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx(apc_description_index);
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx_(apc_description_index);
         if (!maybe_id_state_idx.has_value())
         {
             return return_files;
@@ -142,7 +142,7 @@ namespace PredictedAdaptedEncoding
     {
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desc_buffer{};
         
-        const bool buffer_ok = ReadACompleateAPCDescriptorBuffer(
+        const bool buffer_ok = ReadACompleateAPCDescriptorBuffer_(
             description_idx, 
             desc_buffer
         );
@@ -150,7 +150,7 @@ namespace PredictedAdaptedEncoding
             desc_buffer, desired_state
         );
         uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, desired_state);
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx(description_idx);
+        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx_(description_idx);
 
         uint64_t expected_id_state = desc_buffer[
             static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
@@ -192,7 +192,7 @@ namespace PredictedAdaptedEncoding
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically(description_idx);
+            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically_(description_idx);
             if (
                 desired_files.IsValid && 
                 desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfAPC::FREE_OR_EMPTY &&
@@ -210,9 +210,9 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    std::optional<size_t> APCHandleDescriptorConstructor::GetIdStateIdxByDescriptionIdx(uint64_t description_idx) noexcept
+    std::optional<size_t> APCHandleDescriptorConstructor::GetIdStateIdxByDescriptionIdx_(uint64_t description_idx) noexcept
     {
-        const DescriptionOfAPC::APCDescriptorRange desired_description_range = ReadAPCDescriptionRanges(description_idx);
+        const DescriptionOfAPC::APCDescriptorRange desired_description_range = ReadAPCDescriptionRanges_(description_idx);
         if (!desired_description_range.IsValid)
         {
             return std::nullopt;

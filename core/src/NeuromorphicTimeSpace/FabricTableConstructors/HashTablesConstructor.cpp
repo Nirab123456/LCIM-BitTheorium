@@ -11,7 +11,7 @@ namespace PredictedAdaptedEncoding
         }
 
         RecordBookConf::RecordBookTablesBoundsCarrier bounds{};
-        bool bounds_ok = GetRecordMapCarrierRanges(hash_table, bounds);
+        bool bounds_ok = GetRecordMapCarrierRanges_(hash_table, bounds);
         if (!bounds_ok)
         {
             return;
@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    bool HashTablesConstructor::ReadHashBufferFromSlab(
+    bool HashTablesConstructor::ReadHashBufferFromSlab_(
         uint64_t bucket_idx,
         HashTableConf::SingleHashBuffer& hash_buffer_return
     ) noexcept
@@ -48,7 +48,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    std::optional<uint64_t> HashTablesConstructor::ReserveHashBuffer(
+    std::optional<uint64_t> HashTablesConstructor::ReserveHashBuffer_(
         uint64_t bucket_idx,
         HashTableConf::SingleHashBuffer& hash_buffer_return,
         uint32_t max_tries
@@ -58,7 +58,7 @@ namespace PredictedAdaptedEncoding
         for (size_t i = 0; i < max_tries; i++)
         {
             if (
-                !ReadHashBufferFromSlab(bucket_idx, hash_buffer_return)
+                !ReadHashBufferFromSlab_(bucket_idx, hash_buffer_return)
             )
             {
                 return std::nullopt;
@@ -93,7 +93,7 @@ namespace PredictedAdaptedEncoding
         return std::nullopt;
     }
 
-    bool HashTablesConstructor::ReleseHashBuffer(
+    bool HashTablesConstructor::ReleseHashBuffer_(
         uint64_t bucket_idx,
         uint64_t previous_st_dist_fp 
     ) noexcept
@@ -140,7 +140,7 @@ namespace PredictedAdaptedEncoding
         
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds {};
 
-        bool is_valid_bounds = GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds);
+        bool is_valid_bounds = GetRecordMapCarrierRanges_(hash_table, desired_hash_table_bounds);
         if (!is_valid_bounds)
         {
             return false;
@@ -185,7 +185,7 @@ namespace PredictedAdaptedEncoding
 
             Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
             if (
-                !ReadHashBufferFromSlab(base_idx, reuseable_hash_buffer)
+                !ReadHashBufferFromSlab_(base_idx, reuseable_hash_buffer)
             )
             {
                 return false;
@@ -202,7 +202,7 @@ namespace PredictedAdaptedEncoding
                     incoming_prob, 
                     hash_state.value_or(HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
                 );
-                previous_std_dist_fp_value = ReserveHashBuffer(base_idx, reuseable_hash_buffer);
+                previous_std_dist_fp_value = ReserveHashBuffer_(base_idx, reuseable_hash_buffer);
                 if (!previous_std_dist_fp_value.has_value())
                 {
                     return false;
@@ -220,7 +220,7 @@ namespace PredictedAdaptedEncoding
                 }
                 else
                 {
-                    ReleseHashBuffer(base_idx, previous_std_dist_fp_value.value());
+                    ReleseHashBuffer_(base_idx, previous_std_dist_fp_value.value());
                 }
                 return false;
             }
@@ -238,7 +238,7 @@ namespace PredictedAdaptedEncoding
                     hash_state.value_or(HashTableConf::StateOfAPC::LIVE_OR_PUBLISHED)
                 );
 
-                previous_std_dist_fp_value = ReserveHashBuffer(base_idx, reuseable_hash_buffer);
+                previous_std_dist_fp_value = ReserveHashBuffer_(base_idx, reuseable_hash_buffer);
                 if (!previous_std_dist_fp_value.has_value())
                 {
                     return false;
@@ -257,7 +257,7 @@ namespace PredictedAdaptedEncoding
                 }
                 else
                 {
-                    ReleseHashBuffer(base_idx, previous_std_dist_fp_value.value());
+                    ReleseHashBuffer_(base_idx, previous_std_dist_fp_value.value());
                 }
                 return false;
             }
@@ -326,7 +326,7 @@ namespace PredictedAdaptedEncoding
         if (
             !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
             !HashIdConstructror::IsValidAPCId(hash_key) ||
-            !GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds)
+            !GetRecordMapCarrierRanges_(hash_table, desired_hash_table_bounds)
         )
         {
             return std::nullopt;
@@ -349,11 +349,11 @@ namespace PredictedAdaptedEncoding
         {
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
             
-            if (!ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer))
+            if (!ReadHashBufferFromSlab_(base_idx_dht, reuseable_hash_buffer))
             {
                 return false;
             }
-            
+
             bool is_expected = HashTableConf::IsExpectedHashStateBuffer(
                 reuseable_hash_buffer,
                 hash_key,
@@ -376,14 +376,14 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    bool HashTablesConstructor::RetireHashKey(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
+    bool HashTablesConstructor::RetireHashKey_(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
     {
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
 
         if (
             !CoreOfFabricCoordinator::IsValidHashTable(hash_table) ||
             !HashIdConstructror::IsValidAPCId(hash_key) ||
-            !GetRecordMapCarrierRanges(hash_table, desired_hash_table_bounds)
+            !GetRecordMapCarrierRanges_(hash_table, desired_hash_table_bounds)
         )
         {
             return false;
@@ -407,7 +407,7 @@ namespace PredictedAdaptedEncoding
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
 
             if (
-                !ReadHashBufferFromSlab(base_idx_dht, reuseable_hash_buffer)
+                !ReadHashBufferFromSlab_(base_idx_dht, reuseable_hash_buffer)
             )
             {
                 return false;
@@ -422,7 +422,7 @@ namespace PredictedAdaptedEncoding
 
             if (is_expected)
             {
-                const std::optional<uint64_t> previous_std_dist_fp_value = ReserveHashBuffer(base_idx_dht, reuseable_hash_buffer);
+                const std::optional<uint64_t> previous_std_dist_fp_value = ReserveHashBuffer_(base_idx_dht, reuseable_hash_buffer);
                 if (!previous_std_dist_fp_value.has_value())
                 {
                     return false;
@@ -445,7 +445,7 @@ namespace PredictedAdaptedEncoding
                 }
                 else
                 {
-                    ReleseHashBuffer(base_idx_dht, previous_std_dist_fp_value.value());
+                    ReleseHashBuffer_(base_idx_dht, previous_std_dist_fp_value.value());
                 }
 
                 return false;

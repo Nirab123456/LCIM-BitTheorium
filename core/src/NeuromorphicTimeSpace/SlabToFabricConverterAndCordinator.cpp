@@ -81,7 +81,7 @@ namespace PredictedAdaptedEncoding
 
         for (uint64_t desc_idx = 0; desc_idx < CountOfAPC_; desc_idx++)
         {
-            const DescriptorConf::APCDescriptorRange self_range = ReadAPCDescriptionRanges(desc_idx);
+            const DescriptorConf::APCDescriptorRange self_range = ReadAPCDescriptionRanges_(desc_idx);
             const APCSegmentPoolRange segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desc_idx);
             if (!self_range.IsValid || !segment_pool_range.IsValid)
             {

@@ -7,7 +7,7 @@ namespace PredictedAdaptedEncoding
     {
 
         RecordBookConf::RecordBookTablesBoundsCarrier return_bounds{};
-        if (!GetRecordMapCarrierRanges(table_class, return_bounds))
+        if (!GetRecordMapCarrierRanges_(table_class, return_bounds))
         {
             return;
         }
@@ -18,13 +18,13 @@ namespace PredictedAdaptedEncoding
         }
     }
 
-    bool RecordBookConstructor::GetRecordMapCarrierRanges(
+    bool RecordBookConstructor::GetRecordMapCarrierRanges_(
         const FabricTableSegmentClasses table_class,
         RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
     ) noexcept
     {
         return_bounds = {};
-        const uint64_t entry_idx = GetStartingOfAnyFabricTable(table_class);
+        const uint64_t entry_idx = GetStartingOfAnyFabricTable_(table_class);
         if (
             entry_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_ ||
             !AtomicallyLoadReadAUnit(
@@ -53,7 +53,7 @@ namespace PredictedAdaptedEncoding
         size_t end
     ) noexcept
     {
-        const size_t base_idx = GetStartingOfAnyFabricTable(table_class);
+        const size_t base_idx = GetStartingOfAnyFabricTable_(table_class);
         if (
             !APCDataStructure::IsValidFabricUnit(base_idx) || 
             (base_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_) ||
@@ -76,7 +76,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    uint64_t RecordBookConstructor::GetStartingOfAnyFabricTable(
+    uint64_t RecordBookConstructor::GetStartingOfAnyFabricTable_(
         FabricTableSegmentClasses table_class
     ) noexcept
     {   uint64_t record_map_begin = UNSIGNED_ZERO;
