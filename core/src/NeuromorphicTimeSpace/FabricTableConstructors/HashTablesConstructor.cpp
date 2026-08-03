@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
         );
     }
 
-    bool HashTablesConstructor::ReadHashBufferFromSlab_(
+    bool HashTablesConstructor::ReadHashBuffeByIndex_(
         uint64_t bucket_idx,
         HashTableConf::SingleHashBuffer& hash_buffer_return
     ) noexcept
@@ -58,7 +58,7 @@ namespace PredictedAdaptedEncoding
         for (size_t i = 0; i < max_tries; i++)
         {
             if (
-                !ReadHashBufferFromSlab_(bucket_idx, hash_buffer_return)
+                !ReadHashBuffeByIndex_(bucket_idx, hash_buffer_return)
             )
             {
                 return std::nullopt;
@@ -185,7 +185,7 @@ namespace PredictedAdaptedEncoding
 
             Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp{};
             if (
-                !ReadHashBufferFromSlab_(base_idx, reuseable_hash_buffer)
+                !ReadHashBuffeByIndex_(base_idx, reuseable_hash_buffer)
             )
             {
                 return false;
@@ -320,7 +320,11 @@ namespace PredictedAdaptedEncoding
 
 
 
-    std::optional<uint64_t> HashTablesConstructor::ReadHashValueConcurrently(FabricTableSegmentClasses hash_table, uint64_t hash_key) noexcept
+    std::optional<uint64_t> HashTablesConstructor::ReadHashValueByKey(
+        FabricTableSegmentClasses hash_table, 
+        uint64_t hash_key,
+        HashTableConf::SingleHashBuffer* hash_buffer_return
+    ) noexcept
     {        
         RecordBookConf::RecordBookTablesBoundsCarrier desired_hash_table_bounds{};
         if (
@@ -339,7 +343,6 @@ namespace PredictedAdaptedEncoding
         
         const uint64_t bucket_count = table_cell_count / HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC;
 
-
         uint64_t bucket = HashIdConstructror::HashUnsigned64(hash_key) & (bucket_count - 1u);
 
         HashTableConf::SingleHashBuffer reuseable_hash_buffer{};
@@ -349,7 +352,7 @@ namespace PredictedAdaptedEncoding
         {
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
             
-            if (!ReadHashBufferFromSlab_(base_idx_dht, reuseable_hash_buffer))
+            if (!ReadHashBuffeByIndex_(base_idx_dht, reuseable_hash_buffer))
             {
                 return false;
             }
@@ -363,6 +366,10 @@ namespace PredictedAdaptedEncoding
 
             if (is_expected)
             {
+                if (hash_buffer_return)
+                {
+                    *hash_buffer_return = reuseable_hash_buffer;
+                }
                 return HashTableConf::GetAUnitFromHashBuffer(reuseable_hash_buffer, HashTableConf::HashBufferIndexing::VALUE_INDEX);
             }
             if (state_dist_fp.Lowest32Bit < prob)
@@ -407,7 +414,7 @@ namespace PredictedAdaptedEncoding
             const size_t base_idx_dht = static_cast<size_t>(desired_hash_table_bounds.BeginIndex + (bucket * HashTableConf::HASH_BUCKED_WIDTH_OF_FABRIC));
 
             if (
-                !ReadHashBufferFromSlab_(base_idx_dht, reuseable_hash_buffer)
+                !ReadHashBuffeByIndex_(base_idx_dht, reuseable_hash_buffer)
             )
             {
                 return false;
@@ -458,6 +465,28 @@ namespace PredictedAdaptedEncoding
         }
         
         return false;
+    }
+
+    bool HashTablesConstructor::PublishPreparedHashBuffer_(FabricTableSegmentClasses hash_table, HashTableConf::SingleHashBuffer& hash_buffer) noexcept
+    {
+        using HTC = HashTableConf;
+        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier dist_and_validation_files{};
+        if (
+            !HTC::ValidateHashBuffer(hash_buffer, &dist_and_validation_files) ||
+            !HTC::IsValidHashTable(hash_table) ||
+            !dist_and_validation_files.IsValid
+        )
+        {
+            return false;
+        }
+
+        return InsertOrUpdateRobinHoodHash48_(
+            hash_table,
+            HTC::GetAUnitFromHashBuffer(hash_buffer, HTC::HashBufferIndexing::KEY_INDEX),
+            HTC::GetAUnitFromHashBuffer(hash_buffer, HTC::HashBufferIndexing::VALUE_INDEX),
+            static_cast<HTC::HashState>(dist_and_validation_files.High4Bit)
+        );
+        
     }
 
 }

@@ -565,6 +565,65 @@ public:
             IAB::SealIdentityBuffer(current_identity);  
     }
 
+
+    static constexpr bool InstallOwnedRoot(
+        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
+        InstallAxisToBuffer::BidirectionalAxis axis,
+        SingleHashBuffer& branch_hash_buffer,
+        SingleHashBuffer& axis_owned_hash_buffer
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
+
+        if (
+            !IAB::ValidateIdentityBuffer(identity_buffer) ||
+            !IAB::IsOwnedAxisDisabled(identity_buffer, axis)
+        )
+        {
+            return false;
+        }
+
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        const uint64_t slot_handle = IAB::APCSlotIdxToHashTableHandler(
+            IAB::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX)
+        );
+
+        const uint64_t root_key = IAB::ComposeNewGroupKey(
+            slot_handle,
+            axis,
+            UNSIGNED_ZERO
+        );
+
+        AxisTopAndCountForBranchHashValue branch_hash_values{};
+        branch_hash_values.AxisTopWaterMark = UNSIGNED_ZERO;
+        branch_hash_values.MemberCount = UNSIGNED_ZERO;
+
+        BuildEmptyHashBuffer(branch_hash_buffer);
+        BuildEmptyHashBuffer(axis_owned_hash_buffer);
+
+
+        return 
+            IAB::InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, root_key) &&
+            IAB::InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL) &&
+            MakeValidHashBuffer(
+                branch_hash_buffer,
+                root_key,
+                PackAxisTopAndCount(branch_hash_values),
+                UNSIGNED_ZERO,
+                HashState::LIVE_OR_PUBLISHED
+            ) &&
+            MakeValidHashBuffer(
+                axis_owned_hash_buffer,
+                root_key,
+                slot_handle,
+                UNSIGNED_ZERO,
+                HashState::LIVE_OR_PUBLISHED
+            ) &&
+            IAB::SealIdentityBuffer(identity_buffer);
+
+    }
+
 };
 
 }

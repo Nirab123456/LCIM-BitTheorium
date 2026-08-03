@@ -70,7 +70,7 @@ namespace PredictedAdaptedEncoding
             std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
         ) noexcept;
 
-        bool ReadHashBufferFromSlab_(
+        bool ReadHashBuffeByIndex_(
             uint64_t bucket_idx,
             HashTableConf::SingleHashBuffer& hash_buffer_return
         ) noexcept;
@@ -92,8 +92,19 @@ namespace PredictedAdaptedEncoding
 
         bool RetireHashKey_(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
 
+        bool PublishPreparedHashBuffer_(
+            FabricTableSegmentClasses hash_table, 
+            HashTableConf::SingleHashBuffer& hash_buffer
+        ) noexcept;
+
     public:
-        std::optional<uint64_t> ReadHashValueConcurrently(FabricTableSegmentClasses hash_table, uint64_t key48) noexcept;
+
+        //Compleately lockfree and waitless
+        std::optional<uint64_t> ReadHashValueByKey(
+            FabricTableSegmentClasses hash_table, 
+            uint64_t hash_key,
+            HashTableConf::SingleHashBuffer* hash_buffer_return = nullptr
+        ) noexcept;
     };
 
 }

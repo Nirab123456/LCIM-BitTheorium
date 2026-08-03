@@ -118,6 +118,8 @@ namespace PredictedAdaptedEncoding
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
                 IsValidOwnedRoot(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL);
         }
+
+
     };
 
 
