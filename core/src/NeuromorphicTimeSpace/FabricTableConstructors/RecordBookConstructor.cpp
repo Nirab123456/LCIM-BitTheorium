@@ -24,21 +24,24 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         return_bounds = {};
-        const uint64_t begin_of_desired_table = GetStartingOfAnyFabricTable(table_class);
-        
-        const uint64_t end_idx = begin_of_desired_table + static_cast<uint64_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64);
-
+        const uint64_t entry_idx = GetStartingOfAnyFabricTable(table_class);
         if (
-            end_idx > SlabCellCount_ || 
-            begin_of_desired_table < CoreOfFabricCoordinator::FABRIC_UNIT_COUNT ||
-            !APCDataStructure::IsValidFabricUnit(begin_of_desired_table)
+            entry_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_ ||
+            !AtomicallyLoadReadAUnit(
+                entry_idx + static_cast<uint8_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::BEGIN64),
+                return_bounds.BeginIndex
+            ) ||
+            !AtomicallyLoadReadAUnit(
+                entry_idx + static_cast<uint8_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64),
+                return_bounds.EndIndex
+            ) ||
+            return_bounds.BeginIndex >= return_bounds.EndIndex ||
+            return_bounds.EndIndex > SlabCellCount_
         )
         {
+            return_bounds.IsValid = false;
             return false;
         }
-
-        return_bounds.BeginIndex = begin_of_desired_table;
-        return_bounds.EndIndex = end_idx;
         return_bounds.IsValid = true;
         return return_bounds.IsValid;
     }

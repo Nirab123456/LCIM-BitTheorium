@@ -8,7 +8,7 @@ namespace PredictedAdaptedEncoding
     {
 
     protected:
-        bool ReadCompleateMetaHeaderDirectlyNonAtomic_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept;
+        bool ReadCompleateMetaHeaderAtomically_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept;
 
         bool ReadCompleatLayoutBuffer_(
             LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,

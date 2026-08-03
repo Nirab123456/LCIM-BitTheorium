@@ -4,7 +4,7 @@
 namespace PredictedAdaptedEncoding
 {
 
-    bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderDirectlyNonAtomic_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
+    bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderAtomically_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
     {
         if (!RangeOfThisAPCInSlab_.IsValid)
         {
@@ -176,17 +176,15 @@ namespace PredictedAdaptedEncoding
 
         uint64_t current_fp = UNSIGNED_ZERO;
 
-
+        bool write_lock_acquired = false;
         for (size_t i = 0; i < max_tries; i++)
         {
             if (
                 AtomicallyReadLongLongAPCUnit(
                 fp_header_idx,
                 current_fp
-                ) &&(
-                    IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::VALID ||
-                    IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::INVALID
-                )
+                ) &&
+                IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::VALID 
             )
             {
                 uint64_t expected = current_fp;
@@ -198,11 +196,15 @@ namespace PredictedAdaptedEncoding
                     )
                 )
                 {
+                    write_lock_acquired = true;
                     break;
                 }
             }
         }
-
+        if (!write_lock_acquired)
+        {
+            return false;
+        }
         for (size_t i = 1; i < APCDataStructure::TotalIdentityUnitCount(); i++)
         {
             AtomicallyWriteU64ToAPC(fp_header_idx + i, desired_identity[i]);
