@@ -313,15 +313,18 @@ namespace PredictedAdaptedEncoding
     {
         uint64_t slot_new = FABRIC_CELL_SENTINAL;
         const std::optional<uint64_t> previous_st = GetASlotForNewAPCLink(slot_new);
-        if (!previous_st.has_value())
+        const DSA::DescriptorSaftyFiles previous_files = DSA::GetDescriptionFile(previous_st.value());
+        if (
+            !previous_st.has_value() ||
+            !previous_files.IsValid
+        )
         {
             return std::nullopt;
         }
-        const DSA::DescriptorSaftyFiles previous_files = DSA::GetDescriptionFile(previous_st.value());
 
         auto ReleseReservedSlot__ = [&]()
         {
-            SwitchOwnershipOfAReadyDescription(slot_new, previous_files.StateOfTheAPC);
+            SwitchOwnershipOfAReadyDescription(slot_new, previous_files.StateOfTheAPC, true);
         };
 
         DSA::SingleAPCDescriptionCellBuffer description{};
@@ -374,8 +377,8 @@ namespace PredictedAdaptedEncoding
                 !HTC::InstallOwnedRoot(
                     identity_buffer_new_apc,
                     IAB::BidirectionalAxis::HORIZONTALLY_SHARED,
-                    branch_hash_V,
-                    axis_hash_V
+                    branch_hash_H,
+                    axis_hash_H
                 )
             )
             {
@@ -387,7 +390,7 @@ namespace PredictedAdaptedEncoding
                 if (IAB::WantsHorizontal(desired_axis))
                 {
                     RetireHashKey_(
-                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        FabricTableSegmentClasses::BRANCH_HASH, 
                         HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                     RetireHashKey_(
@@ -403,7 +406,7 @@ namespace PredictedAdaptedEncoding
                 if (IAB::WantsHorizontal(desired_axis))
                 {
                     RetireHashKey_(
-                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        FabricTableSegmentClasses::BRANCH_HASH, 
                         HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                     RetireHashKey_(
@@ -418,7 +421,7 @@ namespace PredictedAdaptedEncoding
                 return std::nullopt;
             }
         }
-        return previous_st;
+        return slot_new;
     }
 
 

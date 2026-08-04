@@ -160,10 +160,14 @@ namespace PredictedAdaptedEncoding
                 !current_id_st.IsValid
             )
             {
-                return false;
+                return std::nullopt;
             }
+
+            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED;
+            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == DSA::StateOfAPC::RESERVED;
             if (
-                (!caller_holds_reservation && current_id_st.StateOfTheAPC != desired_state) ||
+                false_owner_claim || 
+                non_owner_touching_reserved ||
                 !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
             )
             {
@@ -180,7 +184,7 @@ namespace PredictedAdaptedEncoding
             }
 
             DSA::DescriptorSaftyFiles updated_id_state{};
-            updated_id_state.StateOfTheAPC = DSA::StateOfAPC::RESERVED;
+            updated_id_state.StateOfTheAPC = desired_state;
             updated_id_state.DescriptionID = DSA::ComposeDescriptionId(
                 description_buffer,
                 updated_id_state.StateOfTheAPC
@@ -197,7 +201,7 @@ namespace PredictedAdaptedEncoding
                 )
             )
             {
-                return updated_id_state_value;
+                return current_id_state_value;
             }
             
         }
@@ -219,11 +223,21 @@ namespace PredictedAdaptedEncoding
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
+            const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
+            if (
+                !current.IsValid ||
+                current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY
+            )
+            {
+                continue;
+            }
+            
             std::optional<uint64_t> previous_st_id_value = SwitchOwnershipOfAReadyDescription(
                 description_idx,
                 DescriptionOfAPC::StateOfAPC::RESERVED,
                 false
             );
+            
             if (!previous_st_id_value.has_value())
             {
                 continue;

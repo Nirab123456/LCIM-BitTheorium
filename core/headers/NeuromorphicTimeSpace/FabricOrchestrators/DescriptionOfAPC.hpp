@@ -57,6 +57,7 @@ namespace PredictedAdaptedEncoding
             }
             return_safty_files.DescriptionID = description_id_maybe;
             return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
+            return_safty_files.IsValid = true;
             return return_safty_files;
         }
 
