@@ -135,6 +135,21 @@ namespace PredictedAdaptedEncoding
     }
 
 
+    // bool APCHandleDescriptorConstructor::ReserveADescriptionSlotMeansAPC_(
+    //     uint64_t description_idx,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(description_idx);
+
+    //     if (!this_apc_descriptor_range.IsValid)
+    //     {
+    //         return false;
+    //     }
+
+
+    // }
+
     bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
         DescriptionOfAPC::StateOfAPC desired_state
@@ -146,6 +161,9 @@ namespace PredictedAdaptedEncoding
             description_idx, 
             desc_buffer
         );
+
+
+
         const uint32_t updated_id = DescriptionOfAPC::ComposeDescriptionId(
             desc_buffer, desired_state
         );

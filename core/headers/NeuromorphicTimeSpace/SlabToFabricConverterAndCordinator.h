@@ -23,6 +23,11 @@ namespace PredictedAdaptedEncoding
         /// @param table_directory_end 
         void InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept;
 
+    protected:
+        using LBO = LayoutBoundsOrchestrator;
+        using SD = SchemaDefinition;
+        using IAB = InstallAxisToBuffer;
+
     public:
         SlabToFabricConverterAndCordinator(/* args */) noexcept = default;
 
@@ -42,9 +47,14 @@ namespace PredictedAdaptedEncoding
             uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
             uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
+
+        bool FormulateAPCFromFabric(
+            APCAxisSelection desired_axis,
+            IAB::BufferOfAPCIdentity& identity_buffer_new_apc
+        ) noexcept;
         
     };
 
-    
+
 
 }

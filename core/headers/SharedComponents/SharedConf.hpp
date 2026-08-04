@@ -76,6 +76,13 @@ namespace PredictedAdaptedEncoding
         NULLNAN = 15,
     };
 
+    enum class APCAxisSelection : uint8_t
+    {
+        NONE = 0,
+        HORIZONTAL = 1,
+        VERTICAL = 2,
+        BOTH = 3
+    };
 
     static  constexpr uint64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
     {

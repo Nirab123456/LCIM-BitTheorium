@@ -280,6 +280,18 @@ struct AxisConstructor : public HashIdConstructror
             (value & 1u) == UNSIGNED_ZERO;
     }
 
+    static constexpr bool WantsHorizontal(APCAxisSelection axes) noexcept
+    {
+        return axes == APCAxisSelection::HORIZONTAL ||
+            axes == APCAxisSelection::BOTH;
+    }
+
+    static constexpr bool WantsVertical(APCAxisSelection axes) noexcept
+    {
+        return axes == APCAxisSelection::VERTICAL ||
+            axes == APCAxisSelection::BOTH;
+    }
+
 };
 
 struct DefineIdentityBuffer : public AxisConstructor

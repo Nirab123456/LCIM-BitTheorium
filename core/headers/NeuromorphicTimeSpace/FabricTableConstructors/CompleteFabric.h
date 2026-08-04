@@ -40,6 +40,12 @@ namespace PredictedAdaptedEncoding
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
         ) noexcept;
 
+        /// @brief ONLY: FREE_OR_EMPTY OR RETIRED_OR_TOMBSTONE -> can be reserved
+        bool ReserveADescriptionSlotMeansAPC_(
+            uint64_t description_idx,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
         /// @brief UPDATES: A Description In ONE SHOT
         bool OneShotUpdateAPCDescriptor_(
             const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer

@@ -21,6 +21,7 @@ namespace PredictedAdaptedEncoding
             LIVE_OR_PUBLISHED = 2,
             RETIRED_OR_TOMBSTONE = 3
         };
+        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::RETIRED_OR_TOMBSTONE) + 1;
 
         struct DescriptorSaftyFiles
         {
@@ -44,23 +45,19 @@ namespace PredictedAdaptedEncoding
         static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
+            const uint32_t description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
+            const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
             if (
-                !APCDataStructure::IsValidFabricUnit(desc_id_state)
+                !APCDataStructure::IsValidFabricUnit(desc_id_state) ||
+                !HashIdConstructror::IsValidGroupId(description_id_maybe) ||
+                ownership_maybe >= LEN_OF_DESCRIPTION_AND_HASH_STATE
             )
             {
                 return return_safty_files;
             }
-
-            const uint32_t description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
-            const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
-
             return_safty_files.DescriptionID = description_id_maybe;
             return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
-            
-            return_safty_files.IsValid = true;
-
             return return_safty_files;
-
         }
 
         static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept

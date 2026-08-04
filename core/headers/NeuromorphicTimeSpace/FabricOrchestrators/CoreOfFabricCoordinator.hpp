@@ -7,13 +7,13 @@ namespace PredictedAdaptedEncoding
     struct EnumsOfFabricCoordinator
     {
         /// UNCHECKED
-        static constexpr size_t RELATION_WIDTH_OF_FABRIC = 8u;
-        static constexpr size_t QUEUE_RECORD_WIDTH_OF_FABRIC = 2u;
-        static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 4u;
-        static constexpr size_t DEVICE_VIEW_WIDTH_OF_APC_FABRIC = 8u;
-        static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 4u;
+        static constexpr size_t RELATION_WIDTH_OF_FABRIC = 0u;
+        static constexpr size_t QUEUE_RECORD_WIDTH_OF_FABRIC = 0u;
+        static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 0u;
+        static constexpr size_t DEVICE_VIEW_WIDTH_OF_APC_FABRIC = 0u;
+        static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
         static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
-        static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 1024u;
+        static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 512u;
         ///--------------------------
 
         static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;

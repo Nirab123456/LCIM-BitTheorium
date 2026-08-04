@@ -306,5 +306,23 @@ namespace PredictedAdaptedEncoding
         ResetScalarsofTheFabric_();
     }
 
+    // bool SlabToFabricConverterAndCordinator::FormulateAPCFromFabric(
+    //     APCAxisSelection desired_axis,
+    //     IAB::BufferOfAPCIdentity& identity_buffer_new_apc
+    // ) noexcept
+    // {
+    //     const std::optional<uint64_t> slot_new = GetASlotForNewAPCLink();
+    //     if (!slot_new)
+    //     {
+    //         return false;
+    //     }
+
+    //     auto ReleseReservedSlot__ = [&]()
+    //     {
+    //         SwitchOwnershipOfAReadyDescription
+    //     };
+        
+    // }
+
 
 }
