@@ -7,6 +7,10 @@ namespace PredictedAdaptedEncoding
     {
         
     protected:
+        using LBO = LayoutBoundsOrchestrator;
+        using SD = SchemaDefinition;
+        using IAB = InstallAxisToBuffer;
+        using DSA = DescriptionOfAPC;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
         uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
@@ -40,12 +44,6 @@ namespace PredictedAdaptedEncoding
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
         ) noexcept;
 
-        /// @brief ONLY: FREE_OR_EMPTY OR RETIRED_OR_TOMBSTONE -> can be reserved
-        bool ReserveADescriptionSlotMeansAPC_(
-            uint64_t description_idx,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
         /// @brief UPDATES: A Description In ONE SHOT
         bool OneShotUpdateAPCDescriptor_(
             const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
@@ -56,9 +54,12 @@ namespace PredictedAdaptedEncoding
     public:
         APCSegmentPoolRange GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept;
 
-        bool SwitchOwnershipOfAReadyDescription(
+        /// @return previous ID_STATE -> raw value for reverting safely 
+        std::optional<uint64_t> SwitchOwnershipOfAReadyDescription(
             uint64_t description_idx,
-            DescriptionOfAPC::StateOfAPC updated_state
+            DescriptionOfAPC::StateOfAPC updated_state,
+            bool caller_holds_reservation = false,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         std::optional<uint64_t> GetASlotForNewAPCLink() noexcept;        

@@ -92,7 +92,7 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        return DescriptionOfAPC::ValidateADescriptionBuffer(return_buffer);
+        return true;
     }
 
 
@@ -102,7 +102,7 @@ namespace PredictedAdaptedEncoding
     ) noexcept
     {
         const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(
-            desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::APC_INDEX)]
+            desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::APC_INDEX)]
         );
 
         if (
@@ -128,71 +128,80 @@ namespace PredictedAdaptedEncoding
         {
             return return_files;
         }
-        uint64_t state_of_apc_cell = UNSIGNED_ZERO;
+        uint64_t state_of_apc_cell = FABRIC_CELL_SENTINAL;
         AtomicallyLoadReadAUnit(maybe_id_state_idx.value(), state_of_apc_cell);
         return_files = DescriptionOfAPC::GetDescriptionFile(state_of_apc_cell);
         return return_files;
     }
 
 
-    // bool APCHandleDescriptorConstructor::ReserveADescriptionSlotMeansAPC_(
-    //     uint64_t description_idx,
-    //     uint32_t max_tries
-    // ) noexcept
-    // {
-    //     const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(description_idx);
-
-    //     if (!this_apc_descriptor_range.IsValid)
-    //     {
-    //         return false;
-    //     }
-
-
-    // }
-
-    bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
+    std::optional<uint64_t> APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
-        DescriptionOfAPC::StateOfAPC desired_state
+        DSA::StateOfAPC desired_state,
+        bool caller_holds_reservation,
+        uint32_t max_tries
     ) noexcept
     {
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer  desc_buffer{};
-        
-        const bool buffer_ok = ReadACompleateAPCDescriptorBuffer_(
-            description_idx, 
-            desc_buffer
-        );
+        const DSA::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(description_idx);
 
-
-
-        const uint32_t updated_id = DescriptionOfAPC::ComposeDescriptionId(
-            desc_buffer, desired_state
-        );
-        uint64_t updated_id_state = DescriptionOfAPC::ComposeIdAndState(updated_id, desired_state);
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx_(description_idx);
-
-        uint64_t expected_id_state = desc_buffer[
-            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT)
-        ];
-
-        const DescriptionOfAPC::DescriptorSaftyFiles expected_desc_files = DescriptionOfAPC::GetDescriptionFile(expected_id_state);
-
-        if (
-            !buffer_ok ||
-            !APCDataStructure::IsValid32BitAPCUnit(updated_id) ||
-            !APCDataStructure::IsValidFabricUnit(updated_id_state) ||
-            !maybe_id_state_idx.has_value() ||
-            !expected_desc_files.IsValid ||
-            !DescriptionOfAPC::IsTransitionStateLeagal(expected_desc_files.StateOfTheAPC, desired_state)
-        )
+        if (!this_apc_descriptor_range.IsValid)
         {
             return false;
         }
+        const uint8_t id_st_concurrent = static_cast<uint8_t>(DSA::DescriptionIdentity::ID_STATE_CONCURRENT);
+        const uint64_t id_state_idx = this_apc_descriptor_range.BeginIndex + id_st_concurrent;
 
-        return CompareExchangeStrongFromFabric(
-            maybe_id_state_idx.value(),
-            expected_id_state,
-            updated_id_state
-        );
+        DSA::SingleAPCDescriptionCellBuffer description_buffer{};
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            const DSA::DescriptorSaftyFiles current_id_st = ReadAPCStateAtomically_(description_idx);
+            if (
+                !current_id_st.IsValid
+            )
+            {
+                return false;
+            }
+            if (
+                (!caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED) ||
+                !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
+            )
+            {
+                continue;
+            }
+            uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st.DescriptionID, current_id_st.StateOfTheAPC);
+
+            if (
+                !ReadACompleateAPCDescriptorBuffer_(description_idx, description_buffer) ||
+                description_buffer[id_st_concurrent] != current_id_state_value
+            )
+            {
+                continue;
+            }
+
+            DSA::DescriptorSaftyFiles updated_id_state{};
+            updated_id_state.StateOfTheAPC = DSA::StateOfAPC::RESERVED;
+            updated_id_state.DescriptionID = DSA::ComposeDescriptionId(
+                description_buffer,
+                updated_id_state.StateOfTheAPC
+            );
+
+            const uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_id_state.DescriptionID, updated_id_state.StateOfTheAPC);
+
+            if (
+                APCDataStructure::IsValidFabricUnit(updated_id_state_value) &&
+                CompareExchangeStrongFromFabric(
+                    id_state_idx,
+                    current_id_state_value,
+                    updated_id_state_value
+                )
+            )
+            {
+                return updated_id_state_value;
+            }
+            
+        }
+        return std::nullopt;
     }
 
 
@@ -237,7 +246,7 @@ namespace PredictedAdaptedEncoding
         }
 
         const size_t state_cell_idx = desired_description_range.BeginIndex + 
-            static_cast<size_t>(DescriptionOfAPC::DescriptionUnitIdentity::ID_STATE_CONCURRENT);
+            static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::ID_STATE_CONCURRENT);
         
         return state_cell_idx;
     }

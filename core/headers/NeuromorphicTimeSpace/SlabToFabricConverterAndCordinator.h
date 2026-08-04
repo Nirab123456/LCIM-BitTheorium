@@ -23,11 +23,6 @@ namespace PredictedAdaptedEncoding
         /// @param table_directory_end 
         void InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept;
 
-    protected:
-        using LBO = LayoutBoundsOrchestrator;
-        using SD = SchemaDefinition;
-        using IAB = InstallAxisToBuffer;
-
     public:
         SlabToFabricConverterAndCordinator(/* args */) noexcept = default;
 

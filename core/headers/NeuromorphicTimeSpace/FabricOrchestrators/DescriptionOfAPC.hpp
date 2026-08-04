@@ -37,7 +37,7 @@ namespace PredictedAdaptedEncoding
                 !APCDataStructure::IsValid32BitAPCUnit(description_id)
             )
             {
-                return false;
+                return FABRIC_CELL_SENTINAL;
             }
             return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
@@ -153,11 +153,11 @@ namespace PredictedAdaptedEncoding
                 }
             }
 
-            const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB)] -
-                desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+            const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB)] -
+                desc_return_buff[static_cast<size_t>(DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB)];
             
             const DescriptorSaftyFiles desc_files = GetDescriptionFile(
-                desc_return_buff[static_cast<size_t>(DescriptionUnitIdentity::ID_STATE_CONCURRENT)]
+                desc_return_buff[static_cast<size_t>(DescriptionIdentity::ID_STATE_CONCURRENT)]
             );
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, desc_files.StateOfTheAPC);
@@ -178,7 +178,7 @@ namespace PredictedAdaptedEncoding
 
         static constexpr void SetADescriptionUnit(
             SingleAPCDescriptionCellBuffer& desc_buffer,
-            DescriptionUnitIdentity identity,
+            DescriptionIdentity identity,
             uint64_t value
         ) noexcept
         {
@@ -201,10 +201,10 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             BuildZerodDescriptionBuffer(desc_return_buff);
-            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_INDEX, apc_idx);
-            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
-            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
-            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::NEXT_SLOT_SEGMENTPOOL_BEGAIN, next_apc_segment_pool);
+            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_INDEX, apc_idx);
+            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
+            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
+            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::NEXT_SLOT_SEGMENTPOOL_BEGAIN, next_apc_segment_pool);
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
             const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
@@ -217,7 +217,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             
-            SetADescriptionUnit(desc_return_buff, DescriptionUnitIdentity::ID_STATE_CONCURRENT, id_state_unit);
+            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::ID_STATE_CONCURRENT, id_state_unit);
 
             return ValidateADescriptionBuffer(desc_return_buff);
         }
@@ -242,7 +242,7 @@ namespace PredictedAdaptedEncoding
             InstallAxisToBuffer::BufferOfAPCIdentity& identity
         ) noexcept
         {
-            const uint8_t APC_PHYSICAL_ID_LEN = static_cast<uint8_t>(DescriptionUnitIdentity::APC_SEGMENTPOOL_END_SLAB) - static_cast<uint8_t>(DescriptionUnitIdentity::APC_INDEX) + 1;
+            const uint8_t APC_PHYSICAL_ID_LEN = static_cast<uint8_t>(DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB) - static_cast<uint8_t>(DescriptionIdentity::APC_INDEX) + 1;
             const uint8_t offset_identity = 1u;
 
             using IAB = InstallAxisToBuffer;
