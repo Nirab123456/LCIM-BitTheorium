@@ -11,6 +11,7 @@ namespace PredictedAdaptedEncoding
         using SD = SchemaDefinition;
         using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
+        using HTC = HashTableConf;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
         uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
@@ -62,7 +63,7 @@ namespace PredictedAdaptedEncoding
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        std::optional<uint64_t> GetASlotForNewAPCLink() noexcept;        
+        std::optional<uint64_t> GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept;        
     };
 
 

@@ -306,23 +306,120 @@ namespace PredictedAdaptedEncoding
         ResetScalarsofTheFabric_();
     }
 
-    // bool SlabToFabricConverterAndCordinator::FormulateAPCFromFabric(
-    //     APCAxisSelection desired_axis,
-    //     IAB::BufferOfAPCIdentity& identity_buffer_new_apc
-    // ) noexcept
-    // {
-    //     const std::optional<uint64_t> slot_new = GetASlotForNewAPCLink();
-    //     if (!slot_new)
-    //     {
-    //         return false;
-    //     }
+    std::optional<uint64_t> SlabToFabricConverterAndCordinator::NewApcFromFabric(
+        APCAxisSelection desired_axis,
+        IAB::BufferOfAPCIdentity& identity_buffer_new_apc
+    ) noexcept
+    {
+        uint64_t slot_new = FABRIC_CELL_SENTINAL;
+        const std::optional<uint64_t> previous_st = GetASlotForNewAPCLink(slot_new);
+        if (!previous_st.has_value())
+        {
+            return std::nullopt;
+        }
+        const DSA::DescriptorSaftyFiles previous_files = DSA::GetDescriptionFile(previous_st.value());
 
-    //     auto ReleseReservedSlot__ = [&]()
-    //     {
-    //         SwitchOwnershipOfAReadyDescription
-    //     };
-        
-    // }
+        auto ReleseReservedSlot__ = [&]()
+        {
+            SwitchOwnershipOfAReadyDescription(slot_new, previous_files.StateOfTheAPC);
+        };
+
+        DSA::SingleAPCDescriptionCellBuffer description{};
+
+        if (
+            !ReadACompleateAPCDescriptorBuffer_(slot_new, description) ||
+            !DSA::BuildIdentityBufferFromDescriptionBuffer(description, identity_buffer_new_apc)
+        )
+        {
+            ReleseReservedSlot__();
+            return std::nullopt;
+        }
+        HTC::SingleHashBuffer branch_hash_V{};
+        HTC::SingleHashBuffer axis_hash_V{};
+        HTC::SingleHashBuffer branch_hash_H{};
+        HTC::SingleHashBuffer axis_hash_H{};
+
+        if (IAB::WantsVertical(desired_axis))
+        {
+            if (
+                !HTC::InstallOwnedRoot(
+                    identity_buffer_new_apc,
+                    IAB::BidirectionalAxis::VARTICAL_LOGICAL,
+                    branch_hash_V,
+                    axis_hash_V
+                )
+            )
+            {
+                return std::nullopt;
+            }
+
+            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_V))
+            {
+                return std::nullopt;
+            }
+
+            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::VERTICAL_HASH, axis_hash_V))
+            {
+                RetireHashKey_(
+                    FabricTableSegmentClasses::VERTICAL_HASH, 
+                    HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
+                );
+                return std::nullopt;
+            }
+        }
+
+        if (IAB::WantsHorizontal(desired_axis))
+        {
+            if (
+                !HTC::InstallOwnedRoot(
+                    identity_buffer_new_apc,
+                    IAB::BidirectionalAxis::HORIZONTALLY_SHARED,
+                    branch_hash_V,
+                    axis_hash_V
+                )
+            )
+            {
+                return std::nullopt;
+            }
+
+            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_H))
+            {
+                if (IAB::WantsHorizontal(desired_axis))
+                {
+                    RetireHashKey_(
+                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
+                    );
+                    RetireHashKey_(
+                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
+                    );
+                }
+                return std::nullopt;
+            }
+
+            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::HORIZONTAL_HASH, axis_hash_H))
+            {
+                if (IAB::WantsHorizontal(desired_axis))
+                {
+                    RetireHashKey_(
+                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
+                    );
+                    RetireHashKey_(
+                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
+                    );
+                    RetireHashKey_(
+                        FabricTableSegmentClasses::BRANCH_HASH, 
+                        HTC::GetAUnitFromHashBuffer(branch_hash_H, HTC::HashBufferIndexing::KEY_INDEX)
+                    );
+                }
+                return std::nullopt;
+            }
+        }
+        return previous_st;
+    }
 
 
 }

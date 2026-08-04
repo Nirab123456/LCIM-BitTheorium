@@ -43,7 +43,7 @@ namespace PredictedAdaptedEncoding
             uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
 
-        bool FormulateAPCFromFabric(
+        std::optional<uint64_t> NewApcFromFabric(
             APCAxisSelection desired_axis,
             IAB::BufferOfAPCIdentity& identity_buffer_new_apc
         ) noexcept;

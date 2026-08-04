@@ -163,7 +163,7 @@ namespace PredictedAdaptedEncoding
                 return false;
             }
             if (
-                (!caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED) ||
+                (!caller_holds_reservation && current_id_st.StateOfTheAPC != desired_state) ||
                 !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
             )
             {
@@ -205,7 +205,7 @@ namespace PredictedAdaptedEncoding
     }
 
 
-    std::optional<uint64_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink() noexcept
+    std::optional<uint64_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept
     {
         if (
             !FabricInitialized_.load(std::memory_order_acquire) ||
@@ -219,18 +219,17 @@ namespace PredictedAdaptedEncoding
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DescriptionOfAPC::DescriptorSaftyFiles desired_files = ReadAPCStateAtomically_(description_idx);
-            if (
-                desired_files.IsValid && 
-                desired_files.StateOfTheAPC == DescriptionOfAPC::StateOfAPC::FREE_OR_EMPTY &&
-                SwitchOwnershipOfAReadyDescription(
-                    description_idx,
-                    DescriptionOfAPC::StateOfAPC::RESERVED
-                )
-            )
+            std::optional<uint64_t> previous_st_id_value = SwitchOwnershipOfAReadyDescription(
+                description_idx,
+                DescriptionOfAPC::StateOfAPC::RESERVED,
+                false
+            );
+            if (!previous_st_id_value.has_value())
             {
-                return static_cast<uint64_t>(description_idx);
+                continue;
             }
+            desired_slot = description_idx;
+            return previous_st_id_value;
         }
 
         return std::nullopt;
