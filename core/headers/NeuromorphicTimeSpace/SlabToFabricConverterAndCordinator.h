@@ -5,7 +5,7 @@ namespace PredictedAdaptedEncoding
 {
     
     
-    class SlabToFabricConverterAndCordinator : public HashTablesConstructor
+    class SlabToFabricConverterAndCordinator : public DescriptionOfAPC
     {
     private:
 

@@ -42,7 +42,7 @@ struct LayoutBuilderAndValidator
             return FABRIC_CELL_SENTINAL;
         }
 
-        const std::optional<uint64_t> layout_cell = Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
+        const std::optional<uint64_t> layout_cell = TwinU32ToU64::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
         return layout_cell;
     }
 
@@ -58,8 +58,8 @@ struct LayoutBuilderAndValidator
             return return_carrier;
         }
         
-        return_carrier.BeginIndex = Double32In64ForAPCandFabric::ExtractLow32Of64(fabric_unit);
-        return_carrier.EndIndex = Double32In64ForAPCandFabric::ExtractHigh32Of64(fabric_unit);
+        return_carrier.BeginIndex = TwinU32ToU64::ExtractLow32Of64(fabric_unit);
+        return_carrier.EndIndex = TwinU32ToU64::ExtractHigh32Of64(fabric_unit);
         return_carrier.LayoutIdentity = layout_marker;
         ValidateALayoutCarrier(return_carrier);
         return return_carrier;

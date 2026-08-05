@@ -11,7 +11,6 @@ namespace PredictedAdaptedEncoding
         using SD = SchemaDefinition;
         using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
-        using HTC = HashTableConf;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
         uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
@@ -67,52 +66,5 @@ namespace PredictedAdaptedEncoding
     };
 
 
-    class HashTablesConstructor : public APCHandleDescriptorConstructor
-    {
-    protected:
-        
-        bool InsertOrUpdateRobinHoodHash48_(
-            FabricTableSegmentClasses hash_table, 
-            uint64_t key, 
-            uint64_t value,
-            std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
-        ) noexcept;
-
-        bool ReadHashBuffeByIndex_(
-            uint64_t bucket_idx,
-            HashTableConf::SingleHashBuffer& hash_buffer_return
-        ) noexcept;
-
-        /// @brief
-        /// @return Previous State-Distence-Fingerprint / std::nullopt -> MEANS: false
-        std::optional<uint64_t> ReserveHashBuffer_(
-            uint64_t bucked_index,
-            HashTableConf::SingleHashBuffer& hash_buffer_return,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool ReleseHashBuffer_(
-            uint64_t bucket_base_idx,
-            uint64_t previous_st_dist_fp 
-        ) noexcept;
-
-        void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
-
-        bool RetireHashKey_(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
-
-        bool PublishPreparedHashBuffer_(
-            FabricTableSegmentClasses hash_table, 
-            HashTableConf::SingleHashBuffer& hash_buffer
-        ) noexcept;
-
-    public:
-
-        //Compleately lockfree and waitless
-        std::optional<uint64_t> ReadHashValueByKey(
-            FabricTableSegmentClasses hash_table, 
-            uint64_t hash_key,
-            HashTableConf::SingleHashBuffer* hash_buffer_return = nullptr
-        ) noexcept;
-    };
 
 }

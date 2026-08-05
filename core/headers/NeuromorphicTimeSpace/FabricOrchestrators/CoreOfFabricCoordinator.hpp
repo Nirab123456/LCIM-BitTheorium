@@ -26,13 +26,6 @@ namespace PredictedAdaptedEncoding
         };
         static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::END64) + 1u;
 
-        enum class HashBufferIndexing : uint8_t
-        {
-            KEY_INDEX = 0,
-            VALUE_INDEX = 1,
-            PROB_DISTANCE_LOCK = 2
-        };
-        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK) + 1u;
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
         enum class DescriptionIdentity : uint8_t
@@ -117,28 +110,6 @@ namespace PredictedAdaptedEncoding
             EOF_FABRIC_HEADER = 63
 
         };
-
-
-        enum class JustifyClaimCas
-        {
-            SUCCESS = 0,
-            OUT_OF_BOUND = 1,
-            INVALID_CELL = 2,
-            CELL_SENTINAL_STATE = 3,
-            CELL_INVALID = 4,
-            CAS_LOOP_RANOUT = 5,
-            UNDEFINED_CAS_FAILURE = 6,
-            INVALID_USE_OF_METHOD = 7
-
-        };
-
-        /// @brief To Choose a Buffer to use 
-        enum class SizeOfABuffer : uint8_t
-        {
-            SMALL = 0,
-            MIDIUM = 1,
-            LARGE = 3
-        };
     };
 
     struct CoreOfFabricCoordinator : public EnumsOfFabricCoordinator
@@ -150,28 +121,17 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
         static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
-        static constexpr bool IsValidHashTable(FabricTableSegmentClasses table_class) noexcept
+        static constexpr bool IsValidEdgeTable(FabricTableSegmentClasses table_class) noexcept
         {
-            return table_class == FabricTableSegmentClasses::BRANCH_HASH ||
-                table_class == FabricTableSegmentClasses::VERTICAL_HASH ||
-                table_class == FabricTableSegmentClasses::HORIZONTAL_HASH;
-        }
-
-        static constexpr bool IsKnownFabricTable(FabricTableSegmentClasses table) noexcept
-        {
-            return table > FabricTableSegmentClasses::NONE &&
-                table < FabricTableSegmentClasses::NULLNAN;
+            return
+                table_class == FabricTableSegmentClasses::HORIZONTAL_EDGE_TABLE ||
+                table_class == FabricTableSegmentClasses::VERTICAL_EDGE_TABLE;
         }
 
         static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricTableSegmentClasses table) noexcept
-        {
-            if (!IsKnownFabricTable(table))
-            {
-                return std::nullopt;
-            }
-            
+        {   
             return static_cast<uint8_t>(
-                static_cast<uint8_t>(table) - 1
+                static_cast<uint8_t>(table)
             );
         }
 

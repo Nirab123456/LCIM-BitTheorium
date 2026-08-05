@@ -4,331 +4,150 @@
 namespace PredictedAdaptedEncoding
 {
 
-struct DefaultHashings : public DescriptorConf
+
+struct EdgeTableConf : public DescriptionOfAPC
 {
-    static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
-    static constexpr uint8_t DEFAULT_TABLE_TAILROOM_MULT = 2u;
-    static constexpr uint32_t PROB_DISTANCE_SENTINAL = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-    static constexpr uint64_t VALIDATION_MARK_OF_HASH_TABLE_BUFFER = 333;
-
-    using HashState = StateOfAPC;
-
-    enum class HashReadStatus : uint8_t
+    enum class EdgeTableIndexing : uint8_t
     {
-        NOT_FOUND = 0,
-        FOUND_LIVE = 1,
-        FOUND_RESERVED = 2,
-        FOUND_RETIRED = 3,
-        TABLE_MUTATING = 4,
+        ROOT_AND_END = 0,
+        COUNT_AND_SIBBLING = 1,
+        SEQLOCK_STATE = 2
+    };
+
+    enum class EdgeStatus : uint8_t
+    {
+        FREE_RETIRED = 0,
+        RESERVED = 1,
+        LIVE = 2,
+        RETIRED = 3,
+        HAULTED = 4,
+
         RETRY_REQUIRED = 5,
         CORRUPTED = 6
     };
 
-
-    struct AxisTopAndCountForBranchHashValue
+    static constexpr bool IsStorableStatus(EdgeStatus status) noexcept
     {
-        uint32_t AxisTopWaterMark = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        uint32_t MemberCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        return 
+            status < EdgeStatus::RETRY_REQUIRED;
+    }
+
+    static constexpr uint8_t EDGE_TABLE_RECORD_WIDTH = static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE) + 1u;
+    using EdgeBuffer = std::array<uint64_t, EDGE_TABLE_RECORD_WIDTH>;
+
+    struct EdgeData
+    {
+        FabricTableSegmentClasses EdgeTable{};
+        //PAIR -1 
+        uint32_t Root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        //PAIR-2
+        uint32_t OwnLinkCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        //PAIR-3
+        uint32_t SeqLock = UNSIGNED_ZERO;
+        EdgeStatus Status = EdgeStatus::CORRUPTED;
+
+        bool IsValid = false;
     };
 
-    static constexpr uint64_t BucketCountForExpectedEntries(uint64_t count_of_entries) noexcept
+    static constexpr bool ValidateEdgeData(
+        const EdgeData& edge
+    ) noexcept
     {
         if (
-            count_of_entries == UNSIGNED_ZERO ||
-            count_of_entries == FABRIC_CELL_SENTINAL
+            !IsValidEdgeTable(edge.EdgeTable) ||
+            !IsStorableStatus(edge.Status) ||
+            !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
+            !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||
+            !(
+                edge.DoubellyLinkedIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
+                APCDataStructure::IsValid32BitAPCUnit(edge.DoubellyLinkedIndex)
+            )
         )
         {
-            return UNSIGNED_ZERO;
-        }
-
-        const uint64_t wanted_bucket_count = std::max<uint64_t>(MIN_LIMIT_POW_OF_2, count_of_entries * DEFAULT_TABLE_TAILROOM_MULT);
-
-        return HashIdConstructror::NextPowerOf2Unsigned64(wanted_bucket_count);
-    }
-
-    static constexpr uint64_t PackAxisTopAndCount(
-        const AxisTopAndCountForBranchHashValue&  hash_values
-    ) noexcept
-    {
-        return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(
-            hash_values.AxisTopWaterMark,
-            hash_values.MemberCount
-        );
-    }
-
-    static constexpr AxisTopAndCountForBranchHashValue GetBranchHashValues(uint64_t value) noexcept
-    {
-        AxisTopAndCountForBranchHashValue both_value{};
-
-        if (!APCDataStructure::IsValidFabricUnit(value))
-        {
-            return both_value;
-        }
-
-        both_value.AxisTopWaterMark = Double32In64ForAPCandFabric::ExtractLow32Of64(value);
-        both_value.MemberCount = Double32In64ForAPCandFabric::ExtractHigh32Of64(value);
-        return both_value;
-    }
-
-};
-
-
-struct HashHelpers : public DefaultHashings
-{
-
-    using SingleHashBuffer = std::array<uint64_t, HASH_BUCKED_WIDTH_OF_FABRIC + 1>;
-    static constexpr size_t VALIDATION_INDEX_HASH_BUFFER = static_cast<size_t>(HASH_BUCKED_WIDTH_OF_FABRIC);
-
-
-    static constexpr uint64_t GetAUnitFromHashBuffer(
-        const SingleHashBuffer& hash_buffer,
-        HashBufferIndexing index
-    ) noexcept
-    {
-        return hash_buffer[static_cast<uint8_t>(index)]; 
-    }
-
-    static constexpr void SetHashBufferUnit(
-        SingleHashBuffer& hash_buffer,
-        HashBufferIndexing index,
-        uint64_t unit_value
-    ) noexcept
-    {
-        hash_buffer[static_cast<uint8_t>(index)] = unit_value;
-    }
-
-    static constexpr bool IsValidHashBuffer (const SingleHashBuffer& hash_buffer) noexcept
-    {
-        return 
-            HashIdConstructror::IsValidAPCId(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX)) &&
-            APCDataStructure::IsValidFabricUnit(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX));
-    }
-
-    static constexpr bool IsCannonicalHashBuffer(
-        const SingleHashBuffer& hash_buffer
-    ) noexcept
-    {
-        return 
-            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX) == UNSIGNED_ZERO &&
-            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX) == UNSIGNED_ZERO &&
-            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK) == UNSIGNED_ZERO;
-    }
-
-
-    static constexpr uint32_t MakeHashFingerPrint(
-        const SingleHashBuffer& buffer,
-        HashState state,
-        uint32_t prob_distance
-    ) noexcept
-    {
-        uint32_t hash = HASH32_GRATIO_1;
-        uint64_t value = GetAUnitFromHashBuffer(buffer, HashBufferIndexing::VALUE_INDEX);
-        uint64_t key = GetAUnitFromHashBuffer(buffer, HashBufferIndexing::KEY_INDEX);
-        hash ^= static_cast<uint32_t>(value);
-        hash *= HASH32_GRATIO_2;
-        hash ^= static_cast<uint32_t>(value >> 32u);
-        hash *= HASH32_GRATIO_2;
-
-        hash ^= static_cast<uint32_t>(key);
-        hash *= HASH32_GRATIO_2;
-        hash ^= static_cast<uint32_t>(key >> 32u);
-        hash *= HASH32_GRATIO_2;
-
-        hash ^= prob_distance;
-        hash *= HASH32_GRATIO_2;
-
-        hash ^= static_cast<uint32_t>(state);
-        hash *= HASH32_GRATIO_2;
-        hash = hash & LeftOverBitMaskUntil32(Pack32_28_4BitIn64BitUnit::LEN_OF_28_BIT);
-
-        hash ^= hash >> 16u;
-        hash *= HASH32_GRATIO_1;
-        hash = hash & LeftOverBitMaskUntil32(Pack32_28_4BitIn64BitUnit::LEN_OF_28_BIT);
-        if (hash == UNSIGNED_ZERO)
-        {
-            return 1;
-        }
-        if (hash == Pack32_28_4BitIn64BitUnit::UINT28_MAX)
-        {
-            return hash - 1;
-        }
-        return hash;
-    }
-
-    static constexpr bool RecompileStateInBuffer(
-        SingleHashBuffer& hash_buffer,
-        HashState updated_state,
-        std::optional<uint32_t> updated_prob = std::nullopt
-    ) noexcept
-    {
-        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
-        state_dist_fp.High4Bit = static_cast<uint8_t>(updated_state);
-        if (updated_prob.has_value())
-        {
-            state_dist_fp.Lowest32Bit = updated_prob.value();
-        }
-
-        state_dist_fp.Mid28Bit = MakeHashFingerPrint(
-            hash_buffer, 
-            updated_state,
-            state_dist_fp.Lowest32Bit
-        );
-        
-        SetHashBufferUnit(
-            hash_buffer,
-            HashBufferIndexing::PROB_DISTANCE_LOCK,
-            Pack32_28_4BitIn64BitUnit::PackValues(state_dist_fp)
-        );
-
-        return ValidateHashBuffer(hash_buffer);
-    }
-
-    static constexpr bool SealHashBuffer(
-        SingleHashBuffer& hash_buffer,
-        uint32_t prob_distance,
-        HashState hash_state
-    ) noexcept
-    {
-        return RecompileStateInBuffer(hash_buffer, hash_state, prob_distance);
-    }
-
-    static constexpr bool MakeValidHashBuffer(
-        SingleHashBuffer& hash_buffer,
-        const uint64_t& key,
-        const uint64_t& value,
-        const uint32_t& prob_distance,
-        HashState hash_state
-    ) noexcept
-    {
-        SetHashBufferUnit(
-            hash_buffer,
-            HashBufferIndexing::KEY_INDEX,
-            key
-        );
-
-        SetHashBufferUnit(
-            hash_buffer,
-            HashBufferIndexing::VALUE_INDEX,
-            value
-        );
-
-        return RecompileStateInBuffer(hash_buffer, hash_state, prob_distance);
-    }
-
-    static constexpr Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier GetStDistFp(const SingleHashBuffer& hash_buffer) noexcept
-    {
-        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
-            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK)
-        );
-        return state_dist_fp;
-    }
-
-
-    static constexpr bool ValidateHashBuffer(
-        SingleHashBuffer& hash_buffer,
-        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* dist_and_validation_files = nullptr
-    ) noexcept
-    {
-        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
-        auto AttachFiles__ = [&]()
-        {
-            if (dist_and_validation_files)
-            {
-                *dist_and_validation_files = state_dist_fp;
-            }
-        };
-
-        if (IsCannonicalHashBuffer(hash_buffer))
-        {
-            AttachFiles__();
-            hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
-            return true;
-        }
-        
-        if (
-            !IsValidHashBuffer(hash_buffer) ||
-            !state_dist_fp.IsValid ||
-            state_dist_fp.High4Bit > static_cast<uint8_t>(HashState::RETIRED_OR_TOMBSTONE) ||
-            MakeHashFingerPrint(
-                hash_buffer, 
-                static_cast<HashState>(state_dist_fp.High4Bit),
-                state_dist_fp.Lowest32Bit
-            ) != state_dist_fp.Mid28Bit
-        )
-        {
-            hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
             return false;
         }
-        AttachFiles__();
-        hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
+
+        const bool end_is_valid = (
+            edge.End == 
+            APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
+            APCDataStructure::IsValid32BitAPCUnit(edge.End)
+        );
+
+        if (!end_is_valid)
+        {
+            return false;
+        }
+
+        if (
+            edge.Status == EdgeStatus::RESERVED &&
+            InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
+        )
+        {
+            return false;
+        }
+
+        if (
+            edge.Status != EdgeStatus::RESERVED &&
+            !InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
+        )
+        {
+            return false;
+        }
+        
+        if (
+            edge.OwnLinkCount == UNSIGNED_ZERO &&
+            edge.End != APCDataStructure::APC_INDEX_BOUND_SENTINAL
+        )
+        {
+            return false;
+        }
+        
+        if (
+            edge.OwnLinkCount != UNSIGNED_ZERO &&
+            edge.End == APCDataStructure::APC_INDEX_BOUND_SENTINAL
+        )
+        {
+            return false;
+        }
+        
+        return true;
+    }
+
+    static constexpr bool BuildEdgeBuffer(
+        EdgeBuffer& buffer,
+        EdgeData edge
+    ) noexcept
+    {
+        if (!ValidateEdgeData(edge))
+        {
+            edge.IsValid = false;
+            buffer.fill(FABRIC_CELL_SENTINAL);
+            return false;
+        }
+        edge.IsValid = true;
+        buffer[static_cast<uint8_t>(EdgeTableIndexing::ROOT_AND_END)] = 
+            TwinU32ToU64::PackDoubleUnsigned32In64(edge.Root, edge.End);
+        
+        buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)] =
+            TwinU32ToU64::PackDoubleUnsigned32In64(edge.OwnLinkCount, edge.DoubellyLinkedIndex);
+        
+        buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)] = 
+            TwinU32ToU64::PackDoubleUnsigned32In64(edge.SeqLock, static_cast<uint8_t>(edge.Status));
         return true;
     }
 
 };
 
-
-struct HashTableConf : public HashHelpers
+struct EdgeBuilder : public EdgeTableConf
 {
-
-
-    /// @brief FILL: The buffer with UINT64_MAX EXCEPT:VALIDATION_INDEX_HASH_BUFFER -> 0
-    /// @param a_hash_buffer ADDRESS: OF: SingleHashBuffer
-    static constexpr void BuildEmptyHashBuffer(SingleHashBuffer& a_hash_buffer) noexcept
-    {
-        for (size_t i = 0; i < a_hash_buffer.size(); i++)
-        {
-            a_hash_buffer[i] = FABRIC_CELL_SENTINAL;
-        }
-
-        a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
-    }
-
-
-    static constexpr bool IsExpectedHashStateBuffer(
-        SingleHashBuffer& hash_buffer, 
-        uint64_t desired_key,
-        HashState desired_state =  HashState::LIVE_OR_PUBLISHED,
-        Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* state_distance_fp_carrier = nullptr
-    ) noexcept
-    {
-        const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
-        const HashState current_state = static_cast<HashState>(state_dist_fp.High4Bit);
-        const uint64_t current_key = GetAUnitFromHashBuffer(
-            hash_buffer,
-            HashBufferIndexing::KEY_INDEX
-        );
-
-        if (state_distance_fp_carrier)
-        {
-            *state_distance_fp_carrier = state_dist_fp;
-        }
-        
-        return 
-            ValidateHashBuffer(hash_buffer) &&
-            current_key == desired_key &&
-            current_state == desired_state;
-    }
-
-public:
-
-    static constexpr bool IfHashBufferHaveValidationMark(SingleHashBuffer& a_hash_buffer) noexcept
-    {
-        return a_hash_buffer[VALIDATION_INDEX_HASH_BUFFER] == VALIDATION_MARK_OF_HASH_TABLE_BUFFER;  
-    }
-
-    static constexpr bool IsGroupableHashTable(FabricTableSegmentClasses hash_table) noexcept
-    {
-        return hash_table == FabricTableSegmentClasses::VERTICAL_HASH || hash_table == FabricTableSegmentClasses::HORIZONTAL_HASH;
-    }
-
 
     static constexpr bool PrepareInharitedAxis(
         InstallAxisToBuffer::BufferOfAPCIdentity& predessor,
         InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
         InstallAxisToBuffer::BidirectionalAxis axis,
-        InstallAxisToBuffer::DescOfInharitance inharitance,
-        SingleHashBuffer& axis_hash_buffer,
-        SingleHashBuffer& branch_hash_buffer
+        InstallAxisToBuffer::DescOfInharitance inharitance
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
@@ -456,24 +275,7 @@ public:
             return false;
         }
 
-        bool branch_hash_ok = MakeValidHashBuffer(
-            branch_hash_buffer,
-            axis_id,
-            PackAxisTopAndCount(updated_branch_hash_values),
-            Pack32_28_4BitIn64BitUnit::UnpackUnitToCarrier(
-                branch_hash_buffer[control_idx]
-            ).Lowest32Bit,
-            HashTableConf::HashState::LIVE_OR_PUBLISHED
-        );
 
-        bool axis_hash_ok = MakeValidHashBuffer(
-            axis_hash_buffer,
-            current_key,
-            HashIdConstructror::APCSlotIdxToHashTableHandler(current_slot),
-            UNSIGNED_ZERO,
-            HashTableConf::HashState::LIVE_OR_PUBLISHED
-        );
-        
         return branch_hash_ok &&
             axis_hash_ok &&
             InstallAxisToBuffer::SealIdentityBuffer(predessor) &&

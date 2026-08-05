@@ -45,16 +45,12 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint64_t key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey);
-            const std::optional<uint32_t> group_id = GroupPreFix32FromKey(key);
-            const std::optional<uint32_t> group_ordinal = GetOrdinalFromKey(key);
+            const uint64_t inharited_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey);
             const uint64_t previous_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling);
             const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling);
 
             return 
-                group_id.has_value() &&
-                group_ordinal.has_value() &&
-                group_ordinal.value() > UNSIGNED_ZERO &&
+                APCDataStructure::IsValid32BitAPCUnit(inharited_edge_idx) &&
                 APCDataStructure::IsValid32BitAPCUnit(previous_slot) &&
                 (APCDataStructure::IsValid32BitAPCUnit(next_slot) || next_slot == FABRIC_CELL_SENTINAL);
         }
@@ -75,14 +71,10 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint64_t root_key = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
+            const uint64_t own_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
             const uint64_t first_child = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild);
-            const std::optional<uint32_t> group_id = GroupPreFix32FromKey(root_key);
-            const std::optional<uint32_t> ordinal = GetOrdinalFromKey(root_key);
             return 
-                group_id.has_value() &&
-                ordinal.has_value() &&
-                ordinal.value() == UNSIGNED_ZERO &&
+                APCDataStructure::IsValid32BitAPCUnit(own_edge_idx) &&
                 (
                     first_child == FABRIC_CELL_SENTINAL ||
                     APCDataStructure::IsValid32BitAPCUnit(first_child)

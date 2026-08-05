@@ -39,14 +39,14 @@ namespace PredictedAdaptedEncoding
             {
                 return FABRIC_CELL_SENTINAL;
             }
-            return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
+            return TwinU32ToU64::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
 
         static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
-            const uint32_t description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
-            const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
+            const uint32_t description_id_maybe = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
+            const uint32_t ownership_maybe = TwinU32ToU64::ExtractHigh32Of64(desc_id_state);
             if (
                 !APCDataStructure::IsValidFabricUnit(desc_id_state) ||
                 !APCDataStructure::IsValid32BitAPCUnit(description_id_maybe) ||

@@ -1,6 +1,6 @@
 #pragma once 
 #include <span>
-#include "../FabricOrchestrators/HashTableConf.hpp"
+#include "../FabricOrchestrators/EdgeTableConf.hpp"
 
 namespace PredictedAdaptedEncoding
 {

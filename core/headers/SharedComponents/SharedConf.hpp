@@ -46,34 +46,18 @@ namespace PredictedAdaptedEncoding
         NULLNAN     = 12
     };
 
-    /// @brief Name Of Each Segment On Fabric
-    /// @param NONE It is the lower guard prevents a Packed Cell to be ever 0
-    /// @param GLOBAL_AND_CONFIG USED:FOR: Everything else after @param THREAD_TABLE
-    /// @param SLAB_RECORD_MAP STORES:All Begin & End Pair of indicies for every class of FabricTableSegmentClasses
-    /// @param APC_HANDLE_DESCRIPTOR HOLDS:Each APC x RECORD:DescriptionIdentity -> DESCRIBS: Initial Fundamental Meta for An APC When Created 
-    /// @param BRANCH_HASH
-    /// @param VERTICAL_HASH
-    /// @param HORIZONTAL_HASH
-    /// @param CONTROL_HEADER USED:FOR: first 96 FabricMetaIndicies
-    /// @param NULLNAN Uppper Guard Prevents Pack-ed Cell to be VALID: UINT64_MAX
     enum class FabricTableSegmentClasses : uint8_t
     {
-        NONE = 0,
-        GLOBAL_AND_CONFIG = 1,
-        SLAB_RECORD_MAP = 2,
-        APC_HANDLE_DESCRIPTOR = 3,
-        BRANCH_HASH = 4,
-        VERTICAL_HASH = 5,
-        HORIZONTAL_HASH = 6,
-        EDGE_TABLE = 7,
-        FREE_APC_LIST = 8,
-        READY_QUEUE = 9,
-        WORK_QUEUE = 10,
-        DEVICE_VIEW_TABLE = 11,
-        THREAD_TABLE  = 12,
-        SEGMENT_POOL = 13,
-        CONTROL_HEADER = 14,
-        NULLNAN = 15,
+        SLAB_RECORD_MAP = 0,
+        APC_HANDLE_DESCRIPTOR = 1,
+        HORIZONTAL_EDGE_TABLE = 2,
+        VERTICAL_EDGE_TABLE = 3,
+        FREE_APC_LIST = 4,
+        READY_QUEUE = 5,
+        WORK_QUEUE = 6,
+        DEVICE_VIEW_TABLE = 7,
+        THREAD_TABLE  = 8,
+        SEGMENT_POOL = 9
     };
 
     enum class APCAxisSelection : uint8_t
