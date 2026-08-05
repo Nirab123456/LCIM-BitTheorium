@@ -49,7 +49,7 @@ namespace PredictedAdaptedEncoding
             const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
             if (
                 !APCDataStructure::IsValidFabricUnit(desc_id_state) ||
-                !HashIdConstructror::IsValidGroupId(description_id_maybe) ||
+                !APCDataStructure::IsValid32BitAPCUnit(description_id_maybe) ||
                 ownership_maybe >= LEN_OF_DESCRIPTION_AND_HASH_STATE
             )
             {

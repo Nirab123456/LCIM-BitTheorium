@@ -105,7 +105,8 @@ struct HashHelpers : public DefaultHashings
 
     static constexpr uint32_t MakeHashFingerPrint(
         const SingleHashBuffer& buffer,
-        HashState state
+        HashState state,
+        uint32_t prob_distance
     ) noexcept
     {
         uint32_t hash = HASH32_GRATIO_1;
@@ -119,6 +120,9 @@ struct HashHelpers : public DefaultHashings
         hash ^= static_cast<uint32_t>(key);
         hash *= HASH32_GRATIO_2;
         hash ^= static_cast<uint32_t>(key >> 32u);
+        hash *= HASH32_GRATIO_2;
+
+        hash ^= prob_distance;
         hash *= HASH32_GRATIO_2;
 
         hash ^= static_cast<uint32_t>(state);
@@ -151,7 +155,12 @@ struct HashHelpers : public DefaultHashings
         {
             state_dist_fp.Lowest32Bit = updated_prob.value();
         }
-        state_dist_fp.Mid28Bit = MakeHashFingerPrint(hash_buffer, updated_state);
+
+        state_dist_fp.Mid28Bit = MakeHashFingerPrint(
+            hash_buffer, 
+            updated_state,
+            state_dist_fp.Lowest32Bit
+        );
         
         SetHashBufferUnit(
             hash_buffer,
@@ -208,9 +217,7 @@ struct HashHelpers : public DefaultHashings
         Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier* dist_and_validation_files = nullptr
     ) noexcept
     {
-
         const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
-
         auto AttachFiles__ = [&]()
         {
             if (dist_and_validation_files)
@@ -221,21 +228,26 @@ struct HashHelpers : public DefaultHashings
 
         if (IsCannonicalHashBuffer(hash_buffer))
         {
-
+            AttachFiles__();
+            hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
+            return true;
         }
         
-
         if (
             !IsValidHashBuffer(hash_buffer) ||
             !state_dist_fp.IsValid ||
             state_dist_fp.High4Bit > static_cast<uint8_t>(HashState::RETIRED_OR_TOMBSTONE) ||
-            MakeHashFingerPrint(hash_buffer, static_cast<HashState>(state_dist_fp.High4Bit)) != state_dist_fp.Mid28Bit
+            MakeHashFingerPrint(
+                hash_buffer, 
+                static_cast<HashState>(state_dist_fp.High4Bit),
+                state_dist_fp.Lowest32Bit
+            ) != state_dist_fp.Mid28Bit
         )
         {
             hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
             return false;
         }
-
+        AttachFiles__();
         hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
         return true;
     }

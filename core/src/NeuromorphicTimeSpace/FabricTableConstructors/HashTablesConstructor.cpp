@@ -71,6 +71,11 @@ namespace PredictedAdaptedEncoding
                 continue;
             }
             st_dist_fp.High4Bit = static_cast<uint8_t>(HTC::HashState::RESERVED);
+            st_dist_fp.Mid28Bit = HTC::MakeHashFingerPrint(
+                hash_buffer_return,
+                HTC::HashState::RESERVED,
+                st_dist_fp.Lowest32Bit
+            );
 
             uint64_t updated_reserved_st_dist_fp = Pack32_28_4BitIn64BitUnit::PackValues(st_dist_fp);
             const uint8_t fp_st_idx = static_cast<uint8_t>(HTC::HashBufferIndexing::PROB_DISTANCE_LOCK);
@@ -113,7 +118,7 @@ namespace PredictedAdaptedEncoding
         const bool current_state_reserved = static_cast<HTC::HashState>(current_st_dist_fp.High4Bit) == HTC::HashState::RESERVED;
         const bool previous_state_reserved = static_cast<HTC::HashState>(st_dist_fp.High4Bit) == HTC::HashState::RESERVED;
         return 
-            !current_state_reserved &&
+            current_state_reserved &&
             !previous_state_reserved &&
             CompareExchangeStrongFromFabric(
                 bucket_idx,

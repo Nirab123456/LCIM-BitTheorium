@@ -224,9 +224,9 @@ namespace PredictedAdaptedEncoding
         {
             const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
             if (
-                !current.IsValid &&
+                !current.IsValid ||
                 (
-                    current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY ||
+                    current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY &&
                     current.StateOfTheAPC != DSA::StateOfAPC::RETIRED_OR_TOMBSTONE
                 )
             )

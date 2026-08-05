@@ -45,7 +45,7 @@ namespace PredictedAdaptedEncoding
             NEXT_SLOT_SEGMENTPOOL_BEGAIN = 5,
             RELATION_HEADS = 6,
             RETIRE_EPOCH = 7,
-            APC_FLAGS_FOR_THIS = 8,
+            DESCRIPTOR_FLAGS = 8,
             ID_STATE_CONCURRENT = 9
         };
         static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionIdentity::ID_STATE_CONCURRENT) + 1u;
