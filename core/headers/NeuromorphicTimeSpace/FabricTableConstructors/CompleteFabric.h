@@ -46,8 +46,8 @@ namespace PredictedAdaptedEncoding
         ) noexcept;
 
         /// @brief UPDATES: A Description In ONE SHOT
-        bool OneShotUpdateAPCDescriptor_(
-            const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
+        bool OneShotUpdateReservedDescription_(
+            DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
         ) noexcept;
 
         DescriptionOfAPC::DescriptorSaftyFiles ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;

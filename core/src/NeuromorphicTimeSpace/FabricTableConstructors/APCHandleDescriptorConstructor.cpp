@@ -97,22 +97,21 @@ namespace PredictedAdaptedEncoding
 
 
 
-    bool APCHandleDescriptorConstructor::OneShotUpdateAPCDescriptor_(
-        const DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
+    bool APCHandleDescriptorConstructor::OneShotUpdateReservedDescription_(
+        DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
     ) noexcept
     {
-        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(
-            desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::APC_INDEX)]
-        );
-
+        const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::APC_INDEX)];
+        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
+        const  DescriptionOfAPC::DescriptorSaftyFiles current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
+            current_description_state.StateOfTheAPC != DSA::StateOfAPC::RESERVED ||
             !desired_descriptor_range.IsValid ||
-            !DescriptionOfAPC::HasValidationDescriptionMark(desc_buffer)
+            !DescriptionOfAPC::ValidateADescriptionBuffer(desc_buffer)
         )
         {
             return false;
         }
-
         return AtomicallyCopyFromBufferToFabric(
             desired_descriptor_range.BeginIndex,
             DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
@@ -146,7 +145,7 @@ namespace PredictedAdaptedEncoding
 
         if (!this_apc_descriptor_range.IsValid)
         {
-            return false;
+            return std::nullopt;
         }
         const uint8_t id_st_concurrent = static_cast<uint8_t>(DSA::DescriptionIdentity::ID_STATE_CONCURRENT);
         const uint64_t id_state_idx = this_apc_descriptor_range.BeginIndex + id_st_concurrent;
@@ -225,8 +224,11 @@ namespace PredictedAdaptedEncoding
         {
             const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
             if (
-                !current.IsValid ||
-                current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY
+                !current.IsValid &&
+                (
+                    current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY ||
+                    current.StateOfTheAPC != DSA::StateOfAPC::RETIRED_OR_TOMBSTONE
+                )
             )
             {
                 continue;

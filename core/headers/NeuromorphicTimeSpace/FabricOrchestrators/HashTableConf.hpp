@@ -92,6 +92,16 @@ struct HashHelpers : public DefaultHashings
             APCDataStructure::IsValidFabricUnit(GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX));
     }
 
+    static constexpr bool IsCannonicalHashBuffer(
+        const SingleHashBuffer& hash_buffer
+    ) noexcept
+    {
+        return 
+            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::KEY_INDEX) == UNSIGNED_ZERO &&
+            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::VALUE_INDEX) == UNSIGNED_ZERO &&
+            GetAUnitFromHashBuffer(hash_buffer, HashBufferIndexing::PROB_DISTANCE_LOCK) == UNSIGNED_ZERO;
+    }
+
 
     static constexpr uint32_t MakeHashFingerPrint(
         const SingleHashBuffer& buffer,
@@ -201,6 +211,20 @@ struct HashHelpers : public DefaultHashings
 
         const Pack32_28_4BitIn64BitUnit::Pack32_28_4_Carrier state_dist_fp = GetStDistFp(hash_buffer);
 
+        auto AttachFiles__ = [&]()
+        {
+            if (dist_and_validation_files)
+            {
+                *dist_and_validation_files = state_dist_fp;
+            }
+        };
+
+        if (IsCannonicalHashBuffer(hash_buffer))
+        {
+
+        }
+        
+
         if (
             !IsValidHashBuffer(hash_buffer) ||
             !state_dist_fp.IsValid ||
@@ -211,10 +235,7 @@ struct HashHelpers : public DefaultHashings
             hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = UNSIGNED_ZERO;
             return false;
         }
-        if (dist_and_validation_files)
-        {
-            *dist_and_validation_files = state_dist_fp;
-        }
+
         hash_buffer[VALIDATION_INDEX_HASH_BUFFER] = VALIDATION_MARK_OF_HASH_TABLE_BUFFER;
         return true;
     }

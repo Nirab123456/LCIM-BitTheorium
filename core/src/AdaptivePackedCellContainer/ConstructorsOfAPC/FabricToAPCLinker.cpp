@@ -29,7 +29,7 @@ namespace PredictedAdaptedEncoding
             return;
         }
         FabricOwnerPtr_->AtomicallyStoreU64Fab(
-            idx,
+            idx + RangeOfThisAPCInSlab_.BeginIndex,
             value
         );
     }
