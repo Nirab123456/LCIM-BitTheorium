@@ -33,13 +33,9 @@ namespace PredictedAdaptedEncoding
             APC_INDEX = 0,
             APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
             APC_SEGMENTPOOL_END_SLAB = 2,
-            VERTICAL_KEY = 3,
-            HORIZONTAL_KEY = 4,
-            NEXT_SLOT_SEGMENTPOOL_BEGAIN = 5,
-            RELATION_HEADS = 6,
-            RETIRE_EPOCH = 7,
-            DESCRIPTOR_FLAGS = 8,
-            ID_STATE_CONCURRENT = 9
+            RETIRE_EPOCH = 3,
+            DESCRIPTOR_FLAGS = 4,
+            ID_STATE_CONCURRENT = 5
         };
         static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionIdentity::ID_STATE_CONCURRENT) + 1u;
 

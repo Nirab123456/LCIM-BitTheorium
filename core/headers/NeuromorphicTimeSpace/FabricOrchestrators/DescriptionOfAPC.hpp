@@ -198,7 +198,6 @@ namespace PredictedAdaptedEncoding
             uint64_t apc_idx,
             uint64_t segment_pool_begin,
             uint64_t segment_pool_end,
-            uint64_t next_apc_segment_pool = UNSIGNED_ZERO,
             StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
         ) noexcept
         {
@@ -206,7 +205,6 @@ namespace PredictedAdaptedEncoding
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_INDEX, apc_idx);
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::NEXT_SLOT_SEGMENTPOOL_BEGAIN, next_apc_segment_pool);
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
             const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);

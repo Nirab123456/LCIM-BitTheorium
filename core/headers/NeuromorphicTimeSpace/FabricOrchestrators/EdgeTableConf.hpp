@@ -16,7 +16,7 @@ struct EdgeTableConf : public DescriptionOfAPC
 
     enum class EdgeStatus : uint8_t
     {
-        FREE_RETIRED = 0,
+        FREE = 0,
         RESERVED = 1,
         LIVE = 2,
         RETIRED = 3,
@@ -138,6 +138,43 @@ struct EdgeTableConf : public DescriptionOfAPC
         return true;
     }
 
+    static constexpr EdgeStatus ReadEdgeFromBufferStatically(
+        FabricTableSegmentClasses edge_table,
+        const EdgeBuffer& edge_buffer,
+        EdgeData& edge_data
+    ) noexcept
+    {
+        edge_data.EdgeTable = edge_table;
+        edge_data.Root = TwinU32ToU64::ExtractLow32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::ROOT_AND_END)]);
+        edge_data.End = TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::ROOT_AND_END)]);
+
+        edge_data.OwnLinkCount = TwinU32ToU64::ExtractLow32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)]);
+        edge_data.DoubellyLinkedIndex = TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)]);
+
+        edge_data.SeqLock = TwinU32ToU64::ExtractLow32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)]);
+        edge_data.Status = static_cast<EdgeStatus>(TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)]));
+        
+        edge_data.IsValid = ValidateEdgeData(edge_data);
+
+        return edge_data.Status;
+    }
+
+    static constexpr bool BuildFreeEdgeTable(
+        FabricTableSegmentClasses edge_table,
+        uint32_t root_slot,
+        EdgeData& edge_data
+    ) noexcept
+    {
+        edge_data.EdgeTable = edge_table;
+        edge_data.Root = root_slot;
+        edge_data.End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        edge_data.OwnLinkCount = UNSIGNED_ZERO;
+        edge_data.DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        edge_data.SeqLock = UNSIGNED_ZERO;
+        edge_data.IsValid = ValidateEdgeData(edge_data);
+        return edge_data.IsValid;
+    }
+
 };
 
 struct EdgeBuilder : public EdgeTableConf
@@ -192,7 +229,7 @@ struct EdgeBuilder : public EdgeTableConf
                 IAB::IsOwnedAxisDisabled(predessor, axis) ||
                 !IAB::IsValidOwnedRoot(predessor, axis) ||
                 IAB::ValueOfAnIdentityFromBuffer(predessor, map.RootOwnedChild) != FABRIC_CELL_SENTINAL ||
-                !GetPreDesInfo__(map.OwnRootKey)
+                !GetPreDesInfo__(map.OwnedEgdeTableIdx)
             )
             {
                 return false;
@@ -204,7 +241,7 @@ struct EdgeBuilder : public EdgeTableConf
                 IAB::IsInheritedAxisDisabled(predessor, axis) ||
                 !IAB::IsValidInheritedAxis(predessor, axis) ||
                 IAB::ValueOfAnIdentityFromBuffer(predessor, map.NextSibling) != FABRIC_CELL_SENTINAL ||
-                !GetPreDesInfo__(map.OrdinalKey)
+                !GetPreDesInfo__(map.SharedEgdeTableIdx)
             )
             {
                 return false;
@@ -267,7 +304,7 @@ struct EdgeBuilder : public EdgeTableConf
         }
 
         if (
-            !IAB::InsertAnIdentityInBuffer(current_identity, map.OrdinalKey, current_key) ||
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.SharedEgdeTableIdx, current_key) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
         )
@@ -308,7 +345,7 @@ struct EdgeBuilder : public EdgeTableConf
         const uint64_t predecessor_slot = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t next_of_current = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.NextSibling);
-        const uint64_t current_key = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.OrdinalKey);
+        const uint64_t current_key = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.SharedEgdeTableIdx);
         const std::optional<uint32_t> axis_id = IAB::GroupPreFix32FromKey(current_key);
 
         if (
@@ -416,8 +453,7 @@ struct EdgeBuilder : public EdgeTableConf
     static constexpr bool InstallOwnedRoot(
         InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
         InstallAxisToBuffer::BidirectionalAxis axis,
-        SingleHashBuffer& branch_hash_buffer,
-        SingleHashBuffer& axis_owned_hash_buffer
+
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
@@ -451,7 +487,7 @@ struct EdgeBuilder : public EdgeTableConf
 
 
         return 
-            IAB::InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, root_key) &&
+            IAB::InsertAnIdentityInBuffer(identity_buffer, map.OwnedEgdeTableIdx, root_key) &&
             IAB::InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL) &&
             MakeValidHashBuffer(
                 branch_hash_buffer,

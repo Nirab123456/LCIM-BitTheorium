@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             return
-                ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey) == FABRIC_CELL_SENTINAL &&
+                ValueOfAnIdentityFromBuffer(identity_buffer, map.SharedEgdeTableIdx) == FABRIC_CELL_SENTINAL &&
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling) == FABRIC_CELL_SENTINAL &&
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling) == FABRIC_CELL_SENTINAL;
         }
@@ -35,7 +35,7 @@ namespace PredictedAdaptedEncoding
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
             return 
-                ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey) == FABRIC_CELL_SENTINAL &&
+                ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnedEgdeTableIdx) == FABRIC_CELL_SENTINAL &&
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild) == FABRIC_CELL_SENTINAL;
         }
 
@@ -45,7 +45,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint64_t inharited_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OrdinalKey);
+            const uint64_t inharited_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.SharedEgdeTableIdx);
             const uint64_t previous_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling);
             const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling);
 
@@ -71,7 +71,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint64_t own_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnRootKey);
+            const uint64_t own_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnedEgdeTableIdx);
             const uint64_t first_child = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild);
             return 
                 APCDataStructure::IsValid32BitAPCUnit(own_edge_idx) &&
@@ -126,7 +126,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             return
-                InsertAnIdentityInBuffer(identity_buffer, map.OrdinalKey, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.SharedEgdeTableIdx, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.PreviousSibling, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.NextSibling, FABRIC_CELL_SENTINAL);
         }
@@ -139,7 +139,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             return
-                InsertAnIdentityInBuffer(identity_buffer, map.OwnRootKey, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.OwnedEgdeTableIdx, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL);
         }
 

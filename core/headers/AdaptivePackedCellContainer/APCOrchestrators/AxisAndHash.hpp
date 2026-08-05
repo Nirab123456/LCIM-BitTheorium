@@ -55,7 +55,7 @@ struct HashIdConstructror
         return FABRIC_CELL_SENTINAL;
     }
 
-    /// @brief CREATS: HASH OrdinalKey: Based On a Desired SHARED / LOGICAL Group ID
+    /// @brief CREATS: HASH SharedEgdeTableIdx: Based On a Desired SHARED / LOGICAL Group ID
     /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
@@ -203,8 +203,8 @@ struct AxisConstructor : public HashIdConstructror
         FabricTableSegmentClasses EdgeTable{};
         HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC OrdinalKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC SharedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC OwnedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
@@ -217,8 +217,8 @@ struct AxisConstructor : public HashIdConstructror
                 FabricTableSegmentClasses::HORIZONTAL_EDGE_TABLE,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
-                HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY,
-                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY,
+                HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX,
+                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX,
                 HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT
             };
         }
@@ -227,8 +227,8 @@ struct AxisConstructor : public HashIdConstructror
             FabricTableSegmentClasses::VERTICAL_EDGE_TABLE,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
-            HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY,
-            HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY,
+            HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX,
+            HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX,
             HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT
 
         };
@@ -422,10 +422,10 @@ struct DefineIdentityBuffer : public AxisConstructor
 
             return 
                 identity == HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT ||
-                identity == HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY ||
-                identity == HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY ||
-                identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY ||
-                identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT ||
                 identity == HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT ||

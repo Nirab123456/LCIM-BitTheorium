@@ -87,7 +87,6 @@ namespace PredictedAdaptedEncoding
             {
                 continue;
             }
-            const APCSegmentPoolRange next_segment_pool_range = GetSegmentPoolBegainEndForSingleAPCDescription(desc_idx + 1);
 
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer description_buffer{};
 
@@ -95,8 +94,7 @@ namespace PredictedAdaptedEncoding
                 description_buffer,
                 desc_idx,
                 segment_pool_range.BeginIndex,
-                segment_pool_range.EndIndex,
-                !next_segment_pool_range.IsValid ? UNSIGNED_ZERO : next_segment_pool_range.BeginIndex
+                segment_pool_range.EndIndex
             );
 
             if (!dsc_ok)
