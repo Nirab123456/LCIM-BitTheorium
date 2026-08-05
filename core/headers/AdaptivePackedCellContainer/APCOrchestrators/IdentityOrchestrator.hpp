@@ -23,7 +23,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             return
-                ValueOfAnIdentityFromBuffer(identity_buffer, map.SharedEgdeTableIdx) == FABRIC_CELL_SENTINAL &&
+                ValueOfAnIdentityFromBuffer(identity_buffer, map.InheritedEgdeTableIdx) == FABRIC_CELL_SENTINAL &&
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling) == FABRIC_CELL_SENTINAL &&
                 ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling) == FABRIC_CELL_SENTINAL;
         }
@@ -45,7 +45,7 @@ namespace PredictedAdaptedEncoding
         ) noexcept
         {
             const AxisConstructionMap map = ConstructAxisMap(axis);
-            const uint64_t inharited_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.SharedEgdeTableIdx);
+            const uint64_t inharited_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.InheritedEgdeTableIdx);
             const uint64_t previous_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.PreviousSibling);
             const uint64_t next_slot = ValueOfAnIdentityFromBuffer(identity_buffer, map.NextSibling);
 
@@ -126,7 +126,7 @@ namespace PredictedAdaptedEncoding
             const AxisConstructionMap map = ConstructAxisMap(axis);
 
             return
-                InsertAnIdentityInBuffer(identity_buffer, map.SharedEgdeTableIdx, FABRIC_CELL_SENTINAL) &&
+                InsertAnIdentityInBuffer(identity_buffer, map.InheritedEgdeTableIdx, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.PreviousSibling, FABRIC_CELL_SENTINAL) &&
                 InsertAnIdentityInBuffer(identity_buffer, map.NextSibling, FABRIC_CELL_SENTINAL);
         }

@@ -180,6 +180,60 @@ struct EdgeTableConf : public DescriptionOfAPC
 struct EdgeBuilder : public EdgeTableConf
 {
 
+    static constexpr bool InstallOwnedRoot(
+        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
+        InstallAxisToBuffer::BidirectionalAxis axis,
+        uint32_t owned_edge_idx,
+        EdgeData& desired_edge
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
+
+        if (
+            !IAB::ValidateIdentityBuffer(identity_buffer) ||
+            !IAB::IsOwnedAxisDisabled(identity_buffer, axis) ||
+            !APCDataStructure::IsValid32BitAPCUnit(owned_edge_idx)
+        )
+        {
+            return false;
+        }
+
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const uint32_t root_slot = static_cast<uint32_t>(IAB::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX));
+        const uint64_t inharited_edge_raw = IAB::ValueOfAnIdentityFromBuffer(identity_buffer, map.InheritedEgdeTableIdx);
+        uint32_t roots_inharited_edge = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        if (inharited_edge_raw != FABRIC_CELL_SENTINAL)
+        {
+            roots_inharited_edge = static_cast<uint32_t>(inharited_edge_raw);
+        }
+        
+        desired_edge = {};
+        desired_edge.EdgeTable = map.EdgeTable;
+        desired_edge.Root = root_slot;
+        desired_edge.End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        desired_edge.OwnLinkCount = UNSIGNED_ZERO;
+        desired_edge.DoubellyLinkedIndex = roots_inharited_edge;
+        desired_edge.SeqLock = 2u;
+        desired_edge.Status = EdgeStatus::LIVE;
+        desired_edge.IsValid = ValidateEdgeData(desired_edge);
+
+        return 
+            desired_edge.IsValid &&
+            IAB::InsertAnIdentityInBuffer(
+                identity_buffer,
+                map.OwnedEgdeTableIdx,
+                owned_edge_idx
+            ) &&
+            IAB::InsertAnIdentityInBuffer(
+                identity_buffer,
+                map.RootOwnedChild,
+                FABRIC_CELL_SENTINAL
+            ) &&
+            IAB::SealIdentityBuffer(identity_buffer);
+
+    }
+
+
     static constexpr bool PrepareInharitedAxis(
         InstallAxisToBuffer::BufferOfAPCIdentity& predessor,
         InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
@@ -241,7 +295,7 @@ struct EdgeBuilder : public EdgeTableConf
                 IAB::IsInheritedAxisDisabled(predessor, axis) ||
                 !IAB::IsValidInheritedAxis(predessor, axis) ||
                 IAB::ValueOfAnIdentityFromBuffer(predessor, map.NextSibling) != FABRIC_CELL_SENTINAL ||
-                !GetPreDesInfo__(map.SharedEgdeTableIdx)
+                !GetPreDesInfo__(map.InheritedEgdeTableIdx)
             )
             {
                 return false;
@@ -304,7 +358,7 @@ struct EdgeBuilder : public EdgeTableConf
         }
 
         if (
-            !IAB::InsertAnIdentityInBuffer(current_identity, map.SharedEgdeTableIdx, current_key) ||
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.InheritedEgdeTableIdx, current_key) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
         )
@@ -345,7 +399,7 @@ struct EdgeBuilder : public EdgeTableConf
         const uint64_t predecessor_slot = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t next_of_current = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.NextSibling);
-        const uint64_t current_key = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.SharedEgdeTableIdx);
+        const uint64_t current_key = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.InheritedEgdeTableIdx);
         const std::optional<uint32_t> axis_id = IAB::GroupPreFix32FromKey(current_key);
 
         if (
@@ -450,62 +504,6 @@ struct EdgeBuilder : public EdgeTableConf
     }
 
 
-    static constexpr bool InstallOwnedRoot(
-        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
-        InstallAxisToBuffer::BidirectionalAxis axis,
-
-    ) noexcept
-    {
-        using IAB = InstallAxisToBuffer;
-
-        if (
-            !IAB::ValidateIdentityBuffer(identity_buffer) ||
-            !IAB::IsOwnedAxisDisabled(identity_buffer, axis)
-        )
-        {
-            return false;
-        }
-
-        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-
-        const uint64_t slot_handle = IAB::APCSlotIdxToHashTableHandler(
-            IAB::ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX)
-        );
-
-        const uint64_t root_key = IAB::ComposeNewGroupKey(
-            slot_handle,
-            axis,
-            UNSIGNED_ZERO
-        );
-
-        AxisTopAndCountForBranchHashValue branch_hash_values{};
-        branch_hash_values.AxisTopWaterMark = UNSIGNED_ZERO;
-        branch_hash_values.MemberCount = UNSIGNED_ZERO;
-
-        BuildEmptyHashBuffer(branch_hash_buffer);
-        BuildEmptyHashBuffer(axis_owned_hash_buffer);
-
-
-        return 
-            IAB::InsertAnIdentityInBuffer(identity_buffer, map.OwnedEgdeTableIdx, root_key) &&
-            IAB::InsertAnIdentityInBuffer(identity_buffer, map.RootOwnedChild, FABRIC_CELL_SENTINAL) &&
-            MakeValidHashBuffer(
-                branch_hash_buffer,
-                root_key,
-                PackAxisTopAndCount(branch_hash_values),
-                UNSIGNED_ZERO,
-                HashState::LIVE_OR_PUBLISHED
-            ) &&
-            MakeValidHashBuffer(
-                axis_owned_hash_buffer,
-                root_key,
-                slot_handle,
-                UNSIGNED_ZERO,
-                HashState::LIVE_OR_PUBLISHED
-            ) &&
-            IAB::SealIdentityBuffer(identity_buffer);
-
-    }
 
 };
 

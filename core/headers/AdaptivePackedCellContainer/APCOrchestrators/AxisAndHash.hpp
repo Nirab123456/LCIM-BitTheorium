@@ -55,7 +55,7 @@ struct HashIdConstructror
         return FABRIC_CELL_SENTINAL;
     }
 
-    /// @brief CREATS: HASH SharedEgdeTableIdx: Based On a Desired SHARED / LOGICAL Group ID
+    /// @brief CREATS: HASH InheritedEgdeTableIdx: Based On a Desired SHARED / LOGICAL Group ID
     /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
@@ -203,7 +203,7 @@ struct AxisConstructor : public HashIdConstructror
         FabricTableSegmentClasses EdgeTable{};
         HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC SharedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC InheritedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC OwnedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
@@ -279,19 +279,6 @@ struct AxisConstructor : public HashIdConstructror
         return 
             (value & 1u) == UNSIGNED_ZERO;
     }
-
-    static constexpr bool WantsHorizontal(APCAxisSelection axes) noexcept
-    {
-        return axes == APCAxisSelection::HORIZONTAL ||
-            axes == APCAxisSelection::BOTH;
-    }
-
-    static constexpr bool WantsVertical(APCAxisSelection axes) noexcept
-    {
-        return axes == APCAxisSelection::VERTICAL ||
-            axes == APCAxisSelection::BOTH;
-    }
-
 };
 
 struct DefineIdentityBuffer : public AxisConstructor

@@ -59,15 +59,7 @@ namespace PredictedAdaptedEncoding
         THREAD_TABLE  = 8,
         SEGMENT_POOL = 9
     };
-
-    enum class APCAxisSelection : uint8_t
-    {
-        NONE = 0,
-        HORIZONTAL = 1,
-        VERTICAL = 2,
-        BOTH = 3
-    };
-
+    
     static  constexpr uint64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return uint64_t(0);
