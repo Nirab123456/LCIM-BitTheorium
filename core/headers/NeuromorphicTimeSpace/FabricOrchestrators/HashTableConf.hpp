@@ -13,6 +13,18 @@ struct DefaultHashings : public DescriptorConf
 
     using HashState = StateOfAPC;
 
+    enum class HashReadStatus : uint8_t
+    {
+        NOT_FOUND = 0,
+        FOUND_LIVE = 1,
+        FOUND_RESERVED = 2,
+        FOUND_RETIRED = 3,
+        TABLE_MUTATING = 4,
+        RETRY_REQUIRED = 5,
+        CORRUPTED = 6
+    };
+
+
     struct AxisTopAndCountForBranchHashValue
     {
         uint32_t AxisTopWaterMark = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
