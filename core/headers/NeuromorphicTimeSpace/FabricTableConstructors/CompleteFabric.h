@@ -11,6 +11,7 @@ namespace BidirectionalInMemGraph
         using SD = SchemaDefinition;
         using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
+        using RBC = RecordBookConf;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
         uint64_t GetStartingOfAnyFabricTable_(FabricSegments desired_table) noexcept;
@@ -70,9 +71,12 @@ namespace BidirectionalInMemGraph
     protected:
         using EdgeTableRange = DescriptorConf::APCDescriptorRange;
 
-        // EdgeTableRange ReadAnEdgeTableRange(
-        //     FabricSegments
-        // )
+        EdgeTableRange ReadAnEdgeTableRange(
+            FabricSegments edge_table,
+            uint32_t edge_idx
+        ) noexcept;
+
+        void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
 
     };
 
