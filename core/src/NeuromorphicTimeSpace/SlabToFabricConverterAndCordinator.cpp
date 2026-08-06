@@ -251,33 +251,33 @@ namespace BidirectionalInMemGraph
         InitializeCompleateFabricMetaIndices_(record_book_begin, record_book_end);
 
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SLAB_RECORD_MAP, record_book_begin, record_book_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_begin, branch_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::VERTICAL_HASH, logical_hash_begin, logical_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::HORIZONTAL_HASH, shared_hash_begin, shared_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::VERTICAL_EDGE_TABLE, edge_table_begin, edge_table_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::FREE_APC_LIST, free_list_begin, free_list_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::READY_QUEUE, ready_queue_begin, ready_queue_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::WORK_QUEUE, work_queue_begin, work_queue_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::THREAD_TABLE, thread_table_begin, thread_table_end);
-        WriteARecordBookOfTSCEntry_(FabricTableSegmentClasses::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_);
+        WriteARecordBookOfTSCEntry_(FabricSegments::SLAB_RECORD_MAP, record_book_begin, record_book_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::BRANCH_HASH, branch_hash_begin, branch_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_HASH, logical_hash_begin, logical_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_HASH, shared_hash_begin, shared_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, edge_table_begin, edge_table_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::FREE_APC_LIST, free_list_begin, free_list_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::THREAD_TABLE, thread_table_begin, thread_table_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_);
         //ENTRIES:: END ::SLAB_RECORD_MAP
 
-        //IDLE UNUSED FabricTableSegmentClasses
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::VERTICAL_EDGE_TABLE);
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::FREE_APC_LIST);
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::READY_QUEUE);
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::WORK_QUEUE);
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::DEVICE_VIEW_TABLE);
-        IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses::THREAD_TABLE);
+        //IDLE UNUSED FabricSegments
+        IdleAFabricTableClassRangesMemory_(FabricSegments::VERTICAL_EDGE_TABLE);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::FREE_APC_LIST);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::WORK_QUEUE);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::DEVICE_VIEW_TABLE);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::THREAD_TABLE);
         //END:: IDELING
 
         //INIT: HASH TABLES
-        InitializeHashTable_(FabricTableSegmentClasses::BRANCH_HASH);
-        InitializeHashTable_(FabricTableSegmentClasses::VERTICAL_HASH);
-        InitializeHashTable_(FabricTableSegmentClasses::HORIZONTAL_HASH);
+        InitializeHashTable_(FabricSegments::BRANCH_HASH);
+        InitializeHashTable_(FabricSegments::VERTICAL_HASH);
+        InitializeHashTable_(FabricSegments::HORIZONTAL_HASH);
         //END::: 
         //INIT:DESCRIPTOR TABLE
         InitializeAPCDescriptorTable_();
@@ -354,15 +354,15 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_V))
+            if (!PublishPreparedHashBuffer_(FabricSegments::BRANCH_HASH, branch_hash_V))
             {
                 return std::nullopt;
             }
 
-            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::VERTICAL_HASH, axis_hash_V))
+            if (!PublishPreparedHashBuffer_(FabricSegments::VERTICAL_HASH, axis_hash_V))
             {
                 RetireHashKey_(
-                    FabricTableSegmentClasses::VERTICAL_HASH, 
+                    FabricSegments::VERTICAL_HASH, 
                     HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                 );
                 return std::nullopt;
@@ -383,36 +383,36 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::BRANCH_HASH, branch_hash_H))
+            if (!PublishPreparedHashBuffer_(FabricSegments::BRANCH_HASH, branch_hash_H))
             {
                 if (IAB::WantsHorizontal(desired_axis))
                 {
                     RetireHashKey_(
-                        FabricTableSegmentClasses::BRANCH_HASH, 
+                        FabricSegments::BRANCH_HASH, 
                         HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                     RetireHashKey_(
-                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        FabricSegments::VERTICAL_HASH, 
                         HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                 }
                 return std::nullopt;
             }
 
-            if (!PublishPreparedHashBuffer_(FabricTableSegmentClasses::HORIZONTAL_HASH, axis_hash_H))
+            if (!PublishPreparedHashBuffer_(FabricSegments::HORIZONTAL_HASH, axis_hash_H))
             {
                 if (IAB::WantsHorizontal(desired_axis))
                 {
                     RetireHashKey_(
-                        FabricTableSegmentClasses::BRANCH_HASH, 
+                        FabricSegments::BRANCH_HASH, 
                         HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                     RetireHashKey_(
-                        FabricTableSegmentClasses::VERTICAL_HASH, 
+                        FabricSegments::VERTICAL_HASH, 
                         HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                     RetireHashKey_(
-                        FabricTableSegmentClasses::BRANCH_HASH, 
+                        FabricSegments::BRANCH_HASH, 
                         HTC::GetAUnitFromHashBuffer(branch_hash_H, HTC::HashBufferIndexing::KEY_INDEX)
                     );
                 }

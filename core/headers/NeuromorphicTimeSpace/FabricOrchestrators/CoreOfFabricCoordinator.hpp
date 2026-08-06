@@ -117,14 +117,14 @@ namespace BidirectionalInMemGraph
         static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
         static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
-        static constexpr bool IsValidEdgeTable(FabricTableSegmentClasses table_class) noexcept
+        static constexpr bool IsValidEdgeTable(FabricSegments table_class) noexcept
         {
             return
-                table_class == FabricTableSegmentClasses::HORIZONTAL_EDGE_TABLE ||
-                table_class == FabricTableSegmentClasses::VERTICAL_EDGE_TABLE;
+                table_class == FabricSegments::HORIZONTAL_EDGE_TABLE ||
+                table_class == FabricSegments::VERTICAL_EDGE_TABLE;
         }
 
-        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricTableSegmentClasses table) noexcept
+        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricSegments table) noexcept
         {   
             return static_cast<uint8_t>(
                 static_cast<uint8_t>(table)

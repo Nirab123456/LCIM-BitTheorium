@@ -26,9 +26,7 @@
 
 namespace BidirectionalInMemGraph 
 {
-    /// @brief Name Of Each Segment On APC
-    /// @param NONE Lower guard prevents a Packed Cell to be ever VALID: 0
-    /// @param NULLNAN Uppper Guard Prevents Pack-ed Cell to be VALID: UINT64_MAX
+
     enum class MacroColumnOfAPC : uint8_t
     {
         NONE = 0x0,
@@ -46,7 +44,7 @@ namespace BidirectionalInMemGraph
         NULLNAN     = 12
     };
 
-    enum class FabricTableSegmentClasses : uint8_t
+    enum class FabricSegments : uint8_t
     {
         SLAB_RECORD_MAP = 0,
         APC_HANDLE_DESCRIPTOR = 1,

@@ -200,7 +200,7 @@ struct AxisConstructor : public HashIdConstructror
 
     struct AxisConstructionMap
     {
-        FabricTableSegmentClasses EdgeTable{};
+        FabricSegments EdgeTable{};
         HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC InheritedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
@@ -214,7 +214,7 @@ struct AxisConstructor : public HashIdConstructror
         if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             return AxisConstructionMap{
-                FabricTableSegmentClasses::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::HORIZONTAL_EDGE_TABLE,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX,
@@ -224,7 +224,7 @@ struct AxisConstructor : public HashIdConstructror
         }
 
         return AxisConstructionMap{
-            FabricTableSegmentClasses::VERTICAL_EDGE_TABLE,
+            FabricSegments::VERTICAL_EDGE_TABLE,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX,

@@ -13,17 +13,17 @@ namespace BidirectionalInMemGraph
         using DSA = DescriptionOfAPC;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
-        uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
+        uint64_t GetStartingOfAnyFabricTable_(FabricSegments desired_table) noexcept;
         
         bool GetRecordMapCarrierRanges_(
-            const FabricTableSegmentClasses table_class,
+            const FabricSegments table_class,
             RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
         ) noexcept;
 
-        void IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept;
+        void IdleAFabricTableClassRangesMemory_(FabricSegments table_class) noexcept;
 
         void WriteARecordBookOfTSCEntry_(
-            FabricTableSegmentClasses table_class, 
+            FabricSegments table_class, 
             size_t begin, 
             size_t end 
         ) noexcept;
@@ -63,6 +63,17 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
         std::optional<uint64_t> GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept;        
+    };
+
+    class EdgeTableConstructor : public APCHandleDescriptorConstructor
+    {
+    protected:
+        using EdgeTableRange = DescriptorConf::APCDescriptorRange;
+
+        // EdgeTableRange ReadAnEdgeTableRange(
+        //     FabricSegments
+        // )
+
     };
 
 

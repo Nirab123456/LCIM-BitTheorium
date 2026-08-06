@@ -38,7 +38,7 @@ namespace BidirectionalInMemGraph
     {
         RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
         const bool ok = GetRecordMapCarrierRanges_(
-            FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
+            FabricSegments::APC_HANDLE_DESCRIPTOR,
             descripor_directory_map
         );
 

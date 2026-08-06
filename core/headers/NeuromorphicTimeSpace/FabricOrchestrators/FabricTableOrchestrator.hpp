@@ -6,13 +6,13 @@ namespace BidirectionalInMemGraph
 
 struct RecordBookConf
 {
-    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricTableSegmentClasses::SEGMENT_POOL);
+    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricSegments::SEGMENT_POOL);
 
     struct RecordBookTablesBoundsCarrier
     {
         uint64_t BeginIndex = UNSIGNED_ZERO;
         uint64_t EndIndex = UNSIGNED_ZERO;
-        FabricTableSegmentClasses OwnerTableOfTheBounds{};
+        FabricSegments OwnerTableOfTheBounds{};
         bool IsValid = false;  
     };
 

@@ -37,7 +37,7 @@ struct EdgeTableConf : public DescriptionOfAPC
 
     struct EdgeData
     {
-        FabricTableSegmentClasses EdgeTable{};
+        FabricSegments EdgeTable{};
         //PAIR -1 
         uint32_t Root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint32_t End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
@@ -139,7 +139,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     }
 
     static constexpr EdgeStatus ReadEdgeFromBufferStatically(
-        FabricTableSegmentClasses edge_table,
+        FabricSegments edge_table,
         const EdgeBuffer& edge_buffer,
         EdgeData& edge_data
     ) noexcept
@@ -160,7 +160,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     }
 
     static constexpr bool BuildFreeEdgeTable(
-        FabricTableSegmentClasses edge_table,
+        FabricSegments edge_table,
         uint32_t root_slot,
         EdgeData& edge_data
     ) noexcept
