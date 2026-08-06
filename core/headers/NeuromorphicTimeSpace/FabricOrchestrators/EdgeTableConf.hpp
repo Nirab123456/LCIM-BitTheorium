@@ -23,7 +23,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         HAULTED = 4,
 
         RETRY_REQUIRED = 5,
-        CORRUPTED = 6
+        INVALID = 6
     };
 
     static constexpr bool IsStorableStatus(EdgeStatus status) noexcept
@@ -46,7 +46,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         uint32_t DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         //PAIR-3
         uint32_t SeqLock = UNSIGNED_ZERO;
-        EdgeStatus Status = EdgeStatus::CORRUPTED;
+        EdgeStatus Status = EdgeStatus::INVALID;
 
         bool IsValid = false;
     };

@@ -71,12 +71,25 @@ namespace BidirectionalInMemGraph
     protected:
         using EdgeTableRange = DescriptorConf::APCDescriptorRange;
 
-        EdgeTableRange ReadAnEdgeTableRange(
+        EdgeTableRange ReadAnEdgeTableRange_(
             FabricSegments edge_table,
             uint32_t edge_idx
         ) noexcept;
 
         void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
+
+        bool ReadAnEdgeBuffer_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeBuffer& return_buffer
+        ) noexcept;
+
+        EdgeBuilder::EdgeStatus ReadEdgeData_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData& edge_data,
+            EdgeBuilder::EdgeBuffer* edge_buffer_return = nullptr
+        ) noexcept;
 
     };
 
