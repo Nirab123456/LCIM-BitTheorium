@@ -70,7 +70,9 @@ namespace BidirectionalInMemGraph
                 (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE) ||
                 (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::RESERVED) ||
                 (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED) ||
-                (current_state == StateOfAPC::RETIRED && desired_state == StateOfAPC::RESERVED);
+                (current_state == StateOfAPC::RETIRED && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::HAULTED) ||
+                (current_state == StateOfAPC::HAULTED && desired_state == StateOfAPC::LIVE);
                 
         }
 

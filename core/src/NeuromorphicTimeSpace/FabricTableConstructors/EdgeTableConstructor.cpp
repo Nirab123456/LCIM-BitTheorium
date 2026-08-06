@@ -129,5 +129,86 @@ namespace BidirectionalInMemGraph
             );
     }
 
+    bool EdgeTableConstructor::SwitchEdgeState__(
+        FabricSegments edge_table,
+        uint32_t edge_idx,
+        EdgeBuilder::EdgeData& pre_switch,
+        EdgeBuilder::EdgeStatus desired_state,
+        std::optional<EdgeBuilder::EdgeStatus> required_st,
+        uint32_t max_tries
+    ) noexcept
+    {
+        EdgeBuilder::EdgeBuffer buffer{};
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        const size_t control_idx = range.BeginIndex + static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
+
+        
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            std::optional<EdgeBuilder::EdgeStatus> edge_status_current = ReadEdgeData_(
+                edge_table,
+                edge_idx,
+                pre_switch,
+                &buffer
+            );
+
+            if (
+                !edge_status_current.has_value() ||
+                (
+                    edge_status_current.value() == EdgeBuilder::EdgeStatus::HAULTED &&
+                    desired_state != EdgeBuilder::EdgeStatus::LIVE
+                )
+            )
+            {
+                return false;
+            }
+
+            if (
+                required_st.has_value() &&
+                required_st != edge_status_current
+            )
+            {
+                continue;
+            }
+            
+            const bool caller_holds_reservation = edge_status_current == EdgeBuilder::EdgeStatus::RESERVED;
+            const bool false_owner_claim = !caller_holds_reservation && desired_state != EdgeBuilder::EdgeStatus::RESERVED;
+            const bool non_ower_touching_reserved = caller_holds_reservation && desired_state == EdgeBuilder::EdgeStatus::RESERVED;
+
+            if ( 
+                false_owner_claim ||
+                non_ower_touching_reserved ||
+                !EdgeBuilder::IsTransitionStateLeagal(edge_status_current.value(), desired_state)
+            )
+            {
+                continue;
+            }
+
+            uint64_t expected_st_lock = buffer[static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)];
+
+            ++pre_switch.SeqLock;
+            pre_switch.Status = desired_state;
+
+            if (
+                !EdgeBuilder::BuildEdgeBuffer(buffer, pre_switch)
+            )
+            {
+                return false;
+            }
+
+            --pre_switch.SeqLock;
+            pre_switch.Status = edge_status_current.value();
+
+            return
+                CompareExchangeStrongFromFabric(
+                    control_idx,
+                    expected_st_lock,
+                    buffer[static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)]
+                );
+        }
+        
+    }
+
+
 
 }

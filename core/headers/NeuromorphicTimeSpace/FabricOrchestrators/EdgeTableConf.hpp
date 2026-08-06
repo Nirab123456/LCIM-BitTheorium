@@ -64,7 +64,10 @@ struct EdgeTableConf : public DescriptionOfAPC
         }
 
         if (
-            edge.Status == EdgeStatus::RESERVED &&
+            (
+                edge.Status == EdgeStatus::RESERVED ||
+                edge.Status == EdgeStatus::HAULTED
+            ) &&
             InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
         )
         {
@@ -72,7 +75,10 @@ struct EdgeTableConf : public DescriptionOfAPC
         }
 
         if (
-            edge.Status != EdgeStatus::RESERVED &&
+            (
+                edge.Status  != EdgeStatus::RESERVED ||
+                edge.Status != EdgeStatus::HAULTED
+            ) &&
             !InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
         )
         {
