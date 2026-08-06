@@ -14,23 +14,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         SEQLOCK_STATE = 2
     };
 
-    enum class EdgeStatus : uint8_t
-    {
-        FREE = 0,
-        RESERVED = 1,
-        LIVE = 2,
-        RETIRED = 3,
-        HAULTED = 4,
-
-        RETRY_REQUIRED = 5,
-        INVALID = 6
-    };
-
-    static constexpr bool IsStorableStatus(EdgeStatus status) noexcept
-    {
-        return 
-            status < EdgeStatus::RETRY_REQUIRED;
-    }
+    using EdgeStatus = StateOfAPC;
 
     static constexpr uint8_t EDGE_TABLE_RECORD_WIDTH = static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE) + 1u;
     using EdgeBuffer = std::array<uint64_t, EDGE_TABLE_RECORD_WIDTH>;
@@ -46,7 +30,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         uint32_t DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         //PAIR-3
         uint32_t SeqLock = UNSIGNED_ZERO;
-        EdgeStatus Status = EdgeStatus::INVALID;
+        EdgeStatus Status = EdgeStatus::RESERVED;
 
         bool IsValid = false;
     };
@@ -57,7 +41,6 @@ struct EdgeTableConf : public DescriptionOfAPC
     {
         if (
             !IsValidEdgeTable(edge.EdgeTable) ||
-            !IsStorableStatus(edge.Status) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||
             !(

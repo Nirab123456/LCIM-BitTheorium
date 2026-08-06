@@ -226,8 +226,8 @@ namespace BidirectionalInMemGraph
             if (
                 !current.IsValid ||
                 (
-                    current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY &&
-                    current.StateOfTheAPC != DSA::StateOfAPC::RETIRED_OR_TOMBSTONE
+                    current.StateOfTheAPC != DSA::StateOfAPC::FREE &&
+                    current.StateOfTheAPC != DSA::StateOfAPC::RETIRED
                 )
             )
             {

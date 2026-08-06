@@ -16,17 +16,19 @@ namespace BidirectionalInMemGraph
 
         enum class StateOfAPC : uint8_t
         {
-            FREE_OR_EMPTY = 0,
+            FREE = 0,
             RESERVED = 1,
-            LIVE_OR_PUBLISHED = 2,
-            RETIRED_OR_TOMBSTONE = 3
+            LIVE = 2,
+            RETIRED = 3,
+            HAULTED = 4
         };
-        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::RETIRED_OR_TOMBSTONE) + 1;
+        
+        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::RETIRED) + 1;
 
         struct DescriptorSaftyFiles
         {
             uint32_t DescriptionID = UINT32_MAX;
-            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED_OR_TOMBSTONE;
+            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
         static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
@@ -63,12 +65,12 @@ namespace BidirectionalInMemGraph
 
         static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
         {
-            return (current_state == StateOfAPC::FREE_OR_EMPTY && desired_state == StateOfAPC::RESERVED) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE_OR_EMPTY) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE_OR_PUBLISHED) ||
-                (current_state == StateOfAPC::LIVE_OR_PUBLISHED && desired_state == StateOfAPC::RESERVED) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED_OR_TOMBSTONE) ||
-                (current_state == StateOfAPC::RETIRED_OR_TOMBSTONE && desired_state == StateOfAPC::RESERVED);
+            return (current_state == StateOfAPC::FREE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED) ||
+                (current_state == StateOfAPC::RETIRED && desired_state == StateOfAPC::RESERVED);
                 
         }
 
@@ -198,7 +200,7 @@ namespace BidirectionalInMemGraph
             uint64_t apc_idx,
             uint64_t segment_pool_begin,
             uint64_t segment_pool_end,
-            StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
+            StateOfAPC init_state = StateOfAPC::FREE
         ) noexcept
         {
             BuildZerodDescriptionBuffer(desc_return_buff);

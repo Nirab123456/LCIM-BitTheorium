@@ -101,7 +101,7 @@ namespace BidirectionalInMemGraph
             );
     }
 
-    EdgeBuilder::EdgeStatus EdgeTableConstructor::ReadEdgeData_(
+    std::optional<EdgeBuilder::EdgeStatus> EdgeTableConstructor::ReadEdgeData_(
         FabricSegments edge_table,
         uint32_t edge_idx,
         EdgeBuilder::EdgeData& edge_data,
@@ -113,7 +113,7 @@ namespace BidirectionalInMemGraph
             !ReadAnEdgeBuffer_(edge_table, edge_idx, buffer)
         )
         {
-            return EdgeBuilder::EdgeStatus::INVALID;
+            return std::nullopt;
         }
 
         if (edge_buffer_return)

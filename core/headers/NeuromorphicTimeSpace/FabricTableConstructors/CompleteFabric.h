@@ -68,6 +68,14 @@ namespace BidirectionalInMemGraph
 
     class EdgeTableConstructor : public APCHandleDescriptorConstructor
     {
+    private :
+        bool SwitchEdgeState__(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData& pre_switch,
+            std::optional<EdgeBuilder::EdgeStatus> previous_status = std::nullopt
+        ) noexcept;
+
     protected:
         using EdgeTableRange = DescriptorConf::APCDescriptorRange;
 
@@ -84,7 +92,7 @@ namespace BidirectionalInMemGraph
             EdgeBuilder::EdgeBuffer& return_buffer
         ) noexcept;
 
-        EdgeBuilder::EdgeStatus ReadEdgeData_(
+        std::optional<EdgeBuilder::EdgeStatus> ReadEdgeData_(
             FabricSegments edge_table,
             uint32_t edge_idx,
             EdgeBuilder::EdgeData& edge_data,
