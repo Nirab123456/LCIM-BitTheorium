@@ -324,11 +324,11 @@ struct EdgeBuilder : public EdgeTableConf
         ++owner_edge.OwnLinkCount;
 
         if (
-            !IAB::IsOwnedAxisDisabled(current_identity, axis) &&
-            current_owned_edge
+            !IAB::IsOwnedAxisDisabled(current_identity, axis)
         )
         {
             if (
+                !current_owned_edge ||
                 !ValidateEdgeData(*current_owned_edge) ||
                 current_owned_edge->EdgeTable != map.EdgeTable ||
                 current_owned_edge->Root != current_slot
@@ -338,6 +338,11 @@ struct EdgeBuilder : public EdgeTableConf
             }
             current_owned_edge->DoubellyLinkedIndex = owner_edge_idx;
         }
+        else if (current_owned_edge)
+        {
+            return false;
+        }
+        
         
         return 
             owner_edge.IsValid &&
@@ -350,51 +355,45 @@ struct EdgeBuilder : public EdgeTableConf
         InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
         InstallAxisToBuffer::BufferOfAPCIdentity* next_identity,
         InstallAxisToBuffer::BidirectionalAxis axis,
-        SingleHashBuffer& branch_hash_buffer,
-        SingleHashBuffer& axis_hash_buffer
+        uint32_t owner_edge_index,
+        EdgeData& owner_edge,
+        EdgeData* current_owned_edge = nullptr
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        const uint64_t current_inharited_edge = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.InheritedEgdeTableIdx);
+        const uint64_t next_of_current = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.NextSibling);
+        const uint64_t prev_of_current = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.PreviousSibling);
+
+        const uint64_t predecessor_slot = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        const uint64_t first_child_of_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.RootOwnedChild);
+
         if (
             !IAB::ValidateIdentityBuffer(predecessor_identity) ||
             !IAB::ValidateIdentityBuffer(current_identity) ||
             IAB::IsInheritedAxisDisabled(current_identity, axis) ||
-            !ValidateHashBuffer(branch_hash_buffer) ||
-            !ValidateHashBuffer(axis_hash_buffer)
+            !owner_edge.IsValid ||
+            owner_edge.Status != EdgeStatus::LIVE ||
+            owner_edge.OwnLinkCount == UNSIGNED_ZERO ||
+            current_inharited_edge != owner_edge_index ||
+            prev_of_current != predecessor_slot
         )
         {
             return false;
         }
 
-        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const bool is_predessor_is_owner = owner_edge.Root == predecessor_slot &&
+            first_child_of_predecessor == current_slot;
 
-        const uint64_t predecessor_slot = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
-        const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
-        const uint64_t next_of_current = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.NextSibling);
-        const uint64_t current_key = IAB::ValueOfAnIdentityFromBuffer(current_identity, map.InheritedEgdeTableIdx);
-        const std::optional<uint32_t> axis_id = IAB::GroupPreFix32FromKey(current_key);
-
-        if (
-            IAB::ValueOfAnIdentityFromBuffer(current_identity, map.PreviousSibling) != predecessor_slot ||
-            !axis_id.has_value()
-        )
+        if (is_predessor_is_owner)
         {
-            return false;
-        }
-        const uint64_t next_of_own_for_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.RootOwnedChild);
-        const uint64_t next_sibbling_of_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.NextSibling);
-
-        const bool predecessor_is_owner = IAB::IsValidOwnedRoot(predecessor_identity, axis) && next_of_own_for_predecessor == current_slot;
-
-        if (predecessor_is_owner)
-        {
-            if (
-                !IAB::InsertAnIdentityInBuffer(
-                    predecessor_identity,
-                    map.RootOwnedChild,
-                    next_of_current
-                )
-            )
+            if (!IAB::InsertAnIdentityInBuffer(
+                predecessor_identity,
+                map.RootOwnedChild,
+                next_of_current
+            ))
             {
                 return false;
             }
@@ -402,7 +401,10 @@ struct EdgeBuilder : public EdgeTableConf
         else
         {
             if (
-                next_sibbling_of_predecessor != current_slot ||
+                !IAB::ValueOfAnIdentityFromBuffer(
+                    predecessor_identity,
+                    map.NextSibling
+                ) != current_slot ||
                 !IAB::InsertAnIdentityInBuffer(
                     predecessor_identity,
                     map.NextSibling,
@@ -412,6 +414,7 @@ struct EdgeBuilder : public EdgeTableConf
             {
                 return false;
             }
+            
         }
         
 
@@ -423,8 +426,7 @@ struct EdgeBuilder : public EdgeTableConf
                 !next_identity ||
                 !IAB::ValidateIdentityBuffer(*next_identity) ||
                 IAB::ValueOfAnIdentityFromBuffer(*next_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != next_of_current ||
-                !IAB::InsertAnIdentityInBuffer(*next_identity, map.PreviousSibling, predecessor_slot) ||
-                !IAB::SealIdentityBuffer(*next_identity)
+                !IAB::InsertAnIdentityInBuffer(*next_identity, map.PreviousSibling, predecessor_slot)
             )
             {
                 return false;
@@ -434,45 +436,64 @@ struct EdgeBuilder : public EdgeTableConf
         {
             return false;
         }
-        const uint8_t value_idx = static_cast<uint8_t>(
-            HashBufferIndexing::VALUE_INDEX
-        );
-        const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
+
+
+        if (owner_edge.End == current_slot)
+        {
+            owner_edge.End = owner_edge.OwnLinkCount == 1u ? 
+                APCDataStructure::APC_INDEX_BOUND_SENTINAL : static_cast<uint32_t>(predecessor_slot);
+        }
+        --owner_edge.OwnLinkCount;
         if (
-            !APCDataStructure::IsValid32BitAPCUnit(old_branch_hash_values.AxisTopWaterMark) ||
-            !HashIdConstructror::IsValidGroupId(old_branch_hash_values.MemberCount)
+            owner_edge.OwnLinkCount == UNSIGNED_ZERO &&
+            owner_edge.End != APCDataStructure::APC_INDEX_BOUND_SENTINAL
         )
         {
             return false;
         }
-        AxisTopAndCountForBranchHashValue new_branch_hash_values{};
-        new_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark;
-        new_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount - 1u;
-        const uint64_t new_branch_hash_value = PackAxisTopAndCount(new_branch_hash_values);
-        SetHashBufferUnit(branch_hash_buffer, HashBufferIndexing::VALUE_INDEX, new_branch_hash_value);
 
-        const bool branch_hash_buffer_ok = MakeValidHashBuffer(
-            branch_hash_buffer,
-            axis_id.value(),
-            new_branch_hash_value,
-            GetStDistFp(branch_hash_buffer).Lowest32Bit,
-            HashState::LIVE_OR_PUBLISHED
-        );
+        if (!IAB::DisableInharitadAxis(current_identity, axis))
+        {
+            return false;
+        }
+
+        if (!IAB::IsOwnedAxisDisabled(current_identity, axis))
+        {
+            if (
+                !current_owned_edge ||
+                !current_owned_edge->IsValid ||
+                current_owned_edge->Root != current_slot ||
+                current_owned_edge->EdgeTable != map.EdgeTable
+            )
+            {
+                return false;
+            }
+            current_owned_edge->DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        }
+        else if (current_owned_edge)
+        {
+            return false;
+        }
+
+        owner_edge.IsValid = ValidateEdgeData(owner_edge);
 
         if (
-            !branch_hash_buffer_ok ||
-            !RecompileStateInBuffer(axis_hash_buffer, HashState::RETIRED_OR_TOMBSTONE) ||
-            !ValidateHashBuffer(branch_hash_buffer) ||
-            !ValidateHashBuffer(axis_hash_buffer) ||
-            !IAB::DisableInharitadAxis(current_identity, axis)
+            !owner_edge.IsValid ||
+            (
+                current_owned_edge &&
+                !ValidateEdgeData(*current_owned_edge)
+            )
         )
         {
             return false;
         }
-        
         return 
             IAB::SealIdentityBuffer(predecessor_identity) &&
-            IAB::SealIdentityBuffer(current_identity);  
+            IAB::SealIdentityBuffer(current_identity) &&
+            (
+                !next_identity ||
+                IAB::SealIdentityBuffer(*next_identity)
+            );
     }
 
 
