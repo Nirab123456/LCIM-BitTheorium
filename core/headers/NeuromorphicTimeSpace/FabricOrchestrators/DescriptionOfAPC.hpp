@@ -1,7 +1,7 @@
 #pragma once 
 #include "FabricTableOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct DescriptorConf : public CoreOfFabricCoordinator

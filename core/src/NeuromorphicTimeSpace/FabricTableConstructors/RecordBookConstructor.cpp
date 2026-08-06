@@ -1,6 +1,6 @@
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     void RecordBookConstructor::IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept

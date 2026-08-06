@@ -1,7 +1,7 @@
 #pragma once 
 #include "SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 class VagueTemoraryPremativeFabric : public SlabToFabricConverterAndCordinator

@@ -1,7 +1,7 @@
 #pragma once 
 #include "../../AdaptivePackedCellContainer/APCOrchestrators/APCDataStructure.hpp"
 
-namespace PredictedAdaptedEncoding 
+namespace BidirectionalInMemGraph 
 {
     struct TwinU32ToU64
     {

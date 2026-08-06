@@ -4,7 +4,7 @@
 #include <utility>
 #include "../../SharedComponents/SharedConf.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     enum class HeaderIdentifierOfAPC : uint8_t

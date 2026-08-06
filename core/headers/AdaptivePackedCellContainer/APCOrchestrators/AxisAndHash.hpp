@@ -5,7 +5,7 @@
 #include "APCDataStructure.hpp"
 #include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 

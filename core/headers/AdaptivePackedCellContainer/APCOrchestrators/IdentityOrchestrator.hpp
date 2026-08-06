@@ -4,7 +4,7 @@
 #include "AxisAndHash.hpp"
 
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct IdentityValidator : public DefineIdentityBuffer

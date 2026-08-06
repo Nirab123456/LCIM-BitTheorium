@@ -1,7 +1,7 @@
 #pragma once
 #include "LayoutBoundsOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct SchemaOrchestrator 

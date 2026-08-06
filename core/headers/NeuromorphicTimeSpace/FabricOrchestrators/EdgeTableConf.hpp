@@ -1,7 +1,7 @@
 #pragma once 
 #include "DescriptionOfAPC.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 
@@ -494,6 +494,40 @@ struct EdgeBuilder : public EdgeTableConf
                 !next_identity ||
                 IAB::SealIdentityBuffer(*next_identity)
             );
+    }
+
+
+    static constexpr bool PreparedOwnedRootForRetirement(
+        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
+        InstallAxisToBuffer::BidirectionalAxis axis,
+        EdgeData& owned_edge
+    ) noexcept
+    {
+        using IAB = InstallAxisToBuffer;
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        const uint64_t root_slot = IAB::ValueOfAnIdentityFromBuffer(
+            identity_buffer,
+            HeaderIdentifierOfAPC::APC_SLOT_IDX
+        );
+
+        if (
+            !IAB::ValidateDefaultIdentity(identity_buffer) ||
+            IAB::IsOwnedAxisDisabled(identity_buffer, axis) ||
+            !ValidateEdgeData(owned_edge) ||
+            owned_edge.Root != root_slot ||
+            owned_edge.OwnLinkCount != UNSIGNED_ZERO ||
+            owned_edge.End != APCDataStructure::APC_INDEX_BOUND_SENTINAL
+        )
+        {
+            return false;
+        }
+
+        owned_edge.DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        owned_edge.Status = EdgeStatus::RETIRED;
+        return 
+            IAB::DisableOwnedRoot(identity_buffer, axis) &&
+            IAB::SealIdentityBuffer(identity_buffer);
     }
 
 

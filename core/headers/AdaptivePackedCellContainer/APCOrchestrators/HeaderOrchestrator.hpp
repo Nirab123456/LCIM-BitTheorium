@@ -2,7 +2,7 @@
 #include <functional>
 #include "CompleateRegionOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 

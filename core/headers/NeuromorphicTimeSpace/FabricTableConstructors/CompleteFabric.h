@@ -1,7 +1,7 @@
 #pragma once 
 #include "FabricConstructor.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     class RecordBookConstructor : public FabricConstructor
     {

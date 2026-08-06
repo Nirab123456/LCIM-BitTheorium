@@ -1,6 +1,6 @@
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     APCSegmentPoolRange APCHandleDescriptorConstructor::GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept

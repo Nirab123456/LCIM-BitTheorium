@@ -24,7 +24,7 @@
     #include <intrin.h>
 #endif
 
-namespace PredictedAdaptedEncoding 
+namespace BidirectionalInMemGraph 
 {
     /// @brief Name Of Each Segment On APC
     /// @param NONE Lower guard prevents a Packed Cell to be ever VALID: 0

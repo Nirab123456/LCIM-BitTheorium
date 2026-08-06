@@ -2,7 +2,7 @@
 #include <span>
 #include "../FabricOrchestrators/EdgeTableConf.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     class FabricConstructor

@@ -1,7 +1,7 @@
 #pragma once 
 #include "CoreOfFabricCoordinator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 struct RecordBookConf

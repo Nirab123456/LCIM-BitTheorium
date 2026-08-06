@@ -3,7 +3,7 @@
 #include "AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 

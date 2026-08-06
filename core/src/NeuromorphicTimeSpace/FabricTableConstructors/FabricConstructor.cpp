@@ -1,6 +1,6 @@
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     bool FabricConstructor::ReadAFabricU64Directly(

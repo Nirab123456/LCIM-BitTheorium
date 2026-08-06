@@ -3,7 +3,7 @@
 #include <utility>
 #include "IdentityOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 struct LayoutBuilderAndValidator 

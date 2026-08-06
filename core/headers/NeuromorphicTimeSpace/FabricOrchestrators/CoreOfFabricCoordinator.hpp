@@ -1,7 +1,7 @@
 #pragma once 
 #include "../../AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct EnumsOfFabricCoordinator

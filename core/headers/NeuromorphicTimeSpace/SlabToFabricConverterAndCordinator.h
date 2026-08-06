@@ -1,7 +1,7 @@
 #pragma once 
 #include "FabricTableConstructors/CompleteFabric.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     
     
