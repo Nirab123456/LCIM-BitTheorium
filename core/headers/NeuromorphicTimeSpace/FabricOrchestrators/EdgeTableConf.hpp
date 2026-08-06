@@ -238,52 +238,48 @@ struct EdgeBuilder : public EdgeTableConf
         InstallAxisToBuffer::BufferOfAPCIdentity& predessor,
         InstallAxisToBuffer::BufferOfAPCIdentity& current_identity,
         InstallAxisToBuffer::BidirectionalAxis axis,
-        InstallAxisToBuffer::DescOfInharitance inharitance
+        InstallAxisToBuffer::DescOfInharitance inharitance,
+        uint32_t owner_edge_idx,
+        EdgeData& owner_edge,
+        EdgeData* current_owned_edge = nullptr
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
-
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const uint64_t predessor_slot = IAB::ValueOfAnIdentityFromBuffer(predessor, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         if (
             !IAB::ValidateIdentityBuffer(predessor) ||
             !IAB::ValidateIdentityBuffer(current_identity) ||
             !IAB::IsInheritedAxisDisabled(current_identity, axis) ||
-            !ValidateHashBuffer(branch_hash_buffer)
+            !APCDataStructure::IsValid32BitAPCUnit(owner_edge_idx) ||
+            owner_edge.Status != EdgeStatus::LIVE ||
+            owner_edge.EdgeTable != map.EdgeTable ||
+            predessor_slot == current_slot 
         )
         {
             return false;
         }
 
-        BuildEmptyHashBuffer(axis_hash_buffer);
-        
-        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-
-        const uint64_t predessor_slot = IAB::ValueOfAnIdentityFromBuffer(predessor, HeaderIdentifierOfAPC::APC_SLOT_IDX);
-        const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
-
-        uint32_t axis_id = UNSIGNED_ZERO;
-
-        auto GetPreDesInfo__ = [&](HeaderIdentifierOfAPC position) noexcept -> bool
-        {
-            std::optional<uint32_t> maybe_axis_id = IAB::GroupPreFix32FromKey(
-                IAB::ValueOfAnIdentityFromBuffer(
-                    predessor, position
-                )
-            );
-            if (!maybe_axis_id.has_value())
-            {
-                return false;
-            }
-            axis_id = maybe_axis_id.value();
-            return true;
-        };
-
         if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
         {
             if (
-                IAB::IsOwnedAxisDisabled(predessor, axis) ||
-                !IAB::IsValidOwnedRoot(predessor, axis) ||
-                IAB::ValueOfAnIdentityFromBuffer(predessor, map.RootOwnedChild) != FABRIC_CELL_SENTINAL ||
-                !GetPreDesInfo__(map.OwnedEgdeTableIdx)
+                owner_edge.Root != predessor_slot ||
+                owner_edge.OwnLinkCount != UNSIGNED_ZERO ||
+                owner_edge.End != APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
+                IAB::ValueOfAnIdentityFromBuffer(
+                    predessor,
+                    map.OwnedEgdeTableIdx
+                ) != owner_edge_idx ||
+                IAB::ValueOfAnIdentityFromBuffer(
+                    predessor,
+                    map.RootOwnedChild
+                ) != FABRIC_CELL_SENTINAL ||
+                !IAB::InsertAnIdentityInBuffer(
+                    predessor,
+                    map.RootOwnedChild,
+                    current_slot
+                )
             )
             {
                 return false;
@@ -292,73 +288,31 @@ struct EdgeBuilder : public EdgeTableConf
         else if (inharitance == IAB::DescOfInharitance::LINKED_CHILD)
         {
             if (
-                IAB::IsInheritedAxisDisabled(predessor, axis) ||
-                !IAB::IsValidInheritedAxis(predessor, axis) ||
-                IAB::ValueOfAnIdentityFromBuffer(predessor, map.NextSibling) != FABRIC_CELL_SENTINAL ||
-                !GetPreDesInfo__(map.InheritedEgdeTableIdx)
+                owner_edge.OwnLinkCount == UNSIGNED_ZERO ||
+                owner_edge.End != predessor_slot ||
+                IAB::ValueOfAnIdentityFromBuffer(
+                    predessor,
+                    map.InheritedEgdeTableIdx
+                ) != owner_edge_idx ||
+                IAB::ValueOfAnIdentityFromBuffer(
+                    predessor,
+                    map.NextSibling
+                ) != FABRIC_CELL_SENTINAL ||
+                !IAB::InsertAnIdentityInBuffer(
+                    predessor,
+                    map.NextSibling,
+                    current_slot
+                )
             )
             {
                 return false;
             }
+            
         }
-        else
-        {
-            return false;
-        }
-
-        const uint8_t key_idx = static_cast<uint8_t>(HashBufferIndexing::KEY_INDEX);
-        const uint8_t value_idx = static_cast<uint8_t>(HashBufferIndexing::VALUE_INDEX);
-        const uint8_t control_idx = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK);
+        
 
         if (
-            branch_hash_buffer[key_idx] != axis_id ||
-            !IsExpectedHashStateBuffer(
-                branch_hash_buffer,
-                axis_id,
-                HashState::LIVE_OR_PUBLISHED
-            )
-        )
-        {
-            return false;
-        }
-
-        const AxisTopAndCountForBranchHashValue old_branch_hash_values = GetBranchHashValues(branch_hash_buffer[value_idx]);
-        AxisTopAndCountForBranchHashValue updated_branch_hash_values{};
-        updated_branch_hash_values.AxisTopWaterMark = old_branch_hash_values.AxisTopWaterMark + 1u;
-        updated_branch_hash_values.MemberCount = old_branch_hash_values.MemberCount + 1u;        
-        if (
-            !APCDataStructure::IsValid32BitAPCUnit(updated_branch_hash_values.AxisTopWaterMark) ||
-            !APCDataStructure::IsValid32BitAPCUnit(updated_branch_hash_values.MemberCount)
-        )
-        {
-            return false;
-        }
-        const uint64_t current_key = IAB::MakeGroupKeyFromParentGroupId(
-            axis_id,
-            updated_branch_hash_values.AxisTopWaterMark
-        );
-
-        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
-        {
-            if (
-                !IAB::InsertAnIdentityInBuffer(predessor, map.RootOwnedChild, current_slot)
-            )
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if (
-                !IAB::InsertAnIdentityInBuffer(predessor, map.NextSibling, current_slot)
-            )
-            {
-                return false;
-            }
-        }
-
-        if (
-            !IAB::InsertAnIdentityInBuffer(current_identity, map.InheritedEgdeTableIdx, current_key) ||
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.InheritedEgdeTableIdx, owner_edge_idx)|
             !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
         )
@@ -366,11 +320,29 @@ struct EdgeBuilder : public EdgeTableConf
             return false;
         }
 
+        owner_edge.End = static_cast<uint32_t>(current_slot);
+        ++owner_edge.OwnLinkCount;
 
-        return branch_hash_ok &&
-            axis_hash_ok &&
-            InstallAxisToBuffer::SealIdentityBuffer(predessor) &&
-            InstallAxisToBuffer::SealIdentityBuffer(current_identity);
+        if (
+            !IAB::IsOwnedAxisDisabled(current_identity, axis) &&
+            current_owned_edge
+        )
+        {
+            if (
+                !ValidateEdgeData(*current_owned_edge) ||
+                current_owned_edge->EdgeTable != map.EdgeTable ||
+                current_owned_edge->Root != current_slot
+            )
+            {
+                return false;
+            }
+            current_owned_edge->DoubellyLinkedIndex = owner_edge_idx;
+        }
+        
+        return 
+            owner_edge.IsValid &&
+            IAB::SealIdentityBuffer(predessor) &&
+            IAB::SealIdentityBuffer(current_identity);
     }
 
     static constexpr bool PrepareForDetachmentOfInharitedAxis(
