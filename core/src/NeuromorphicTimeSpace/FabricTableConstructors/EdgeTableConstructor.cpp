@@ -209,6 +209,40 @@ namespace BidirectionalInMemGraph
         
     }
 
+    bool EdgeTableConstructor::PublishReservedEdge_(
+        EdgeBuilder::EdgeData& desired_data,
+        uint32_t edge_idx
+    ) noexcept
+    {
+        EdgeBuilder::EdgeData edge_data_current{};
+        EdgeBuilder::EdgeBuffer buffer{};
+        const EdgeTableRange range = ReadAnEdgeTableRange_(desired_data.EdgeTable, edge_idx);
+        std::optional<EdgeBuilder::EdgeStatus> current_status = ReadEdgeData_(
+            desired_data.EdgeTable,
+            edge_idx,
+            edge_data_current
+        );
+
+        ++desired_data.SeqLock;
+
+        if (
+            !range.IsValid ||
+            !current_status.has_value() ||
+            current_status.value() != EdgeBuilder::EdgeStatus::RESERVED ||
+            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data)
+        )
+        {
+            return false;
+        }
+
+        return 
+            AtomicallyCopyFromBufferToFabric(
+                range.BeginIndex,
+                EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
+                buffer.data()
+            );
+    }
+
 
 
 }

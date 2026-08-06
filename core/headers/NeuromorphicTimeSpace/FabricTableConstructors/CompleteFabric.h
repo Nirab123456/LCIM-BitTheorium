@@ -103,6 +103,32 @@ namespace BidirectionalInMemGraph
             EdgeBuilder::EdgeBuffer* edge_buffer_return = nullptr
         ) noexcept;
 
+        bool ReserveAnEdge_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData* pre_reserve_data = nullptr,
+            std::optional<EdgeBuilder::EdgeStatus> expected_state = std::nullopt,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept
+        {
+            return
+                SwitchEdgeState__(
+                    edge_table,
+                    edge_idx,
+                    *pre_reserve_data,
+                    EdgeBuilder::EdgeStatus::RESERVED,
+                    std::nullopt,
+                    max_tries
+                );
+        }
+
+        bool PublishReservedEdge_(
+            EdgeBuilder::EdgeData& desired_data,
+            uint32_t edge_idx
+        ) noexcept;
+
+
+
     };
 
 
