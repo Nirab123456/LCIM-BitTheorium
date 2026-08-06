@@ -117,7 +117,7 @@ namespace BidirectionalInMemGraph
                     edge_idx,
                     *pre_reserve_data,
                     EdgeBuilder::EdgeStatus::RESERVED,
-                    std::nullopt,
+                    expected_state,
                     max_tries
                 );
         }
@@ -126,7 +126,6 @@ namespace BidirectionalInMemGraph
             EdgeBuilder::EdgeData& desired_data,
             uint32_t edge_idx
         ) noexcept;
-
 
 
     };

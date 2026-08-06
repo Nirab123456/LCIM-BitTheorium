@@ -305,8 +305,9 @@ namespace BidirectionalInMemGraph
     }
 
     std::optional<uint64_t> SlabToFabricConverterAndCordinator::NewApcFromFabric(
-        APCAxisSelection desired_axis,
-        IAB::BufferOfAPCIdentity& identity_buffer_new_apc
+        IAB::BidirectionalAxis desired_axis,
+        IAB::BufferOfAPCIdentity& identity_buffer_new_apc,
+        bool wants_both_axis = false
     ) noexcept
     {
         uint64_t slot_new = FABRIC_CELL_SENTINAL;

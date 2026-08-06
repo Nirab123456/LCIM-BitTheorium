@@ -5,7 +5,7 @@ namespace BidirectionalInMemGraph
 {
     
     
-    class SlabToFabricConverterAndCordinator : public DescriptionOfAPC
+    class SlabToFabricConverterAndCordinator : public EdgeTableConstructor
     {
     private:
 
@@ -44,8 +44,9 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
         std::optional<uint64_t> NewApcFromFabric(
-            APCAxisSelection desired_axis,
-            IAB::BufferOfAPCIdentity& identity_buffer_new_apc
+            IAB::BidirectionalAxis desired_axis,
+            IAB::BufferOfAPCIdentity& identity_buffer_new_apc,
+            bool wants_both_axis = false
         ) noexcept;
         
     };
