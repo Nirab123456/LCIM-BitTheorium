@@ -92,7 +92,7 @@ namespace BidirectionalInMemGraph
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
     ) noexcept
     {
-        const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::APC_INDEX)];
+        const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIndexing::APC_INDEX)];
         const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
         const  DescriptionOfAPC::DescriptorSaftyFiles current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
@@ -138,7 +138,7 @@ namespace BidirectionalInMemGraph
         {
             return std::nullopt;
         }
-        const uint8_t id_st_concurrent = static_cast<uint8_t>(DSA::DescriptionIdentity::ID_STATE_CONCURRENT);
+        const uint8_t id_st_concurrent = static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT);
         const uint64_t id_state_idx = this_apc_descriptor_range.BeginIndex + id_st_concurrent;
 
         DSA::SingleAPCDescriptionCellBuffer description_buffer{};
@@ -254,7 +254,7 @@ namespace BidirectionalInMemGraph
         }
 
         const size_t state_cell_idx = desired_description_range.BeginIndex + 
-            static_cast<size_t>(DescriptionOfAPC::DescriptionIdentity::ID_STATE_CONCURRENT);
+            static_cast<size_t>(DescriptionOfAPC::DescriptionIndexing::ID_STATE_CONCURRENT);
         
         return state_cell_idx;
     }

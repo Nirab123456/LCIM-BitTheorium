@@ -37,11 +37,6 @@ namespace BidirectionalInMemGraph
             uint64_t desired_value
         ) noexcept;
 
-        bool ReadIdentityBufferConcurrently(
-            InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
         bool PublishIdentityBuffer(
             InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
             uint32_t max_tries = DEFAULT_MAX_TRIES

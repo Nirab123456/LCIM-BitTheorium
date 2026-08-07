@@ -30,7 +30,7 @@ namespace BidirectionalInMemGraph
 
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
-        enum class DescriptionIdentity : uint8_t
+        enum class DescriptionIndexing : uint8_t
         {
             APC_INDEX = 0,
             APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
@@ -39,7 +39,7 @@ namespace BidirectionalInMemGraph
             DESCRIPTOR_FLAGS = 4,
             ID_STATE_CONCURRENT = 5
         };
-        static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionIdentity::ID_STATE_CONCURRENT) + 1u;
+        static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionIndexing::ID_STATE_CONCURRENT) + 1u;
 
         enum class FabricMetaIndicies : uint8_t
         {

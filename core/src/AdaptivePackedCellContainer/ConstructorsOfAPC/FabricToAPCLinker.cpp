@@ -171,7 +171,7 @@ namespace BidirectionalInMemGraph
     }
 
     std::optional<uint64_t> FabricToAPCLinker::HoldStateOfIdentyFingerprint(
-        InstallAxisToBuffer::FingerprintHashState desired_state
+        InstallAxisToBuffer::IdentityState desired_state
     ) noexcept
     {
         using IA = InstallAxisToBuffer;
@@ -196,7 +196,11 @@ namespace BidirectionalInMemGraph
         
         uint64_t sealed_fingerprint = UNSIGNED_ZERO;
 
-        if (IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint) != IA::FingerprintHashState::VALID)
+        std::optional<IA::IdentityState> current_fp_state = IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint);
+
+        if (
+            !current_fp_state.has_value() ||
+            current_fp_state.value() != IA::IdentityState::VALID)
         {
             return std::nullopt;
         }
@@ -204,8 +208,8 @@ namespace BidirectionalInMemGraph
         bool comp_exg_ok = CompareExchangeStrongFromAPC(
             static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
             sealed_fingerprint,
-            desired_state == IA::FingerprintHashState::WRITE_LOCK ?
-                IA::IDENTY_FINGERPRINT_WRITE_LOCK : IA::IDENTITY_FINGERPRINT_CONSUMED
+            desired_state == IA::IdentityState::WRITE_LOCK ?
+                IA::IDENTITY_WRITE_LOCKDOWN : IA::CONSUME_VALID_IDENTITY
         );
         return comp_exg_ok ?
             std::optional<uint64_t>{sealed_fingerprint} : 
@@ -214,10 +218,10 @@ namespace BidirectionalInMemGraph
 
     bool FabricToAPCLinker::RestorIdentityFingerprint(
         uint64_t sealed_fingerprint,
-        InstallAxisToBuffer::FingerprintHashState current_state
+        InstallAxisToBuffer::IdentityState current_state
     ) noexcept
     {
-        using IFS = InstallAxisToBuffer::FingerprintHashState;
+        using IFS = InstallAxisToBuffer::IdentityState;
 
         const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
         uint64_t current_fp = UNSIGNED_ZERO;
@@ -226,8 +230,8 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        const IFS sealed_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(sealed_fingerprint);
-        const IFS current_fp_state = InstallAxisToBuffer::StateOfIdentityFingerprint(current_fp);
+        const IFS sealed_fp_state = InstallAxisToBuffer::IdentityFingerprintToState(sealed_fingerprint);
+        const IFS current_fp_state = InstallAxisToBuffer::IdentityFingerprintToState(current_fp);
 
         if (
             sealed_fp_state == IFS::VALID &&

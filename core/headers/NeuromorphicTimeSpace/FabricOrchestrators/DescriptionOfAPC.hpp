@@ -167,11 +167,11 @@ namespace BidirectionalInMemGraph
                 }
             }
 
-            const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB)] -
-                desc_return_buff[static_cast<size_t>(DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+            const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)] -
+                desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
             
             const DescriptorSaftyFiles desc_files = GetDescriptionFile(
-                desc_return_buff[static_cast<size_t>(DescriptionIdentity::ID_STATE_CONCURRENT)]
+                desc_return_buff[static_cast<size_t>(DescriptionIndexing::ID_STATE_CONCURRENT)]
             );
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, desc_files.StateOfTheAPC);
@@ -192,7 +192,7 @@ namespace BidirectionalInMemGraph
 
         static constexpr void SetADescriptionUnit(
             SingleAPCDescriptionCellBuffer& desc_buffer,
-            DescriptionIdentity identity,
+            DescriptionIndexing identity,
             uint64_t value
         ) noexcept
         {
@@ -214,9 +214,9 @@ namespace BidirectionalInMemGraph
         ) noexcept
         {
             BuildZerodDescriptionBuffer(desc_return_buff);
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_INDEX, apc_idx);
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
+            SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_INDEX, apc_idx);
+            SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
+            SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
             const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
@@ -229,7 +229,7 @@ namespace BidirectionalInMemGraph
                 return false;
             }
             
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::ID_STATE_CONCURRENT, id_state_unit);
+            SetADescriptionUnit(desc_return_buff, DescriptionIndexing::ID_STATE_CONCURRENT, id_state_unit);
 
             return ValidateADescriptionBuffer(desc_return_buff);
         }
@@ -254,7 +254,7 @@ namespace BidirectionalInMemGraph
             InstallAxisToBuffer::BufferOfAPCIdentity& identity
         ) noexcept
         {
-            const uint8_t APC_PHYSICAL_ID_LEN = static_cast<uint8_t>(DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB) - static_cast<uint8_t>(DescriptionIdentity::APC_INDEX) + 1;
+            const uint8_t APC_PHYSICAL_ID_LEN = static_cast<uint8_t>(DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB) - static_cast<uint8_t>(DescriptionIndexing::APC_INDEX) + 1;
             const uint8_t offset_identity = 1u;
 
             using IAB = InstallAxisToBuffer;

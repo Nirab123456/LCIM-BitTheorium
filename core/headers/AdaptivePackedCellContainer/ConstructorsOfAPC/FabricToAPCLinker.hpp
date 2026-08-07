@@ -99,12 +99,12 @@ public:
     }
 
     std::optional<uint64_t> HoldStateOfIdentyFingerprint(
-        InstallAxisToBuffer::FingerprintHashState desired_state
+        InstallAxisToBuffer::IdentityState desired_state
     ) noexcept;
 
     bool RestorIdentityFingerprint(
         uint64_t sealed_fingerprint,
-        InstallAxisToBuffer::FingerprintHashState current_state
+        InstallAxisToBuffer::IdentityState current_state
     ) noexcept;
 };
     

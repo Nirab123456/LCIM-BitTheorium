@@ -115,51 +115,6 @@ namespace BidirectionalInMemGraph
             );
     }
 
-    bool ReadAndWriteOfAPC::ReadIdentityBufferConcurrently(
-        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
-        uint32_t max_tries
-    ) noexcept
-    {
-        using IAB = InstallAxisToBuffer;
-        IAB::BuildNullIdentityBuffer(identity_buffer);
-        const uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
-        uint64_t before_fp = UNSIGNED_ZERO;
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            if (
-                !AtomicallyReadLongLongAPCUnit(fp_header_idx, before_fp) ||
-                IAB::StateOfIdentityFingerprint(before_fp) != IAB::FingerprintHashState::VALID
-            )
-            {
-                continue;
-            }
-
-            if (
-                !CopyFromAPCToBuffer(
-                    fp_header_idx,
-                    APCDataStructure::TotalIdentityUnitCount(),
-                    identity_buffer.data(),
-                    true
-                )
-            )
-            {
-                return false;
-            }
-
-            
-            uint64_t after_fp = UNSIGNED_ZERO;
-            if (
-                !AtomicallyReadLongLongAPCUnit(fp_header_idx, after_fp) ||
-                before_fp != after_fp
-            )
-            {
-                continue;
-            }
-            return 
-                IAB::ValidateIdentityBuffer(identity_buffer);
-        }
-        return false;
-    }
 
     bool ReadAndWriteOfAPC::PublishIdentityBuffer(
         InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
@@ -184,7 +139,7 @@ namespace BidirectionalInMemGraph
                 fp_header_idx,
                 current_fp
                 ) &&
-                IAB::StateOfIdentityFingerprint(current_fp) == IAB::FingerprintHashState::VALID 
+                IAB::IdentityFingerprintToState(current_fp) == IAB::IdentityState::VALID 
             )
             {
                 uint64_t expected = current_fp;
@@ -192,7 +147,7 @@ namespace BidirectionalInMemGraph
                     CompareExchangeStrongFromAPC(
                         fp_header_idx, 
                         expected,
-                        IAB::IDENTY_FINGERPRINT_WRITE_LOCK
+                        IAB::IDENTITY_WRITE_LOCKDOWN
                     )
                 )
                 {
@@ -210,7 +165,7 @@ namespace BidirectionalInMemGraph
             AtomicallyWriteU64ToAPC(fp_header_idx + i, desired_identity[i]);
         }
 
-        uint64_t expected = IAB::IDENTY_FINGERPRINT_WRITE_LOCK;
+        uint64_t expected = IAB::IDENTITY_WRITE_LOCKDOWN;
 
         const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT).value();
 

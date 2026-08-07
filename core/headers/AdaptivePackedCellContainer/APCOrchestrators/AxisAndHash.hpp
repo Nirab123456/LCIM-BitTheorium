@@ -287,15 +287,20 @@ struct DefineIdentityBuffer : public AxisConstructor
     static constexpr uint8_t IDENTITY_VALIDATION_IDX = IDENTITY_BUFFER_LEN - 1;
     static constexpr uint64_t VALIDATION_IDENTITY_MARK = 987987;
 
-    static constexpr uint64_t IDENTY_FINGERPRINT_WRITE_LOCK = FABRIC_CELL_SENTINAL - 1u;
-    static constexpr uint64_t IDENTITY_FINGERPRINT_CONSUMED = FABRIC_CELL_SENTINAL - 3u;
+    static constexpr uint64_t IDENTITY_WRITE_LOCKDOWN = FABRIC_CELL_SENTINAL - 1u;
+    static constexpr uint64_t HORIZONTAL_AXIS_LOCKDOWN = FABRIC_CELL_SENTINAL - 3u;
+    static constexpr uint64_t VERTICAL_AXIS_LOCKDOWN = FABRIC_CELL_SENTINAL - 5u;
+    static constexpr uint64_t CONSUME_VALID_IDENTITY = FABRIC_CELL_SENTINAL - 7u;
 
-    enum class FingerprintHashState : uint8_t
+
+    enum class IdentityState : uint8_t
     {
         WRITE_LOCK = 0,
         CONSUME_LOCK = 1,
         VALID = 2,
-        INVALID = 3
+        HORIZONTAL_LOCK = 3,
+        VERTICAL_LOCK = 4,
+        INVALID = 5
     };
 
     using BufferOfAPCIdentity = std::array<uint64_t, IDENTITY_BUFFER_LEN>;
@@ -306,10 +311,10 @@ struct DefineIdentityBuffer : public AxisConstructor
             identity_unit <= HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT;
     }
 
-    static constexpr bool IsHoldFingerprintState(FingerprintHashState state) noexcept
+    static constexpr bool IsHoldFingerprintState(IdentityState state) noexcept
     {
-        return state == FingerprintHashState::WRITE_LOCK ||
-            state == FingerprintHashState::CONSUME_LOCK;
+        return state == IdentityState::WRITE_LOCK ||
+            state == IdentityState::CONSUME_LOCK;
     }
 
 
@@ -338,26 +343,36 @@ struct DefineIdentityBuffer : public AxisConstructor
         );
     }
 
-        static constexpr FingerprintHashState StateOfIdentityFingerprint(uint64_t hash_value) noexcept
+        static constexpr IdentityState IdentityFingerprintToState(uint64_t lock_value) noexcept
         {
             if (
-                !IsValidAPCId(hash_value)
+                !IsValidAPCId(lock_value)
             )
             {
-                return FingerprintHashState::INVALID;
+                return IdentityState::INVALID;
             }
 
-            if (hash_value == IDENTITY_FINGERPRINT_CONSUMED)
+            if (lock_value == CONSUME_VALID_IDENTITY)
             {
-                return FingerprintHashState::CONSUME_LOCK;
+                return IdentityState::CONSUME_LOCK;
             }
 
-            if (hash_value == IDENTY_FINGERPRINT_WRITE_LOCK)
+            if (lock_value == IDENTITY_WRITE_LOCKDOWN)
             {
-                return FingerprintHashState::WRITE_LOCK;
+                return IdentityState::WRITE_LOCK;
+            }
+
+            if (lock_value == HORIZONTAL_AXIS_LOCKDOWN)
+            {
+                return IdentityState::HORIZONTAL_LOCK;
+            }
+
+            if (lock_value == VERTICAL_AXIS_LOCKDOWN)
+            {
+                return IdentityState::VERTICAL_LOCK;
             }
             
-            return FingerprintHashState::VALID;
+            return IdentityState::VALID;
         }
 
         static constexpr void BuildNullIdentityBuffer(BufferOfAPCIdentity& identity_buffer) noexcept
@@ -440,11 +455,11 @@ struct DefineIdentityBuffer : public AxisConstructor
 
             hash &= ~uint64_t{1};
 
-            const FingerprintHashState state_fp = StateOfIdentityFingerprint(hash);
+            const IdentityState state_fp = IdentityFingerprintToState(hash);
 
 
             if (
-                state_fp != FingerprintHashState::VALID
+                state_fp != IdentityState::VALID
             )
             {
                 return 2u;

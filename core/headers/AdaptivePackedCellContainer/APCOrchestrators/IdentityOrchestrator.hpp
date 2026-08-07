@@ -168,7 +168,7 @@ namespace BidirectionalInMemGraph
             if (
                 !ValidateDefaultIdentity(identity_buffer) ||
                 fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
-                StateOfIdentityFingerprint(fingerprint) != FingerprintHashState::VALID
+                IdentityFingerprintToState(fingerprint) != IdentityState::VALID
             )
             {
                 identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
@@ -178,7 +178,7 @@ namespace BidirectionalInMemGraph
             return true;
         }
 
-        static constexpr FingerprintHashState GetStateFingerprint(
+        static constexpr IdentityState GetStateFingerprint(
             BufferOfAPCIdentity& identity_buffer,
             uint64_t* fingerprint = nullptr
         ) noexcept
@@ -186,13 +186,13 @@ namespace BidirectionalInMemGraph
             const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
             if (!ValidateDefaultIdentity(identity_buffer))
             {
-                return FingerprintHashState::INVALID;
+                return IdentityState::INVALID;
             }
             if (fingerprint)
             {
                 *fingerprint = identity_value;
             }
-            return StateOfIdentityFingerprint(identity_value);
+            return IdentityFingerprintToState(identity_value);
         }
     };
     
