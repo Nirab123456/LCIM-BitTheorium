@@ -4,7 +4,7 @@
 #include <utility>
 #include "APCEnums.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 

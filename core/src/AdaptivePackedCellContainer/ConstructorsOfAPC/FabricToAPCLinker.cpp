@@ -1,7 +1,7 @@
 #include "AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     bool FabricToAPCLinker::AtomicallyReadLongLongAPCUnit(
         uint64_t idx,

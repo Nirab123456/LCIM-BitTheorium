@@ -1,7 +1,7 @@
 #include "AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderAtomically_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept

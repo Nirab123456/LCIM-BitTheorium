@@ -1,18 +1,18 @@
 #pragma once 
 #include "CoreOfFabricCoordinator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 struct RecordBookConf
 {
-    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricTableSegmentClasses::NULLNAN) - 1u;
+    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricSegments::SEGMENT_POOL) + 1;
 
     struct RecordBookTablesBoundsCarrier
     {
         uint64_t BeginIndex = UNSIGNED_ZERO;
         uint64_t EndIndex = UNSIGNED_ZERO;
-        FabricTableSegmentClasses OwnerTableOfTheBounds = FabricTableSegmentClasses::NULLNAN;
+        FabricSegments OwnerTableOfTheBounds{};
         bool IsValid = false;  
     };
 

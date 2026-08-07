@@ -1,2 +1,2 @@
-1. Write a Single Valid Extractor For SlabToFabricConverterAndCordinator Based On Valid ContractOfConcurrency && Model32Subclass && Model48Subclass &&  FabricTableSegmentClasses
+1. Write a Single Valid Extractor For SlabToFabricConverterAndCordinator Based On Valid ContractOfConcurrency && Model32Subclass && Model48Subclass &&  FabricSegments
 2. Sequential Claim and Stores of Upto N Cells will allow us to change and store in bulk and also update the occupancy in bulk Caller should precompute the data and if Failure in `ClaimThenNxMemCopy_` We can check from other idx if flexible

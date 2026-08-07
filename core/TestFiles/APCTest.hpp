@@ -14,7 +14,7 @@
 // #include "AdaptivePackedCellContainer/APCSegmentsCausalCordinator.hpp"
 
 
-// using namespace PredictedAdaptedEncoding;
+// using namespace BidirectionalInMemGraph;
 
 // namespace
 // {

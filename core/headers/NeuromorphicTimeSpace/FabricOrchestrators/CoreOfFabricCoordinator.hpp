@@ -1,7 +1,7 @@
 #pragma once 
 #include "../../AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct EnumsOfFabricCoordinator
@@ -14,6 +14,8 @@ namespace PredictedAdaptedEncoding
         static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
         static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
         static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 512u;
+        static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
+
         ///--------------------------
 
         static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;
@@ -26,13 +28,6 @@ namespace PredictedAdaptedEncoding
         };
         static constexpr uint8_t RECORD_BOOK_WIDTH = static_cast<uint8_t>(RecordBookInternalIndexing::END64) + 1u;
 
-        enum class HashBufferIndexing : uint8_t
-        {
-            KEY_INDEX = 0,
-            VALUE_INDEX = 1,
-            PROB_DISTANCE_LOCK = 2
-        };
-        static constexpr uint8_t HASH_BUCKED_WIDTH_OF_FABRIC = static_cast<uint8_t>(HashBufferIndexing::PROB_DISTANCE_LOCK) + 1u;
 
         /// @brief DESCRIBS: Initial Fundamental Meta for An APC When Created 
         enum class DescriptionIdentity : uint8_t
@@ -40,13 +35,9 @@ namespace PredictedAdaptedEncoding
             APC_INDEX = 0,
             APC_SEGMENTPOOL_BEGAIN_SLAB = 1,
             APC_SEGMENTPOOL_END_SLAB = 2,
-            VERTICAL_KEY = 3,
-            HORIZONTAL_KEY = 4,
-            NEXT_SLOT_SEGMENTPOOL_BEGAIN = 5,
-            RELATION_HEADS = 6,
-            RETIRE_EPOCH = 7,
-            DESCRIPTOR_FLAGS = 8,
-            ID_STATE_CONCURRENT = 9
+            RETIRE_EPOCH = 3,
+            DESCRIPTOR_FLAGS = 4,
+            ID_STATE_CONCURRENT = 5
         };
         static constexpr uint8_t DESCRIPTION_WIDTH_AND_VALIDATION_IDX = static_cast<uint8_t>(DescriptionIdentity::ID_STATE_CONCURRENT) + 1u;
 
@@ -117,28 +108,6 @@ namespace PredictedAdaptedEncoding
             EOF_FABRIC_HEADER = 63
 
         };
-
-
-        enum class JustifyClaimCas
-        {
-            SUCCESS = 0,
-            OUT_OF_BOUND = 1,
-            INVALID_CELL = 2,
-            CELL_SENTINAL_STATE = 3,
-            CELL_INVALID = 4,
-            CAS_LOOP_RANOUT = 5,
-            UNDEFINED_CAS_FAILURE = 6,
-            INVALID_USE_OF_METHOD = 7
-
-        };
-
-        /// @brief To Choose a Buffer to use 
-        enum class SizeOfABuffer : uint8_t
-        {
-            SMALL = 0,
-            MIDIUM = 1,
-            LARGE = 3
-        };
     };
 
     struct CoreOfFabricCoordinator : public EnumsOfFabricCoordinator
@@ -150,28 +119,17 @@ namespace PredictedAdaptedEncoding
         static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
         static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
-        static constexpr bool IsValidHashTable(FabricTableSegmentClasses table_class) noexcept
+        static constexpr bool IsValidEdgeTable(FabricSegments table_class) noexcept
         {
-            return table_class == FabricTableSegmentClasses::BRANCH_HASH ||
-                table_class == FabricTableSegmentClasses::VERTICAL_HASH ||
-                table_class == FabricTableSegmentClasses::HORIZONTAL_HASH;
+            return
+                table_class == FabricSegments::HORIZONTAL_EDGE_TABLE ||
+                table_class == FabricSegments::VERTICAL_EDGE_TABLE;
         }
 
-        static constexpr bool IsKnownFabricTable(FabricTableSegmentClasses table) noexcept
-        {
-            return table > FabricTableSegmentClasses::NONE &&
-                table < FabricTableSegmentClasses::NULLNAN;
-        }
-
-        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricTableSegmentClasses table) noexcept
-        {
-            if (!IsKnownFabricTable(table))
-            {
-                return std::nullopt;
-            }
-            
+        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricSegments table) noexcept
+        {   
             return static_cast<uint8_t>(
-                static_cast<uint8_t>(table) - 1
+                static_cast<uint8_t>(table)
             );
         }
 

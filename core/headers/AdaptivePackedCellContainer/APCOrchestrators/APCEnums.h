@@ -4,7 +4,7 @@
 #include <utility>
 #include "../../SharedComponents/SharedConf.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     enum class HeaderIdentifierOfAPC : uint8_t
@@ -16,10 +16,10 @@ namespace PredictedAdaptedEncoding
         APC_SLOT_IDX = 2,
         BOUNDS_BEGIN = 3,
         BOUNDS_END = 4,
-        HORIZONTAL_ORDINAL_KEY = 5,
-        VERTICAL_ORDINAL_KEY = 6,
-        HORIZONTAL_ROOT_KEY = 7,
-        VERTICAL_ROOT_KEY = 8,
+        HORIZONTAL_SHARED_IDX = 5,
+        VERTICAL_SHARED_IDX = 6,
+        HORIZONTAL_ROOT_IDX = 7,
+        VERTICAL_ROOT_IDX = 8,
         HORIZONTAL_NEXT_OF_ROOT = 9,
         VERTICAL_NEXT_OF_ROOT = 10,
         NEXT_HORIZONTAL_SLOT = 11,

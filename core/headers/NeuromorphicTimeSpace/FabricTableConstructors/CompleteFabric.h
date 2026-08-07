@@ -1,7 +1,7 @@
 #pragma once 
 #include "FabricConstructor.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     class RecordBookConstructor : public FabricConstructor
     {
@@ -11,20 +11,20 @@ namespace PredictedAdaptedEncoding
         using SD = SchemaDefinition;
         using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
-        using HTC = HashTableConf;
+        using RBC = RecordBookConf;
 
         /// @return LOGICALLY AND SISTAMICALLY UINT64_MAX -> INVALID
-        uint64_t GetStartingOfAnyFabricTable_(FabricTableSegmentClasses desired_table) noexcept;
+        uint64_t GetStartingOfAnyFabricTable_(FabricSegments desired_table) noexcept;
         
         bool GetRecordMapCarrierRanges_(
-            const FabricTableSegmentClasses table_class,
+            const FabricSegments table_class,
             RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
         ) noexcept;
 
-        void IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept;
+        void IdleAFabricTableClassRangesMemory_(FabricSegments table_class) noexcept;
 
         void WriteARecordBookOfTSCEntry_(
-            FabricTableSegmentClasses table_class, 
+            FabricSegments table_class, 
             size_t begin, 
             size_t end 
         ) noexcept;
@@ -66,53 +66,76 @@ namespace PredictedAdaptedEncoding
         std::optional<uint64_t> GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept;        
     };
 
-
-    class HashTablesConstructor : public APCHandleDescriptorConstructor
+    class EdgeTableConstructor : public APCHandleDescriptorConstructor
     {
-    protected:
-        
-        bool InsertOrUpdateRobinHoodHash48_(
-            FabricTableSegmentClasses hash_table, 
-            uint64_t key, 
-            uint64_t value,
-            std::optional<HashTableConf::StateOfAPC> hash_state = std::nullopt
-        ) noexcept;
+    public:
+        using EdgeTableRange = DescriptorConf::APCDescriptorRange;
 
-        bool ReadHashBuffeByIndex_(
-            uint64_t bucket_idx,
-            HashTableConf::SingleHashBuffer& hash_buffer_return
-        ) noexcept;
-
-        /// @brief
-        /// @return Previous State-Distence-Fingerprint / std::nullopt -> MEANS: false
-        std::optional<uint64_t> ReserveHashBuffer_(
-            uint64_t bucked_index,
-            HashTableConf::SingleHashBuffer& hash_buffer_return,
+    private :
+        bool SwitchEdgeState__(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData& pre_switch,
+            EdgeBuilder::EdgeStatus desired_state,
+            std::optional<EdgeBuilder::EdgeStatus> required_st = std::nullopt,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        bool ReleseHashBuffer_(
-            uint64_t bucket_base_idx,
-            uint64_t previous_st_dist_fp 
+    protected:
+
+        EdgeTableRange ReadAnEdgeTableRange_(
+            FabricSegments edge_table,
+            uint32_t edge_idx
         ) noexcept;
 
-        void InitializeHashTable_(FabricTableSegmentClasses table_class) noexcept;
+        void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
 
-        bool RetireHashKey_(FabricTableSegmentClasses table, uint64_t hash_key) noexcept;
-
-        bool PublishPreparedHashBuffer_(
-            FabricTableSegmentClasses hash_table, 
-            HashTableConf::SingleHashBuffer& hash_buffer
+        bool ReadAnEdgeBuffer_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeBuffer& return_buffer
         ) noexcept;
 
-    public:
-
-        //Compleately lockfree and waitless
-        std::optional<uint64_t> ReadHashValueByKey(
-            FabricTableSegmentClasses hash_table, 
-            uint64_t hash_key,
-            HashTableConf::SingleHashBuffer* hash_buffer_return = nullptr
+        std::optional<EdgeBuilder::EdgeStatus> ReadEdgeData_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData& edge_data,
+            EdgeBuilder::EdgeBuffer* edge_buffer_return = nullptr
         ) noexcept;
+
+        bool ReserveAnEdge_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData* pre_reserve_data = nullptr,
+            std::optional<EdgeBuilder::EdgeStatus> expected_state = std::nullopt,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept
+        {
+            EdgeBuilder::EdgeData local_before{};
+            if (!pre_reserve_data)
+            {
+                *pre_reserve_data = local_before;
+            }
+            
+            return
+                SwitchEdgeState__(
+                    edge_table,
+                    edge_idx,
+                    *pre_reserve_data,
+                    EdgeBuilder::EdgeStatus::RESERVED,
+                    expected_state,
+                    max_tries
+                );
+        }
+
+        bool PublishReservedEdge_(
+            EdgeBuilder::EdgeData& desired_data,
+            uint32_t edge_idx
+        ) noexcept;
+
+
     };
+
+
 
 }

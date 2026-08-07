@@ -1,6 +1,6 @@
 
 #pragma once 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     //default Rel Class percentage
     #define FEEDFOEWARD_PERCENTAGE 8u

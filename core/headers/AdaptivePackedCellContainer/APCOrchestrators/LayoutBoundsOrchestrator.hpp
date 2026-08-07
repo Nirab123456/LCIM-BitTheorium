@@ -3,7 +3,7 @@
 #include <utility>
 #include "IdentityOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 struct LayoutBuilderAndValidator 
@@ -42,7 +42,7 @@ struct LayoutBuilderAndValidator
             return FABRIC_CELL_SENTINAL;
         }
 
-        const std::optional<uint64_t> layout_cell = Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
+        const std::optional<uint64_t> layout_cell = TwinU32ToU64::PackDoubleUnsigned32In64(a_layout.BeginIndex, a_layout.EndIndex);
         return layout_cell;
     }
 
@@ -58,8 +58,8 @@ struct LayoutBuilderAndValidator
             return return_carrier;
         }
         
-        return_carrier.BeginIndex = Double32In64ForAPCandFabric::ExtractLow32Of64(fabric_unit);
-        return_carrier.EndIndex = Double32In64ForAPCandFabric::ExtractHigh32Of64(fabric_unit);
+        return_carrier.BeginIndex = TwinU32ToU64::ExtractLow32Of64(fabric_unit);
+        return_carrier.EndIndex = TwinU32ToU64::ExtractHigh32Of64(fabric_unit);
         return_carrier.LayoutIdentity = layout_marker;
         ValidateALayoutCarrier(return_carrier);
         return return_carrier;
@@ -482,8 +482,84 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
         return ValidateALayoutBuffer(return_buffer, capacity_of_the_apc);
     }
-
-    static constexpr bool MutateAPCLayout() noexcept;
-
 };
+
+
+struct EasyLayout : LayoutBoundsOrchestrator
+{
+    static constexpr bool SetSingleRegionWeight(
+        LayoutSpanAndPercentageCarrier&
+            layout,
+        MacroColumnOfAPC region
+    ) noexcept
+    {
+        layout.FeedForward = 0u;
+        layout.FeedBackward = 0u;
+        layout.Lateral = 0u;
+        layout.StateSlot = 0u;
+        layout.ErrorSlot = 0u;
+        layout.Weightless = 0u;
+        layout.WeightSlot = 0u;
+        layout.AUXSlot = 0u;
+        layout.HeterogenousPtr = 0u;
+        layout.FreeSlot = 0u;
+
+        switch (region)
+        {
+        case MacroColumnOfAPC::
+            FEEDFORWARD_MESSAGE:
+            layout.FeedForward = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            FEEDBACKWARD_MESSAGE:
+            layout.FeedBackward = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            LATERAL_MESAGE:
+            layout.Lateral = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            STATE_SLOT:
+            layout.StateSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            ERROR_SLOT:
+            layout.ErrorSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            WEIGHTLESS_LOOKUP:
+            layout.Weightless = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            WEIGHT_SLOT:
+            layout.WeightSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            AUX_SLOT:
+            layout.AUXSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            HETEROGENOUS_PTR:
+            layout.HeterogenousPtr = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            FREE_SLOT:
+            layout.FreeSlot = 1u;
+            return true;
+
+        default:
+            return false;
+        }
+    }
+};
+
 }

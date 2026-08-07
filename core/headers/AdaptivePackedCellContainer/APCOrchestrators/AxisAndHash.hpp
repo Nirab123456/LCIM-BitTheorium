@@ -5,7 +5,7 @@
 #include "APCDataStructure.hpp"
 #include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
 
@@ -55,7 +55,7 @@ struct HashIdConstructror
         return FABRIC_CELL_SENTINAL;
     }
 
-    /// @brief CREATS: HASH OrdinalKey: Based On a Desired SHARED / LOGICAL Group ID
+    /// @brief CREATS: HASH InheritedEgdeTableIdx: Based On a Desired SHARED / LOGICAL Group ID
     /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
     /// @return IF INVALID: UINT64_MAX
     static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
@@ -67,7 +67,7 @@ struct HashIdConstructror
         {
             return FABRIC_CELL_SENTINAL;
         }
-        return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(
+        return TwinU32ToU64::PackDoubleUnsigned32In64(
             static_cast<uint32_t>(ordinal),
             static_cast<uint32_t>(group_id)
         );
@@ -76,7 +76,7 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
     {
-        const uint32_t prefix_32 = Double32In64ForAPCandFabric::ExtractHigh32Of64(group_key);
+        const uint32_t prefix_32 = TwinU32ToU64::ExtractHigh32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
             !IsValidGroupId(prefix_32)
@@ -91,7 +91,7 @@ struct HashIdConstructror
 
     static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
     {
-        const uint32_t ordinal = Double32In64ForAPCandFabric::ExtractLow32Of64(group_key);
+        const uint32_t ordinal = TwinU32ToU64::ExtractLow32Of64(group_key);
         if (
             !IsValidAPCId(group_key) ||
             !APCDataStructure::IsValid32BitAPCUnit(ordinal)
@@ -200,11 +200,11 @@ struct AxisConstructor : public HashIdConstructror
 
     struct AxisConstructionMap
     {
-        FabricTableSegmentClasses HashTable{FabricTableSegmentClasses::NULLNAN};
+        FabricSegments EdgeTable{};
         HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC OrdinalKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC OwnRootKey{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC InheritedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC OwnedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
         HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
     };
     static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
@@ -214,21 +214,21 @@ struct AxisConstructor : public HashIdConstructror
         if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
         {
             return AxisConstructionMap{
-                FabricTableSegmentClasses::HORIZONTAL_HASH,
+                FabricSegments::HORIZONTAL_EDGE_TABLE,
                 HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
                 HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
-                HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY,
-                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY,
+                HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX,
+                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX,
                 HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT
             };
         }
 
         return AxisConstructionMap{
-            FabricTableSegmentClasses::VERTICAL_HASH,
+            FabricSegments::VERTICAL_EDGE_TABLE,
             HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
             HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
-            HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY,
-            HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY,
+            HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX,
+            HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX,
             HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT
 
         };
@@ -276,22 +276,9 @@ struct AxisConstructor : public HashIdConstructror
 
     static constexpr bool IsValidEven64(uint64_t value) noexcept
     {
-        return APCDataStructure::IsValidFabricUnit(value) &&
+        return 
             (value & 1u) == UNSIGNED_ZERO;
     }
-
-    static constexpr bool WantsHorizontal(APCAxisSelection axes) noexcept
-    {
-        return axes == APCAxisSelection::HORIZONTAL ||
-            axes == APCAxisSelection::BOTH;
-    }
-
-    static constexpr bool WantsVertical(APCAxisSelection axes) noexcept
-    {
-        return axes == APCAxisSelection::VERTICAL ||
-            axes == APCAxisSelection::BOTH;
-    }
-
 };
 
 struct DefineIdentityBuffer : public AxisConstructor
@@ -422,10 +409,10 @@ struct DefineIdentityBuffer : public AxisConstructor
 
             return 
                 identity == HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT ||
-                identity == HeaderIdentifierOfAPC::VERTICAL_ORDINAL_KEY ||
-                identity == HeaderIdentifierOfAPC::HORIZONTAL_ORDINAL_KEY ||
-                identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_KEY ||
-                identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_KEY ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX ||
+                identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX ||
+                identity == HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT ||
                 identity == HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT ||
                 identity == HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT ||

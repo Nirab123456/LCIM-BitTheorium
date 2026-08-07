@@ -1,6 +1,6 @@
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     APCSegmentPoolRange APCHandleDescriptorConstructor::GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept
@@ -38,7 +38,7 @@ namespace PredictedAdaptedEncoding
     {
         RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
         const bool ok = GetRecordMapCarrierRanges_(
-            FabricTableSegmentClasses::APC_HANDLE_DESCRIPTOR,
+            FabricSegments::APC_HANDLE_DESCRIPTOR,
             descripor_directory_map
         );
 
@@ -68,11 +68,6 @@ namespace PredictedAdaptedEncoding
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
     ) noexcept
     {
-        if (apc_description_index >= CountOfAPC_)
-        {
-            return false;
-        }
-
         DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
 
         const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(apc_description_index);
@@ -81,18 +76,14 @@ namespace PredictedAdaptedEncoding
         {
             return false;
         }
-        if (
-            !ReadASnapShotFromSlab(
+
+        return 
+            ReadASnapShotFromSlab(
                 this_apc_descriptor_range.BeginIndex,
                 DescriptionBuffer::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 return_buffer.data(),
                 true
-            )
-        )
-        {
-            return false;
-        }
-        return true;
+            );
     }
 
 
@@ -156,14 +147,19 @@ namespace PredictedAdaptedEncoding
         {
             const DSA::DescriptorSaftyFiles current_id_st = ReadAPCStateAtomically_(description_idx);
             if (
-                !current_id_st.IsValid
+                !current_id_st.IsValid ||
+                (
+                    current_id_st.StateOfTheAPC == DSA::StateOfAPC::HAULTED &&
+                    !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
+                )
             )
             {
                 return std::nullopt;
             }
 
-            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED;
-            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == DSA::StateOfAPC::RESERVED;
+            const bool current_is_exclusive = DSA::IsExclusiveState(current_id_st.StateOfTheAPC);
+            const bool false_owner_claim = caller_holds_reservation && !current_is_exclusive;
+            const bool non_owner_touching_reserved = !caller_holds_reservation && current_is_exclusive;
             if (
                 false_owner_claim || 
                 non_owner_touching_reserved ||
@@ -225,10 +221,7 @@ namespace PredictedAdaptedEncoding
             const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
-                (
-                    current.StateOfTheAPC != DSA::StateOfAPC::FREE_OR_EMPTY &&
-                    current.StateOfTheAPC != DSA::StateOfAPC::RETIRED_OR_TOMBSTONE
-                )
+                current.StateOfTheAPC != DSA::StateOfAPC::FREE
             )
             {
                 continue;

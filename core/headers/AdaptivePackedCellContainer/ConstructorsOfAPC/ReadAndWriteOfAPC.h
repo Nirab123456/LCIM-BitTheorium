@@ -2,7 +2,7 @@
 #include <functional>
 #include "FabricToAPCLinker.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     class ReadAndWriteOfAPC : public FabricToAPCLinker
     {

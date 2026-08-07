@@ -1,10 +1,10 @@
 #pragma once 
 #include "SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
-class VagueTemoraryPremativeFabric : public SlabToFabricConverterAndCordinator
+class VagueTemoraryPremativeFabric : public ConstructAPC
 {
 
 private:
@@ -37,13 +37,6 @@ public:
         ShutDownFabric();
     }
 
-    std::optional<uint64_t> CreateAPC(
-        APCAxisSelection desired_axis,
-        const LBO::LayoutSpanAndPercentageCarrier& layout = LBO::DEFAULT_LAYOUT_WEIGHT,
-        const SD::InitialRegionalDtypeConf& dtype = {},
-        const SD::InitialRegionalProtocol& protocol = {},
-        uint8_t version = APCDataStructure::BRANCH_VERSION
-    ) noexcept;
 
 };
 

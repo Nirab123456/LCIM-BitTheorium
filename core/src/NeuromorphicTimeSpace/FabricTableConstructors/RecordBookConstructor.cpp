@@ -1,9 +1,9 @@
 #include "NeuromorphicTimeSpace/SlabToFabricConverterAndCordinator.h"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
-    void RecordBookConstructor::IdleAFabricTableClassRangesMemory_(FabricTableSegmentClasses table_class) noexcept
+    void RecordBookConstructor::IdleAFabricTableClassRangesMemory_(FabricSegments table_class) noexcept
     {
 
         RecordBookConf::RecordBookTablesBoundsCarrier return_bounds{};
@@ -19,7 +19,7 @@ namespace PredictedAdaptedEncoding
     }
 
     bool RecordBookConstructor::GetRecordMapCarrierRanges_(
-        const FabricTableSegmentClasses table_class,
+        const FabricSegments table_class,
         RecordBookConf::RecordBookTablesBoundsCarrier& return_bounds
     ) noexcept
     {
@@ -48,7 +48,7 @@ namespace PredictedAdaptedEncoding
 
 
     void RecordBookConstructor::WriteARecordBookOfTSCEntry_(
-        FabricTableSegmentClasses table_class, 
+        FabricSegments table_class, 
         size_t begin, 
         size_t end
     ) noexcept
@@ -77,7 +77,7 @@ namespace PredictedAdaptedEncoding
 
 
     uint64_t RecordBookConstructor::GetStartingOfAnyFabricTable_(
-        FabricTableSegmentClasses table_class
+        FabricSegments table_class
     ) noexcept
     {   uint64_t record_map_begin = UNSIGNED_ZERO;
         const bool read_ok = ReadAFabricU64Directly(

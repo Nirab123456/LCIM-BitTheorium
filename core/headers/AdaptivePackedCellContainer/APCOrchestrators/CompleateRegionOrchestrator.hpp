@@ -1,7 +1,7 @@
 #pragma once
 #include "SchemaOrchestratorForRegion.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct SchemaDefinition : SchemDefinition

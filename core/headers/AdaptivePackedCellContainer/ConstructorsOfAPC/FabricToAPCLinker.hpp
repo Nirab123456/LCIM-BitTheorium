@@ -2,7 +2,7 @@
 #include <functional>
 #include "../APCOrchestrators/HeaderOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
     
 class VagueTemoraryPremativeFabric;

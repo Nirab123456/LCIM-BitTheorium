@@ -1,7 +1,7 @@
 #pragma once 
 #include "FabricTableOrchestrator.hpp"
 
-namespace PredictedAdaptedEncoding
+namespace BidirectionalInMemGraph
 {
 
     struct DescriptorConf : public CoreOfFabricCoordinator
@@ -16,20 +16,30 @@ namespace PredictedAdaptedEncoding
 
         enum class StateOfAPC : uint8_t
         {
-            FREE_OR_EMPTY = 0,
+            FREE = 0,
             RESERVED = 1,
-            LIVE_OR_PUBLISHED = 2,
-            RETIRED_OR_TOMBSTONE = 3
+            LIVE = 2,
+            RETIRED = 3,
+            HAULTED = 4
         };
-        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::RETIRED_OR_TOMBSTONE) + 1;
+        
+        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::HAULTED) + 1;
 
         struct DescriptorSaftyFiles
         {
             uint32_t DescriptionID = UINT32_MAX;
-            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED_OR_TOMBSTONE;
+            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
         static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
+
+        static constexpr bool IsExclusiveState (StateOfAPC state) noexcept
+        {
+            return 
+                state == StateOfAPC::RESERVED ||
+                state == StateOfAPC::HAULTED;
+        }
+
 
         static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
@@ -39,14 +49,14 @@ namespace PredictedAdaptedEncoding
             {
                 return FABRIC_CELL_SENTINAL;
             }
-            return Double32In64ForAPCandFabric::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
+            return TwinU32ToU64::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
 
         static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptorSaftyFiles return_safty_files{};
-            const uint32_t description_id_maybe = Double32In64ForAPCandFabric::ExtractLow32Of64(desc_id_state);
-            const uint32_t ownership_maybe = Double32In64ForAPCandFabric::ExtractHigh32Of64(desc_id_state);
+            const uint32_t description_id_maybe = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
+            const uint32_t ownership_maybe = TwinU32ToU64::ExtractHigh32Of64(desc_id_state);
             if (
                 !APCDataStructure::IsValidFabricUnit(desc_id_state) ||
                 !APCDataStructure::IsValid32BitAPCUnit(description_id_maybe) ||
@@ -63,12 +73,14 @@ namespace PredictedAdaptedEncoding
 
         static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
         {
-            return (current_state == StateOfAPC::FREE_OR_EMPTY && desired_state == StateOfAPC::RESERVED) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE_OR_EMPTY) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE_OR_PUBLISHED) ||
-                (current_state == StateOfAPC::LIVE_OR_PUBLISHED && desired_state == StateOfAPC::RESERVED) ||
-                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED_OR_TOMBSTONE) ||
-                (current_state == StateOfAPC::RETIRED_OR_TOMBSTONE && desired_state == StateOfAPC::RESERVED);
+            return (current_state == StateOfAPC::FREE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED) ||
+                (current_state == StateOfAPC::RETIRED && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::HAULTED) ||
+                (current_state == StateOfAPC::HAULTED && desired_state == StateOfAPC::LIVE);
                 
         }
 
@@ -198,15 +210,13 @@ namespace PredictedAdaptedEncoding
             uint64_t apc_idx,
             uint64_t segment_pool_begin,
             uint64_t segment_pool_end,
-            uint64_t next_apc_segment_pool = UNSIGNED_ZERO,
-            StateOfAPC init_state = StateOfAPC::FREE_OR_EMPTY
+            StateOfAPC init_state = StateOfAPC::FREE
         ) noexcept
         {
             BuildZerodDescriptionBuffer(desc_return_buff);
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_INDEX, apc_idx);
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
             SetADescriptionUnit(desc_return_buff, DescriptionIdentity::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
-            SetADescriptionUnit(desc_return_buff, DescriptionIdentity::NEXT_SLOT_SEGMENTPOOL_BEGAIN, next_apc_segment_pool);
 
             const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
             const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
