@@ -96,6 +96,7 @@ namespace BidirectionalInMemGraph
         const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
         const  DescriptionOfAPC::DescriptorSaftyFiles current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
+            !current_description_state.IsValid ||
             current_description_state.StateOfTheAPC != DSA::StateOfAPC::RESERVED ||
             !desired_descriptor_range.IsValid ||
             !DescriptionOfAPC::ValidateADescriptionBuffer(desc_buffer)

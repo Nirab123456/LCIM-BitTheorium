@@ -48,10 +48,16 @@ namespace BidirectionalInMemGraph
     class ConstructAPC : public SlabToFabricConverterAndCordinator
     {
     private:
-        std::optional<uint64_t> SwitchIdentityState__(
-            IAB::IdentityState desired_state,
+
+        std::optional<DSA::StateOfAPC> ReadValidAPCRangeInternally__(
             uint32_t apc_slot_idx,
-            std::optional<IAB::IdentityState> required_state,
+            DSA::InternalAPCRange& range_return
+        ) noexcept;
+
+        std::optional<uint64_t> SwitchIdentityState__(
+            IAB::GraphMutationState desired_state,
+            uint32_t apc_slot_idx,
+            std::optional<IAB::GraphMutationState> required_state,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 

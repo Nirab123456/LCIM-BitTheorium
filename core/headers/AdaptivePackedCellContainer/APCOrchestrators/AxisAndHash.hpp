@@ -293,7 +293,7 @@ struct DefineIdentityBuffer : public AxisConstructor
     static constexpr uint64_t CONSUME_VALID_IDENTITY = FABRIC_CELL_SENTINAL - 7u;
 
 
-    enum class IdentityState : uint8_t
+    enum class GraphMutationState : uint8_t
     {
         WRITE_LOCK = 0,
         CONSUME_LOCK = 1,
@@ -311,10 +311,10 @@ struct DefineIdentityBuffer : public AxisConstructor
             identity_unit <= HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT;
     }
 
-    static constexpr bool IsHoldFingerprintState(IdentityState state) noexcept
+    static constexpr bool IsHoldFingerprintState(GraphMutationState state) noexcept
     {
-        return state == IdentityState::WRITE_LOCK ||
-            state == IdentityState::CONSUME_LOCK;
+        return state == GraphMutationState::WRITE_LOCK ||
+            state == GraphMutationState::CONSUME_LOCK;
     }
 
 
@@ -343,36 +343,36 @@ struct DefineIdentityBuffer : public AxisConstructor
         );
     }
 
-        static constexpr IdentityState IdentityFingerprintToState(uint64_t lock_value) noexcept
+        static constexpr GraphMutationState IdentityFingerprintToState(uint64_t lock_value) noexcept
         {
             if (
                 !IsValidAPCId(lock_value)
             )
             {
-                return IdentityState::INVALID;
+                return GraphMutationState::INVALID;
             }
 
             if (lock_value == CONSUME_VALID_IDENTITY)
             {
-                return IdentityState::CONSUME_LOCK;
+                return GraphMutationState::CONSUME_LOCK;
             }
 
             if (lock_value == IDENTITY_WRITE_LOCKDOWN)
             {
-                return IdentityState::WRITE_LOCK;
+                return GraphMutationState::WRITE_LOCK;
             }
 
             if (lock_value == HORIZONTAL_AXIS_LOCKDOWN)
             {
-                return IdentityState::HORIZONTAL_LOCK;
+                return GraphMutationState::HORIZONTAL_LOCK;
             }
 
             if (lock_value == VERTICAL_AXIS_LOCKDOWN)
             {
-                return IdentityState::VERTICAL_LOCK;
+                return GraphMutationState::VERTICAL_LOCK;
             }
             
-            return IdentityState::VALID;
+            return GraphMutationState::VALID;
         }
 
         static constexpr void BuildNullIdentityBuffer(BufferOfAPCIdentity& identity_buffer) noexcept
@@ -455,11 +455,11 @@ struct DefineIdentityBuffer : public AxisConstructor
 
             hash &= ~uint64_t{1};
 
-            const IdentityState state_fp = IdentityFingerprintToState(hash);
+            const GraphMutationState state_fp = IdentityFingerprintToState(hash);
 
 
             if (
-                state_fp != IdentityState::VALID
+                state_fp != GraphMutationState::VALID
             )
             {
                 return 2u;

@@ -139,7 +139,7 @@ namespace BidirectionalInMemGraph
                 fp_header_idx,
                 current_fp
                 ) &&
-                IAB::IdentityFingerprintToState(current_fp) == IAB::IdentityState::VALID 
+                IAB::IdentityFingerprintToState(current_fp) == IAB::GraphMutationState::VALID 
             )
             {
                 uint64_t expected = current_fp;

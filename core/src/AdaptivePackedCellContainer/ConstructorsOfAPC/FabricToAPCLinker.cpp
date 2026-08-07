@@ -171,7 +171,7 @@ namespace BidirectionalInMemGraph
     }
 
     std::optional<uint64_t> FabricToAPCLinker::HoldStateOfIdentyFingerprint(
-        InstallAxisToBuffer::IdentityState desired_state
+        InstallAxisToBuffer::GraphMutationState desired_state
     ) noexcept
     {
         using IA = InstallAxisToBuffer;
@@ -196,11 +196,11 @@ namespace BidirectionalInMemGraph
         
         uint64_t sealed_fingerprint = UNSIGNED_ZERO;
 
-        std::optional<IA::IdentityState> current_fp_state = IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint);
+        std::optional<IA::GraphMutationState> current_fp_state = IA::GetStateFingerprint(identity_buffer, &sealed_fingerprint);
 
         if (
             !current_fp_state.has_value() ||
-            current_fp_state.value() != IA::IdentityState::VALID)
+            current_fp_state.value() != IA::GraphMutationState::VALID)
         {
             return std::nullopt;
         }
@@ -208,7 +208,7 @@ namespace BidirectionalInMemGraph
         bool comp_exg_ok = CompareExchangeStrongFromAPC(
             static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
             sealed_fingerprint,
-            desired_state == IA::IdentityState::WRITE_LOCK ?
+            desired_state == IA::GraphMutationState::WRITE_LOCK ?
                 IA::IDENTITY_WRITE_LOCKDOWN : IA::CONSUME_VALID_IDENTITY
         );
         return comp_exg_ok ?
@@ -218,10 +218,10 @@ namespace BidirectionalInMemGraph
 
     bool FabricToAPCLinker::RestorIdentityFingerprint(
         uint64_t sealed_fingerprint,
-        InstallAxisToBuffer::IdentityState current_state
+        InstallAxisToBuffer::GraphMutationState current_state
     ) noexcept
     {
-        using IFS = InstallAxisToBuffer::IdentityState;
+        using IFS = InstallAxisToBuffer::GraphMutationState;
 
         const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
         uint64_t current_fp = UNSIGNED_ZERO;

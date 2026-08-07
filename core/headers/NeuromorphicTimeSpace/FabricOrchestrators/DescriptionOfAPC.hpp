@@ -14,6 +14,8 @@ namespace BidirectionalInMemGraph
             bool IsValid = false;
         };
 
+        using InternalAPCRange = APCDescriptorRange;
+
         enum class StateOfAPC : uint8_t
         {
             FREE = 0,

@@ -6,16 +6,16 @@
 namespace BidirectionalInMemGraph
 {
 
-    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadIdentityBufferOfAPC(
-        uint32_t apc_slot,
-        IAB::BufferOfAPCIdentity& identity
+    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadValidAPCRangeInternally__(
+        uint32_t apc_slot_idx,
+        DescriptionOfAPC::InternalAPCRange& range_return
     ) noexcept
     {
         DSA::SingleAPCDescriptionCellBuffer desc_buffer{};
-        IAB::BuildNullIdentityBuffer(identity);
+        range_return = DSA::InternalAPCRange{};
+
         if (
-            !ReadACompleateAPCDescriptorBuffer_(apc_slot, desc_buffer) ||
-            !DSA::ValidateADescriptionBuffer(desc_buffer)
+            !ReadACompleateAPCDescriptorBuffer_(apc_slot_idx, desc_buffer)
         )
         {
             return std::nullopt;
@@ -33,8 +33,42 @@ namespace BidirectionalInMemGraph
             return state.StateOfTheAPC;
         }
 
+        range_return.BeginIndex = desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+        range_return.EndIndex = desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)];
 
-        const size_t identity_begin = desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)] +
+        if (
+            range_return.EndIndex > range_return.BeginIndex &&
+            range_return.BeginIndex >= SegmentPoolBegin_ &&
+            range_return.EndIndex <= SegmentPoolEnd_
+        )
+        {
+            range_return.IsValid = true;
+        }
+        
+        return state.StateOfTheAPC;
+    }
+
+
+    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadIdentityBufferOfAPC(
+        uint32_t apc_slot,
+        IAB::BufferOfAPCIdentity& identity
+    ) noexcept
+    {
+        DSA::InternalAPCRange range_of_apc_sagmant_pool{};
+        std::optional<DSA::StateOfAPC> current_state = ReadValidAPCRangeInternally__(
+            apc_slot,
+            range_of_apc_sagmant_pool
+        );
+
+        if (
+            !range_of_apc_sagmant_pool.IsValid ||
+            !current_state.has_value()
+        )
+        {
+            return std::nullopt;
+        }
+        
+        const size_t identity_begin = range_of_apc_sagmant_pool.BeginIndex +
             static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
         
         if (
@@ -49,9 +83,30 @@ namespace BidirectionalInMemGraph
             return std::nullopt;
         }
         
-        return state.StateOfTheAPC;
-
+        return current_state;
     }
+
+
+    // std::optional<uint64_t> ConstructAPC::SwitchIdentityState__(
+    //     IAB::GraphMutationState desired_state,
+    //     uint32_t apc_slot,
+    //     std::optional<IAB::GraphMutationState> required_state,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     const  DescriptionOfAPC::DescriptorSaftyFiles current_description_state = ReadAPCStateAtomically_(apc_slot);
+    //     if (
+    //         !current_description_state.IsValid ||
+    //         current_description_state.StateOfTheAPC != DSA::StateOfAPC::LIVE 
+    //     )
+    //     {
+    //         return std::nullopt;
+    //     }
+
+
+
+    // }
+
 
 
 }
