@@ -6,7 +6,7 @@ namespace BidirectionalInMemGraph
 
 struct RecordBookConf
 {
-    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricSegments::SEGMENT_POOL);
+    static constexpr uint8_t RECORD_BOOK_INTERNAL_SEGMENT_COUNT = static_cast<uint8_t>(FabricSegments::SEGMENT_POOL) + 1;
 
     struct RecordBookTablesBoundsCarrier
     {

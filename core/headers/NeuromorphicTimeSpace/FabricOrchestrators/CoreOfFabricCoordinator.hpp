@@ -14,6 +14,8 @@ namespace BidirectionalInMemGraph
         static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
         static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
         static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 512u;
+        static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
+
         ///--------------------------
 
         static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;

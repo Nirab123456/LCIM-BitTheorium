@@ -92,7 +92,6 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        const size_t control_idx = range.BeginIndex + static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
         return 
             ReadASnapShotFromSlab(
                 range.BeginIndex,
@@ -207,6 +206,7 @@ namespace BidirectionalInMemGraph
                 );
         }
         
+        return false;
     }
 
     bool EdgeTableConstructor::PublishReservedEdge_(

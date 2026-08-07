@@ -44,8 +44,6 @@ namespace BidirectionalInMemGraph
         SegmentPoolEnd_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
 
         HashBucketCount_ = UNSIGNED_ZERO;
-        RelationRecordCount_ = UNSIGNED_ZERO;
-        DeviceViewRecordCount_ = UNSIGNED_ZERO;
         ThreadTableCapacity_  = UNSIGNED_ZERO;
 
         FabricInitialized_.store(false, std::memory_order_release);
@@ -174,16 +172,6 @@ namespace BidirectionalInMemGraph
         SlabId_ = slab_id == UNSIGNED_ZERO ? APCDataStructure::BRANCH_VERSION : slab_id;
         ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 
-        HashBucketCount_ = HashHelpers::BucketCountForExpectedEntries(CountOfAPC_);
-
-        if (HashBucketCount_ == UNSIGNED_ZERO || HashBucketCount_ >= FABRIC_CELL_SENTINAL)
-        {
-            return false;
-        }
-        
-        RelationRecordCount_ = HashIdConstructror::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ * HashHelpers::DEFAULT_TABLE_TAILROOM_MULT));
-        DeviceViewRecordCount_ = HashIdConstructror::NextPowerOf2Unsigned64(std::max<uint64_t>(HashHelpers::MIN_LIMIT_POW_OF_2, CountOfAPC_ )); // NO EXTRA TAILROOM
-
         size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);
         const size_t record_book_begin = cursor;
         const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH;
@@ -193,18 +181,14 @@ namespace BidirectionalInMemGraph
         const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_description_end);
-        const size_t branch_hash_begin = cursor;
-        const size_t branch_hash_end = branch_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
-
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(branch_hash_end);
-        const size_t logical_hash_begin = cursor;
-        const size_t logical_hash_end = logical_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
+        const size_t horizontal_edge_begin = cursor;
+        const size_t horizontal_edge_end = horizontal_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
         
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(logical_hash_end);
-        const size_t shared_hash_begin = cursor;
-        const size_t shared_hash_end = shared_hash_begin + static_cast<size_t>(HashBucketCount_ * CoreOfFabricCoordinator::HASH_BUCKED_WIDTH_OF_FABRIC);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(horizontal_edge_end);
+        const size_t vertical_edge_begin = cursor;
+        const size_t vertical_edge_end = vertical_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
 
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(shared_hash_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(vertical_edge_end);
         const size_t edge_table_begin = cursor;
         const size_t edge_table_end = edge_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
@@ -222,7 +206,7 @@ namespace BidirectionalInMemGraph
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
         const size_t device_view_table_begin = cursor;
-        const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(DeviceViewRecordCount_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
+        const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_view_table_end);
         const size_t thread_table_begin = cursor;
@@ -253,9 +237,8 @@ namespace BidirectionalInMemGraph
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
         WriteARecordBookOfTSCEntry_(FabricSegments::SLAB_RECORD_MAP, record_book_begin, record_book_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::BRANCH_HASH, branch_hash_begin, branch_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_HASH, logical_hash_begin, logical_hash_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_HASH, shared_hash_begin, shared_hash_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_EDGE_TABLE, horizontal_edge_begin, horizontal_edge_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, vertical_edge_begin, vertical_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, edge_table_begin, edge_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::FREE_APC_LIST, free_list_begin, free_list_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
@@ -274,10 +257,9 @@ namespace BidirectionalInMemGraph
         IdleAFabricTableClassRangesMemory_(FabricSegments::THREAD_TABLE);
         //END:: IDELING
 
-        //INIT: HASH TABLES
-        InitializeHashTable_(FabricSegments::BRANCH_HASH);
-        InitializeHashTable_(FabricSegments::VERTICAL_HASH);
-        InitializeHashTable_(FabricSegments::HORIZONTAL_HASH);
+        //INIT: EDGE TABLES
+        InitializeEdgeTable_(FabricSegments::HORIZONTAL_EDGE_TABLE);
+        InitializeEdgeTable_(FabricSegments::VERTICAL_EDGE_TABLE);
         //END::: 
         //INIT:DESCRIPTOR TABLE
         InitializeAPCDescriptorTable_();
@@ -303,125 +285,5 @@ namespace BidirectionalInMemGraph
         }
         ResetScalarsofTheFabric_();
     }
-
-    std::optional<uint64_t> SlabToFabricConverterAndCordinator::NewApcFromFabric(
-        IAB::BidirectionalAxis desired_axis,
-        IAB::BufferOfAPCIdentity& identity_buffer_new_apc,
-        bool wants_both_axis = false
-    ) noexcept
-    {
-        uint64_t slot_new = FABRIC_CELL_SENTINAL;
-        const std::optional<uint64_t> previous_st = GetASlotForNewAPCLink(slot_new);
-        const DSA::DescriptorSaftyFiles previous_files = DSA::GetDescriptionFile(previous_st.value());
-        if (
-            !previous_st.has_value() ||
-            !previous_files.IsValid
-        )
-        {
-            return std::nullopt;
-        }
-
-        auto ReleseReservedSlot__ = [&]()
-        {
-            SwitchOwnershipOfAReadyDescription(slot_new, previous_files.StateOfTheAPC, true);
-        };
-
-        DSA::SingleAPCDescriptionCellBuffer description{};
-
-        if (
-            !ReadACompleateAPCDescriptorBuffer_(slot_new, description) ||
-            !DSA::BuildIdentityBufferFromDescriptionBuffer(description, identity_buffer_new_apc)
-        )
-        {
-            ReleseReservedSlot__();
-            return std::nullopt;
-        }
-        HTC::SingleHashBuffer branch_hash_V{};
-        HTC::SingleHashBuffer axis_hash_V{};
-        HTC::SingleHashBuffer branch_hash_H{};
-        HTC::SingleHashBuffer axis_hash_H{};
-
-        if (IAB::WantsVertical(desired_axis))
-        {
-            if (
-                !HTC::InstallOwnedRoot(
-                    identity_buffer_new_apc,
-                    IAB::BidirectionalAxis::VARTICAL_LOGICAL,
-                    branch_hash_V,
-                    axis_hash_V
-                )
-            )
-            {
-                return std::nullopt;
-            }
-
-            if (!PublishPreparedHashBuffer_(FabricSegments::BRANCH_HASH, branch_hash_V))
-            {
-                return std::nullopt;
-            }
-
-            if (!PublishPreparedHashBuffer_(FabricSegments::VERTICAL_HASH, axis_hash_V))
-            {
-                RetireHashKey_(
-                    FabricSegments::VERTICAL_HASH, 
-                    HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
-                );
-                return std::nullopt;
-            }
-        }
-
-        if (IAB::WantsHorizontal(desired_axis))
-        {
-            if (
-                !HTC::InstallOwnedRoot(
-                    identity_buffer_new_apc,
-                    IAB::BidirectionalAxis::HORIZONTALLY_SHARED,
-                    branch_hash_H,
-                    axis_hash_H
-                )
-            )
-            {
-                return std::nullopt;
-            }
-
-            if (!PublishPreparedHashBuffer_(FabricSegments::BRANCH_HASH, branch_hash_H))
-            {
-                if (IAB::WantsHorizontal(desired_axis))
-                {
-                    RetireHashKey_(
-                        FabricSegments::BRANCH_HASH, 
-                        HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
-                    );
-                    RetireHashKey_(
-                        FabricSegments::VERTICAL_HASH, 
-                        HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
-                    );
-                }
-                return std::nullopt;
-            }
-
-            if (!PublishPreparedHashBuffer_(FabricSegments::HORIZONTAL_HASH, axis_hash_H))
-            {
-                if (IAB::WantsHorizontal(desired_axis))
-                {
-                    RetireHashKey_(
-                        FabricSegments::BRANCH_HASH, 
-                        HTC::GetAUnitFromHashBuffer(branch_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
-                    );
-                    RetireHashKey_(
-                        FabricSegments::VERTICAL_HASH, 
-                        HTC::GetAUnitFromHashBuffer(axis_hash_V, HTC::HashBufferIndexing::KEY_INDEX)
-                    );
-                    RetireHashKey_(
-                        FabricSegments::BRANCH_HASH, 
-                        HTC::GetAUnitFromHashBuffer(branch_hash_H, HTC::HashBufferIndexing::KEY_INDEX)
-                    );
-                }
-                return std::nullopt;
-            }
-        }
-        return slot_new;
-    }
-
 
 }

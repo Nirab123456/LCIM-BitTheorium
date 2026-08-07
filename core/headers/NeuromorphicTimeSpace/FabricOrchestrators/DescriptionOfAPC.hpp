@@ -23,7 +23,7 @@ namespace BidirectionalInMemGraph
             HAULTED = 4
         };
         
-        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::RETIRED) + 1;
+        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::HAULTED) + 1;
 
         struct DescriptorSaftyFiles
         {
@@ -32,6 +32,14 @@ namespace BidirectionalInMemGraph
             bool IsValid = false;
         };
         static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
+
+        static constexpr bool IsExclusiveState (StateOfAPC state) noexcept
+        {
+            return 
+                state == StateOfAPC::RESERVED ||
+                state == StateOfAPC::HAULTED;
+        }
+
 
         static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {

@@ -68,11 +68,6 @@ namespace BidirectionalInMemGraph
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
     ) noexcept
     {
-        if (apc_description_index >= CountOfAPC_)
-        {
-            return false;
-        }
-
         DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
 
         const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(apc_description_index);
@@ -81,18 +76,14 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        if (
+
+        return 
             !ReadASnapShotFromSlab(
                 this_apc_descriptor_range.BeginIndex,
                 DescriptionBuffer::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 return_buffer.data(),
                 true
-            )
-        )
-        {
-            return false;
-        }
-        return true;
+            );
     }
 
 
@@ -156,14 +147,19 @@ namespace BidirectionalInMemGraph
         {
             const DSA::DescriptorSaftyFiles current_id_st = ReadAPCStateAtomically_(description_idx);
             if (
-                !current_id_st.IsValid
+                !current_id_st.IsValid ||
+                (
+                    current_id_st.StateOfTheAPC == DSA::StateOfAPC::HAULTED &&
+                    !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
+                )
             )
             {
                 return std::nullopt;
             }
 
-            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED;
-            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == DSA::StateOfAPC::RESERVED;
+            const bool current_is_exclusive = DSA::IsExclusiveState(current_id_st.StateOfTheAPC);
+            const bool false_owner_claim = caller_holds_reservation && !current_is_exclusive;
+            const bool non_owner_touching_reserved = !caller_holds_reservation && current_is_exclusive;
             if (
                 false_owner_claim || 
                 non_owner_touching_reserved ||
@@ -225,10 +221,7 @@ namespace BidirectionalInMemGraph
             const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
-                (
-                    current.StateOfTheAPC != DSA::StateOfAPC::FREE &&
-                    current.StateOfTheAPC != DSA::StateOfAPC::RETIRED
-                )
+                current.StateOfTheAPC != DSA::StateOfAPC::FREE
             )
             {
                 continue;

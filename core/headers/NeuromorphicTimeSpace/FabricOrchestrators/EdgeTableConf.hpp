@@ -36,7 +36,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     };
 
     static constexpr bool ValidateEdgeData(
-        const EdgeData& edge
+        EdgeData& edge
     ) noexcept
     {
         if (
@@ -49,6 +49,7 @@ struct EdgeTableConf : public DescriptionOfAPC
             )
         )
         {
+            edge.IsValid = false;
             return false;
         }
 
@@ -60,28 +61,25 @@ struct EdgeTableConf : public DescriptionOfAPC
 
         if (!end_is_valid)
         {
+            edge.IsValid = false;
             return false;
         }
 
         if (
-            (
-                edge.Status == EdgeStatus::RESERVED ||
-                edge.Status == EdgeStatus::HAULTED
-            ) &&
+            edge.Status == EdgeStatus::RESERVED &&
             InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
         )
         {
+            edge.IsValid = false;
             return false;
         }
 
         if (
-            (
-                edge.Status  != EdgeStatus::RESERVED ||
-                edge.Status != EdgeStatus::HAULTED
-            ) &&
+            edge.Status  != EdgeStatus::RESERVED &&
             !InstallAxisToBuffer::IsValidEven64(edge.SeqLock)
         )
         {
+            edge.IsValid = false;
             return false;
         }
         
@@ -90,6 +88,7 @@ struct EdgeTableConf : public DescriptionOfAPC
             edge.End != APCDataStructure::APC_INDEX_BOUND_SENTINAL
         )
         {
+            edge.IsValid = false;
             return false;
         }
         
@@ -98,9 +97,10 @@ struct EdgeTableConf : public DescriptionOfAPC
             edge.End == APCDataStructure::APC_INDEX_BOUND_SENTINAL
         )
         {
+            edge.IsValid = false;
             return false;
         }
-        
+        edge.IsValid = true;
         return true;
     }
 

@@ -19,8 +19,6 @@ namespace BidirectionalInMemGraph
         size_t SegmentPoolEnd_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
         
         uint64_t HashBucketCount_{UNSIGNED_ZERO};
-        uint64_t RelationRecordCount_{UNSIGNED_ZERO};
-        uint64_t DeviceViewRecordCount_{UNSIGNED_ZERO};
         uint64_t ThreadTableCapacity_{UNSIGNED_ZERO};
 
 
