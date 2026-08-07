@@ -111,6 +111,12 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept
         {
+            EdgeBuilder::EdgeData local_before{};
+            if (!pre_reserve_data)
+            {
+                *pre_reserve_data = local_before;
+            }
+            
             return
                 SwitchEdgeState__(
                     edge_table,

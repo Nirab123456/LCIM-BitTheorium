@@ -160,6 +160,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         edge_data.OwnLinkCount = UNSIGNED_ZERO;
         edge_data.DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         edge_data.SeqLock = UNSIGNED_ZERO;
+        edge_data.Status = EdgeStatus::FREE;
         edge_data.IsValid = ValidateEdgeData(edge_data);
         return edge_data.IsValid;
     }
@@ -301,7 +302,7 @@ struct EdgeBuilder : public EdgeTableConf
         
 
         if (
-            !IAB::InsertAnIdentityInBuffer(current_identity, map.InheritedEgdeTableIdx, owner_edge_idx)|
+            !IAB::InsertAnIdentityInBuffer(current_identity, map.InheritedEgdeTableIdx, owner_edge_idx) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.PreviousSibling, predessor_slot) ||
             !IAB::InsertAnIdentityInBuffer(current_identity, map.NextSibling, FABRIC_CELL_SENTINAL)
         )
@@ -311,6 +312,7 @@ struct EdgeBuilder : public EdgeTableConf
 
         owner_edge.End = static_cast<uint32_t>(current_slot);
         ++owner_edge.OwnLinkCount;
+
 
         if (
             !IAB::IsOwnedAxisDisabled(current_identity, axis)
@@ -334,7 +336,7 @@ struct EdgeBuilder : public EdgeTableConf
         
         
         return 
-            owner_edge.IsValid &&
+            ValidateEdgeData(owner_edge) &&
             IAB::SealIdentityBuffer(predessor) &&
             IAB::SealIdentityBuffer(current_identity);
     }
@@ -390,7 +392,7 @@ struct EdgeBuilder : public EdgeTableConf
         else
         {
             if (
-                !IAB::ValueOfAnIdentityFromBuffer(
+                IAB::ValueOfAnIdentityFromBuffer(
                     predecessor_identity,
                     map.NextSibling
                 ) != current_slot ||
@@ -452,7 +454,8 @@ struct EdgeBuilder : public EdgeTableConf
                 !current_owned_edge ||
                 !current_owned_edge->IsValid ||
                 current_owned_edge->Root != current_slot ||
-                current_owned_edge->EdgeTable != map.EdgeTable
+                current_owned_edge->EdgeTable != map.EdgeTable ||
+                current_owned_edge->DoubellyLinkedIndex != owner_edge_index
             )
             {
                 return false;

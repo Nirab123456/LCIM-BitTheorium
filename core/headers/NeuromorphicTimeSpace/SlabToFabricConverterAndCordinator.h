@@ -42,6 +42,11 @@ namespace BidirectionalInMemGraph
             uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
             uint32_t fabric_thread_capacity = CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY
         ) noexcept;
+        
+    };
+
+    class ConstructAPC : public SlabToFabricConverterAndCordinator
+    {
 
         std::optional<uint64_t> NewApcFromFabric(
             IAB::BidirectionalAxis desired_axis,
@@ -75,9 +80,8 @@ namespace BidirectionalInMemGraph
                     protocol,
             uint8_t version
         ) noexcept;
-
-        
     };
+    
 
 
 

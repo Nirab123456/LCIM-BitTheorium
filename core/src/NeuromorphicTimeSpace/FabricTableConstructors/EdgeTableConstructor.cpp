@@ -229,7 +229,8 @@ namespace BidirectionalInMemGraph
             !range.IsValid ||
             !current_status.has_value() ||
             current_status.value() != EdgeBuilder::EdgeStatus::RESERVED ||
-            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data)
+            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) ||
+            !EdgeBuilder::IsTransitionStateLeagal(current_status.value(), desired_data.Status)
         )
         {
             return false;
