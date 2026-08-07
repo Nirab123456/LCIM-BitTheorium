@@ -482,8 +482,84 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
         return ValidateALayoutBuffer(return_buffer, capacity_of_the_apc);
     }
-
-    static constexpr bool MutateAPCLayout() noexcept;
-
 };
+
+
+struct EasyLayout : LayoutBoundsOrchestrator
+{
+    static constexpr bool SetSingleRegionWeight(
+        LayoutSpanAndPercentageCarrier&
+            layout,
+        MacroColumnOfAPC region
+    ) noexcept
+    {
+        layout.FeedForward = 0u;
+        layout.FeedBackward = 0u;
+        layout.Lateral = 0u;
+        layout.StateSlot = 0u;
+        layout.ErrorSlot = 0u;
+        layout.Weightless = 0u;
+        layout.WeightSlot = 0u;
+        layout.AUXSlot = 0u;
+        layout.HeterogenousPtr = 0u;
+        layout.FreeSlot = 0u;
+
+        switch (region)
+        {
+        case MacroColumnOfAPC::
+            FEEDFORWARD_MESSAGE:
+            layout.FeedForward = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            FEEDBACKWARD_MESSAGE:
+            layout.FeedBackward = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            LATERAL_MESAGE:
+            layout.Lateral = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            STATE_SLOT:
+            layout.StateSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            ERROR_SLOT:
+            layout.ErrorSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            WEIGHTLESS_LOOKUP:
+            layout.Weightless = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            WEIGHT_SLOT:
+            layout.WeightSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            AUX_SLOT:
+            layout.AUXSlot = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            HETEROGENOUS_PTR:
+            layout.HeterogenousPtr = 1u;
+            return true;
+
+        case MacroColumnOfAPC::
+            FREE_SLOT:
+            layout.FreeSlot = 1u;
+            return true;
+
+        default:
+            return false;
+        }
+    }
+};
+
 }

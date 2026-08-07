@@ -48,6 +48,34 @@ namespace BidirectionalInMemGraph
             IAB::BufferOfAPCIdentity& identity_buffer_new_apc,
             bool wants_both_axis = false
         ) noexcept;
+
+        bool AttachAPC(
+            uint64_t root_apc_idx,
+            uint64_t current_apc_idx,
+            IAB::BidirectionalAxis axis
+        ) noexcept;
+
+        bool DetachAPC(
+            uint64_t current_apc_idx,
+            IAB::BidirectionalAxis axis
+        ) noexcept;
+
+        std::optional<uint64_t>CreateAPCInternal_(
+            uint64_t apc_idx,
+            bool wants_horizontal_root,
+            bool wants_vertical_root,
+            const LBO::
+                LayoutSpanAndPercentageCarrier&
+                    layout,
+            const SD::
+                InitialRegionalDtypeConf&
+                    dtype,
+            const SD::
+                InitialRegionalProtocol&
+                    protocol,
+            uint8_t version
+        ) noexcept;
+
         
     };
 
