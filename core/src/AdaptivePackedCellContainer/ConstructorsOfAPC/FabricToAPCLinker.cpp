@@ -200,7 +200,7 @@ namespace BidirectionalInMemGraph
 
         if (
             !current_fp_state.has_value() ||
-            current_fp_state.value() != IA::GraphMutationState::VALID)
+            current_fp_state.value() != IA::GraphMutationState::LIVE)
         {
             return std::nullopt;
         }
@@ -234,7 +234,7 @@ namespace BidirectionalInMemGraph
         const IFS current_fp_state = InstallAxisToBuffer::IdentityFingerprintToState(current_fp);
 
         if (
-            sealed_fp_state == IFS::VALID &&
+            sealed_fp_state == IFS::LIVE &&
             current_fp_state == current_state
         )
         {

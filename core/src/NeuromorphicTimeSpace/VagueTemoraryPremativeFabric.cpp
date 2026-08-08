@@ -60,15 +60,6 @@ namespace BidirectionalInMemGraph
         return APCRuntimePtrTable_[apc_idx].load(std::memory_order_acquire);
     }
 
-    AdaptivePackedCellContainer* VagueTemoraryPremativeFabric::HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept
-    {
-        if (!HashIdConstructror::IsValidAPCId(apc_handle))
-        {
-            return nullptr;
-        }
-        const size_t apc_idx = HashIdConstructror::HashTableHandlerToAPCSlotIdx(apc_handle);
-        return GetAPCRuntimePtrBySlotIndex_(apc_idx);
-    }
 
     bool VagueTemoraryPremativeFabric::InitializeFabricWithPtrTable(
         uint32_t slot_count,

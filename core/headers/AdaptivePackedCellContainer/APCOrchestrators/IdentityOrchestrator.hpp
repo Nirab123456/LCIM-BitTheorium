@@ -168,7 +168,7 @@ namespace BidirectionalInMemGraph
             if (
                 !ValidateDefaultIdentity(identity_buffer) ||
                 fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
-                IdentityFingerprintToState(fingerprint) != GraphMutationState::VALID
+                IdentityFingerprintToState(fingerprint) != GraphMutationState::LIVE
             )
             {
                 identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;

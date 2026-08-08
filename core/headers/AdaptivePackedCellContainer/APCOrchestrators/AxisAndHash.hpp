@@ -11,18 +11,8 @@ namespace BidirectionalInMemGraph
 
 struct HashIdConstructror
 {
-    static constexpr uint64_t GROUP_IDX_BIT_BOUNDRY = 32u;
-    static constexpr uint64_t GROUP_SEQUENTIAL_INDEX_MASK = UINT32_MAX;
-    static constexpr uint64_t GROUP_PREFIX_MASK = UINT32_MAX;
-
     static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
     static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
-    static constexpr uint64_t HASH_64BIT_GRATIO_3 = 0xbf58476d1ce4e5b9ull;
-    static constexpr uint64_t HASH_64BIT_GRATIO_4 = 0x94d049bb133111ebull;
-
-    static constexpr uint8_t HASH_SHIFT_FOR_64_C1 = 30u;
-    static constexpr uint8_t HASH_SHIFT_FOR_64_C2 = 27u;
-    static constexpr uint8_t HASH_SHIFT_FOR_64_C3 = 31u;
 
 
     /// @brief VALIDATES THE RAW ID 
@@ -35,72 +25,6 @@ struct HashIdConstructror
     {
         return value > UNSIGNED_ZERO && 
             APCDataStructure::IsValid32BitAPCUnit(value);
-    }
-
-    static constexpr uint64_t APCSlotIdxToHashTableHandler(uint64_t apc_slot_idx) noexcept
-    {
-        if (APCDataStructure::IsValid32BitAPCUnit(apc_slot_idx))
-        {
-            return apc_slot_idx + 1;
-        }
-        return FABRIC_CELL_SENTINAL;
-    }
-
-    static constexpr uint64_t HashTableHandlerToAPCSlotIdx(uint64_t handler) noexcept
-    {
-        if (IsValidAPCId(handler))
-        {
-            return handler - 1;
-        }
-        return FABRIC_CELL_SENTINAL;
-    }
-
-    /// @brief CREATS: HASH InheritedEgdeTableIdx: Based On a Desired SHARED / LOGICAL Group ID
-    /// @param ordinal ORDINAL IDX < UINT32_MAX - 1
-    /// @return IF INVALID: UINT64_MAX
-    static constexpr uint64_t MakeGroupKeyFromParentGroupId(uint64_t group_id, uint32_t ordinal) noexcept
-    {
-        if (
-            !IsValidGroupId(group_id) ||
-            !APCDataStructure::IsValid32BitAPCUnit(ordinal)
-        )
-        {
-            return FABRIC_CELL_SENTINAL;
-        }
-        return TwinU32ToU64::PackDoubleUnsigned32In64(
-            static_cast<uint32_t>(ordinal),
-            static_cast<uint32_t>(group_id)
-        );
-    }
-
-
-    static constexpr std::optional<uint32_t> GroupPreFix32FromKey(uint64_t group_key) noexcept
-    {
-        const uint32_t prefix_32 = TwinU32ToU64::ExtractHigh32Of64(group_key);
-        if (
-            !IsValidAPCId(group_key) ||
-            !IsValidGroupId(prefix_32)
-        )
-        {
-            return std::nullopt;
-        }
-        
-        return prefix_32;
-    }
-
-
-    static constexpr std::optional<uint32_t> GetOrdinalFromKey(uint64_t group_key) noexcept
-    {
-        const uint32_t ordinal = TwinU32ToU64::ExtractLow32Of64(group_key);
-        if (
-            !IsValidAPCId(group_key) ||
-            !APCDataStructure::IsValid32BitAPCUnit(ordinal)
-        )
-        {
-            return std::nullopt;
-        }
-        
-        return ordinal;
     }
 
     static uint64_t MakeARandomFabricValid64() noexcept
@@ -150,44 +74,6 @@ struct HashIdConstructror
 
     }
 
-
-    static constexpr uint64_t HashUnsigned64(uint64_t given_value) noexcept
-    {
-        given_value ^= given_value >> HASH_SHIFT_FOR_64_C1;
-        given_value *= HASH_64BIT_GRATIO_3;
-        given_value ^= given_value >> HASH_SHIFT_FOR_64_C2;
-        given_value *= HASH_64BIT_GRATIO_4;
-        given_value ^=  given_value >> HASH_SHIFT_FOR_64_C3;
-
-        if (!APCDataStructure::IsValidFabricUnit(given_value))
-        {
-            return given_value - 1u;
-        }
-
-        if (given_value == UNSIGNED_ZERO)
-        {
-            return 1u;
-        }
-        return given_value;
-    }
-
-    static constexpr uint64_t NextPowerOf2Unsigned64(uint64_t given_value) noexcept
-    {
-        if (given_value <= 2u)
-        {
-            return 2u;
-        }
-        --given_value;
-        given_value |= given_value >> 1u;
-        given_value |= given_value >> 2u;
-        given_value |= given_value >> 4u;
-        given_value |= given_value >> 8u;
-        given_value |= given_value >> 16u;
-        given_value |= given_value >> 32u;
-
-        return given_value + 1u;
-    }
-
 };
 
 struct AxisConstructor : public HashIdConstructror
@@ -234,46 +120,6 @@ struct AxisConstructor : public HashIdConstructror
         };
     }
 
-
-    static constexpr bool IsHorizontalSharedAxis(BidirectionalAxis desired_axis) noexcept
-    {
-        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
-        {
-            return true;
-        }
-        return false;
-    }
-
-    static constexpr uint32_t DeriveGroupId(
-        uint64_t slot_handle,
-        BidirectionalAxis axis
-    ) noexcept
-    {
-        const uint64_t axis_salt = IsHorizontalSharedAxis(axis) ? HASH_64BIT_GRATIO_1 : HASH_64BIT_GRATIO_2;
-        uint32_t group_id = static_cast<uint32_t>(
-            HashUnsigned64(slot_handle ^ axis_salt)
-        );
-        if (!IsValidGroupId(group_id))
-        {
-            group_id ^= static_cast<uint32_t>(HASH_64BIT_GRATIO_3);
-            group_id = IsValidGroupId(group_id) ? group_id : 1u;
-        }
-        return group_id;
-    }
-
-
-    static constexpr uint64_t ComposeNewGroupKey(
-        uint64_t slot_handle,
-        BidirectionalAxis axis,
-        uint32_t ordinal
-    ) noexcept
-    {
-        return MakeGroupKeyFromParentGroupId(
-            DeriveGroupId(slot_handle, axis),
-            ordinal
-        );
-    }
-
     static constexpr bool IsValidEven64(uint64_t value) noexcept
     {
         return 
@@ -287,17 +133,13 @@ struct DefineIdentityBuffer : public AxisConstructor
     static constexpr uint8_t IDENTITY_VALIDATION_IDX = IDENTITY_BUFFER_LEN - 1;
     static constexpr uint64_t VALIDATION_IDENTITY_MARK = 987987;
 
-    static constexpr uint64_t IDENTITY_WRITE_LOCKDOWN = FABRIC_CELL_SENTINAL - 1u;
-    static constexpr uint64_t HORIZONTAL_AXIS_LOCKDOWN = FABRIC_CELL_SENTINAL - 3u;
-    static constexpr uint64_t VERTICAL_AXIS_LOCKDOWN = FABRIC_CELL_SENTINAL - 5u;
-    static constexpr uint64_t CONSUME_VALID_IDENTITY = FABRIC_CELL_SENTINAL - 7u;
 
 
     enum class GraphMutationState : uint8_t
     {
         WRITE_LOCK = 0,
         CONSUME_LOCK = 1,
-        VALID = 2,
+        LIVE = 2,
         HORIZONTAL_LOCK = 3,
         VERTICAL_LOCK = 4,
         INVALID = 5
@@ -343,37 +185,6 @@ struct DefineIdentityBuffer : public AxisConstructor
         );
     }
 
-        static constexpr GraphMutationState IdentityFingerprintToState(uint64_t lock_value) noexcept
-        {
-            if (
-                !IsValidAPCId(lock_value)
-            )
-            {
-                return GraphMutationState::INVALID;
-            }
-
-            if (lock_value == CONSUME_VALID_IDENTITY)
-            {
-                return GraphMutationState::CONSUME_LOCK;
-            }
-
-            if (lock_value == IDENTITY_WRITE_LOCKDOWN)
-            {
-                return GraphMutationState::WRITE_LOCK;
-            }
-
-            if (lock_value == HORIZONTAL_AXIS_LOCKDOWN)
-            {
-                return GraphMutationState::HORIZONTAL_LOCK;
-            }
-
-            if (lock_value == VERTICAL_AXIS_LOCKDOWN)
-            {
-                return GraphMutationState::VERTICAL_LOCK;
-            }
-            
-            return GraphMutationState::VALID;
-        }
 
         static constexpr void BuildNullIdentityBuffer(BufferOfAPCIdentity& identity_buffer) noexcept
         {
@@ -459,7 +270,7 @@ struct DefineIdentityBuffer : public AxisConstructor
 
 
             if (
-                state_fp != GraphMutationState::VALID
+                state_fp != GraphMutationState::LIVE
             )
             {
                 return 2u;

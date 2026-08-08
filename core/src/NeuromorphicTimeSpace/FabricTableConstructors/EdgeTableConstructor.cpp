@@ -96,7 +96,8 @@ namespace BidirectionalInMemGraph
             ReadASnapShotFromSlab(
                 range.BeginIndex,
                 EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                return_buffer.data()
+                return_buffer.data(),
+                true
             );
     }
 
