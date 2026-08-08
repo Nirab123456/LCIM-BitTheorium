@@ -7,9 +7,59 @@
 
 namespace BidirectionalInMemGraph
 {
+struct AxisConstructor
+{
+    enum class BidirectionalAxis : uint8_t
+    {
+        HORIZONTAL = 1,
+        VERTICAL = 2
+    };
+
+    struct AxisConstructionMap
+    {
+        FabricSegments EdgeTable{};
+        HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC InheritedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC OwnedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+        HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
+    };
+    static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
+
+    static constexpr AxisConstructionMap ConstructAxisMap(BidirectionalAxis desired_axis) noexcept
+    {
+        if (desired_axis == BidirectionalAxis::HORIZONTAL)
+        {
+            return AxisConstructionMap{
+                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
+                HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
+                HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX,
+                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX,
+                HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT
+            };
+        }
+
+        return AxisConstructionMap{
+            FabricSegments::VERTICAL_EDGE_TABLE,
+            HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
+            HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
+            HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX,
+            HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX,
+            HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT
+
+        };
+    }
+
+    static constexpr bool IsValidEven64(uint64_t value) noexcept
+    {
+        return 
+            (value & 1u) == UNSIGNED_ZERO;
+    }
+};
 
 
-struct HashIdConstructror
+struct GraphLockConf : public AxisConstructor
 {
     static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
     static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
@@ -74,60 +124,84 @@ struct HashIdConstructror
 
     }
 
-};
-
-struct AxisConstructor : public HashIdConstructror
-{
-    enum class BidirectionalAxis : uint8_t
+    enum class MemGraphFlag : uint32_t
     {
-        HORIZONTALLY_SHARED = 1,
-        VARTICAL_LOGICAL = 2
+        LIVE = 0u,
+        HORIZONTAL_LOCK = 1u << 0u,
+        VERTICAL_LOCK = 1u << 1u,
+        BOTH_AXIS_LOCK = (1u << 0u) | (1u << 1u),
+        READ_ONLY = 1u << 2u
     };
 
-    struct AxisConstructionMap
-    {
-        FabricSegments EdgeTable{};
-        HeaderIdentifierOfAPC PreviousSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC NextSibling{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC InheritedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC OwnedEgdeTableIdx{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-        HeaderIdentifierOfAPC RootOwnedChild{HeaderIdentifierOfAPC::EOF_APC_HEADER};
-    };
-    static_assert(sizeof(AxisConstructionMap) <= sizeof(uint64_t));
+    static constexpr uint32_t GRAPH_FLAGS_MASK = 7u;
 
-    static constexpr AxisConstructionMap ConstructAxisMap(BidirectionalAxis desired_axis) noexcept
+    static constexpr bool HasThisGraphMutationFlag(
+        uint32_t raw_lock,
+        MemGraphFlag desired_flag
+    ) noexcept
     {
-        if (desired_axis == BidirectionalAxis::HORIZONTALLY_SHARED)
+        return
+            IsGraphFlagRawValid(FlagMask(desired_flag)) &&
+            (raw_lock & FlagMask(desired_flag)) == FlagMask(desired_flag);
+    }
+
+    static constexpr uint32_t SetGraphFlags(uint32_t raw_lock, MemGraphFlag flag) noexcept
+    {
+        return raw_lock | FlagMask(flag);
+    }
+
+    static constexpr bool IsGraphFlagRawValid(uint32_t raw_flag) noexcept
+    {
+        bool hash_read_only = HasThisGraphMutationFlag(raw_flag, MemGraphFlag::READ_ONLY);
+        bool hash_horizontal = HasThisGraphMutationFlag(raw_flag, MemGraphFlag::HORIZONTAL_LOCK);
+        bool hash_vertical = HasThisGraphMutationFlag(raw_flag, MemGraphFlag::VERTICAL_LOCK);
+
+        if (
+            hash_read_only &&
+            (
+                hash_horizontal || hash_vertical
+            )
+        )
         {
-            return AxisConstructionMap{
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
-                HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
-                HeaderIdentifierOfAPC::NEXT_HORIZONTAL_SLOT,
-                HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX,
-                HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX,
-                HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT
-            };
+            return false;
+        }
+        
+        return 
+            raw_flag <= GRAPH_FLAGS_MASK;
+    }
+
+    static constexpr bool IsIdentityGraphUnlocked(uint32_t raw) noexcept
+    {
+        return raw == FlagMask(MemGraphFlag::LIVE);
+    }
+
+    static constexpr bool GraphAxisMutable(uint32_t raw, BidirectionalAxis axis) noexcept
+    {
+        if (!IsGraphFlagRawValid(raw))
+        {
+            return false;
         }
 
-        return AxisConstructionMap{
-            FabricSegments::VERTICAL_EDGE_TABLE,
-            HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT,
-            HeaderIdentifierOfAPC::NEXT_VERTICAL_SLOT,
-            HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX,
-            HeaderIdentifierOfAPC::VERTICAL_ROOT_IDX,
-            HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT
+        const MemGraphFlag rejected = (axis == BidirectionalAxis::HORIZONTAL) ?
+            MemGraphFlag::HORIZONTAL_LOCK : MemGraphFlag::VERTICAL_LOCK;
 
-        };
+        bool hash_read_only = HasThisGraphMutationFlag(raw, MemGraphFlag::READ_ONLY);
+        bool hash_rejected = HasThisGraphMutationFlag(raw, rejected);
+
+        return 
+            !hash_read_only &&
+            !hash_rejected;
     }
 
-    static constexpr bool IsValidEven64(uint64_t value) noexcept
+protected:
+    static constexpr uint32_t FlagMask(MemGraphFlag flag) noexcept
     {
-        return 
-            (value & 1u) == UNSIGNED_ZERO;
+        return static_cast<uint32_t>(flag);
     }
 };
 
-struct DefineIdentityBuffer : public AxisConstructor
+
+struct DefineIdentityBuffer : public GraphLockConf
 {
     static constexpr uint8_t IDENTITY_BUFFER_LEN = APCDataStructure::TotalIdentityUnitCount() + 1;
     static constexpr uint8_t IDENTITY_VALIDATION_IDX = IDENTITY_BUFFER_LEN - 1;

@@ -1,7 +1,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "AxisAndHash.hpp"
+#include "AxisGraph.hpp"
 
 
 namespace BidirectionalInMemGraph
@@ -105,10 +105,10 @@ namespace BidirectionalInMemGraph
                 begin < end &&
                 APCDataStructure::IsValidFabricUnit(end) &&
                 APCDataStructure::IsCapacityOfAPCValid(end - begin) &&
-                IsValidInheritedAxis(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
-                IsValidInheritedAxis(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL) &&
-                IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTALLY_SHARED) &&
-                IsValidOwnedRoot(identity_buffer, BidirectionalAxis::VARTICAL_LOGICAL);
+                IsValidInheritedAxis(identity_buffer, BidirectionalAxis::HORIZONTAL) &&
+                IsValidInheritedAxis(identity_buffer, BidirectionalAxis::VERTICAL) &&
+                IsValidOwnedRoot(identity_buffer, BidirectionalAxis::HORIZONTAL) &&
+                IsValidOwnedRoot(identity_buffer, BidirectionalAxis::VERTICAL);
         }
 
 

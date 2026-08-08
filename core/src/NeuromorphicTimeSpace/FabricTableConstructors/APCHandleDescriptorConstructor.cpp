@@ -211,7 +211,7 @@ namespace BidirectionalInMemGraph
             !FabricInitialized_.load(std::memory_order_acquire) ||
             !SlabBasePtr_ || 
             !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
-            !HashIdConstructror::IsValidAPCId(CountOfAPC_)
+            !IAB::IsValidAPCId(CountOfAPC_)
         )
         {
             return std::nullopt;
