@@ -69,7 +69,7 @@ namespace BidirectionalInMemGraph
         }
         
         const size_t identity_begin = range_of_apc_sagmant_pool.BeginIndex +
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+            static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         
         if (
             !ReadASnapShotFromSlab(
@@ -87,45 +87,45 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<uint64_t> ConstructAPC::SwitchIdentityState__(
-        IAB::GraphMutationState desired_state,
-        uint32_t apc_slot,
-        std::optional<IAB::GraphMutationState> required_state,
-        uint32_t max_tries
-    ) noexcept
-    {
-        DSA::InternalAPCRange range_of_apc{};
+    // std::optional<uint64_t> ConstructAPC::SwitchIdentityState__(
+    //     IAB::GraphMutationState desired_state,
+    //     uint32_t apc_slot,
+    //     std::optional<IAB::GraphMutationState> required_state,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     DSA::InternalAPCRange range_of_apc{};
 
-        std::optional<DescriptionOfAPC::StateOfAPC> dsc_state = ReadValidAPCRangeInternally__(
-            apc_slot,
-            range_of_apc
-        );
+    //     std::optional<DescriptionOfAPC::StateOfAPC> dsc_state = ReadValidAPCRangeInternally__(
+    //         apc_slot,
+    //         range_of_apc
+    //     );
 
-        if (
-            !dsc_state.has_value() ||
-            dsc_state != DSA::StateOfAPC::LIVE ||
-            !range_of_apc.IsValid
-        )
-        {
-            return false;
-        }
-        const size_t fp_lock_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
-        uint64_t value_fp_lock = FABRIC_CELL_SENTINAL;
-        if (
-            !AtomicallyLoadReadAUnit(fp_lock_idx, value_fp_lock) ||
-            !APCDataStructure::IsValidFabricUnit(value_fp_lock)
-        )
-        {
-            return false;
-        }
-        const IAB::GraphMutationState fp_state = IAB::IdentityFingerprintToState(value_fp_lock);
+    //     if (
+    //         !dsc_state.has_value() ||
+    //         dsc_state != DSA::StateOfAPC::LIVE ||
+    //         !range_of_apc.IsValid
+    //     )
+    //     {
+    //         return false;
+    //     }
+    //     const size_t fp_lock_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+    //     uint64_t value_fp_lock = FABRIC_CELL_SENTINAL;
+    //     if (
+    //         !AtomicallyLoadReadAUnit(fp_lock_idx, value_fp_lock) ||
+    //         !APCDataStructure::IsValidFabricUnit(value_fp_lock)
+    //     )
+    //     {
+    //         return false;
+    //     }
+    //     const IAB::GraphMutationState fp_state = IAB::IdentityFingerprintToState(value_fp_lock);
 
 
         
         
 
 
-    }
+    // }
 
 
 

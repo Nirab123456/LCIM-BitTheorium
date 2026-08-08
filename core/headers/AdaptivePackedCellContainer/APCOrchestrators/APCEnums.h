@@ -12,7 +12,7 @@ namespace BidirectionalInMemGraph
         // identity
         MAGIC_ID = 0,
 
-        IDENTITY_FINGERPRINT = 1,
+        GRAPH_MUTATION_AND_LOCK = 1,
         APC_SLOT_IDX = 2,
         BOUNDS_BEGIN = 3,
         BOUNDS_END = 4,

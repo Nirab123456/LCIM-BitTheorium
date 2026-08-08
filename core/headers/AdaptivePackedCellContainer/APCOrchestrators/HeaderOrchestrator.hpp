@@ -248,7 +248,7 @@ namespace BidirectionalInMemGraph
 
             for (size_t i = 0; i < APCDataStructure::TotalIdentityUnitCount(); i++)
             {
-                identity_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) + i];
+                identity_buffer[i] = header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK) + i];
             }
             
             

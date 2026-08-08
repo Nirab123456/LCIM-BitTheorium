@@ -150,13 +150,11 @@ namespace BidirectionalInMemGraph
             const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
             if (
                 !ValidateDefaultIdentity(identity_buffer) ||
-                !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT, fingerprint)
+                !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK, fingerprint)
             )
             {
-                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
                 return false;
             }
-            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
             return true;
         }
 
@@ -167,14 +165,12 @@ namespace BidirectionalInMemGraph
             const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
             if (
                 !ValidateDefaultIdentity(identity_buffer) ||
-                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT) ||
+                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK) ||
                 IdentityFingerprintToState(fingerprint) != GraphMutationState::LIVE
             )
             {
-                identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
                 return false;
             }
-            identity_buffer[IDENTITY_VALIDATION_IDX] = VALIDATION_IDENTITY_MARK;
             return true;
         }
 
@@ -183,7 +179,7 @@ namespace BidirectionalInMemGraph
             uint64_t* fingerprint = nullptr
         ) noexcept
         {
-            const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+            const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
             if (!ValidateDefaultIdentity(identity_buffer))
             {
                 return GraphMutationState::INVALID;

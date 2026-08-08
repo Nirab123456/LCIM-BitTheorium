@@ -127,7 +127,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+        uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
 
         uint64_t current_fp = UNSIGNED_ZERO;
 
@@ -167,7 +167,7 @@ namespace BidirectionalInMemGraph
 
         uint64_t expected = IAB::IDENTITY_WRITE_LOCKDOWN;
 
-        const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT).value();
+        const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value();
 
         return CompareExchangeStrongFromAPC(
             fp_header_idx,

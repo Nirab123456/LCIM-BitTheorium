@@ -179,7 +179,7 @@ namespace BidirectionalInMemGraph
         IA::BufferOfAPCIdentity identity_buffer{};
 
         bool copy_ok = CopyFromAPCToBuffer(
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
+            static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
             APCDataStructure::TotalIdentityUnitCount(),
             identity_buffer.data(),
             true
@@ -206,7 +206,7 @@ namespace BidirectionalInMemGraph
         }
         
         bool comp_exg_ok = CompareExchangeStrongFromAPC(
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT),
+            static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
             sealed_fingerprint,
             desired_state == IA::GraphMutationState::WRITE_LOCK ?
                 IA::IDENTITY_WRITE_LOCKDOWN : IA::CONSUME_VALID_IDENTITY
@@ -223,7 +223,7 @@ namespace BidirectionalInMemGraph
     {
         using IFS = InstallAxisToBuffer::GraphMutationState;
 
-        const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT);
+        const uint8_t fp_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         uint64_t current_fp = UNSIGNED_ZERO;
         if (!AtomicallyReadLongLongAPCUnit(fp_idx, current_fp))
         {

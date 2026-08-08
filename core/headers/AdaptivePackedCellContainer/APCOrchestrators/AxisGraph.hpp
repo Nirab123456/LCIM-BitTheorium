@@ -58,14 +58,9 @@ struct AxisConstructor
     }
 };
 
-
 struct GraphLockConf : public AxisConstructor
 {
-    static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
-    static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
 
-
-    /// @brief VALIDATES THE RAW ID 
     static constexpr bool IsValidAPCId(uint64_t value) noexcept
     {
         return value > UNSIGNED_ZERO && value < FABRIC_CELL_SENTINAL;
@@ -77,52 +72,12 @@ struct GraphLockConf : public AxisConstructor
             APCDataStructure::IsValid32BitAPCUnit(value);
     }
 
-    static uint64_t MakeARandomFabricValid64() noexcept
+    struct GrapMutationIdentity 
     {
-        static std::atomic<uint64_t> global_counter{1u};
-
-        auto SplitMix64 = [](uint64_t x) noexcept -> uint64_t
-        {
-            x += HASH_64BIT_GRATIO_1;
-            x = (x ^ (x >> 30u)) * 0xBF58476D1CE4E5B9ull;
-            x = (x ^ (x >> 27u)) * 0x94D049BB133111EBull;
-            x = x ^ (x >> 31u);
-            return x;
-        };
-
-        uint64_t random_seed = global_counter.fetch_add(1, std::memory_order_acq_rel);
-
-        random_seed ^= static_cast<uint64_t>(
-            std::chrono::high_resolution_clock::now().time_since_epoch().count()
-        );
-
-        random_seed ^= reinterpret_cast<uint64_t>(&random_seed);
-
-        try
-        {
-            std::random_device random_device;
-            random_seed ^= static_cast<uint64_t>(random_device());
-        }
-        catch(...)
-        {
-            random_seed ^= HASH_64BIT_GRATIO_2;
-        }
-
-        for (uint32_t attempt = 0; attempt < 8u; attempt++)
-        {
-            random_seed = SplitMix64(random_seed);
-
-            if (IsValidAPCId(random_seed))
-            {
-                return random_seed;
-            }
-        }
-        
-        const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel));
-
-        return IsValidAPCId(fallback) ? fallback : FABRIC_CELL_SENTINAL;
-
-    }
+        uint32_t SeqLock = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t Flags = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        bool IsValid = false;
+    };
 
     enum class MemGraphFlag : uint32_t
     {
@@ -193,6 +148,34 @@ struct GraphLockConf : public AxisConstructor
             !hash_rejected;
     }
 
+    static constexpr bool IsValidGraphMutationState(GrapMutationIdentity& mutations) noexcept
+    {
+        if (
+            !IsGraphFlagRawValid(mutations.Flags)
+        )
+        {
+            mutations.IsValid = false;
+            return false;
+        }
+
+        bool unlocked = IsIdentityGraphUnlocked(mutations.Flags);
+        bool hash_read_only = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::READ_ONLY);
+
+        if (
+            unlocked ||
+            hash_read_only
+        )
+        {
+            mutations.IsValid = IsValidEven64(mutations.SeqLock);
+        }
+        else
+        {
+            mutations.IsValid = !IsValidEven64(mutations.SeqLock);
+        }
+
+        return mutations.IsValid;
+    }
+
 protected:
     static constexpr uint32_t FlagMask(MemGraphFlag flag) noexcept
     {
@@ -203,36 +186,13 @@ protected:
 
 struct DefineIdentityBuffer : public GraphLockConf
 {
-    static constexpr uint8_t IDENTITY_BUFFER_LEN = APCDataStructure::TotalIdentityUnitCount() + 1;
-    static constexpr uint8_t IDENTITY_VALIDATION_IDX = IDENTITY_BUFFER_LEN - 1;
-    static constexpr uint64_t VALIDATION_IDENTITY_MARK = 987987;
-
-
-
-    enum class GraphMutationState : uint8_t
-    {
-        WRITE_LOCK = 0,
-        CONSUME_LOCK = 1,
-        LIVE = 2,
-        HORIZONTAL_LOCK = 3,
-        VERTICAL_LOCK = 4,
-        INVALID = 5
-    };
-
-    using BufferOfAPCIdentity = std::array<uint64_t, IDENTITY_BUFFER_LEN>;
+    using BufferOfAPCIdentity = std::array<uint64_t, APCDataStructure::TotalIdentityUnitCount()>;
 
     static constexpr bool IsKnownIdentity(HeaderIdentifierOfAPC identity_unit) noexcept
     {
-        return identity_unit >= HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT &&
+        return identity_unit >= HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK &&
             identity_unit <= HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT;
     }
-
-    static constexpr bool IsHoldFingerprintState(GraphMutationState state) noexcept
-    {
-        return state == GraphMutationState::WRITE_LOCK ||
-            state == GraphMutationState::CONSUME_LOCK;
-    }
-
 
     static constexpr std::optional<uint8_t> GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC identity_unit) noexcept
     {
@@ -242,7 +202,7 @@ struct DefineIdentityBuffer : public GraphLockConf
         }
         
         return static_cast<uint8_t>(
-            static_cast<uint8_t>(identity_unit) - static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
+            static_cast<uint8_t>(identity_unit) - static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK)
         );
     }
 
@@ -255,7 +215,7 @@ struct DefineIdentityBuffer : public GraphLockConf
             return std::nullopt;
         }
         return static_cast<HeaderIdentifierOfAPC>(
-            buffer_idx + static_cast<uint8_t>(HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT)
+            buffer_idx + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK)
         );
     }
 
@@ -263,7 +223,6 @@ struct DefineIdentityBuffer : public GraphLockConf
         static constexpr void BuildNullIdentityBuffer(BufferOfAPCIdentity& identity_buffer) noexcept
         {
             identity_buffer.fill(FABRIC_CELL_SENTINAL);
-            identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
         }
 
         static constexpr bool InsertAnIdentityInBuffer(
@@ -286,9 +245,14 @@ struct DefineIdentityBuffer : public GraphLockConf
                 return false;
             }
             identity_buffer[buffer_idx.value()] = value;
-            identity_buffer[IDENTITY_VALIDATION_IDX] = UNSIGNED_ZERO;
             return true;
         }
+
+        // static constexpr bool InsertGraphIdentityMutation(GrapMutationIdentity values) noexcept
+        // {
+
+        // }
+
 
         static constexpr uint64_t ValueOfAnIdentityFromBuffer(
             const BufferOfAPCIdentity& identity_buffer,
@@ -308,7 +272,7 @@ struct DefineIdentityBuffer : public GraphLockConf
         {
 
             return 
-                identity == HeaderIdentifierOfAPC::IDENTITY_FINGERPRINT ||
+                identity == HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK ||
                 identity == HeaderIdentifierOfAPC::VERTICAL_SHARED_IDX ||
                 identity == HeaderIdentifierOfAPC::HORIZONTAL_SHARED_IDX ||
                 identity == HeaderIdentifierOfAPC::HORIZONTAL_ROOT_IDX ||
@@ -320,38 +284,6 @@ struct DefineIdentityBuffer : public GraphLockConf
                 identity == HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT ||
                 identity == HeaderIdentifierOfAPC::VERTICAL_NEXT_OF_ROOT;
         }
-
-
-        static constexpr bool DoseIdentityBufferContainsValidationMarker(const BufferOfAPCIdentity& identity_buffer) noexcept
-        {
-            return identity_buffer[IDENTITY_VALIDATION_IDX] == VALIDATION_IDENTITY_MARK;
-        }
-
-        static constexpr uint64_t ComposeIdentityFingerprint(
-            const BufferOfAPCIdentity& identity_buffer
-        ) noexcept
-        {
-            uint64_t hash = HASH_64BIT_GRATIO_1;
-            for (uint8_t i = 1u; i < APCDataStructure::TotalIdentityUnitCount(); ++i)
-            {
-                hash ^= identity_buffer[i] + HASH_64BIT_GRATIO_1 + (hash << 6u) + (hash >> 2u);
-                hash = HashUnsigned64(hash);
-            }
-
-            hash &= ~uint64_t{1};
-
-            const GraphMutationState state_fp = IdentityFingerprintToState(hash);
-
-
-            if (
-                state_fp != GraphMutationState::LIVE
-            )
-            {
-                return 2u;
-            }
-            return hash;
-        }
-
 
 };
 
