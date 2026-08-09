@@ -72,7 +72,7 @@ struct GraphLockConf : public AxisConstructor
             APCDataStructure::IsValid32BitAPCUnit(value);
     }
 
-    struct GrapMutationValues 
+    struct GraphMutationValues 
     {
         uint32_t SeqLock = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint32_t Flags = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
@@ -148,7 +148,7 @@ struct GraphLockConf : public AxisConstructor
             !hash_rejected;
     }
 
-    static constexpr bool IsValidGraphMutationState(GrapMutationValues& mutations) noexcept
+    static constexpr bool IsValidGraphMutationState(GraphMutationValues& mutations) noexcept
     {
         if (
             !IsGraphFlagRawValid(mutations.Flags)
@@ -174,6 +174,23 @@ struct GraphLockConf : public AxisConstructor
         }
 
         return mutations.IsValid;
+    }
+
+    static constexpr bool DoseCurrentFlagsAllowsThisAxisMutation(uint32_t flags, BidirectionalAxis axis) noexcept
+    {
+        switch (axis)
+        {
+        case BidirectionalAxis::HORIZONTAL:
+            return 
+                HasThisGraphMutationFlag(flags, MemGraphFlag::BOTH_AXIS_LOCK) ||
+                HasThisGraphMutationFlag(flags, MemGraphFlag::HORIZONTAL_LOCK);
+        case BidirectionalAxis::VERTICAL:
+            return 
+                HasThisGraphMutationFlag(flags, MemGraphFlag::BOTH_AXIS_LOCK) ||
+                HasThisGraphMutationFlag(flags, MemGraphFlag::VERTICAL_LOCK);
+        default:
+            return false;
+        }
     }
 
 protected:
@@ -247,14 +264,14 @@ struct DefineIdentityBuffer : public GraphLockConf
             return true;
         }
 
-        static constexpr uint64_t MakeGraphMutationValues(const GrapMutationValues& values) noexcept
+        static constexpr uint64_t MakeGraphMutationValues(const GraphMutationValues& values) noexcept
         {
             return TwinU32ToU64::PackDoubleUnsigned32In64(values.SeqLock, values.Flags);
         }
 
         static constexpr bool InsertGraphIdentityMutation(
             BufferOfAPCIdentity& identity_buffer,
-            GrapMutationValues& values
+            GraphMutationValues& values
         ) noexcept
         {
             if (
@@ -269,7 +286,7 @@ struct DefineIdentityBuffer : public GraphLockConf
 
         static constexpr bool PackGraphMutationValues(
             uint64_t value,
-            GrapMutationValues& values
+            GraphMutationValues& values
         ) noexcept
         {
             values.SeqLock = TwinU32ToU64::ExtractLow32Of64(value);
@@ -279,7 +296,7 @@ struct DefineIdentityBuffer : public GraphLockConf
 
         static constexpr bool GetGraphMutationValues(
             const BufferOfAPCIdentity& identity_buffer,
-            GrapMutationValues& values
+            GraphMutationValues& values
         ) noexcept
         {
             const uint64_t mutation_lock_st = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);

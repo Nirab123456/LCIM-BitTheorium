@@ -270,7 +270,15 @@ namespace BidirectionalInMemGraph
             {
                 identity[i + offset_identity] = description[i];
             }
-            return IAB::SealIdentityBuffer(identity);
+
+            IAB::GraphMutationValues values{};
+            values.Flags = static_cast<uint32_t>(IAB::MemGraphFlag::LIVE);
+            values.SeqLock = UNSIGNED_ZERO;
+
+
+            return 
+                IAB::InsertGraphIdentityMutation(identity, values) &&
+                IAB::SealIdentityBuffer(identity);
         }
 
     };

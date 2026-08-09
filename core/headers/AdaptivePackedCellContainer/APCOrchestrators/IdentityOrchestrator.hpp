@@ -144,20 +144,18 @@ namespace BidirectionalInMemGraph
         }
 
         static constexpr bool SealIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer,
-            GrapMutationValues& updated_identity
+            BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
             return 
-                ValidateDefaultIdentity(identity_buffer) &&
-                InsertGraphIdentityMutation(identity_buffer, updated_identity);
+                ValidateDefaultIdentity(identity_buffer);
         }
 
         static constexpr bool ValidateIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
-            GrapMutationValues values{};
+            GraphMutationValues values{};
             return 
                 ValidateDefaultIdentity(identity_buffer) &&
                 GetGraphMutationValues(identity_buffer, values) &&

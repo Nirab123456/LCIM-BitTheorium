@@ -88,7 +88,7 @@ namespace BidirectionalInMemGraph
 
     bool ConstructAPC::ReadGraphMutationFlags(
         uint32_t slot_idx,
-        IAB::GrapMutationValues& values
+        IAB::GraphMutationValues& values
     ) noexcept
     {
         DSA::InternalAPCRange range_of_apc_sagmant_pool{};

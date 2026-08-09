@@ -70,7 +70,7 @@ namespace BidirectionalInMemGraph
 
         bool ReadGraphMutationFlags(
             uint32_t slot_idx,
-            IAB::GrapMutationValues& values
+            IAB::GraphMutationValues& values
         ) noexcept;
         
         std::optional<uint64_t> NewApcFromFabric(

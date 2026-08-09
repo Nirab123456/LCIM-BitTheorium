@@ -179,10 +179,14 @@ struct EdgeBuilder : public EdgeTableConf
     {
         using IAB = InstallAxisToBuffer;
 
+        IAB::GraphMutationValues values_gm{};
+
         if (
             !IAB::ValidateIdentityBuffer(identity_buffer) ||
             !IAB::IsOwnedAxisDisabled(identity_buffer, axis) ||
-            !APCDataStructure::IsValid32BitAPCUnit(owned_edge_idx)
+            !APCDataStructure::IsValid32BitAPCUnit(owned_edge_idx) ||
+            !IAB::GetGraphMutationValues(identity_buffer, values_gm) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(values_gm.Flags, axis)
         )
         {
             return false;
@@ -238,6 +242,8 @@ struct EdgeBuilder : public EdgeTableConf
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         const uint64_t predessor_slot = IAB::ValueOfAnIdentityFromBuffer(predessor, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t current_slot = IAB::ValueOfAnIdentityFromBuffer(current_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
+        IAB::GraphMutationValues gmv_predecessor{};
+        IAB::GraphMutationValues gmv_current{};
         if (
             !IAB::ValidateIdentityBuffer(predessor) ||
             !IAB::ValidateIdentityBuffer(current_identity) ||
@@ -245,7 +251,11 @@ struct EdgeBuilder : public EdgeTableConf
             !APCDataStructure::IsValid32BitAPCUnit(owner_edge_idx) ||
             owner_edge.Status != EdgeStatus::LIVE ||
             owner_edge.EdgeTable != map.EdgeTable ||
-            predessor_slot == current_slot 
+            predessor_slot == current_slot  ||
+            !IAB::GetGraphMutationValues(predessor, gmv_predecessor) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_predecessor.Flags, axis) ||
+            !IAB::GetGraphMutationValues(current_identity, gmv_current) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_current.Flags, axis)
         )
         {
             return false;
