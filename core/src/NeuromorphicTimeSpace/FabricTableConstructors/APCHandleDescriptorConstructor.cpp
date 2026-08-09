@@ -68,8 +68,7 @@ namespace BidirectionalInMemGraph
         DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
     ) noexcept
     {
-        DescriptionOfAPC::BuildSentinalDescriptionBuffer(return_buffer);
-
+        return_buffer.fill(FABRIC_CELL_SENTINAL);
         const DescriptorConf::APCDescriptorRange this_apc_descriptor_range = ReadAPCDescriptionRanges_(apc_description_index);
 
         if (!this_apc_descriptor_range.IsValid)
@@ -94,7 +93,7 @@ namespace BidirectionalInMemGraph
     {
         const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIndexing::APC_INDEX)];
         const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
-        const  DescriptionOfAPC::DescriptorSaftyFiles current_description_state = ReadAPCStateAtomically_(slot_idx);
+        const  DescriptionOfAPC::DescriptionStateLockValues current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
             !current_description_state.IsValid ||
             current_description_state.StateOfTheAPC != DSA::StateOfAPC::RESERVED ||
@@ -111,9 +110,9 @@ namespace BidirectionalInMemGraph
         );
     }
     
-    DescriptionOfAPC::DescriptorSaftyFiles APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
+    DescriptionOfAPC::DescriptionStateLockValues APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
-        DescriptionOfAPC::DescriptorSaftyFiles return_files{};
+        DescriptionOfAPC::DescriptionStateLockValues return_files{};
         std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx_(apc_description_index);
         if (!maybe_id_state_idx.has_value())
         {
@@ -146,7 +145,7 @@ namespace BidirectionalInMemGraph
 
         for (size_t i = 0; i < max_tries; i++)
         {
-            const DSA::DescriptorSaftyFiles current_id_st = ReadAPCStateAtomically_(description_idx);
+            const DSA::DescriptionStateLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
             if (
                 !current_id_st.IsValid ||
                 (
@@ -169,7 +168,7 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-            uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st.DescriptionID, current_id_st.StateOfTheAPC);
+            uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st.SeqLock, current_id_st.StateOfTheAPC);
 
             if (
                 !ReadACompleateAPCDescriptorBuffer_(description_idx, description_buffer) ||
@@ -179,14 +178,14 @@ namespace BidirectionalInMemGraph
                 continue;
             }
 
-            DSA::DescriptorSaftyFiles updated_id_state{};
+            DSA::DescriptionStateLockValues updated_id_state{};
             updated_id_state.StateOfTheAPC = desired_state;
-            updated_id_state.DescriptionID = DSA::ComposeDescriptionId(
+            updated_id_state.SeqLock = DSA::ComposeDescriptionId(
                 description_buffer,
                 updated_id_state.StateOfTheAPC
             );
 
-            const uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_id_state.DescriptionID, updated_id_state.StateOfTheAPC);
+            const uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_id_state.SeqLock, updated_id_state.StateOfTheAPC);
 
             if (
                 APCDataStructure::IsValidFabricUnit(updated_id_state_value) &&
@@ -219,7 +218,7 @@ namespace BidirectionalInMemGraph
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DSA::DescriptorSaftyFiles current = ReadAPCStateAtomically_(description_idx);
+            const DSA::DescriptionStateLockValues current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
                 current.StateOfTheAPC != DSA::StateOfAPC::FREE

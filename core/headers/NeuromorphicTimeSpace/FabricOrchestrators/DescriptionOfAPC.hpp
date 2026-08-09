@@ -27,13 +27,13 @@ namespace BidirectionalInMemGraph
         
         static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::HAULTED) + 1;
 
-        struct DescriptorSaftyFiles
+        struct DescriptionStateLockValues
         {
-            uint32_t DescriptionID = UINT32_MAX;
+            uint32_t SeqLock = UINT32_MAX;
             StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
-        static_assert(sizeof(DescriptorSaftyFiles) <= sizeof(uint64_t));
+        static_assert(sizeof(DescriptionStateLockValues) <= sizeof(uint64_t));
 
         static constexpr bool IsExclusiveState (StateOfAPC state) noexcept
         {
@@ -54,9 +54,9 @@ namespace BidirectionalInMemGraph
             return TwinU32ToU64::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
         }
 
-        static constexpr DescriptorSaftyFiles GetDescriptionFile(uint64_t desc_id_state) noexcept
+        static constexpr DescriptionStateLockValues GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
-            DescriptorSaftyFiles return_safty_files{};
+            DescriptionStateLockValues return_safty_files{};
             const uint32_t description_id_maybe = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
             const uint32_t ownership_maybe = TwinU32ToU64::ExtractHigh32Of64(desc_id_state);
             if (
@@ -67,7 +67,7 @@ namespace BidirectionalInMemGraph
             {
                 return return_safty_files;
             }
-            return_safty_files.DescriptionID = description_id_maybe;
+            return_safty_files.SeqLock = description_id_maybe;
             return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
             return_safty_files.IsValid = true;
             return return_safty_files;
@@ -90,24 +90,8 @@ namespace BidirectionalInMemGraph
 
     struct DescriptionBuffer : public DescriptorConf
     {
-        static constexpr uint64_t VALID_DESCRIPTION_BUFFER_MARK = 1111111111111ull;
 
-        using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX + 1>;
-
-        static constexpr void BuildSentinalDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
-        {
-            for (size_t i = 0; i < default_array.size(); i++)
-            {
-                if (i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX)
-                {
-                    default_array[i] = FABRIC_CELL_SENTINAL;
-                }
-                else
-                {
-                    default_array[i] = UNSIGNED_ZERO;
-                }
-            }
-        }
+        using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX>;
 
         static constexpr void BuildZerodDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
         {
@@ -164,7 +148,6 @@ namespace BidirectionalInMemGraph
             {
                 if (!APCDataStructure::IsValidFabricUnit(desc_return_buff[i]))
                 {
-                    desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
                     return false;
                 }
             }
@@ -172,7 +155,7 @@ namespace BidirectionalInMemGraph
             const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)] -
                 desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
             
-            const DescriptorSaftyFiles desc_files = GetDescriptionFile(
+            const DescriptionStateLockValues desc_files = GetDescriptionFile(
                 desc_return_buff[static_cast<size_t>(DescriptionIndexing::ID_STATE_CONCURRENT)]
             );
 
@@ -181,14 +164,12 @@ namespace BidirectionalInMemGraph
             if (
                 !APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(span_of_apc)) ||
                 !desc_files.IsValid ||
-                desc_id != desc_files.DescriptionID
+                desc_id != desc_files.SeqLock
             )
             {
-                desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
                 return false;
             }
             
-            desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = VALID_DESCRIPTION_BUFFER_MARK;
             return true;
         }
 
@@ -235,21 +216,6 @@ namespace BidirectionalInMemGraph
 
             return ValidateADescriptionBuffer(desc_return_buff);
         }
-
-
-        static constexpr bool HasValidationDescriptionMark(
-            const SingleAPCDescriptionCellBuffer& desc_buffer
-        ) noexcept
-        {
-            if (
-                desc_buffer[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] == VALID_DESCRIPTION_BUFFER_MARK
-            )
-            {
-                return true;
-            }
-            return false;
-        }
-
 
         static constexpr bool BuildIdentityBufferFromDescriptionBuffer(
             SingleAPCDescriptionCellBuffer& description,

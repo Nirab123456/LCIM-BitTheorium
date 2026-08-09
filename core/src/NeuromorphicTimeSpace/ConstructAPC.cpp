@@ -21,7 +21,7 @@ namespace BidirectionalInMemGraph
             return std::nullopt;
         }
 
-        const DSA::DescriptorSaftyFiles state = DSA::GetDescriptionFile(desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
+        const DSA::DescriptionStateLockValues state = DSA::GetDescriptionFile(desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
         if (
             !state.IsValid ||
             (
@@ -362,6 +362,51 @@ namespace BidirectionalInMemGraph
         }
         return false;
     }
+
+
+    // bool ConstructAPC::CreateAPCInternal(
+    //     uint64_t apc_idx,
+    //     bool wants_horizontal_root,
+    //     bool wants_vertical_root,
+    //     const LBO::
+    //         LayoutSpanAndPercentageCarrier&
+    //             layout,
+    //     const SD::
+    //         InitialRegionalDtypeConf&
+    //             dtype,
+    //     const SD::
+    //         InitialRegionalProtocol&
+    //             protocol,
+    //     uint8_t version
+    // ) noexcept
+    // {
+
+    //     DSA::SingleAPCDescriptionCellBuffer description{};
+
+    //     if (
+    //         !FabricInitialized_.load(std::memory_order_acquire) ||
+    //         !SlabBasePtr_ ||
+    //         apc_idx >= CountOfAPC_ ||
+    //         !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
+    //         !ReadACompleateAPCDescriptorBuffer_(apc_idx, description)
+    //     )
+    //     {
+    //         return false;
+    //     }
+
+    //     const DSA::DescriptionStateLockValues dsc_st_lock = DSA::GetDescriptionFile(description[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
+
+    //     if (
+    //         !
+    //     )
+    //     {
+    //         /* code */
+    //     }
+        
+
+
+        
+    // }
 
 
 

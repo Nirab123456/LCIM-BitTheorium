@@ -50,7 +50,7 @@ namespace BidirectionalInMemGraph
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
         ) noexcept;
 
-        DescriptionOfAPC::DescriptorSaftyFiles ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+        DescriptionOfAPC::DescriptionStateLockValues ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
 
     public:
         APCSegmentPoolRange GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept;

@@ -85,11 +85,6 @@ namespace BidirectionalInMemGraph
             IAB::GraphMutationValues& values
         ) noexcept;
         
-        std::optional<uint64_t> NewApcFromFabric(
-            IAB::BidirectionalAxis desired_axis,
-            IAB::BufferOfAPCIdentity& identity_buffer_new_apc,
-            bool wants_both_axis = false
-        ) noexcept;
 
         bool AttachAPC(
             uint64_t root_apc_idx,
@@ -102,7 +97,7 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis
         ) noexcept;
 
-        std::optional<uint64_t>CreateAPCInternal_(
+        bool CreateAPCInternal(
             uint64_t apc_idx,
             bool wants_horizontal_root,
             bool wants_vertical_root,
