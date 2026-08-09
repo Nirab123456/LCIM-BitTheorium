@@ -236,7 +236,6 @@ struct DefineIdentityBuffer : public GraphLockConf
             {
                 return false;
             }
-
             if (
                 !APCDataStructure::IsValidFabricUnit(value) &&
                 !(value == FABRIC_CELL_SENTINAL && CanIdentityContainRuntimeSentinal(identity))
@@ -248,11 +247,36 @@ struct DefineIdentityBuffer : public GraphLockConf
             return true;
         }
 
-        // static constexpr bool InsertGraphIdentityMutation(GrapMutationIdentity values) noexcept
-        // {
+        static constexpr uint64_t MakeGraphMutationValues(const GrapMutationIdentity& values) noexcept
+        {
+            return TwinU32ToU64::PackDoubleUnsigned32In64(values.SeqLock, values.Flags);
+        }
 
-        // }
+        static constexpr bool InsertGraphIdentityMutation(
+            BufferOfAPCIdentity& identity_buffer,
+            GrapMutationIdentity& values
+        ) noexcept
+        {
+            if (
+                !IsValidGraphMutationState(values)
+            )
+            {
+                return false;
+            }
+            const uint64_t mutation_lock = MakeGraphMutationValues(values);
+            return InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK, mutation_lock);
+        }
 
+        static constexpr bool GetGraphMutationValues(
+            const BufferOfAPCIdentity& identity_buffer,
+            GrapMutationIdentity& values
+        ) noexcept
+        {
+            const uint64_t mutation_lock_st = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+            values.SeqLock = TwinU32ToU64::ExtractLow32Of64(mutation_lock_st);
+            values.Flags = TwinU32ToU64::ExtractHigh32Of64(mutation_lock_st);
+            return IsValidGraphMutationState(values);
+        }
 
         static constexpr uint64_t ValueOfAnIdentityFromBuffer(
             const BufferOfAPCIdentity& identity_buffer,
