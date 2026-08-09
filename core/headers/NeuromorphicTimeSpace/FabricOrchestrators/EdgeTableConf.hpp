@@ -388,6 +388,10 @@ struct EdgeBuilder : public EdgeTableConf
         const uint64_t predecessor_slot = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX);
         const uint64_t first_child_of_predecessor = IAB::ValueOfAnIdentityFromBuffer(predecessor_identity, map.RootOwnedChild);
 
+        IAB::GraphMutationValues gmv_predecessor{};
+        IAB::GraphMutationValues gmv_current{};
+        IAB::GraphMutationValues gmv_next{};
+
         if (
             !IAB::ValidateIdentityBuffer(predecessor_identity) ||
             !IAB::ValidateIdentityBuffer(current_identity) ||
@@ -396,7 +400,19 @@ struct EdgeBuilder : public EdgeTableConf
             owner_edge.Status != EdgeStatus::LIVE ||
             owner_edge.OwnLinkCount == UNSIGNED_ZERO ||
             current_inharited_edge != owner_edge_index ||
-            prev_of_current != predecessor_slot
+            prev_of_current != predecessor_slot ||
+            owner_edge.EdgeTable != map.EdgeTable ||
+            !IAB::GetGraphMutationValues(predecessor_identity, gmv_predecessor) ||
+            !IAB::GetGraphMutationValues(current_identity, gmv_current) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_predecessor.Flags, axis) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_current.Flags, axis) ||
+            (
+                next_identity &&
+                (
+                    !IAB::GetGraphMutationValues(*next_identity, gmv_next) ||
+                    !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_next.Flags, axis)
+                )
+            )
         )
         {
             return false;

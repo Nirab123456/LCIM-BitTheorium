@@ -51,7 +51,8 @@ namespace BidirectionalInMemGraph
 
     std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
-        IAB::BufferOfAPCIdentity& identity
+        IAB::BufferOfAPCIdentity& identity,
+        uint32_t max_tries
     ) noexcept
     {
         DSA::InternalAPCRange range_of_apc_sagmant_pool{};
@@ -67,23 +68,99 @@ namespace BidirectionalInMemGraph
         {
             return std::nullopt;
         }
-        
-        const size_t identity_begin = range_of_apc_sagmant_pool.BeginIndex +
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-        
-        if (
-            !ReadASnapShotFromSlab(
-            identity_begin,
-            APCDataStructure::TotalIdentityUnitCount(),
-            identity.data(),
-            true
-            )
-        )
+
+        const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+        const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
+        uint64_t begin_st_lock_raw = FABRIC_CELL_SENTINAL;
+
+        for (size_t i = 0; i < max_tries; i++)
         {
-            return std::nullopt;
+            if (!AtomicallyLoadReadAUnit(st_lock_idx, begin_st_lock_raw))
+            {
+                return std::nullopt;
+            }
+
+            if (
+                !ReadASnapShotFromSlab(
+                    st_lock_idx,
+                    APCDataStructure::TotalIdentityUnitCount(),
+                    identity.data(),
+                    true
+                )
+            )
+            {
+                return std::nullopt;
+            }
+
+            if (begin_st_lock_raw != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()])
+            {
+                continue;
+            }
+
+            if (!IAB::ValidateIdentityBuffer(identity))
+            {
+                return std::nullopt;
+            }
+            
+            return current_state;
         }
         
-        return current_state;
+        return std::nullopt;
+    }
+
+    bool ConstructAPC::WriteAcquiredAxis_(
+        uint32_t apc_slot,
+        const IAB::BufferOfAPCIdentity& identity,
+        IAB::BidirectionalAxis axis
+    ) noexcept
+    {
+        DSA::InternalAPCRange range_of_apc_sagmant_pool{};
+        std::optional<DSA::StateOfAPC> current_state = ReadValidAPCRangeInternally__(
+            apc_slot,
+            range_of_apc_sagmant_pool
+        );
+        IAB::GraphMutationValues current_lock{};
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        if (
+            !ReadGraphMutationFlags(apc_slot, current_lock) ||
+            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(current_lock.Flags, axis)
+        )
+        {
+            return false;
+        }
+
+        AtomicallyStoreU64Fab(
+            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.PreviousSibling),
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.PreviousSibling).value()],
+            std::memory_order_relaxed
+        );
+
+        AtomicallyStoreU64Fab(
+            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.NextSibling),
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.NextSibling).value()],
+            std::memory_order_relaxed
+        );
+
+        AtomicallyStoreU64Fab(
+            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.InheritedEgdeTableIdx),
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.InheritedEgdeTableIdx).value()],
+            std::memory_order_relaxed
+        );
+
+        AtomicallyStoreU64Fab(
+            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.OwnedEgdeTableIdx),
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.OwnedEgdeTableIdx).value()],
+            std::memory_order_relaxed
+        );
+
+        AtomicallyStoreU64Fab(
+            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.RootOwnedChild),
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.RootOwnedChild).value()],
+            std::memory_order_relaxed
+        );
+
+        return true;
     }
 
     bool ConstructAPC::ReadGraphMutationFlags(
@@ -133,7 +210,7 @@ namespace BidirectionalInMemGraph
             !range_of_apc.IsValid
         )
         {
-            return false;
+            return std::nullopt;
         }
 
         const size_t gmv_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
@@ -149,7 +226,7 @@ namespace BidirectionalInMemGraph
 
             )
             {
-                return false;
+                return std::nullopt;
             }
 
             if (
@@ -190,7 +267,7 @@ namespace BidirectionalInMemGraph
                 !APCDataStructure::IsValidFabricUnit(updated_gmv_raw)
             )
             {
-                return false;
+                return std::nullopt;
             }
             
             if (!CompareExchangeStrongFromFabric(

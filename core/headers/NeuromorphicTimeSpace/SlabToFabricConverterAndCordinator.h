@@ -54,7 +54,6 @@ namespace BidirectionalInMemGraph
             DSA::InternalAPCRange& range_return
         ) noexcept;
 
-
         /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
         std::optional<uint64_t> AcquireGraphMutationFlag_(
             uint32_t apc_slot_idx,
@@ -62,10 +61,17 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
+        bool WriteAcquiredAxis_(
+            uint32_t apc_slot,
+            const IAB::BufferOfAPCIdentity& identity,
+            IAB::BidirectionalAxis axis
+        ) noexcept;
+
     public:
         std::optional<DSA::StateOfAPC> ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
-            IAB::BufferOfAPCIdentity& identity
+            IAB::BufferOfAPCIdentity& identity,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         bool ReadGraphMutationFlags(
