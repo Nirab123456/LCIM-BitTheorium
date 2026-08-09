@@ -25,23 +25,14 @@ namespace BidirectionalInMemGraph
             HAULTED = 4
         };
         
-        static constexpr uint8_t LEN_OF_DESCRIPTION_AND_HASH_STATE = static_cast<uint8_t>(StateOfAPC::HAULTED) + 1;
-
         struct DescriptionStateLockValues
         {
             uint32_t SeqLock = UINT32_MAX;
             StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
+
         static_assert(sizeof(DescriptionStateLockValues) <= sizeof(uint64_t));
-
-        static constexpr bool IsExclusiveState (StateOfAPC state) noexcept
-        {
-            return 
-                state == StateOfAPC::RESERVED ||
-                state == StateOfAPC::HAULTED;
-        }
-
 
         static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
         {
@@ -57,18 +48,31 @@ namespace BidirectionalInMemGraph
         static constexpr DescriptionStateLockValues GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
             DescriptionStateLockValues return_safty_files{};
-            const uint32_t description_id_maybe = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
-            const uint32_t ownership_maybe = TwinU32ToU64::ExtractHigh32Of64(desc_id_state);
-            if (
-                !APCDataStructure::IsValidFabricUnit(desc_id_state) ||
-                !APCDataStructure::IsValid32BitAPCUnit(description_id_maybe) ||
-                ownership_maybe >= LEN_OF_DESCRIPTION_AND_HASH_STATE
-            )
+            return_safty_files.SeqLock = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
+            return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(TwinU32ToU64::ExtractHigh32Of64(desc_id_state));
+
+            if (!APCDataStructure::IsValidFabricUnit(return_safty_files.SeqLock))
             {
                 return return_safty_files;
             }
-            return_safty_files.SeqLock = description_id_maybe;
-            return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(ownership_maybe);
+
+            if (
+                return_safty_files.StateOfTheAPC == StateOfAPC::RESERVED &&
+                InstallAxisToBuffer::IsValidEven64(return_safty_files.SeqLock)
+            )
+            {
+                return_safty_files.IsValid = false;
+                return return_safty_files;
+            }
+            if (
+                return_safty_files.StateOfTheAPC != StateOfAPC::RESERVED &&
+                !InstallAxisToBuffer::IsValidEven64(return_safty_files.SeqLock)
+            )
+            {
+                return_safty_files.IsValid = false;
+                return return_safty_files;
+            }
+
             return_safty_files.IsValid = true;
             return return_safty_files;
         }
@@ -88,58 +92,12 @@ namespace BidirectionalInMemGraph
 
     };
 
-    struct DescriptionBuffer : public DescriptorConf
+
+    struct DescriptionOfAPC : DescriptorConf
     {
 
         using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX>;
 
-        static constexpr void BuildZerodDescriptionBuffer(SingleAPCDescriptionCellBuffer& default_array) noexcept
-        {
-            for (size_t i = 0; i < default_array.size(); i++)
-            {
-                default_array[i] = UNSIGNED_ZERO;
-            }
-        }
-
-        static constexpr uint32_t ComposeDescriptionId(
-            const SingleAPCDescriptionCellBuffer& description_buffer,
-            StateOfAPC state
-        ) noexcept
-        {
-            
-            uint32_t hash = HASH32_GRATIO_1 * static_cast<uint32_t>(state);
-
-            for (size_t i = 0; i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX - 1; i++)
-            {
-                const uint64_t unit = description_buffer[i];
-
-                hash ^= static_cast<uint32_t>(i);
-                hash *= HASH32_GRATIO_2;
-
-                hash ^= static_cast<uint32_t>(unit);
-                hash *= HASH32_GRATIO_2;
-
-                hash ^= static_cast<uint32_t>(unit >> (sizeof(uint32_t) * LEN_OF_BYTE_IN_BITS));
-                hash *= HASH32_GRATIO_2;
-            }
-            
-            if (hash == UNSIGNED_ZERO)
-            {
-                return 1u;
-            }
-            else if (hash == UINT32_MAX)
-            {
-                return hash - 1u;
-            }
-            return hash;
-        }
-
-
-    };
-    
-
-    struct DescriptionOfAPC : DescriptionBuffer
-    {
         static constexpr bool ValidateADescriptionBuffer(
             SingleAPCDescriptionCellBuffer& desc_return_buff
         ) noexcept
@@ -159,18 +117,9 @@ namespace BidirectionalInMemGraph
                 desc_return_buff[static_cast<size_t>(DescriptionIndexing::ID_STATE_CONCURRENT)]
             );
 
-            const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, desc_files.StateOfTheAPC);
-
-            if (
-                !APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(span_of_apc)) ||
-                !desc_files.IsValid ||
-                desc_id != desc_files.SeqLock
-            )
-            {
-                return false;
-            }
-            
-            return true;
+            return 
+                APCDataStructure::IsCapacityOfAPCValid(static_cast<uint32_t>(span_of_apc)) &&
+                desc_files.IsValid;
         }
 
         static constexpr void SetADescriptionUnit(
@@ -196,7 +145,7 @@ namespace BidirectionalInMemGraph
             StateOfAPC init_state = StateOfAPC::FREE
         ) noexcept
         {
-            BuildZerodDescriptionBuffer(desc_return_buff);
+            desc_return_buff.fill(UNSIGNED_ZERO);
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_INDEX, apc_idx);
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);

@@ -79,7 +79,7 @@ namespace BidirectionalInMemGraph
         return 
             ReadASnapShotFromSlab(
                 this_apc_descriptor_range.BeginIndex,
-                DescriptionBuffer::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
+                DSA::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 return_buffer.data(),
                 true
             );
