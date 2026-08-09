@@ -67,6 +67,12 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis
         ) noexcept;
 
+        bool ReleseGraphMutationFlag_(
+            uint32_t apc_slot,
+            IAB::BidirectionalAxis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
     public:
         std::optional<DSA::StateOfAPC> ReadIdentityBufferOfAPC(
             uint32_t apc_slot,

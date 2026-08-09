@@ -285,6 +285,84 @@ namespace BidirectionalInMemGraph
         return std::nullopt;
     }
 
+    bool ConstructAPC::ReleseGraphMutationFlag_(
+        uint32_t apc_slot,
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
+    ) noexcept
+    {
+        DSA::InternalAPCRange range_of_apc_sagmant_pool{};
+        std::optional<DSA::StateOfAPC> current_state = ReadValidAPCRangeInternally__(
+            apc_slot,
+            range_of_apc_sagmant_pool
+        );
+        const IAB::MemGraphFlag axis_flag = (axis == IAB::BidirectionalAxis::HORIZONTAL) ? 
+            IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
+
+        if (
+            !current_state.has_value() || 
+            current_state.value() != DSA::StateOfAPC::LIVE || 
+            !range_of_apc_sagmant_pool.IsValid
+        )
+        {
+            return false;
+        }
+
+        const size_t lock_idx = range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+
+        uint64_t observed = FABRIC_CELL_SENTINAL;
+        IAB::GraphMutationValues current_values{};
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !AtomicallyLoadReadAUnit(lock_idx, observed) ||
+                !IAB::ExtractGraphMutationValues(observed, current_values) ||
+                !IAB::HasThisGraphMutationFlag(current_values.Flags, axis_flag)
+            )
+            {
+                return false;
+            }
+
+            IAB:: GraphMutationValues desired{};
+            desired.Flags = IAB::ClearThisFlag(current_values.Flags, axis_flag);
+
+            if (IAB::IsIdentityGraphUnlocked(desired.Flags))
+            {
+                desired.SeqLock = current_values.SeqLock + 1u;
+            }
+            else
+            {
+                desired.SeqLock = current_values.SeqLock + 2u;
+            }
+            
+            const uint64_t desired_raw = IAB::MakeGraphMutationRaw(desired);
+            if (
+                !IAB::IsValidGraphMutationState(desired) ||
+                !APCDataStructure::IsValidFabricUnit(desired_raw)
+            )
+            {
+                return false;
+            }
+
+            uint64_t expected = observed;
+
+            if (
+                !CompareExchangeStrongFromFabric(
+                    lock_idx,
+                    expected,
+                    desired_raw
+                )
+            )
+            {
+                continue;
+            }
+            
+            return true;
+        }
+        return false;
+    }
+
 
 
 }
