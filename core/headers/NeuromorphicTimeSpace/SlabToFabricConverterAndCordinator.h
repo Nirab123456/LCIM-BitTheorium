@@ -54,12 +54,13 @@ namespace BidirectionalInMemGraph
             DSA::InternalAPCRange& range_return
         ) noexcept;
 
-        std::optional<uint64_t> SwitchIdentityState__(
-            IAB::GraphMutationState desired_state,
-            uint32_t apc_slot_idx,
-            std::optional<IAB::GraphMutationState> required_state,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
+
+        // std::optional<uint64_t> SwitchIdentityState__(
+        //     IAB::GraphMutationState desired_state,
+        //     uint32_t apc_slot_idx,
+        //     std::optional<IAB::GraphMutationState> required_state,
+        //     uint32_t max_tries = DEFAULT_MAX_TRIES
+        // ) noexcept;
 
     public:
         std::optional<DSA::StateOfAPC> ReadIdentityBufferOfAPC(
@@ -67,6 +68,11 @@ namespace BidirectionalInMemGraph
             IAB::BufferOfAPCIdentity& identity
         ) noexcept;
 
+        bool ReadGraphMutationFlags(
+            uint32_t slot_idx,
+            IAB::GrapMutationValues& values
+        ) noexcept;
+        
         std::optional<uint64_t> NewApcFromFabric(
             IAB::BidirectionalAxis desired_axis,
             IAB::BufferOfAPCIdentity& identity_buffer_new_apc,

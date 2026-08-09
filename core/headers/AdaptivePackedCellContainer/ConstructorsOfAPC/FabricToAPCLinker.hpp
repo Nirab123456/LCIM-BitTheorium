@@ -98,14 +98,7 @@ public:
             sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
     }
 
-    std::optional<uint64_t> HoldStateOfIdentyFingerprint(
-        InstallAxisToBuffer::GraphMutationState desired_state
-    ) noexcept;
 
-    bool RestorIdentityFingerprint(
-        uint64_t sealed_fingerprint,
-        InstallAxisToBuffer::GraphMutationState current_state
-    ) noexcept;
 };
     
     

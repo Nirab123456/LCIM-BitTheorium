@@ -144,52 +144,26 @@ namespace BidirectionalInMemGraph
         }
 
         static constexpr bool SealIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer
+            BufferOfAPCIdentity& identity_buffer,
+            GrapMutationValues& updated_identity
         ) noexcept
         {
-            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
-            if (
-                !ValidateDefaultIdentity(identity_buffer) ||
-                !InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK, fingerprint)
-            )
-            {
-                return false;
-            }
-            return true;
+            return 
+                ValidateDefaultIdentity(identity_buffer) &&
+                InsertGraphIdentityMutation(identity_buffer, updated_identity);
         }
 
         static constexpr bool ValidateIdentityBuffer(
             BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
-            const uint64_t fingerprint = ComposeIdentityFingerprint(identity_buffer);
-            if (
-                !ValidateDefaultIdentity(identity_buffer) ||
-                fingerprint != ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK) ||
-                IdentityFingerprintToState(fingerprint) != GraphMutationState::LIVE
-            )
-            {
-                return false;
-            }
-            return true;
+            GrapMutationValues values{};
+            return 
+                ValidateDefaultIdentity(identity_buffer) &&
+                GetGraphMutationValues(identity_buffer, values) &&
+                IsValidGraphMutationState(values);
         }
 
-        static constexpr GraphMutationState GetStateFingerprint(
-            BufferOfAPCIdentity& identity_buffer,
-            uint64_t* fingerprint = nullptr
-        ) noexcept
-        {
-            const uint64_t identity_value = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-            if (!ValidateDefaultIdentity(identity_buffer))
-            {
-                return GraphMutationState::INVALID;
-            }
-            if (fingerprint)
-            {
-                *fingerprint = identity_value;
-            }
-            return IdentityFingerprintToState(identity_value);
-        }
     };
     
     

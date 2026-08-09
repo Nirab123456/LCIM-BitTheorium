@@ -86,6 +86,32 @@ namespace BidirectionalInMemGraph
         return current_state;
     }
 
+    bool ConstructAPC::ReadGraphMutationFlags(
+        uint32_t slot_idx,
+        IAB::GrapMutationValues& values
+    ) noexcept
+    {
+        DSA::InternalAPCRange range_of_apc_sagmant_pool{};
+        std::optional<DSA::StateOfAPC> current_state = ReadValidAPCRangeInternally__(
+            slot_idx,
+            range_of_apc_sagmant_pool
+        );
+        const size_t identity_begin = range_of_apc_sagmant_pool.BeginIndex +
+            static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+
+        uint64_t mutation_lock = FABRIC_CELL_SENTINAL;
+
+        if (
+            !range_of_apc_sagmant_pool.IsValid ||
+            !current_state.has_value() ||
+            !AtomicallyLoadReadAUnit(identity_begin, mutation_lock)
+        )
+        {
+            return false;
+        }
+        return IAB::PackGraphMutationValues(mutation_lock, values);
+    }
+
 
     // std::optional<uint64_t> ConstructAPC::SwitchIdentityState__(
     //     IAB::GraphMutationState desired_state,
