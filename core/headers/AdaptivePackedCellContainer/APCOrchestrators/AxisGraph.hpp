@@ -193,6 +193,22 @@ struct GraphLockConf : public AxisConstructor
         }
     }
 
+    static constexpr bool ExtractGraphMutationValues(
+        uint64_t value,
+        GraphMutationValues& values
+    ) noexcept
+    {
+        values.SeqLock = TwinU32ToU64::ExtractLow32Of64(value);
+        values.Flags = TwinU32ToU64::ExtractHigh32Of64(value);
+        return IsValidGraphMutationState(values);
+    }
+
+    static constexpr uint64_t MakeGraphMutationRaw(const GraphMutationValues& values) noexcept
+    {
+        return TwinU32ToU64::PackDoubleUnsigned32In64(values.SeqLock, values.Flags);
+    }
+
+
 protected:
     static constexpr uint32_t FlagMask(MemGraphFlag flag) noexcept
     {
@@ -264,10 +280,6 @@ struct DefineIdentityBuffer : public GraphLockConf
             return true;
         }
 
-        static constexpr uint64_t MakeGraphMutationValues(const GraphMutationValues& values) noexcept
-        {
-            return TwinU32ToU64::PackDoubleUnsigned32In64(values.SeqLock, values.Flags);
-        }
 
         static constexpr bool InsertGraphIdentityMutation(
             BufferOfAPCIdentity& identity_buffer,
@@ -280,18 +292,8 @@ struct DefineIdentityBuffer : public GraphLockConf
             {
                 return false;
             }
-            const uint64_t mutation_lock = MakeGraphMutationValues(values);
+            const uint64_t mutation_lock = MakeGraphMutationRaw(values);
             return InsertAnIdentityInBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK, mutation_lock);
-        }
-
-        static constexpr bool PackGraphMutationValues(
-            uint64_t value,
-            GraphMutationValues& values
-        ) noexcept
-        {
-            values.SeqLock = TwinU32ToU64::ExtractLow32Of64(value);
-            values.Flags = TwinU32ToU64::ExtractHigh32Of64(value);
-            return IsValidGraphMutationState(values);
         }
 
         static constexpr bool GetGraphMutationValues(
@@ -300,7 +302,7 @@ struct DefineIdentityBuffer : public GraphLockConf
         ) noexcept
         {
             const uint64_t mutation_lock_st = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-            return PackGraphMutationValues(mutation_lock_st, values);
+            return ExtractGraphMutationValues(mutation_lock_st, values);
         }
 
         static constexpr uint64_t ValueOfAnIdentityFromBuffer(

@@ -55,12 +55,12 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
 
-        // std::optional<uint64_t> SwitchIdentityState__(
-        //     IAB::GraphMutationState desired_state,
-        //     uint32_t apc_slot_idx,
-        //     std::optional<IAB::GraphMutationState> required_state,
-        //     uint32_t max_tries = DEFAULT_MAX_TRIES
-        // ) noexcept;
+        /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
+        std::optional<uint64_t> AcquireGraphMutationFlag_(
+            uint32_t apc_slot_idx,
+            IAB::MemGraphFlag desired_state,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
 
     public:
         std::optional<DSA::StateOfAPC> ReadIdentityBufferOfAPC(

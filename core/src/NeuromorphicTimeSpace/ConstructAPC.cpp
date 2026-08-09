@@ -109,49 +109,104 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        return IAB::PackGraphMutationValues(mutation_lock, values);
+        return IAB::ExtractGraphMutationValues(mutation_lock, values);
     }
 
 
-    // std::optional<uint64_t> ConstructAPC::SwitchIdentityState__(
-    //     IAB::GraphMutationState desired_state,
-    //     uint32_t apc_slot,
-    //     std::optional<IAB::GraphMutationState> required_state,
-    //     uint32_t max_tries
-    // ) noexcept
-    // {
-    //     DSA::InternalAPCRange range_of_apc{};
+    std::optional<uint64_t> ConstructAPC::AcquireGraphMutationFlag_(
+        uint32_t apc_slot_idx,
+        IAB::MemGraphFlag desired_state,
+        uint32_t max_tries 
+    ) noexcept
+    {
+        DSA::InternalAPCRange range_of_apc{};
 
-    //     std::optional<DescriptionOfAPC::StateOfAPC> dsc_state = ReadValidAPCRangeInternally__(
-    //         apc_slot,
-    //         range_of_apc
-    //     );
+        std::optional<DescriptionOfAPC::StateOfAPC> dsc_state = ReadValidAPCRangeInternally__(
+            apc_slot_idx,
+            range_of_apc
+        );
 
-    //     if (
-    //         !dsc_state.has_value() ||
-    //         dsc_state != DSA::StateOfAPC::LIVE ||
-    //         !range_of_apc.IsValid
-    //     )
-    //     {
-    //         return false;
-    //     }
-    //     const size_t fp_lock_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-    //     uint64_t value_fp_lock = FABRIC_CELL_SENTINAL;
-    //     if (
-    //         !AtomicallyLoadReadAUnit(fp_lock_idx, value_fp_lock) ||
-    //         !APCDataStructure::IsValidFabricUnit(value_fp_lock)
-    //     )
-    //     {
-    //         return false;
-    //     }
-    //     const IAB::GraphMutationState fp_state = IAB::IdentityFingerprintToState(value_fp_lock);
+        if (
+            desired_state == IAB::MemGraphFlag::LIVE ||
+            !dsc_state.has_value() ||
+            dsc_state != DSA::StateOfAPC::LIVE ||
+            !range_of_apc.IsValid
+        )
+        {
+            return false;
+        }
 
+        const size_t gmv_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+        uint64_t gmv_raw = FABRIC_CELL_SENTINAL;
+        IAB::GraphMutationValues gmv_values{};
 
-        
-        
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !AtomicallyLoadReadAUnit(gmv_idx, gmv_raw) ||
+                !APCDataStructure::IsValidFabricUnit(gmv_raw) ||
+                !IAB::ExtractGraphMutationValues(gmv_raw, gmv_values)
 
+            )
+            {
+                return false;
+            }
 
-    // }
+            if (
+                IAB::HasThisGraphMutationFlag(gmv_values.Flags, desired_state) ||
+                IAB::HasThisGraphMutationFlag(gmv_values.Flags, IAB::MemGraphFlag::READ_ONLY) ||
+                (
+                    desired_state == IAB::MemGraphFlag::READ_ONLY &&
+                    !IAB::IsIdentityGraphUnlocked(gmv_values.Flags)
+                )
+            )
+            {
+                continue;
+            }
+            IAB::GraphMutationValues updated_gmv{};
+
+            if (desired_state == IAB::MemGraphFlag::READ_ONLY)
+            {
+                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
+                updated_gmv.SeqLock = gmv_values.SeqLock + 2u;
+            }
+            //new insert
+            else if (IAB::IsIdentityGraphUnlocked(gmv_values.Flags))
+            {
+                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
+                updated_gmv.SeqLock = gmv_values.SeqLock + 1u;
+            }
+            // already has a flag
+            else
+            {
+                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
+                updated_gmv.SeqLock = gmv_values.SeqLock + 2u;
+            }
+
+            const uint64_t updated_gmv_raw = IAB::MakeGraphMutationRaw(updated_gmv);
+            
+            if (
+                !IAB::IsValidGraphMutationState(updated_gmv) ||
+                !APCDataStructure::IsValidFabricUnit(updated_gmv_raw)
+            )
+            {
+                return false;
+            }
+            
+            if (!CompareExchangeStrongFromFabric(
+                gmv_idx,
+                gmv_raw,
+                updated_gmv_raw
+            ))
+            {
+                continue;
+            }
+            
+            return gmv_raw;
+        }
+    
+        return std::nullopt;
+    }
 
 
 
