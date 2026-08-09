@@ -41,6 +41,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     {
         if (
             !IsValidEdgeTable(edge.EdgeTable) ||
+            !APCDataStructure::IsValid32BitAPCUnit(edge.Root) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||
             !(
@@ -163,6 +164,22 @@ struct EdgeTableConf : public DescriptionOfAPC
         edge_data.Status = EdgeStatus::FREE;
         edge_data.IsValid = ValidateEdgeData(edge_data);
         return edge_data.IsValid;
+    }
+
+    static constexpr bool ValidateEdgeBuffer(
+        FabricSegments edge_table,
+        const EdgeBuffer& buffer,
+        EdgeData* data_return = nullptr
+    ) noexcept
+    {
+        EdgeData edge_data{};
+        EdgeData* data = data_return ? data_return : &edge_data;
+        ReadEdgeFromBufferStatically(
+            edge_table,
+            buffer,
+            *data
+        );
+        return data->IsValid;
     }
 
 };

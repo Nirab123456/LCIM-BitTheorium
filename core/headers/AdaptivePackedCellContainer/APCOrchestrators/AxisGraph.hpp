@@ -95,14 +95,20 @@ struct GraphLockConf : public AxisConstructor
         MemGraphFlag desired_flag
     ) noexcept
     {
+        const uint32_t desired = FlagMask(desired_flag);
         return
-            IsGraphFlagRawValid(FlagMask(desired_flag)) &&
-            (raw_lock & FlagMask(desired_flag)) == FlagMask(desired_flag);
+            desired <= GRAPH_FLAGS_MASK &&
+            (raw_lock & desired) == desired;
     }
 
     static constexpr uint32_t SetGraphFlags(uint32_t raw_lock, MemGraphFlag flag) noexcept
     {
         return raw_lock | FlagMask(flag);
+    }
+
+    static constexpr uint32_t ClearThisFlag(uint32_t raw_lock, MemGraphFlag flag) noexcept
+    {
+        return raw_lock & ~FlagMask(flag);
     }
 
     static constexpr bool IsGraphFlagRawValid(uint32_t raw_flag) noexcept

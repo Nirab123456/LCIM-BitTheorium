@@ -93,7 +93,8 @@ namespace BidirectionalInMemGraph
         bool ReadAnEdgeBuffer_(
             FabricSegments edge_table,
             uint32_t edge_idx,
-            EdgeBuilder::EdgeBuffer& return_buffer
+            EdgeBuilder::EdgeBuffer& return_buffer,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         std::optional<EdgeBuilder::EdgeStatus> ReadEdgeData_(
@@ -112,16 +113,12 @@ namespace BidirectionalInMemGraph
         ) noexcept
         {
             EdgeBuilder::EdgeData local_before{};
-            if (!pre_reserve_data)
-            {
-                *pre_reserve_data = local_before;
-            }
-            
+            EdgeBuilder::EdgeData* before = pre_reserve_data ? pre_reserve_data : &local_before;
             return
                 SwitchEdgeState__(
                     edge_table,
                     edge_idx,
-                    *pre_reserve_data,
+                    *before,
                     EdgeBuilder::EdgeStatus::RESERVED,
                     expected_state,
                     max_tries

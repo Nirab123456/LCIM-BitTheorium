@@ -116,64 +116,64 @@ namespace BidirectionalInMemGraph
     }
 
 
-    bool ReadAndWriteOfAPC::PublishIdentityBuffer(
-        InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
-        uint32_t max_tries
-    ) noexcept
-    {
-        using IAB = InstallAxisToBuffer;
-        if (!IAB::SealIdentityBuffer(desired_identity))
-        {
-            return false;
-        }
+    // bool ReadAndWriteOfAPC::PublishIdentityBuffer(
+    //     InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     using IAB = InstallAxisToBuffer;
+    //     if (!IAB::SealIdentityBuffer(desired_identity))
+    //     {
+    //         return false;
+    //     }
 
-        uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+    //     uint8_t fp_header_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
 
-        uint64_t current_fp = UNSIGNED_ZERO;
+    //     uint64_t current_fp = UNSIGNED_ZERO;
 
-        bool write_lock_acquired = false;
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            if (
-                AtomicallyReadLongLongAPCUnit(
-                fp_header_idx,
-                current_fp
-                ) &&
-                IAB::IdentityFingerprintToState(current_fp) == IAB::GraphMutationState::LIVE 
-            )
-            {
-                uint64_t expected = current_fp;
-                if (
-                    CompareExchangeStrongFromAPC(
-                        fp_header_idx, 
-                        expected,
-                        IAB::IDENTITY_WRITE_LOCKDOWN
-                    )
-                )
-                {
-                    write_lock_acquired = true;
-                    break;
-                }
-            }
-        }
-        if (!write_lock_acquired)
-        {
-            return false;
-        }
-        for (size_t i = 1; i < APCDataStructure::TotalIdentityUnitCount(); i++)
-        {
-            AtomicallyWriteU64ToAPC(fp_header_idx + i, desired_identity[i]);
-        }
+    //     bool write_lock_acquired = false;
+    //     for (size_t i = 0; i < max_tries; i++)
+    //     {
+    //         if (
+    //             AtomicallyReadLongLongAPCUnit(
+    //             fp_header_idx,
+    //             current_fp
+    //             ) &&
+    //             IAB::IdentityFingerprintToState(current_fp) == IAB::GraphMutationState::LIVE 
+    //         )
+    //         {
+    //             uint64_t expected = current_fp;
+    //             if (
+    //                 CompareExchangeStrongFromAPC(
+    //                     fp_header_idx, 
+    //                     expected,
+    //                     IAB::IDENTITY_WRITE_LOCKDOWN
+    //                 )
+    //             )
+    //             {
+    //                 write_lock_acquired = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     if (!write_lock_acquired)
+    //     {
+    //         return false;
+    //     }
+    //     for (size_t i = 1; i < APCDataStructure::TotalIdentityUnitCount(); i++)
+    //     {
+    //         AtomicallyWriteU64ToAPC(fp_header_idx + i, desired_identity[i]);
+    //     }
 
-        uint64_t expected = IAB::IDENTITY_WRITE_LOCKDOWN;
+    //     uint64_t expected = IAB::IDENTITY_WRITE_LOCKDOWN;
 
-        const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value();
+    //     const uint8_t buffer_fp_idx = IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value();
 
-        return CompareExchangeStrongFromAPC(
-            fp_header_idx,
-            expected,
-            desired_identity[buffer_fp_idx]
-        );
-    }
+    //     return CompareExchangeStrongFromAPC(
+    //         fp_header_idx,
+    //         expected,
+    //         desired_identity[buffer_fp_idx]
+    //     );
+    // }
 
 }

@@ -83,7 +83,8 @@ namespace BidirectionalInMemGraph
     bool EdgeTableConstructor::ReadAnEdgeBuffer_(
         FabricSegments edge_table,
         uint32_t edge_idx,
-        EdgeBuilder::EdgeBuffer& return_buffer
+        EdgeBuilder::EdgeBuffer& return_buffer,
+        uint32_t max_tries
     ) noexcept
     {
         const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
@@ -92,13 +93,39 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        return 
-            ReadASnapShotFromSlab(
-                range.BeginIndex,
-                EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                return_buffer.data(),
-                true
-            );
+        const uint8_t internal_idx_st = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
+        const size_t control_idx = range.BeginIndex + internal_idx_st;
+        uint64_t before_st_lock = FABRIC_CELL_SENTINAL;
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !AtomicallyLoadReadAUnit(control_idx, before_st_lock)
+            )
+            {
+                return false;
+            }
+
+            if (
+                !ReadASnapShotFromSlab(
+                    range.BeginIndex,
+                    EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
+                    return_buffer.data(),
+                    true
+                )
+            )
+            {
+                return false;
+            }
+            
+            if (before_st_lock != return_buffer[internal_idx_st])
+            {
+                continue;
+            }
+            
+            return EdgeBuilder::ValidateEdgeBuffer(edge_table, return_buffer);
+        }
+        return false;
     }
 
     std::optional<EdgeBuilder::EdgeStatus> EdgeTableConstructor::ReadEdgeData_(
@@ -224,7 +251,7 @@ namespace BidirectionalInMemGraph
             edge_data_current
         );
 
-        ++desired_data.SeqLock;
+        desired_data.SeqLock = edge_data_current.SeqLock + 1u;
 
         if (
             !range.IsValid ||
