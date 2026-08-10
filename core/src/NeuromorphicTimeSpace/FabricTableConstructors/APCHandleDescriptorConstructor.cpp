@@ -145,8 +145,16 @@ namespace BidirectionalInMemGraph
 
         for (size_t i = 0; i < max_tries; i++)
         {
-            const DSA::DescriptionStateLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
+            DSA::DescriptionStateLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
+            uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st);
+            DSA::DescriptionStateLockValues updated_files{};
+            updated_files.SeqLock = current_id_st.SeqLock + 1u;
+            updated_files.StateOfTheAPC = desired_state;
+            uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_files);
+
             if (
+                !APCDataStructure::IsValidFabricUnit(current_id_state_value) ||
+                !APCDataStructure::IsValidFabricUnit(updated_id_state_value) ||
                 !current_id_st.IsValid ||
                 (
                     current_id_st.StateOfTheAPC == DSA::StateOfAPC::HAULTED &&
@@ -157,9 +165,8 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            const bool current_is_exclusive = DSA::IsExclusiveState(current_id_st.StateOfTheAPC);
-            const bool false_owner_claim = caller_holds_reservation && !current_is_exclusive;
-            const bool non_owner_touching_reserved = !caller_holds_reservation && current_is_exclusive;
+            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED;
+            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == DSA::StateOfAPC::RESERVED;
             if (
                 false_owner_claim || 
                 non_owner_touching_reserved ||
@@ -168,35 +175,16 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-            uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st.SeqLock, current_id_st.StateOfTheAPC);
 
             if (
-                !ReadACompleateAPCDescriptorBuffer_(description_idx, description_buffer) ||
-                description_buffer[id_st_concurrent] != current_id_state_value
-            )
-            {
-                continue;
-            }
-
-            DSA::DescriptionStateLockValues updated_id_state{};
-            updated_id_state.StateOfTheAPC = desired_state;
-            updated_id_state.SeqLock = DSA::ComposeDescriptionId(
-                description_buffer,
-                updated_id_state.StateOfTheAPC
-            );
-
-            const uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_id_state.SeqLock, updated_id_state.StateOfTheAPC);
-
-            if (
-                APCDataStructure::IsValidFabricUnit(updated_id_state_value) &&
-                CompareExchangeStrongFromFabric(
+                !CompareExchangeStrongFromFabric(
                     id_state_idx,
                     current_id_state_value,
                     updated_id_state_value
                 )
             )
             {
-                return current_id_state_value;
+                continue;
             }
             
         }

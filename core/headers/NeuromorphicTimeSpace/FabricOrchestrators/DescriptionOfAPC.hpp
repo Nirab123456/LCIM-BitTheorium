@@ -34,15 +34,16 @@ namespace BidirectionalInMemGraph
 
         static_assert(sizeof(DescriptionStateLockValues) <= sizeof(uint64_t));
 
-        static constexpr uint64_t ComposeIdAndState(uint32_t description_id, StateOfAPC apc_state) noexcept
+        static constexpr uint64_t ComposeIdAndState(DescriptionStateLockValues& files) noexcept
         {
             if (
-                !APCDataStructure::IsValid32BitAPCUnit(description_id)
+                !APCDataStructure::IsValid32BitAPCUnit(files.SeqLock) ||
+                !ValidateDescriptionFiles(files)
             )
             {
                 return FABRIC_CELL_SENTINAL;
             }
-            return TwinU32ToU64::PackDoubleUnsigned32In64(description_id, static_cast<uint32_t>(apc_state));
+            return TwinU32ToU64::PackDoubleUnsigned32In64(files.SeqLock, static_cast<uint32_t>(files.StateOfTheAPC));
         }
 
         static constexpr DescriptionStateLockValues GetDescriptionFile(uint64_t desc_id_state) noexcept
@@ -55,26 +56,36 @@ namespace BidirectionalInMemGraph
             {
                 return return_safty_files;
             }
-
-            if (
-                return_safty_files.StateOfTheAPC == StateOfAPC::RESERVED &&
-                InstallAxisToBuffer::IsValidEven64(return_safty_files.SeqLock)
-            )
-            {
-                return_safty_files.IsValid = false;
-                return return_safty_files;
-            }
-            if (
-                return_safty_files.StateOfTheAPC != StateOfAPC::RESERVED &&
-                !InstallAxisToBuffer::IsValidEven64(return_safty_files.SeqLock)
-            )
-            {
-                return_safty_files.IsValid = false;
-                return return_safty_files;
-            }
-
-            return_safty_files.IsValid = true;
+            ValidateDescriptionFiles(return_safty_files);
             return return_safty_files;
+        }
+
+        static constexpr bool ValidateDescriptionFiles(DescriptionStateLockValues& files) noexcept
+        {
+            if (!APCDataStructure::IsValidFabricUnit(files.SeqLock))
+            {
+                files.IsValid = false;
+                return false;
+            }
+            if (
+                files.StateOfTheAPC == StateOfAPC::RESERVED &&
+                InstallAxisToBuffer::IsValidEven64(files.SeqLock)
+            )
+            {
+                files.IsValid = false;
+                return false;
+            }
+            if (
+                files.StateOfTheAPC != StateOfAPC::RESERVED &&
+                !InstallAxisToBuffer::IsValidEven64(files.SeqLock)
+            )
+            {
+                files.IsValid = false;
+                return false;
+            }
+
+            files.IsValid = true;
+            return true;
         }
 
         static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
@@ -141,8 +152,7 @@ namespace BidirectionalInMemGraph
             SingleAPCDescriptionCellBuffer& desc_return_buff,
             uint64_t apc_idx,
             uint64_t segment_pool_begin,
-            uint64_t segment_pool_end,
-            StateOfAPC init_state = StateOfAPC::FREE
+            uint64_t segment_pool_end
         ) noexcept
         {
             desc_return_buff.fill(UNSIGNED_ZERO);
@@ -150,19 +160,19 @@ namespace BidirectionalInMemGraph
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
 
-            const uint32_t desc_id = ComposeDescriptionId(desc_return_buff, init_state);
-            const uint64_t id_state_unit = ComposeIdAndState(desc_id, init_state);
+            DescriptionStateLockValues files{};
+            files.SeqLock = 2u;
+            files.StateOfTheAPC = StateOfAPC::FREE;
+
+            const uint64_t id_state_unit = ComposeIdAndState(files);
             if (
-                !APCDataStructure::IsValid32BitAPCUnit(desc_id) ||
                 !APCDataStructure::IsValidFabricUnit(id_state_unit)
             )
             {
-                desc_return_buff[DESCRIPTION_WIDTH_AND_VALIDATION_IDX] = UNSIGNED_ZERO;
                 return false;
             }
             
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::ID_STATE_CONCURRENT, id_state_unit);
-
             return ValidateADescriptionBuffer(desc_return_buff);
         }
 
