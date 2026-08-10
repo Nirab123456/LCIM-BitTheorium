@@ -187,6 +187,7 @@ namespace BidirectionalInMemGraph
                 continue;
             }
             
+            return current_id_state_value;
         }
         return std::nullopt;
     }

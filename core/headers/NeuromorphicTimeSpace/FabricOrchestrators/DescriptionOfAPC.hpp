@@ -198,7 +198,8 @@ namespace BidirectionalInMemGraph
 
             IAB::GraphMutationValues values{};
             values.Flags = static_cast<uint32_t>(IAB::MemGraphFlag::LIVE);
-            values.SeqLock = UNSIGNED_ZERO;
+            values.SeqLockVertical = UNSIGNED_ZERO;
+            values.SeqLockHorizontal = UNSIGNED_ZERO;
 
 
             return 

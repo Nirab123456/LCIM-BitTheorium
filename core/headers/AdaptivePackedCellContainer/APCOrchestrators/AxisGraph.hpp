@@ -74,12 +74,13 @@ struct GraphLockConf : public AxisConstructor
 
     struct GraphMutationValues 
     {
-        uint32_t SeqLock = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        uint32_t Flags = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t SeqLockHorizontal = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t SeqLockVertical = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint8_t Flags = UINT8_MAX;
         bool IsValid = false;
     };
 
-    enum class MemGraphFlag : uint32_t
+    enum class MemGraphFlag : uint8_t
     {
         LIVE = 0u,
         HORIZONTAL_LOCK = 1u << 0u,
@@ -101,12 +102,12 @@ struct GraphLockConf : public AxisConstructor
             (raw_lock & desired) == desired;
     }
 
-    static constexpr uint32_t SetGraphFlags(uint32_t raw_lock, MemGraphFlag flag) noexcept
+    static constexpr uint8_t SetGraphFlags(uint8_t raw_lock, MemGraphFlag flag) noexcept
     {
         return raw_lock | FlagMask(flag);
     }
 
-    static constexpr uint32_t ClearThisFlag(uint32_t raw_lock, MemGraphFlag flag) noexcept
+    static constexpr uint8_t ClearThisFlag(uint8_t raw_lock, MemGraphFlag flag) noexcept
     {
         return raw_lock & ~FlagMask(flag);
     }
@@ -164,22 +165,38 @@ struct GraphLockConf : public AxisConstructor
             return false;
         }
 
-        bool unlocked = IsIdentityGraphUnlocked(mutations.Flags);
-        bool hash_read_only = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::READ_ONLY);
+        bool hash_horizontal_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::HORIZONTAL_LOCK);
+        bool hash_vertical_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::VERTICAL_LOCK);
 
         if (
-            unlocked ||
-            hash_read_only
+            hash_horizontal_lock &&
+            !IsValidEven64(mutations.SeqLockHorizontal)
         )
         {
-            mutations.IsValid = IsValidEven64(mutations.SeqLock);
-        }
-        else
-        {
-            mutations.IsValid = !IsValidEven64(mutations.SeqLock);
+           return false;
         }
 
-        return mutations.IsValid;
+        if (
+            hash_vertical_lock &&
+            !IsValidEven64(mutations.SeqLockHorizontal)
+        )
+        {
+            return false;
+        }
+
+        if (
+            !hash_horizontal_lock && 
+            !hash_vertical_lock &&
+            (
+                IsValidEven64(mutations.SeqLockHorizontal) ||
+                IsValidEven64(mutations.SeqLockVertical)
+            )
+        )
+        {
+            return false;
+        }
+        mutations.IsValid = true;
+        return true;
     }
 
     static constexpr bool DoseCurrentFlagsAllowsThisAxisMutation(uint32_t flags, BidirectionalAxis axis) noexcept
@@ -204,21 +221,65 @@ struct GraphLockConf : public AxisConstructor
         GraphMutationValues& values
     ) noexcept
     {
-        values.SeqLock = TwinU32ToU64::ExtractLow32Of64(value);
-        values.Flags = TwinU32ToU64::ExtractHigh32Of64(value);
-        return IsValidGraphMutationState(values);
+        const Twin28Plus8::CarrierTwin28 raw = Twin28Plus8::UnpackUnitToCarrier(value);
+        values.Flags = raw.High8Bit;
+        values.SeqLockVertical = raw.Mid28Bit;
+        values.SeqLockHorizontal = raw.Lowest28bit;
+
+        return 
+            raw.IsValid &&
+            IsValidGraphMutationState(values);
     }
 
     static constexpr uint64_t MakeGraphMutationRaw(const GraphMutationValues& values) noexcept
     {
-        return TwinU32ToU64::PackDoubleUnsigned32In64(values.SeqLock, values.Flags);
+        Twin28Plus8::CarrierTwin28 carrier{};
+        carrier.High8Bit = values.Flags;
+        carrier.Mid28Bit = values.SeqLockVertical;
+        carrier.Lowest28bit = values.SeqLockHorizontal;
+        std::optional<uint64_t> raw_lock = Twin28Plus8::PackValues(carrier);
+        return raw_lock.has_value() ? raw_lock.value() : FABRIC_CELL_SENTINAL;
+    }
+
+    static constexpr void UpdateCounterOnDesiredState(
+        GraphMutationValues& updated_gmv,
+        MemGraphFlag desired_state
+    ) noexcept
+    {
+        switch (desired_state)
+        {
+        case MemGraphFlag::READ_ONLY:
+            updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 2u;
+            updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 2u;
+        case MemGraphFlag::BOTH_AXIS_LOCK:
+            updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 1u;
+            updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 1u;
+        case MemGraphFlag::HORIZONTAL_LOCK:
+            updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 1u;
+        case MemGraphFlag::VERTICAL_LOCK:
+            updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 1u;
+        default:
+            break;
+        }
+    }
+
+
+    static constexpr GraphMutationValues UpdateSeqkBasedOnDesiredLock(
+        GraphMutationValues& gmv_values,
+        MemGraphFlag desired_state
+    ) noexcept
+    {
+        GraphMutationValues updated_gmv = gmv_values;
+        updated_gmv.Flags = SetGraphFlags(gmv_values.Flags, desired_state);
+        UpdateCounterOnDesiredState(updated_gmv, desired_state);
+        return updated_gmv;
     }
 
 
 protected:
-    static constexpr uint32_t FlagMask(MemGraphFlag flag) noexcept
+    static constexpr uint8_t FlagMask(MemGraphFlag flag) noexcept
     {
-        return static_cast<uint32_t>(flag);
+        return static_cast<uint8_t>(flag);
     }
 };
 

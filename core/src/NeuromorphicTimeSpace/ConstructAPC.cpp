@@ -72,6 +72,7 @@ namespace BidirectionalInMemGraph
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
         uint64_t begin_st_lock_raw = FABRIC_CELL_SENTINAL;
+        IAB::GraphMutationValues begin_values{};
 
         for (size_t i = 0; i < max_tries; i++)
         {
@@ -92,7 +93,12 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            if (begin_st_lock_raw != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()])
+
+            if (
+                !IAB::ExtractGraphMutationValues(begin_st_lock_raw, begin_values) ||
+                //     !IAB::IsIdentityGraphUnlocked(begin_values.Flags) ||
+                begin_st_lock_raw != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
+            )
             {
                 continue;
             }
@@ -240,25 +246,7 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-            IAB::GraphMutationValues updated_gmv{};
-
-            if (desired_state == IAB::MemGraphFlag::READ_ONLY)
-            {
-                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
-                updated_gmv.SeqLock = gmv_values.SeqLock + 2u;
-            }
-            //new insert
-            else if (IAB::IsIdentityGraphUnlocked(gmv_values.Flags))
-            {
-                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
-                updated_gmv.SeqLock = gmv_values.SeqLock + 1u;
-            }
-            // already has a flag
-            else
-            {
-                updated_gmv.Flags = IAB::SetGraphFlags(gmv_values.Flags, desired_state);
-                updated_gmv.SeqLock = gmv_values.SeqLock + 2u;
-            }
+            IAB::GraphMutationValues updated_gmv = IAB::UpdateSeqkBasedOnDesiredLock(gmv_values, desired_state);
 
             const uint64_t updated_gmv_raw = IAB::MakeGraphMutationRaw(updated_gmv);
             
@@ -324,17 +312,10 @@ namespace BidirectionalInMemGraph
                 return false;
             }
 
-            IAB:: GraphMutationValues desired{};
+            IAB:: GraphMutationValues desired = current_values;
             desired.Flags = IAB::ClearThisFlag(current_values.Flags, axis_flag);
 
-            if (IAB::IsIdentityGraphUnlocked(desired.Flags))
-            {
-                desired.SeqLock = current_values.SeqLock + 1u;
-            }
-            else
-            {
-                desired.SeqLock = current_values.SeqLock + 2u;
-            }
+            IAB::UpdateCounterOnDesiredState(desired, axis_flag);
             
             const uint64_t desired_raw = IAB::MakeGraphMutationRaw(desired);
             if (
