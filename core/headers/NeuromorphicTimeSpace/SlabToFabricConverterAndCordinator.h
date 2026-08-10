@@ -98,17 +98,17 @@ namespace BidirectionalInMemGraph
         bool LinkTwoAPC(
             uint32_t predessor_idx,
             uint32_t child_idx,
+            IAB::BidirectionalAxis axis,
             IAB::DescOfInharitance inharitance
         ) noexcept;
-
 
         bool UnlinkTwoAPC(
             uint32_t predessor_idx,
             uint32_t child_idx,
+            IAB::BidirectionalAxis axis,
             IAB::DescOfInharitance inharitance
         ) noexcept;
         
-
 
     };
     
