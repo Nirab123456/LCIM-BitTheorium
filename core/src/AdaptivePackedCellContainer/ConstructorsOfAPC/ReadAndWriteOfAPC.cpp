@@ -38,40 +38,54 @@ namespace BidirectionalInMemGraph
         return LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, CapacityOfThisAPC_);
     }
 
-    bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
-        uint32_t total_capacity,
-        InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
-        const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
-        uint8_t version
-    ) noexcept
-    {
-        HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
+    // bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
+    //     const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
+    //     const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
+    //     const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
+    //     uint8_t version
+    // ) noexcept
+    // {
+    //     HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
 
-        if (
-            !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
-            header_meta_buffer,
-            identity_buffer,
-            total_capacity,
-            layout_weight,
-            dtype_conf,
-            protocol_conf,
-            version
-            ) ||
-            !HeaderOrchestrator::IsHeaderBufferValidationMarked(header_meta_buffer)
-        )
-        {
-            return false;
-        }
+    //     uint64_t slot_idx = FABRIC_CELL_SENTINAL;
+
+    //     if (
+    //         !RangeOfThisAPCInSlab_.IsValid ||
+    //         !FabricOwnerPtr_ ||
+    //         !APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_) ||
+    //         !APCDataStructure::InLimitOfUint8(version) ||
+    //         !ReadAPCMetaUnit(HeaderIdentifierOfAPC::APC_SLOT_IDX, slot_idx, true)
+    //     )
+    //     {
+    //         return false;
+    //     }
+
+    //     DescriptionOfAPC::DescriptionStateLockValues dsc_lock_values = FabricOwnerPtr_->ReadAPCStateAtomically_(slot_idx);
+
+
+    //     if (
+    //         !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
+    //         header_meta_buffer,
+    //         identity_buffer,
+    //         total_capacity,
+    //         layout_weight,
+    //         dtype_conf,
+    //         protocol_conf,
+    //         version
+    //         ) ||
+    //         !HeaderOrchestrator::IsHeaderBufferValidationMarked(header_meta_buffer)
+    //     )
+    //     {
+    //         return false;
+    //     }
         
-        return ForceCopyToAPCFromBuffer(
-            UNSIGNED_ZERO,
-            APCDataStructure::METACELL_COUNT,
-            header_meta_buffer.data()
-        );
+    //     return ForceCopyToAPCFromBuffer(
+    //         UNSIGNED_ZERO,
+    //         APCDataStructure::METACELL_COUNT,
+    //         header_meta_buffer.data()
+    //     );
         
-    }
+    // }
 
     bool ReadAndWriteOfAPC::ReadAPCMetaUnit(
         HeaderIdentifierOfAPC meta_idx,

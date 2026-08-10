@@ -152,7 +152,7 @@ namespace BidirectionalInMemGraph
         }
 
         static constexpr bool ValidateIdentityBuffer(
-            BufferOfAPCIdentity& identity_buffer
+            const BufferOfAPCIdentity& identity_buffer
         ) noexcept
         {
             GraphMutationValues values{};

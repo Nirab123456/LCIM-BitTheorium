@@ -57,6 +57,15 @@ namespace BidirectionalInMemGraph
         THREAD_TABLE  = 8,
         SEGMENT_POOL = 9
     };
+
+    enum class StateOfAPC : uint8_t
+    {
+        FREE = 0,
+        RESERVED = 1,
+        LIVE = 2,
+        RETIRED = 3,
+        HAULTED = 4
+    };
     
     static  constexpr uint64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
     {

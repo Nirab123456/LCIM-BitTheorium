@@ -13,7 +13,6 @@ class FabricToAPCLinker : public APCDataStructure
 
 protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
-    uint64_t IdxOfThisAPCInFabric_{FABRIC_CELL_SENTINAL};
     APCSegmentPoolRange RangeOfThisAPCInSlab_{};
     uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     
@@ -74,10 +73,6 @@ public:
         return FabricOwnerPtr_ != nullptr;
     }
 
-    uint64_t GetFabricSlotIndex() const noexcept
-    {
-        return IdxOfThisAPCInFabric_;
-    }
 
     VagueTemoraryPremativeFabric* GetFabricOwner() noexcept
     {

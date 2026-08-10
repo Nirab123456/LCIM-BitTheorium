@@ -15,15 +15,7 @@ namespace BidirectionalInMemGraph
         };
 
         using InternalAPCRange = APCDescriptorRange;
-
-        enum class StateOfAPC : uint8_t
-        {
-            FREE = 0,
-            RESERVED = 1,
-            LIVE = 2,
-            RETIRED = 3,
-            HAULTED = 4
-        };
+        using StateOfAPC = StateOfAPC;
         
         struct DescriptionStateLockValues
         {

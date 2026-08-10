@@ -165,36 +165,21 @@ struct GraphLockConf : public AxisConstructor
             return false;
         }
 
-        bool hash_horizontal_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::HORIZONTAL_LOCK);
-        bool hash_vertical_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::VERTICAL_LOCK);
+        bool horizontal_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::HORIZONTAL_LOCK);
+        bool vertical_lock = HasThisGraphMutationFlag(mutations.Flags, MemGraphFlag::VERTICAL_LOCK);
+
+        bool horizontal_even = IsValidEven64(mutations.SeqLockHorizontal);
+        bool vertical_even = IsValidEven64(mutations.SeqLockVertical);
 
         if (
-            hash_horizontal_lock &&
-            !IsValidEven64(mutations.SeqLockHorizontal)
+            (horizontal_lock == horizontal_even) ||
+            (vertical_lock == vertical_even)
         )
         {
-           return false;
-        }
-
-        if (
-            hash_vertical_lock &&
-            !IsValidEven64(mutations.SeqLockHorizontal)
-        )
-        {
+            mutations.IsValid = false;
             return false;
         }
 
-        if (
-            !hash_horizontal_lock && 
-            !hash_vertical_lock &&
-            (
-                IsValidEven64(mutations.SeqLockHorizontal) ||
-                IsValidEven64(mutations.SeqLockVertical)
-            )
-        )
-        {
-            return false;
-        }
         mutations.IsValid = true;
         return true;
     }
@@ -251,13 +236,17 @@ struct GraphLockConf : public AxisConstructor
         case MemGraphFlag::READ_ONLY:
             updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 2u;
             updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 2u;
+            break;
         case MemGraphFlag::BOTH_AXIS_LOCK:
             updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 1u;
             updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 1u;
+            break;
         case MemGraphFlag::HORIZONTAL_LOCK:
             updated_gmv.SeqLockHorizontal = updated_gmv.SeqLockHorizontal + 1u;
+            break;
         case MemGraphFlag::VERTICAL_LOCK:
             updated_gmv.SeqLockVertical = updated_gmv.SeqLockVertical + 1u;
+            break;
         default:
             break;
         }

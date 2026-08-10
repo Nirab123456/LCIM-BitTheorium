@@ -13,7 +13,6 @@ public:
     {
         return 
             FabricOwnerPtr_ != nullptr &&
-            APCDataStructure::IsValid32BitAPCUnit(IdxOfThisAPCInFabric_) &&
             RangeOfThisAPCInSlab_.IsValid &&
             APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
     }

@@ -16,14 +16,24 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
+
+        bool GetThisSlotIdx(uint64_t& slot_idx) noexcept
+        {
+            slot_idx = FABRIC_CELL_SENTINAL;
+            return 
+                RangeOfThisAPCInSlab_.IsValid &&
+                FabricOwnerPtr_ &&
+                ReadAPCMetaUnit(HeaderIdentifierOfAPC::APC_SLOT_IDX, slot_idx, true) &&
+                IsValid32BitAPCUnit(slot_idx);
+        }
+
         bool InitiateAPCMetaHeader(
-            uint32_t total_capacity,
-            InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
             const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
             const SchemaDefinition::InitialRegionalProtocol& protocol_conf = SchemaDefinition::InitialRegionalProtocol{},
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept;
+
 
         bool ReadAPCMetaUnit(
             HeaderIdentifierOfAPC meta_idx,

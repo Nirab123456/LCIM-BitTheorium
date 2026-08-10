@@ -23,11 +23,7 @@ namespace BidirectionalInMemGraph
 
         const DSA::DescriptionStateLockValues state = DSA::GetDescriptionFile(desc_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
         if (
-            !state.IsValid ||
-            (
-                state.StateOfTheAPC != DSA::StateOfAPC::LIVE &&
-                state.StateOfTheAPC != DSA::StateOfAPC::HAULTED
-            )
+            !state.IsValid
         )
         {
             return state.StateOfTheAPC;
@@ -71,16 +67,11 @@ namespace BidirectionalInMemGraph
 
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
-        uint64_t begin_st_lock_raw = FABRIC_CELL_SENTINAL;
+        uint64_t after_read_lock = FABRIC_CELL_SENTINAL;
         IAB::GraphMutationValues begin_values{};
 
         for (size_t i = 0; i < max_tries; i++)
         {
-            if (!AtomicallyLoadReadAUnit(st_lock_idx, begin_st_lock_raw))
-            {
-                return std::nullopt;
-            }
-
             if (
                 !ReadASnapShotFromSlab(
                     st_lock_idx,
@@ -93,19 +84,21 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-
-            if (
-                !IAB::ExtractGraphMutationValues(begin_st_lock_raw, begin_values) ||
-                //     !IAB::IsIdentityGraphUnlocked(begin_values.Flags) ||
-                begin_st_lock_raw != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
-            )
+            if (!IAB::ValidateIdentityBuffer(identity))
             {
                 continue;
             }
 
-            if (!IAB::ValidateIdentityBuffer(identity))
+            if (!AtomicallyLoadReadAUnit(st_lock_idx, after_read_lock))
             {
                 return std::nullopt;
+            }
+            
+            if (
+                after_read_lock != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
+            )
+            {
+                continue;
             }
             
             return current_state;
@@ -129,6 +122,14 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         if (
+            !current_state.has_value() ||
+            current_state.value() != DSA::StateOfAPC::LIVE ||
+            !range_of_apc_sagmant_pool.IsValid ||
+            !IAB::ValidateIdentityBuffer(identity) ||
+            IAB::ValueOfAnIdentityFromBuffer(
+                identity,
+                HeaderIdentifierOfAPC::APC_SLOT_IDX
+            ) != apc_slot ||
             !ReadGraphMutationFlags(apc_slot, current_lock) ||
             !IAB::DoseCurrentFlagsAllowsThisAxisMutation(current_lock.Flags, axis)
         )
@@ -343,51 +344,6 @@ namespace BidirectionalInMemGraph
         }
         return false;
     }
-
-
-    // bool ConstructAPC::CreateAPCInternal(
-    //     uint64_t apc_idx,
-    //     bool wants_horizontal_root,
-    //     bool wants_vertical_root,
-    //     const LBO::
-    //         LayoutSpanAndPercentageCarrier&
-    //             layout,
-    //     const SD::
-    //         InitialRegionalDtypeConf&
-    //             dtype,
-    //     const SD::
-    //         InitialRegionalProtocol&
-    //             protocol,
-    //     uint8_t version
-    // ) noexcept
-    // {
-
-    //     DSA::SingleAPCDescriptionCellBuffer description{};
-
-    //     if (
-    //         !FabricInitialized_.load(std::memory_order_acquire) ||
-    //         !SlabBasePtr_ ||
-    //         apc_idx >= CountOfAPC_ ||
-    //         !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
-    //         !ReadACompleateAPCDescriptorBuffer_(apc_idx, description)
-    //     )
-    //     {
-    //         return false;
-    //     }
-
-    //     const DSA::DescriptionStateLockValues dsc_st_lock = DSA::GetDescriptionFile(description[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
-
-    //     if (
-    //         !
-    //     )
-    //     {
-    //         /* code */
-    //     }
-        
-
-
-        
-    // }
 
 
 

@@ -58,8 +58,8 @@ namespace BidirectionalInMemGraph
             
             return(
                 (uint64_t(carrier.Lowest28bit) << UNSIGNED_ZERO) |
-                (uint64_t(carrier.Mid28Bit) << (BIT_LENGTH_OF_FABRIC - LEN_OF_28_BIT)) |
-                (uint64_t(carrier.High8Bit) << (BIT_LENGTH_OF_FABRIC - (LEN_OF_28_BIT * 2)))
+                (uint64_t(carrier.Mid28Bit) << LEN_OF_28_BIT) |
+                (uint64_t(carrier.High8Bit) << (LEN_OF_28_BIT * 2))
             );
         }
 
