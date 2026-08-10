@@ -16,13 +16,11 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
-
         bool GetThisSlotIdx(uint64_t& slot_idx) noexcept
         {
             slot_idx = FABRIC_CELL_SENTINAL;
             return 
-                RangeOfThisAPCInSlab_.IsValid &&
-                FabricOwnerPtr_ &&
+                IsThisAPCValid() &&
                 ReadAPCMetaUnit(HeaderIdentifierOfAPC::APC_SLOT_IDX, slot_idx, true) &&
                 IsValid32BitAPCUnit(slot_idx);
         }

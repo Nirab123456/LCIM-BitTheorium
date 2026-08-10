@@ -6,7 +6,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadValidAPCRangeInternally__(
+    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPCIdentity::ReadValidAPCRangeInternally__(
         uint32_t apc_slot_idx,
         DescriptionOfAPC::InternalAPCRange& range_return
     ) noexcept
@@ -45,7 +45,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<DescriptionOfAPC::StateOfAPC> ConstructAPC::ReadIdentityBufferOfAPC(
+    std::optional<StateOfAPC> ConstructAPCIdentity::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
         IAB::BufferOfAPCIdentity& identity,
         uint32_t max_tries
@@ -107,7 +107,7 @@ namespace BidirectionalInMemGraph
         return std::nullopt;
     }
 
-    bool ConstructAPC::WriteAcquiredAxis_(
+    bool ConstructAPCIdentity::WriteAcquiredAxis_(
         uint32_t apc_slot,
         const IAB::BufferOfAPCIdentity& identity,
         IAB::BidirectionalAxis axis
@@ -170,7 +170,7 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
-    bool ConstructAPC::ReadGraphMutationFlags(
+    bool ConstructAPCIdentity::ReadGraphMutationFlags(
         uint32_t slot_idx,
         IAB::GraphMutationValues& values
     ) noexcept
@@ -197,7 +197,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<uint64_t> ConstructAPC::AcquireGraphMutationFlag_(
+    std::optional<uint64_t> ConstructAPCIdentity::AcquireGraphMutationFlag_(
         uint32_t apc_slot_idx,
         IAB::MemGraphFlag desired_state,
         uint32_t max_tries 
@@ -274,7 +274,7 @@ namespace BidirectionalInMemGraph
         return std::nullopt;
     }
 
-    bool ConstructAPC::ReleseGraphMutationFlag_(
+    bool ConstructAPCIdentity::ReleseGraphMutationFlag_(
         uint32_t apc_slot,
         IAB::BidirectionalAxis axis,
         uint32_t max_tries

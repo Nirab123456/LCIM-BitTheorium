@@ -132,6 +132,8 @@ namespace BidirectionalInMemGraph
             uint32_t edge_idx
         ) noexcept;
 
+        std::optional<uint32_t> FindAFreeEdge(IAB::BidirectionalAxis axis) noexcept;
+
 
     };
 

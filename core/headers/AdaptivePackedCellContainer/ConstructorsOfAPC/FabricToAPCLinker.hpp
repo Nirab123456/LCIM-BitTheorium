@@ -68,12 +68,6 @@ public:
         const uint64_t& value
     ) noexcept;
 
-    bool IsFabricBackend() const noexcept
-    {
-        return FabricOwnerPtr_ != nullptr;
-    }
-
-
     VagueTemoraryPremativeFabric* GetFabricOwner() noexcept
     {
         return FabricOwnerPtr_;
@@ -82,6 +76,14 @@ public:
     static constexpr uint32_t PayloadBegin() noexcept
     {
         return METACELL_COUNT;
+    }
+
+    constexpr bool IsThisAPCValid() noexcept
+    {
+        return 
+            FabricOwnerPtr_ != nullptr &&
+            RangeOfThisAPCInSlab_.IsValid &&
+            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
     }
 
     constexpr bool IsValidAPCRange(size_t starting_idx_in_slab, uint32_t sequential_number_of_cells) noexcept

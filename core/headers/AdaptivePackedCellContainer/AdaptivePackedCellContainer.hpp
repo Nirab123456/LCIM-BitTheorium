@@ -9,13 +9,7 @@ static_assert(__cpp_lib_atomic_wait, "C++ must suppoet atomic wait/notify");
 class AdaptivePackedCellContainer : public ReadAndWriteOfAPC
 {
 public:
-    constexpr bool IsThisAPCValid() noexcept
-    {
-        return 
-            FabricOwnerPtr_ != nullptr &&
-            RangeOfThisAPCInSlab_.IsValid &&
-            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
-    }
+    
 };
 
 

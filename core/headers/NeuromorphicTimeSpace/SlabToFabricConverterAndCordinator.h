@@ -45,7 +45,7 @@ namespace BidirectionalInMemGraph
         
     };
 
-    class ConstructAPC : public SlabToFabricConverterAndCordinator
+    class ConstructAPCIdentity : public SlabToFabricConverterAndCordinator
     {
     private:
 
@@ -74,7 +74,7 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
-        std::optional<DSA::StateOfAPC> ReadIdentityBufferOfAPC(
+        std::optional<StateOfAPC> ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
             IAB::BufferOfAPCIdentity& identity,
             uint32_t max_tries = DEFAULT_MAX_TRIES
@@ -84,34 +84,32 @@ namespace BidirectionalInMemGraph
             uint32_t slot_idx,
             IAB::GraphMutationValues& values
         ) noexcept;
+
+        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
+
+        bool InitiateRootAxis(
+            uint32_t apc_slot,
+            IAB::BidirectionalAxis axis,
+            uint32_t edge_slot
+        ) noexcept;
+
+        bool InitiateBothAxisAsRoot(uint32_t apc_slot) noexcept;
+
+        bool LinkTwoAPC(
+            uint32_t predessor_idx,
+            uint32_t child_idx,
+            IAB::DescOfInharitance inharitance
+        ) noexcept;
+
+
+        bool UnlinkTwoAPC(
+            uint32_t predessor_idx,
+            uint32_t child_idx,
+            IAB::DescOfInharitance inharitance
+        ) noexcept;
         
 
-        bool AttachAPC(
-            uint64_t root_apc_idx,
-            uint64_t current_apc_idx,
-            IAB::BidirectionalAxis axis
-        ) noexcept;
 
-        bool DetachAPC(
-            uint64_t current_apc_idx,
-            IAB::BidirectionalAxis axis
-        ) noexcept;
-
-        bool CreateAPCInternal(
-            uint64_t apc_idx,
-            bool wants_horizontal_root,
-            bool wants_vertical_root,
-            const LBO::
-                LayoutSpanAndPercentageCarrier&
-                    layout,
-            const SD::
-                InitialRegionalDtypeConf&
-                    dtype,
-            const SD::
-                InitialRegionalProtocol&
-                    protocol,
-            uint8_t version
-        ) noexcept;
     };
     
 

@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-class VagueTemoraryPremativeFabric : public ConstructAPC
+class VagueTemoraryPremativeFabric : public ConstructAPCIdentity
 {
 
 private:
@@ -37,7 +37,15 @@ public:
         ShutDownFabric();
     }
 
-
+    bool CreateAPC(
+        AdaptivePackedCellContainer& desired_apc,
+        bool wants_horizontal_root,
+        bool wants_vertical_root,
+        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
+        const SchemaDefinition::InitialRegionalDtypeConf& dtype,
+        const SchemaDefinition::InitialRegionalProtocol& protocol,
+        uint8_t version
+    ) noexcept;
 };
 
 
