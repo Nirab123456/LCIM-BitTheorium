@@ -3,10 +3,10 @@
 namespace BidirectionalInMemGraph
 {
 
-    APCSegmentPoolRange APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
+    RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
     {
         
-        APCSegmentPoolRange desired_segment_pool_range{};
+        RangeOfAPC desired_segment_pool_range{};
 
         if (
             single_description_index >= CountOfAPC_ ||
@@ -92,7 +92,7 @@ namespace BidirectionalInMemGraph
         const  DescriptionOfAPC::DescriptionStateLockValues current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
             !current_description_state.IsValid ||
-            current_description_state.StateOfTheAPC != DSA::StateOfAPC::RESERVED ||
+            current_description_state.StateOfTheAPC != StateOfAPC::RESERVED ||
             !desired_descriptor_range.IsValid ||
             !DescriptionOfAPC::ValidateADescriptionBuffer(desc_buffer)
         )
@@ -109,7 +109,7 @@ namespace BidirectionalInMemGraph
     DescriptionOfAPC::DescriptionStateLockValues APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
         DescriptionOfAPC::DescriptionStateLockValues return_files{};
-        std::optional<size_t> maybe_id_state_idx = GetIdStateIdxByDescriptionIdx_(apc_description_index);
+        std::optional<size_t> maybe_id_state_idx = GetDescriptionLockIdxInFabric_(apc_description_index);
         if (!maybe_id_state_idx.has_value())
         {
             return return_files;
@@ -123,7 +123,7 @@ namespace BidirectionalInMemGraph
 
     std::optional<uint64_t> APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
-        DSA::StateOfAPC desired_state,
+        StateOfAPC desired_state,
         bool caller_holds_reservation,
         uint32_t max_tries
     ) noexcept
@@ -153,7 +153,7 @@ namespace BidirectionalInMemGraph
                 !APCDataStructure::IsValidFabricUnit(updated_id_state_value) ||
                 !current_id_st.IsValid ||
                 (
-                    current_id_st.StateOfTheAPC == DSA::StateOfAPC::HAULTED &&
+                    current_id_st.StateOfTheAPC == StateOfAPC::HAULTED &&
                     !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
                 )
             )
@@ -161,8 +161,8 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != DSA::StateOfAPC::RESERVED;
-            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == DSA::StateOfAPC::RESERVED;
+            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != StateOfAPC::RESERVED;
+            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == StateOfAPC::RESERVED;
             if (
                 false_owner_claim || 
                 non_owner_touching_reserved ||
@@ -206,7 +206,7 @@ namespace BidirectionalInMemGraph
             const DSA::DescriptionStateLockValues current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
-                current.StateOfTheAPC != DSA::StateOfAPC::FREE
+                current.StateOfTheAPC != StateOfAPC::FREE
             )
             {
                 continue;
@@ -214,7 +214,7 @@ namespace BidirectionalInMemGraph
             
             std::optional<uint64_t> previous_st_id_value = SwitchOwnershipOfAReadyDescription(
                 description_idx,
-                DescriptionOfAPC::StateOfAPC::RESERVED,
+                StateOfAPC::RESERVED,
                 false
             );
             
@@ -230,7 +230,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<size_t> APCHandleDescriptorConstructor::GetIdStateIdxByDescriptionIdx_(uint64_t description_idx) noexcept
+    std::optional<size_t> APCHandleDescriptorConstructor::GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept
     {
         const DescriptionOfAPC::APCDescriptorRange desired_description_range = ReadAPCDescriptionRanges_(description_idx);
         if (!desired_description_range.IsValid)

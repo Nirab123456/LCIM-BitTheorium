@@ -7,9 +7,7 @@ namespace BidirectionalInMemGraph
     struct DescriptorConf : public CoreOfFabricCoordinator
     {
 
-        using APCDescriptorRange = APCSegmentPoolRange;
-
-        using StateOfAPC = StateOfAPC;
+        using APCDescriptorRange = RangeOfAPC;
         
         struct DescriptionStateLockValues
         {

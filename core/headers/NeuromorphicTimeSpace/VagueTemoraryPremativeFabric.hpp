@@ -19,7 +19,6 @@ private:
     bool StoreAPCRuntimePtr(size_t apc_idx, AdaptivePackedCellContainer* apc_ptr) noexcept;
 
     AdaptivePackedCellContainer* GetAPCRuntimePtrBySlotIndex_(size_t apc_idx) noexcept;
-    AdaptivePackedCellContainer* HandleBasedAPCPtrRetrival_(size_t apc_handle) noexcept;
 
 public:
 

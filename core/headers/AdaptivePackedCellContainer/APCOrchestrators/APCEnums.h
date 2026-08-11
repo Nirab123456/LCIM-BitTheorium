@@ -109,7 +109,7 @@ namespace BidirectionalInMemGraph
         (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
     );
 
-    struct APCSegmentPoolRange
+    struct RangeOfAPC
     {
         size_t BeginIndex = UNSIGNED_ZERO;
         size_t EndIndex = UNSIGNED_ZERO;

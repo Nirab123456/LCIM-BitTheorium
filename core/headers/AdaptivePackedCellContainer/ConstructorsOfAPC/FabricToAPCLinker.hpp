@@ -13,7 +13,7 @@ class FabricToAPCLinker : public APCDataStructure
 
 protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
-    APCSegmentPoolRange RangeOfThisAPCInSlab_{};
+    RangeOfAPC RangeOfThisAPCInSlab_{};
     uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     
     void ReleseFabricBindingOnly_() noexcept;

@@ -38,7 +38,7 @@ namespace BidirectionalInMemGraph
 
         DescriptorConf::APCDescriptorRange ReadAPCDescriptionRanges_(uint64_t apc_slot_index) noexcept;
     
-        std::optional<size_t> GetIdStateIdxByDescriptionIdx_(uint64_t description_idx) noexcept;
+        std::optional<size_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;
 
         bool ReadACompleateAPCDescriptorBuffer_(
             uint64_t apc_description_index, 
@@ -50,14 +50,13 @@ namespace BidirectionalInMemGraph
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
         ) noexcept;
 
-
     public:
-        APCSegmentPoolRange GetSegmentPoolRange(uint64_t single_description_index) noexcept;
+        RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
         std::optional<uint64_t> SwitchOwnershipOfAReadyDescription(
             uint64_t description_idx,
-            DescriptionOfAPC::StateOfAPC updated_state,
+            StateOfAPC updated_state,
             bool caller_holds_reservation = false,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
@@ -131,9 +130,6 @@ namespace BidirectionalInMemGraph
             EdgeBuilder::EdgeData& desired_data,
             uint32_t edge_idx
         ) noexcept;
-
-        std::optional<uint32_t> FindAFreeEdge(IAB::BidirectionalAxis axis) noexcept;
-
 
     };
 

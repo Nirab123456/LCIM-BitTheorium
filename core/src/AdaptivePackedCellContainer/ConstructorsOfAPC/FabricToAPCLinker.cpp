@@ -52,7 +52,7 @@ namespace BidirectionalInMemGraph
         }
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;
-        const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolRange(fabric_slot_idx);
+        const RangeOfAPC range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolRange(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
             range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != cell_count
@@ -67,7 +67,7 @@ namespace BidirectionalInMemGraph
 
     void FabricToAPCLinker::ReleseFabricBindingOnly_() noexcept
     {
-        APCSegmentPoolRange default_null_range{};
+        RangeOfAPC default_null_range{};
         RangeOfThisAPCInSlab_ = default_null_range;
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;

@@ -12,7 +12,7 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        const APCSegmentPoolRange range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
+        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
         DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot);
 
         if (
@@ -71,14 +71,14 @@ namespace BidirectionalInMemGraph
         IAB::BidirectionalAxis axis
     ) noexcept
     {
-        APCSegmentPoolRange range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
+        RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
         DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot);
         IAB::GraphMutationValues current_lock{};
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         if (
             !current_state.IsValid ||
-            current_state.StateOfTheAPC != DSA::StateOfAPC::LIVE ||
+            current_state.StateOfTheAPC != StateOfAPC::LIVE ||
             !range_of_apc_sagmant_pool.IsValid ||
             !IAB::ValidateIdentityBuffer(identity) ||
             IAB::ValueOfAnIdentityFromBuffer(
@@ -130,7 +130,7 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues& values
     ) noexcept
     {
-        const APCSegmentPoolRange range_of_apc_sagmant_pool = GetSegmentPoolRange(slot_idx);
+        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(slot_idx);
 
         const size_t identity_begin = range_of_apc_sagmant_pool.BeginIndex +
             static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
@@ -154,13 +154,13 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries 
     ) noexcept
     {
-        const APCSegmentPoolRange range_of_apc = GetSegmentPoolRange(apc_slot_idx);
+        const RangeOfAPC range_of_apc = GetSegmentPoolRange(apc_slot_idx);
         const DSA::DescriptionStateLockValues dsc_state = ReadAPCStateAtomically_(apc_slot_idx); 
 
         if (
             desired_state == IAB::MemGraphFlag::LIVE ||
             !dsc_state.IsValid ||
-            dsc_state.StateOfTheAPC != DSA::StateOfAPC::LIVE ||
+            dsc_state.StateOfTheAPC != StateOfAPC::LIVE ||
             !range_of_apc.IsValid
         )
         {
@@ -227,7 +227,7 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        const APCSegmentPoolRange range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
+        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
         const DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot); 
 
         const IAB::MemGraphFlag axis_flag = (axis == IAB::BidirectionalAxis::HORIZONTAL) ? 
@@ -235,7 +235,7 @@ namespace BidirectionalInMemGraph
 
         if (
             !current_state.IsValid || 
-            current_state.StateOfTheAPC != DSA::StateOfAPC::LIVE || 
+            current_state.StateOfTheAPC != StateOfAPC::LIVE || 
             !range_of_apc_sagmant_pool.IsValid
         )
         {
