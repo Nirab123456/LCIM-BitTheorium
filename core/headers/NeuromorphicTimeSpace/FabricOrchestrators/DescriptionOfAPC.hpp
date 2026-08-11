@@ -7,14 +7,8 @@ namespace BidirectionalInMemGraph
     struct DescriptorConf : public CoreOfFabricCoordinator
     {
 
-        struct APCDescriptorRange
-        {
-            size_t BeginIndex = UNSIGNED_ZERO;
-            size_t EndIndex = UNSIGNED_ZERO;
-            bool IsValid = false;
-        };
+        using APCDescriptorRange = APCSegmentPoolRange;
 
-        using InternalAPCRange = APCDescriptorRange;
         using StateOfAPC = StateOfAPC;
         
         struct DescriptionStateLockValues
@@ -102,7 +96,7 @@ namespace BidirectionalInMemGraph
         using SingleAPCDescriptionCellBuffer = std::array<uint64_t, DESCRIPTION_WIDTH_AND_VALIDATION_IDX>;
 
         static constexpr bool ValidateADescriptionBuffer(
-            SingleAPCDescriptionCellBuffer& desc_return_buff
+            const SingleAPCDescriptionCellBuffer& desc_return_buff
         ) noexcept
         {
             for (size_t i = 0; i < DESCRIPTION_WIDTH_AND_VALIDATION_IDX; i++)

@@ -52,7 +52,7 @@ namespace BidirectionalInMemGraph
         }
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;
-        const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolBegainEndForSingleAPCDescription(fabric_slot_idx);
+        const APCSegmentPoolRange range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolRange(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
             range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != cell_count

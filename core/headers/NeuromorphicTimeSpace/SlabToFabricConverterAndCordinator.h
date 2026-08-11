@@ -49,11 +49,6 @@ namespace BidirectionalInMemGraph
     {
     private:
 
-        std::optional<DSA::StateOfAPC> ReadValidAPCRangeInternally__(
-            uint32_t apc_slot_idx,
-            DSA::InternalAPCRange& range_return
-        ) noexcept;
-
         /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
         std::optional<uint64_t> AcquireGraphMutationFlag_(
             uint32_t apc_slot_idx,

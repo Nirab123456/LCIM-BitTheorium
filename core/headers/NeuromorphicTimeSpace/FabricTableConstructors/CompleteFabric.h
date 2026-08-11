@@ -52,7 +52,7 @@ namespace BidirectionalInMemGraph
 
 
     public:
-        APCSegmentPoolRange GetSegmentPoolBegainEndForSingleAPCDescription(uint64_t single_description_index) noexcept;
+        APCSegmentPoolRange GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
         std::optional<uint64_t> SwitchOwnershipOfAReadyDescription(
