@@ -13,11 +13,11 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot);
 
         if (
             !range_of_apc_sagmant_pool.IsValid ||
-            !current_state.IsValid
+            !current_apc_state.IsValid
         )
         {
             return std::nullopt;
@@ -59,7 +59,7 @@ namespace BidirectionalInMemGraph
                 continue;
             }
             
-            return current_state.StateOfTheAPC;
+            return current_apc_state.StateOfTheAPC;
         }
         
         return std::nullopt;
@@ -72,13 +72,13 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot);
         IAB::GraphMutationValues current_lock{};
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         if (
-            !current_state.IsValid ||
-            current_state.StateOfTheAPC != StateOfAPC::LIVE ||
+            !current_apc_state.IsValid ||
+            current_apc_state.StateOfTheAPC != StateOfAPC::LIVE ||
             !range_of_apc_sagmant_pool.IsValid ||
             !IAB::ValidateIdentityBuffer(identity) ||
             IAB::ValueOfAnIdentityFromBuffer(
@@ -228,14 +228,14 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        const DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot); 
+        const DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot); 
 
         const IAB::MemGraphFlag axis_flag = (axis == IAB::BidirectionalAxis::HORIZONTAL) ? 
             IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
 
         if (
-            !current_state.IsValid || 
-            current_state.StateOfTheAPC != StateOfAPC::LIVE || 
+            !current_apc_state.IsValid || 
+            current_apc_state.StateOfTheAPC != StateOfAPC::LIVE || 
             !range_of_apc_sagmant_pool.IsValid
         )
         {
@@ -342,6 +342,122 @@ namespace BidirectionalInMemGraph
                 APCDataStructure::TotalIdentityUnitCount(),
                 identity_buffer.data()
             );
+    }
+
+    bool ConstructAPCIdentity::InitiateRootAxis(
+        uint32_t apc_slot,
+        IAB::BidirectionalAxis axis
+    ) noexcept
+    {
+        if (apc_slot >= CountOfAPC_ )
+        {
+            return false;
+        }
+
+        IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        IAB::MemGraphFlag axis_lock = axis == IAB::BidirectionalAxis::HORIZONTAL ?
+            IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
+
+        EdgeBuilder::EdgeData reserved_edge{};
+
+        const std::optional<EdgeBuilder::EdgeStatus> edge_status = ReadEdgeData_(
+            map.EdgeTable,
+            apc_slot,
+            reserved_edge
+        );
+
+        if (
+            !edge_status.has_value() ||
+            edge_status.value() != EdgeBuilder::EdgeStatus::RESERVED ||
+            !reserved_edge.IsValid ||
+            reserved_edge.Root != apc_slot
+        )
+        {
+            return false;
+        }
+
+        auto RevertEdgeToFree____ = [&]()
+        {
+            EdgeBuilder::EdgeData free_edge{};
+            if (
+                !EdgeBuilder::BuildFreeEdgeTable(map.EdgeTable, apc_slot, free_edge)
+            )
+            {
+                return false;
+            }
+            return PublishReservedEdge_(free_edge, apc_slot);
+        };
+
+        if (
+            !AcquireGraphMutationFlag_(apc_slot, axis_lock).has_value()
+        )
+        {
+            RevertEdgeToFree____();
+            return false;
+        }
+
+        bool axis_locked = true;
+
+        auto ReleseAxis___ = [&]()
+        {
+            if (!axis_locked)
+            {
+                return true;
+            }
+            const bool relesed = ReleseGraphMutationFlag_(apc_slot, axis);
+            if (relesed)
+            {
+                axis_locked = false;
+            }
+            return relesed;
+        };
+
+        IAB::BufferOfAPCIdentity identity_buffer{};
+        const std::optional<StateOfAPC> current_apc_state = ReadIdentityBufferOfAPC(apc_slot, identity_buffer);
+
+        if (
+            !current_apc_state.has_value() ||
+            current_apc_state.value() != StateOfAPC::LIVE ||
+            !IAB::IsOwnedAxisDisabled(identity_buffer, axis)
+        )
+        {
+            ReleseAxis___();
+            RevertEdgeToFree____();
+            return false;
+        }
+
+        const IAB::BufferOfAPCIdentity before_identity = identity_buffer;
+
+        EdgeBuilder::EdgeData desired_edge{};
+        if (!EdgeBuilder::InstallOwnedRoot(
+            identity_buffer,
+            axis,
+            apc_slot,
+            desired_edge
+        ))
+        {
+            ReleseAxis___();
+            RevertEdgeToFree____();
+            return false;
+        }
+        
+        if (!WriteAcquiredAxis_(apc_slot, identity_buffer, axis))
+        {
+            ReleseAxis___();
+            RevertEdgeToFree____();
+            return false;
+        }
+
+        if (!PublishReservedEdge_(desired_edge, apc_slot))
+        {
+            WriteAcquiredAxis_(apc_slot, identity_buffer, axis);
+            RevertEdgeToFree____();
+            ReleseAxis___();
+            return false;
+        }
+        
+        return ReleseAxis___();
     }
 
 

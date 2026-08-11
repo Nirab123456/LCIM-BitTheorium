@@ -84,8 +84,7 @@ namespace BidirectionalInMemGraph
 
         bool InitiateRootAxis(
             uint32_t apc_slot,
-            IAB::BidirectionalAxis axis,
-            uint32_t edge_slot
+            IAB::BidirectionalAxis axis
         ) noexcept;
 
         bool InitiateBothAxisAsRoot(uint32_t apc_slot) noexcept;
