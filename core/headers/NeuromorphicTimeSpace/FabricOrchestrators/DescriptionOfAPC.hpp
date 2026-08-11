@@ -9,16 +9,16 @@ namespace BidirectionalInMemGraph
 
         using APCDescriptorRange = RangeOfAPC;
         
-        struct DescriptionStateLockValues
+        struct DescriptionLockValues
         {
             uint32_t SeqLock = UINT32_MAX;
             StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
 
-        static_assert(sizeof(DescriptionStateLockValues) <= sizeof(uint64_t));
+        static_assert(sizeof(DescriptionLockValues) <= sizeof(uint64_t));
 
-        static constexpr uint64_t ComposeIdAndState(DescriptionStateLockValues& files) noexcept
+        static constexpr uint64_t ComposeIdAndState(DescriptionLockValues& files) noexcept
         {
             if (
                 !APCDataStructure::IsValid32BitAPCUnit(files.SeqLock) ||
@@ -30,9 +30,9 @@ namespace BidirectionalInMemGraph
             return TwinU32ToU64::PackDoubleUnsigned32In64(files.SeqLock, static_cast<uint32_t>(files.StateOfTheAPC));
         }
 
-        static constexpr DescriptionStateLockValues GetDescriptionFile(uint64_t desc_id_state) noexcept
+        static constexpr DescriptionLockValues GetDescriptionFile(uint64_t desc_id_state) noexcept
         {
-            DescriptionStateLockValues return_safty_files{};
+            DescriptionLockValues return_safty_files{};
             return_safty_files.SeqLock = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
             return_safty_files.StateOfTheAPC = static_cast<StateOfAPC>(TwinU32ToU64::ExtractHigh32Of64(desc_id_state));
 
@@ -44,7 +44,7 @@ namespace BidirectionalInMemGraph
             return return_safty_files;
         }
 
-        static constexpr bool ValidateDescriptionFiles(DescriptionStateLockValues& files) noexcept
+        static constexpr bool ValidateDescriptionFiles(DescriptionLockValues& files) noexcept
         {
             if (!APCDataStructure::IsValidFabricUnit(files.SeqLock))
             {
@@ -108,7 +108,7 @@ namespace BidirectionalInMemGraph
             const uint64_t span_of_apc = desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)] -
                 desc_return_buff[static_cast<size_t>(DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
             
-            const DescriptionStateLockValues desc_files = GetDescriptionFile(
+            const DescriptionLockValues desc_files = GetDescriptionFile(
                 desc_return_buff[static_cast<size_t>(DescriptionIndexing::ID_STATE_CONCURRENT)]
             );
 
@@ -144,7 +144,7 @@ namespace BidirectionalInMemGraph
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB, segment_pool_begin);
             SetADescriptionUnit(desc_return_buff, DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB, segment_pool_end);
 
-            DescriptionStateLockValues files{};
+            DescriptionLockValues files{};
             files.SeqLock = 2u;
             files.StateOfTheAPC = StateOfAPC::FREE;
 

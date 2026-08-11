@@ -51,7 +51,7 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
-        RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
+        constexpr RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
         std::optional<uint64_t> SwitchOwnershipOfAReadyDescription(
@@ -63,7 +63,7 @@ namespace BidirectionalInMemGraph
 
         std::optional<uint64_t> GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept;        
 
-        DescriptionOfAPC::DescriptionStateLockValues ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+        DescriptionOfAPC::DescriptionLockValues ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
 
     };
 

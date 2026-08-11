@@ -13,7 +13,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot);
 
         if (
             !range_of_apc_sagmant_pool.IsValid ||
@@ -72,7 +72,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot);
         IAB::GraphMutationValues current_lock{};
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
@@ -155,7 +155,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc = GetSegmentPoolRange(apc_slot_idx);
-        const DSA::DescriptionStateLockValues dsc_state = ReadAPCStateAtomically_(apc_slot_idx); 
+        const DSA::DescriptionLockValues dsc_state = ReadAPCStateAtomically_(apc_slot_idx); 
 
         if (
             desired_state == IAB::MemGraphFlag::LIVE ||
@@ -228,7 +228,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        const DSA::DescriptionStateLockValues current_state = ReadAPCStateAtomically_(apc_slot); 
+        const DSA::DescriptionLockValues current_state = ReadAPCStateAtomically_(apc_slot); 
 
         const IAB::MemGraphFlag axis_flag = (axis == IAB::BidirectionalAxis::HORIZONTAL) ? 
             IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
@@ -290,40 +290,59 @@ namespace BidirectionalInMemGraph
         return false;
     }
 
-    // bool ConstructAPCIdentity::AttachValidIdentity(uint32_t apc_idx) noexcept
-    // {
+    bool ConstructAPCIdentity::AttachValidIdentity(uint32_t apc_idx) noexcept
+    {
 
-    //     DSA::SingleAPCDescriptionCellBuffer description_buffer{};
-    //     IAB::BufferOfAPCIdentity identity_buffer{};
+        DSA::SingleAPCDescriptionCellBuffer description_buffer{};
+        IAB::BufferOfAPCIdentity identity_buffer{};
 
-    //     if (
-    //         apc_idx > CountOfAPC_ ||
-    //         !ReadACompleateAPCDescriptorBuffer_(apc_idx, description_buffer)
-    //     )
-    //     {
-    //         return false;
-    //     }
+        if (
+            apc_idx > CountOfAPC_ ||
+            !ReadACompleateAPCDescriptorBuffer_(apc_idx, description_buffer)
+        )
+        {
+            return false;
+        }
 
-    //     const DSA::DescriptionStateLockValues dsc_st_lock = DSA::GetDescriptionFile(
-    //         description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]
-    //     );
+        const DSA::DescriptionLockValues dsc_st_lock = DSA::GetDescriptionFile(
+            description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]
+        );
 
-    //     if (
-    //         !dsc_st_lock.IsValid ||
-    //         dsc_st_lock.StateOfTheAPC != StateOfAPC::RESERVED ||
-    //         !DSA::BuildIdentityBufferFromDescriptionBuffer(
-    //             description_buffer,
-    //             identity_buffer
-    //         )
-    //     )
-    //     {
-    //         return false;
-    //     }
+        if (
+            !dsc_st_lock.IsValid ||
+            dsc_st_lock.StateOfTheAPC != StateOfAPC::RESERVED ||
+            !DSA::BuildIdentityBufferFromDescriptionBuffer(
+                description_buffer,
+                identity_buffer
+            )
+        )
+        {
+            return false;
+        }
 
+        RangeOfAPC range = GetSegmentPoolRange(apc_idx);
+        const DSA::DescriptionLockValues dsc_lock_files = DSA::GetDescriptionFile(description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
+        const uint64_t begin_idx = description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
+        const uint64_t end_idx = description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)];
 
-        
-        
-    // }
+        if (
+            !range.IsValid ||
+            dsc_lock_files.IsValid ||
+            dsc_lock_files.StateOfTheAPC != StateOfAPC::RESERVED ||
+            range.BeginIndex != begin_idx ||
+            range.EndIndex != end_idx
+        )
+        {
+            return false;
+        }
+
+        return
+            ForceNxLenMemCopy(
+                range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
+                APCDataStructure::TotalIdentityUnitCount(),
+                identity_buffer.data()
+            );
+    }
 
 
 }

@@ -3,7 +3,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
+    constexpr RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
     {
         
         RangeOfAPC desired_segment_pool_range{};
@@ -89,7 +89,7 @@ namespace BidirectionalInMemGraph
     {
         const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIndexing::APC_INDEX)];
         const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
-        const  DescriptionOfAPC::DescriptionStateLockValues current_description_state = ReadAPCStateAtomically_(slot_idx);
+        const  DescriptionOfAPC::DescriptionLockValues current_description_state = ReadAPCStateAtomically_(slot_idx);
         if (
             !current_description_state.IsValid ||
             current_description_state.StateOfTheAPC != StateOfAPC::RESERVED ||
@@ -106,9 +106,9 @@ namespace BidirectionalInMemGraph
         );
     }
     
-    DescriptionOfAPC::DescriptionStateLockValues APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
+    DescriptionOfAPC::DescriptionLockValues APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
-        DescriptionOfAPC::DescriptionStateLockValues return_files{};
+        DescriptionOfAPC::DescriptionLockValues return_files{};
         std::optional<size_t> maybe_id_state_idx = GetDescriptionLockIdxInFabric_(apc_description_index);
         if (!maybe_id_state_idx.has_value())
         {
@@ -141,9 +141,9 @@ namespace BidirectionalInMemGraph
 
         for (size_t i = 0; i < max_tries; i++)
         {
-            DSA::DescriptionStateLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
+            DSA::DescriptionLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
             uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st);
-            DSA::DescriptionStateLockValues updated_files{};
+            DSA::DescriptionLockValues updated_files{};
             updated_files.SeqLock = current_id_st.SeqLock + 1u;
             updated_files.StateOfTheAPC = desired_state;
             uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_files);
@@ -203,7 +203,7 @@ namespace BidirectionalInMemGraph
 
         for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DSA::DescriptionStateLockValues current = ReadAPCStateAtomically_(description_idx);
+            const DSA::DescriptionLockValues current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
                 current.StateOfTheAPC != StateOfAPC::FREE
