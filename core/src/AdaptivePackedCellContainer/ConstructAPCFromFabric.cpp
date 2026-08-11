@@ -77,8 +77,8 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         if (
+            !IsLiveSateOfAPC(current_apc_state.StateOfTheAPC) ||
             !current_apc_state.IsValid ||
-            current_apc_state.StateOfTheAPC != StateOfAPC::LIVE ||
             !range_of_apc_sagmant_pool.IsValid ||
             !IAB::ValidateIdentityBuffer(identity) ||
             IAB::ValueOfAnIdentityFromBuffer(
@@ -160,7 +160,7 @@ namespace BidirectionalInMemGraph
         if (
             desired_state == IAB::MemGraphFlag::LIVE ||
             !dsc_state.IsValid ||
-            dsc_state.StateOfTheAPC != StateOfAPC::LIVE ||
+            !IsLiveSateOfAPC(dsc_state.StateOfTheAPC) ||
             !range_of_apc.IsValid
         )
         {
@@ -229,13 +229,11 @@ namespace BidirectionalInMemGraph
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
         const DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot); 
-
-        const IAB::MemGraphFlag axis_flag = (axis == IAB::BidirectionalAxis::HORIZONTAL) ? 
-            IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
+        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
 
         if (
             !current_apc_state.IsValid || 
-            current_apc_state.StateOfTheAPC != StateOfAPC::LIVE || 
+            !IsLiveSateOfAPC(current_apc_state.StateOfTheAPC) ||
             !range_of_apc_sagmant_pool.IsValid
         )
         {
@@ -356,8 +354,7 @@ namespace BidirectionalInMemGraph
 
         IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
-        IAB::MemGraphFlag axis_lock = axis == IAB::BidirectionalAxis::HORIZONTAL ?
-            IAB::MemGraphFlag::HORIZONTAL_LOCK : IAB::MemGraphFlag::VERTICAL_LOCK;
+        IAB::MemGraphFlag axis_lock = IAB::GetMemGFlagFromAxis(axis);
 
         EdgeBuilder::EdgeData reserved_edge{};
 
@@ -417,8 +414,7 @@ namespace BidirectionalInMemGraph
         const std::optional<StateOfAPC> current_apc_state = ReadIdentityBufferOfAPC(apc_slot, identity_buffer);
 
         if (
-            !current_apc_state.has_value() ||
-            current_apc_state.value() != StateOfAPC::LIVE ||
+            !IsLiveSateOfAPC(current_apc_state) ||
             !IAB::IsOwnedAxisDisabled(identity_buffer, axis)
         )
         {
@@ -458,6 +454,280 @@ namespace BidirectionalInMemGraph
         }
         
         return ReleseAxis___();
+    }
+
+    bool ConstructAPCIdentity::LinkTwoAPC(
+        uint32_t predessor_idx,
+        uint32_t child_idx,
+        IAB::BidirectionalAxis axis,
+        IAB::DescOfInharitance inharitance,
+        uint32_t internal_max_tries
+    ) noexcept
+    {
+        if (
+            predessor_idx == child_idx ||
+            predessor_idx >= CountOfAPC_ ||
+            child_idx >= CountOfAPC_
+        )
+        {
+            return false;
+        }
+
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
+
+        IAB::BufferOfAPCIdentity predessor_buffer{};
+        std::optional<StateOfAPC> state_of_predessor = ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries);
+
+        if (!IsLiveSateOfAPC(state_of_predessor))
+        {
+            return false;
+        }
+
+        uint64_t owned_edge_raw = FABRIC_CELL_SENTINAL;
+        if (inharitance == IAB::DescOfInharitance::LINKED_CHILD)
+        {
+            owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+                predessor_buffer,
+                map.OwnedEgdeTableIdx
+            );
+        }
+        else
+        {
+            owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+                predessor_buffer,
+                map.InheritedEgdeTableIdx
+            );
+        }
+
+        uint32_t owner_edge_idx = static_cast<uint32_t>(owned_edge_raw);
+        EdgeBuilder::EdgeData owner_edge_before{};
+
+        if (
+            !ReserveAnEdge_(
+                map.EdgeTable,
+                static_cast<uint32_t>(owned_edge_raw),
+                &owner_edge_before,
+                std::nullopt,
+                internal_max_tries
+            )
+        )
+        {
+            return false;
+        }
+        
+        if (!owner_edge_before.IsValid)
+        {
+            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            return false;
+        }
+
+        const uint32_t first_lock = std::min(predessor_idx, child_idx);
+        const uint32_t second_lock = std::max(predessor_idx, child_idx);
+        bool first_locked = false;
+        bool second_locked = false;
+
+        if (
+            !AcquireGraphMutationFlag_(first_lock, axis_flag, internal_max_tries).has_value()
+        )
+        {
+            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            return false;
+        }
+
+        if (
+            !AcquireGraphMutationFlag_(second_lock, axis_flag, internal_max_tries).has_value()
+        )
+        {
+            ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
+            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            return false;
+        }
+        
+        auto ReleseBothAxisLocks___ = [&]() noexcept -> void
+        {
+            ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
+            ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
+        };
+
+        auto ReleseAxisLockOwnerEdge___ = [&]() noexcept -> void
+        {
+            ReleseBothAxisLocks___();
+            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+        };
+
+
+        IAB::BufferOfAPCIdentity child_buffer{};
+
+        const std::optional<StateOfAPC> predessor_state = ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer);
+        const std::optional<StateOfAPC> child_state = ReadIdentityBufferOfAPC(child_idx, child_buffer);
+
+
+        if (
+            !IsLiveSateOfAPC(predessor_state) ||
+            !IsLiveSateOfAPC(child_state) ||
+            !IAB::IsInheritedAxisDisabled(child_buffer, axis)
+        )
+        {
+            ReleseAxisLockOwnerEdge___();
+            return false;
+        }
+        
+        uint64_t verified_owned_edge = FABRIC_CELL_SENTINAL;
+        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
+        {
+            verified_owned_edge = IAB::ValueOfAnIdentityFromBuffer(predessor_buffer, map.OwnedEgdeTableIdx);
+        }
+        else
+        {
+            verified_owned_edge = IAB::ValueOfAnIdentityFromBuffer(predessor_buffer, map.InheritedEgdeTableIdx);
+        }
+
+        if (verified_owned_edge != owner_edge_idx)
+        {
+            ReleseAxisLockOwnerEdge___();
+            return false;
+        }
+        
+        const IAB::BufferOfAPCIdentity predessor_before = predessor_buffer;
+        const IAB::BufferOfAPCIdentity child_before = child_buffer;
+
+        const uint64_t child_owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(child_buffer, map.OwnedEgdeTableIdx);
+        
+        bool child_owned_reserved = false;
+        bool child_owned_published = false;
+
+        uint32_t child_owned_edge_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        EdgeBuilder::EdgeData child_owned_before{};
+        EdgeBuilder::EdgeData child_owned_work{};
+
+        if (child_owned_edge_raw != FABRIC_CELL_SENTINAL)
+        {
+            if (!APCDataStructure::IsValid32BitAPCUnit(child_owned_edge_raw))
+            {
+                ReleseAxisLockOwnerEdge___();
+                return false;
+            }
+
+            child_owned_edge_idx = static_cast<uint32_t>((child_owned_edge_raw));
+
+            if (
+                child_owned_edge_idx == owner_edge_idx ||
+                !ReserveAnEdge_(
+                    map.EdgeTable,
+                    child_owned_edge_idx,
+                    &child_owned_before,
+                    EdgeBuilder::EdgeStatus::LIVE,
+                    internal_max_tries
+                )
+            )
+            {
+                ReleseAxisLockOwnerEdge___();
+                return false;
+            }
+            
+            child_owned_reserved = true;
+            child_owned_work = child_owned_before;
+        }
+        
+        EdgeBuilder::EdgeData owner_edge_work = owner_edge_before;
+        if (!EdgeBuilder::PrepareInharitedAxis(
+            predessor_buffer,
+            child_buffer,
+            axis,
+            inharitance,
+            owner_edge_idx,
+            owner_edge_work,
+            child_owned_reserved ? &child_owned_work : nullptr
+        ))
+        {
+            if (child_owned_reserved)
+            {
+                PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+            }
+            ReleseAxisLockOwnerEdge___();
+            return false;
+        }
+        
+        const bool predessor_written = WriteAcquiredAxis_(predessor_idx, predessor_buffer, axis);
+        const bool child_written = WriteAcquiredAxis_(child_idx, child_buffer, axis);
+
+        auto RestoreIdentityValues___ = [&]() noexcept -> void
+        {
+            if (predessor_written)
+            {
+                WriteAcquiredAxis_(predessor_idx, predessor_before, axis);
+            }
+
+            if (child_written)
+            {
+                WriteAcquiredAxis_(child_idx, child_before, axis);
+            }
+        };
+
+        auto ReleseAll___ = [&]() noexcept -> void
+        {
+            RestoreIdentityValues___();
+            if (child_owned_reserved)
+            {
+                PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+            }
+            ReleseAxisLockOwnerEdge___();
+        };
+
+        if (
+            !predessor_written ||
+            !child_written
+        )
+        {
+            ReleseAll___();
+            return false;   
+        }
+
+        if (child_owned_reserved)
+        {
+            if (!PublishReservedEdge_(
+                child_owned_work,
+                child_owned_edge_idx
+            ))
+            {
+                ReleseAll___();
+                return false;
+            }
+        }
+
+        if (!PublishReservedEdge_(owner_edge_work, owner_edge_idx))
+        {
+            RestoreIdentityValues___();
+            if (child_owned_published)
+            {
+                if (
+                    ReserveAnEdge_(map.EdgeTable, child_owned_edge_idx, nullptr, std::nullopt, internal_max_tries)
+                )
+                {
+                    PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                }
+                else if (child_owned_reserved)
+                {
+                    PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                }
+                ReleseAxisLockOwnerEdge___();
+                return false;
+            }
+        }
+        
+        bool relese_ok = true;
+        if (predessor_idx == first_lock)
+        {
+            first_locked = false;
+        }
+        else
+        {
+            second_locked = false;
+        }
+        
+        return ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries) & relese_ok;
     }
 
 

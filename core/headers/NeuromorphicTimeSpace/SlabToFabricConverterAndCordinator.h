@@ -87,13 +87,12 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis
         ) noexcept;
 
-        bool InitiateBothAxisAsRoot(uint32_t apc_slot) noexcept;
-
         bool LinkTwoAPC(
             uint32_t predessor_idx,
             uint32_t child_idx,
             IAB::BidirectionalAxis axis,
-            IAB::DescOfInharitance inharitance
+            IAB::DescOfInharitance inharitance,
+            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         bool UnlinkTwoAPC(

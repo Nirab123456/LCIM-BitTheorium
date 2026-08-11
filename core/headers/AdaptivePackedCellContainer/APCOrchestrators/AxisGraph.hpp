@@ -89,6 +89,12 @@ struct GraphLockConf : public AxisConstructor
         READ_ONLY = 1u << 2u
     };
 
+    static constexpr MemGraphFlag GetMemGFlagFromAxis(BidirectionalAxis axis) noexcept
+    {
+        return axis == BidirectionalAxis::HORIZONTAL ?
+            MemGraphFlag::HORIZONTAL_LOCK : MemGraphFlag::VERTICAL_LOCK;
+    }
+
     static constexpr uint32_t GRAPH_FLAGS_MASK = 7u;
 
     static constexpr bool HasThisGraphMutationFlag(
@@ -144,9 +150,7 @@ struct GraphLockConf : public AxisConstructor
             return false;
         }
 
-        const MemGraphFlag rejected = (axis == BidirectionalAxis::HORIZONTAL) ?
-            MemGraphFlag::HORIZONTAL_LOCK : MemGraphFlag::VERTICAL_LOCK;
-
+        const MemGraphFlag rejected = GetMemGFlagFromAxis(axis);
         bool hash_read_only = HasThisGraphMutationFlag(raw, MemGraphFlag::READ_ONLY);
         bool hash_rejected = HasThisGraphMutationFlag(raw, rejected);
 

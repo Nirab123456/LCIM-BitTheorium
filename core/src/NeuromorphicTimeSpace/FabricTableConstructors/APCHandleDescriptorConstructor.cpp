@@ -110,12 +110,15 @@ namespace BidirectionalInMemGraph
     {
         DescriptionOfAPC::DescriptionLockValues return_files{};
         std::optional<size_t> maybe_id_state_idx = GetDescriptionLockIdxInFabric_(apc_description_index);
-        if (!maybe_id_state_idx.has_value())
+        uint64_t state_of_apc_cell = FABRIC_CELL_SENTINAL;
+
+        if (
+            !maybe_id_state_idx.has_value() ||
+            !AtomicallyLoadReadAUnit(maybe_id_state_idx.value(), state_of_apc_cell)
+        )
         {
             return return_files;
         }
-        uint64_t state_of_apc_cell = FABRIC_CELL_SENTINAL;
-        AtomicallyLoadReadAUnit(maybe_id_state_idx.value(), state_of_apc_cell);
         return_files = DescriptionOfAPC::GetDescriptionFile(state_of_apc_cell);
         return return_files;
     }

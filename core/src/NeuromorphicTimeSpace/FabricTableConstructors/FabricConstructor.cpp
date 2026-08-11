@@ -189,7 +189,11 @@ namespace BidirectionalInMemGraph
             for (size_t i = 0; i < sequential_number_of_cells; i++)
             {
                 const size_t current_slab_idx = slab_starting_idx + i;
-                AtomicallyLoadReadAUnit(current_slab_idx, return_buffer[i]);
+                if (!AtomicallyLoadReadAUnit(current_slab_idx, return_buffer[i]))
+                {
+                    return false;
+                }
+                
             }
             return true;
         }

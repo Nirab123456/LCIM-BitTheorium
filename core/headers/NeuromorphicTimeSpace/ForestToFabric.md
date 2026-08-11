@@ -1,6 +1,6 @@
 1. RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange :: Reads Range of A APC statically not from descriptor the whole architecture is built on this, still keeping track of APC range inside FabricSegments::APC_HANDLE_DESCRIPTOR
 
-2. APCHandleDescriptorConstructor::ReadAPCStateAtomically_ : Should impliment seq lock increment on read
+2. APCHandleDescriptorConstructor::ReadAPCStateAtomically_ : Reads state of the APC 
 
 3. bool ConstructAPCIdentity::ReleseGraphMutationFlag_ : Reads APC range by -> GetSegmentPoolRange : checks if the axis available to relese if so releses
 
@@ -12,3 +12,28 @@
     (Check EDGE == RESERVED) -> (DESCRIPTION == LIVE) -> (Call To WriteAcquiredAxis_) -> (Call To PublishReservedEdge_)
     FAILURE IN ANY POINT :
     (ReleseGraphMutationFlag_) -> (RELESE: Axis lock by PublishReservedEdge_)
+
+6. GetMemGFlagFromAxis : Returns the enum flug which should be truned ON/OFF based on the provided axis.
+
+7. FabricConstructor::ReadASnapShotFromSlab : Reades a range in slab to provided buffer based on atomic_required. if
+    atomic_required == true then atomically other wise -> std::memcpy.
+    Feature / Issue -> Only the last index is Atomic.
+
+8. InstallAxisToBuffer:ValidateIdentityBuffer : ValidateDefaultIdentity + IsValidGraphMutationState.
+
+9. std::optional<StateOfAPC> ConstructAPCIdentity::ReadIdentityBufferOfAPC : 
+    I.GetSegmentPoolRange + ReadAPCStateAtomically_ :: Failure in either returns std::nullopt means read operation itself is invalid,
+    II. ReadASnapShotFromSlab -> with APCDataStructure::TotalIdentityUnitCount() + ValidateIdentityBuffer :: If either
+    fails returns std::nullopt
+    OVERVIEW:
+        if return is std::nullopt it dosent means structure has failure it simply means it cant verify enough relation to read idintity buffer. Though the function allows read of the idintity buffer regardless of the state of apc thats the reason why state of apc is returened insted of simple boolean.
+
+10. EdgeTableConstructor::SwitchEdgeState__ : Checks if the switch rfequest valid in contrast to current status.
+    EXTENSIONS:
+        I. ReserveAnEdge_
+
+11. ConstructAPCIdentity::AcquireGraphMutationFlag_ : GetSegmentPoolRange + ReadAPCStateAtomically_ : varifies the desired 
+    mutation flag In contrast to current mutation flags if valid acquires the flag.
+
+12. ConstructAPCIdentity::LinkTwoAPC : 
+    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edgetable for update only when initialized : So atleast for now Complication should justify the cost
