@@ -28,17 +28,22 @@
     OVERVIEW:
         if return is std::nullopt it dosent means structure has failure it simply means it cant verify enough relation to read idintity buffer. Though the function allows read of the idintity buffer regardless of the state of apc thats the reason why state of apc is returened insted of simple boolean.
 
-10. EdgeTableConstructor::SwitchEdgeState__ : Checks if the switch rfequest valid in contrast to current status.
+10. EdgeTableConstructor::SwitchEdgeState__ : Checks if the switch request valid in contrast to current status of the Edge table and sequense Lock.
     EXTENSIONS:
         I. ReserveAnEdge_
 
-11. ConstructAPCIdentity::AcquireGraphMutationFlag_ : GetSegmentPoolRange + ReadAPCStateAtomically_ : varifies the desired 
-    mutation flag In contrast to current mutation flags if valid acquires the flag.
+11. ConstructAPCIdentity::AcquireGraphMutationFlag_ : GetSegmentPoolRange +
+    ReadAPCStateAtomically_ : varifies the desired mutation flag In contrast to current mutation flags if valid acquires the flag.
 
-13. PrepareInharitedAxis : Prepares both identity + Both Edge Table Data EdgeData (owner edge which is bing muted and if 
+12. PrepareInharitedAxis : Prepares both identity + Both Edge Table Data EdgeData (owner edge which is bing muted and if 
     the current APC who is bing linked and unlinked to a owner is also a owner then prepers that edge too)
 
-12. ConstructAPCIdentity::LinkTwoAPC : 
+13. ConstructAPCIdentity::LinkTwoAPC : 
     ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxis_(write both axis) -> PublishReservedEdge_(if the one bing linked has owned table then both) -> ReleseGraphMutationFlag_(for the one bing linked)
     FAILURE IN ANY POINT :
         Restore axis locks -> Restore owned edge table / child edge table if available
+
+14. ConstructAPCIdentity::UnlinkTwoAPC : 
+        I. ReadIdentityBufferOfAPC(the one being delinked) & read the inharited edge idx, predessor edge idx, next edge idx, and own edge_Idx(though redundent because it is fixed removing it atleast need a bitflag to know if ths apc allows own axis attachment or detachment)
+        II. ReserveAnEdge_(reserves the roots and (childs own root if avaiavle) edge)
+        III. AcquireGraphMutationFlag_()

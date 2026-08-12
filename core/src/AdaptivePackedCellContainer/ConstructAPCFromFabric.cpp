@@ -500,7 +500,7 @@ namespace BidirectionalInMemGraph
             );
         }
 
-        uint32_t owner_edge_idx = static_cast<uint32_t>(owned_edge_raw);
+        uint32_t roots_edge_idx = static_cast<uint32_t>(owned_edge_raw);
         EdgeBuilder::EdgeData owner_edge_before{};
 
         if (
@@ -518,7 +518,7 @@ namespace BidirectionalInMemGraph
         
         if (!owner_edge_before.IsValid)
         {
-            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
             return false;
         }
 
@@ -531,7 +531,7 @@ namespace BidirectionalInMemGraph
             !AcquireGraphMutationFlag_(first_lock, axis_flag, internal_max_tries).has_value()
         )
         {
-            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
             return false;
         }
 
@@ -540,7 +540,7 @@ namespace BidirectionalInMemGraph
         )
         {
             ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
-            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
             return false;
         }
         
@@ -553,7 +553,7 @@ namespace BidirectionalInMemGraph
         auto ReleseAxisLockOwnerEdge___ = [&]() noexcept -> void
         {
             ReleseBothAxisLocks___();
-            PublishReservedEdge_(owner_edge_before, owner_edge_idx);
+            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
         };
 
 
@@ -583,7 +583,7 @@ namespace BidirectionalInMemGraph
             verified_owned_edge = IAB::ValueOfAnIdentityFromBuffer(predessor_buffer, map.InheritedEgdeTableIdx);
         }
 
-        if (verified_owned_edge != owner_edge_idx)
+        if (verified_owned_edge != roots_edge_idx)
         {
             ReleseAxisLockOwnerEdge___();
             return false;
@@ -597,7 +597,7 @@ namespace BidirectionalInMemGraph
         bool child_owned_reserved = false;
         bool child_owned_published = false;
 
-        uint32_t child_owned_edge_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t child_as_root_edge_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
 
         EdgeBuilder::EdgeData child_owned_before{};
         EdgeBuilder::EdgeData child_owned_work{};
@@ -610,13 +610,13 @@ namespace BidirectionalInMemGraph
                 return false;
             }
 
-            child_owned_edge_idx = static_cast<uint32_t>((child_owned_edge_raw));
+            child_as_root_edge_idx = static_cast<uint32_t>((child_owned_edge_raw));
 
             if (
-                child_owned_edge_idx == owner_edge_idx ||
+                child_as_root_edge_idx == roots_edge_idx ||
                 !ReserveAnEdge_(
                     map.EdgeTable,
-                    child_owned_edge_idx,
+                    child_as_root_edge_idx,
                     &child_owned_before,
                     EdgeBuilder::EdgeStatus::LIVE,
                     internal_max_tries
@@ -637,14 +637,14 @@ namespace BidirectionalInMemGraph
             child_buffer,
             axis,
             inharitance,
-            owner_edge_idx,
+            roots_edge_idx,
             owner_edge_work,
             child_owned_reserved ? &child_owned_work : nullptr
         ))
         {
             if (child_owned_reserved)
             {
-                PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
             }
             ReleseAxisLockOwnerEdge___();
             return false;
@@ -671,7 +671,7 @@ namespace BidirectionalInMemGraph
             RestoreIdentityValues___();
             if (child_owned_reserved)
             {
-                PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
             }
             ReleseAxisLockOwnerEdge___();
         };
@@ -689,7 +689,7 @@ namespace BidirectionalInMemGraph
         {
             if (!PublishReservedEdge_(
                 child_owned_work,
-                child_owned_edge_idx
+                child_as_root_edge_idx
             ))
             {
                 ReleseAll___();
@@ -698,20 +698,20 @@ namespace BidirectionalInMemGraph
             child_owned_published = true;
         }
 
-        if (!PublishReservedEdge_(owner_edge_work, owner_edge_idx))
+        if (!PublishReservedEdge_(owner_edge_work, roots_edge_idx))
         {
             RestoreIdentityValues___();
             if (child_owned_published)
             {
                 if (
-                    ReserveAnEdge_(map.EdgeTable, child_owned_edge_idx, nullptr, std::nullopt, internal_max_tries)
+                    ReserveAnEdge_(map.EdgeTable, child_as_root_edge_idx, nullptr, std::nullopt, internal_max_tries)
                 )
                 {
-                    PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                    PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
                 }
                 else if (child_owned_reserved)
                 {
-                    PublishReservedEdge_(child_owned_before, child_owned_edge_idx);
+                    PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
                 }
                 ReleseAxisLockOwnerEdge___();
                 return false;
@@ -731,5 +731,339 @@ namespace BidirectionalInMemGraph
         return ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries) & relese_ok;
     }
 
+    bool ConstructAPCIdentity::UnlinkTwoAPC(
+        uint32_t child_idx,
+        IAB::BidirectionalAxis axis,
+        uint32_t internal_max_tries
+    ) noexcept
+    {
+        if (child_idx >= CountOfAPC_)
+        {
+            return false;
+        }
+
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
+
+        IAB::BufferOfAPCIdentity child_buffer_idintity{};
+        const std::optional<StateOfAPC> child_prob_state = ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity);
+        if (
+            !IsLiveSateOfAPC(child_prob_state) ||
+            IAB::IsInheritedAxisDisabled(child_buffer_idintity, axis)
+        )
+        {
+            return false;
+        }
+
+        const uint32_t roots_edge_idx = static_cast<uint32_t>(IAB::ValueOfAnIdentityFromBuffer(
+            child_buffer_idintity,
+            map.InheritedEgdeTableIdx
+        ));
+
+        const uint32_t predessor_idx = static_cast<uint32_t>(IAB::ValueOfAnIdentityFromBuffer(
+            child_buffer_idintity,
+            map.PreviousSibling
+        ));
+
+        const uint64_t next_idx_of_same_parent = IAB::ValueOfAnIdentityFromBuffer(
+            child_buffer_idintity,
+            map.NextSibling
+        );
+
+        const uint64_t child_as_root_edge_idx = IAB::ValueOfAnIdentityFromBuffer(
+            child_buffer_idintity,
+            map.OwnedEgdeTableIdx
+        );
+
+        const bool child_has_own_root = child_as_root_edge_idx == FABRIC_CELL_SENTINAL ? false : true;
+
+        if (
+            !APCDataStructure::IsValid32BitAPCUnit(roots_edge_idx) ||
+            !APCDataStructure::IsValid32BitAPCUnit(predessor_idx) ||
+            predessor_idx >= CountOfAPC_ ||
+            predessor_idx == child_idx ||
+            (
+                next_idx_of_same_parent != FABRIC_CELL_SENTINAL &&
+                (
+                    !APCDataStructure::IsValid32BitAPCUnit(next_idx_of_same_parent) ||
+                    next_idx_of_same_parent >= CountOfAPC_ ||
+                    next_idx_of_same_parent == child_idx ||
+                    next_idx_of_same_parent == predessor_idx
+                )
+            ) ||
+            (
+                child_has_own_root && !APCDataStructure::IsValid32BitAPCUnit(child_as_root_edge_idx)
+            )
+        )
+        {
+            return false;
+        }
+
+
+        const bool has_next = next_idx_of_same_parent != FABRIC_CELL_SENTINAL;
+
+        EdgeBuilder::EdgeData before_of_roots_edge_data{};
+        EdgeBuilder::EdgeData before_childs_own_root_edge_data{};
+
+        if (
+            !ReserveAnEdge_(
+                map.EdgeTable,
+                roots_edge_idx,
+                &before_of_roots_edge_data,
+                EdgeBuilder::EdgeStatus::LIVE,
+                internal_max_tries
+            )
+        )
+        {
+            return false;
+        }
+        
+
+        if (
+            child_has_own_root &&
+            !ReserveAnEdge_(
+                map.EdgeTable,
+                static_cast<uint32_t>(child_as_root_edge_idx),
+                &before_childs_own_root_edge_data,
+                EdgeBuilder::EdgeStatus::LIVE,
+                internal_max_tries
+            )
+        )
+        {
+            PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
+            return false;
+        }
+        
+        auto RevBothEdge___ = [&]() noexcept -> void
+        {
+            if (child_has_own_root)
+            {
+                PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
+            }
+            PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
+        };
+
+        auto VerifyEdge___ = [&](EdgeBuilder::EdgeData& edge_data___) noexcept -> bool
+        {
+            return 
+                !edge_data___.IsValid ||
+                edge_data___.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                edge_data___.EdgeTable != map.EdgeTable;
+        };
+
+        if (
+            !VerifyEdge___(before_childs_own_root_edge_data) ||
+            !VerifyEdge___(before_of_roots_edge_data) ||
+            before_of_roots_edge_data.OwnLinkCount == UNSIGNED_ZERO
+        )
+        {
+            RevBothEdge___();
+            return false;
+        }
+        
+        if (
+            before_of_roots_edge_data.End == child_idx &&
+            has_next
+        )
+        {
+            RevBothEdge___();
+            return false;
+        }
+
+        static constexpr uint8_t CHANGABLE_TOTA_IDINTITY___ = 3;
+        std::array<uint32_t, CHANGABLE_TOTA_IDINTITY___> lock_apcs_array{
+            predessor_idx,
+            child_idx,
+            has_next ? static_cast<uint32_t>(next_idx_of_same_parent) : APCDataStructure::APC_INDEX_BOUND_SENTINAL
+        };
+        // We surely know UINT32_MAX will be last if other two are valid | 3 of them is valid
+        std::sort(lock_apcs_array.begin(), lock_apcs_array.end());
+        
+        const uint8_t required_lock_count = has_next ? CHANGABLE_TOTA_IDINTITY___ : CHANGABLE_TOTA_IDINTITY___- 1;
+        uint8_t locked_count = UNSIGNED_ZERO;
+
+        auto ReleseGraphMutation___ = [&]() noexcept -> void
+        {
+            for (size_t i = 0; i < locked_count; i++)
+            {
+                ReleseGraphMutationFlag_(
+                    lock_apcs_array[i],
+                    axis,
+                    internal_max_tries
+                );
+                --locked_count;
+            }
+        };
+
+        auto ReleseReservedGraphAndEdge___ = [&]() noexcept -> void
+        {
+            ReleseGraphMutation___();
+            RevBothEdge___();
+        };
+
+        for (size_t i = 0; i < required_lock_count; i++)
+        {
+            if (!AcquireGraphMutationFlag_(
+                lock_apcs_array[i],
+                axis_flag,
+                internal_max_tries
+            ))
+            {
+                ReleseReservedGraphAndEdge___();
+                return false;
+            }
+            ++locked_count;
+        }
+
+        IAB::BufferOfAPCIdentity predessor_buffer{};
+        IAB::BufferOfAPCIdentity next_id_buffer{};
+
+        const std::optional<StateOfAPC> predessor_state = ReadIdentityBufferOfAPC(
+            predessor_idx,
+            predessor_buffer,
+            internal_max_tries
+        );
+
+        const std::optional<StateOfAPC> child_state = ReadIdentityBufferOfAPC(
+            child_idx,
+            child_buffer_idintity,
+            internal_max_tries
+        );
+
+        std::optional<StateOfAPC> next_state = std::nullopt;
+
+        if (has_next)
+        {
+            next_state = ReadIdentityBufferOfAPC(
+                static_cast<uint32_t>(next_idx_of_same_parent),
+                next_id_buffer,
+                internal_max_tries
+            );
+        }
+
+        const IAB::BufferOfAPCIdentity before_predessor_buffer = predessor_buffer;
+        const IAB::BufferOfAPCIdentity before_child_buffer = child_buffer_idintity;
+        const IAB::BufferOfAPCIdentity before_next_id_buffer = next_id_buffer;
+
+        EdgeBuilder::EdgeData roots_edge_data =  before_of_roots_edge_data;
+        EdgeBuilder::EdgeData childs_root_edge_data = before_childs_own_root_edge_data;
+
+        if (
+            !EdgeBuilder::PrepareForDetachmentOfInharitedAxis(
+                predessor_buffer,
+                child_buffer_idintity,
+                has_next ? &next_id_buffer : nullptr,
+                axis,
+                roots_edge_idx,
+                roots_edge_data,
+                child_has_own_root ? &childs_root_edge_data : nullptr
+            )
+        )
+        {
+            ReleseReservedGraphAndEdge___();
+            return false;
+        }
+        
+
+        bool predessor_wrritten = false;
+        bool next_wrritten = false;
+        bool child_wrritten = false;
+
+        auto RestoreIdinties___ = [&]() noexcept -> void
+        {
+            if (predessor_wrritten)
+            {
+                WriteAcquiredAxis_(predessor_idx, before_predessor_buffer, axis);
+            }
+
+            if (next_wrritten)
+            {
+                WriteAcquiredAxis_(
+                    static_cast<uint32_t>(next_idx_of_same_parent),
+                    before_next_id_buffer,
+                    axis
+                );
+            }
+
+            if (child_wrritten)
+            {
+                WriteAcquiredAxis_(
+                    child_idx,
+                    before_child_buffer,
+                    axis
+                );
+            }
+        };
+
+        auto AbortMutation___ = [&]() noexcept -> void
+        {
+            RestoreIdinties___();
+            ReleseReservedGraphAndEdge___();
+        };
+
+        if (WriteAcquiredAxis_(predessor_idx, predessor_buffer, axis))
+        {
+            predessor_wrritten = true;
+        }
+        else
+        {
+            ReleseReservedGraphAndEdge___();
+            return false;
+        }
+
+        if (
+            has_next &&
+            WriteAcquiredAxis_(static_cast<uint32_t>(next_idx_of_same_parent), next_id_buffer, axis)
+        )
+        {
+            next_wrritten = true;
+        }
+
+        if (has_next && !next_wrritten)
+        {
+            AbortMutation___();
+            return false;
+        }
+
+        if (WriteAcquiredAxis_(child_idx, child_buffer_idintity, axis))
+        {
+            child_wrritten = true;
+        }
+        else
+        {
+            AbortMutation___();
+            return false;
+        }
+
+        if (child_has_own_root)
+        {
+            if (
+                !PublishReservedEdge_(
+                    childs_root_edge_data,
+                    static_cast<uint32_t>(child_as_root_edge_idx)
+                )
+            )
+            {
+                AbortMutation___();
+                return false;
+            }
+        }
+
+        if (!PublishReservedEdge_(roots_edge_data, roots_edge_idx))
+        {
+            AbortMutation___();
+            return false;
+        }
+
+        return 
+            ReleseGraphMutationFlag_(predessor_idx, axis, internal_max_tries) &&
+            (
+                has_next ? ReleseGraphMutationFlag_(
+                    static_cast<uint32_t>(next_idx_of_same_parent), 
+                    axis, internal_max_tries
+                ) : true
+            ) && 
+            ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries);
+    }
 
 }
