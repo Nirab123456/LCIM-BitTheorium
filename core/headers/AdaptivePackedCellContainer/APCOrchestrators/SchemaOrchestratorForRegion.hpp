@@ -12,8 +12,7 @@ namespace BidirectionalInMemGraph
             IMMUTABLE_SNAPSHOT = 1,
             ATOMIC_WORD_ARRAY = 2,
             MPMC_FIXED_RECORD_QUEUE = 3,
-            DOUBLE_BUFFERED = 4,
-            UNASSIGNED_UNUSED_NANNULL = 5
+            DOUBLE_BUFFERED = 4
         };
 
         enum class DataTypeOfMacroColumn : uint8_t
@@ -29,8 +28,7 @@ namespace BidirectionalInMemGraph
             FLOAT16_T = 8,
             FLOAT32_T = 9,
             FLOAT64_T = 10,
-            CHAR = 11,
-            UNASSIGNED_UNUSED_NANNULL = 12
+            CHAR = 11
         };
 
         enum class SchemaFlags : uint8_t
@@ -61,11 +59,11 @@ namespace BidirectionalInMemGraph
         struct RegionSchemaRecord
         {
             uint32_t RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
-            SchemaProtocols Protocol = SchemaProtocols::UNASSIGNED_UNUSED_NANNULL;
-            DataTypeOfMacroColumn Dtype = DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
+            SchemaProtocols Protocol{};
+            DataTypeOfMacroColumn Dtype{};
             uint8_t Version = UNSIGNED_ZERO;
             SchemaFlags Flags = SchemaFlags::UNASSIGNED_UNUSED_NANNULL;
-            MacroColumnOfAPC ParentColumn = MacroColumnOfAPC::NULLNAN;
+            MacroColumnOfAPC ParentColumn{};
             bool IsValidSchema = false;
         };
 
@@ -104,7 +102,6 @@ namespace BidirectionalInMemGraph
         static constexpr bool HasEnoughForInitialSchema(const RegionSchemaRecord& schema) noexcept
         {
             if (
-                !APCDataStructure::IsTrackedRegionMacroColumn(schema.ParentColumn) ||
                 !APCDataStructure::InLimitOfUint8(schema.Version)
             )
             {
@@ -117,8 +114,6 @@ namespace BidirectionalInMemGraph
         static constexpr bool SchemaSelfValidation(RegionSchemaRecord& desired_scheme) noexcept
         {
             if (
-                !IsKnownProtocol(desired_scheme.Protocol) ||
-                !IsKnownDataType(desired_scheme.Dtype) ||
                 !APCDataStructure::InLimitOfUint8(desired_scheme.Version)
             )
             {
@@ -167,18 +162,6 @@ namespace BidirectionalInMemGraph
                 return true;
             }
             return false;
-        }
-
-        static constexpr bool IsKnownProtocol(SchemaProtocols protocol) noexcept
-        {
-            return protocol >= SchemaProtocols::PRIVATE_REGION &&
-                protocol < SchemaProtocols::UNASSIGNED_UNUSED_NANNULL;
-        }
-
-        static constexpr bool IsKnownDataType(DataTypeOfMacroColumn data_type) noexcept
-        {
-            return data_type >= DataTypeOfMacroColumn::UINT8_T &&
-                data_type < DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
         }
 
         static constexpr bool IsMPMCQueue(const RegionSchemaRecord& provided_schema) noexcept
@@ -376,7 +359,7 @@ namespace BidirectionalInMemGraph
             case MacroColumnOfAPC::AUX_SLOT: return conc_conf.AUX_SLOT;
             case MacroColumnOfAPC::HETEROGENOUS_PTR: return conc_conf.HETEROGENOUS_PTR;
             case MacroColumnOfAPC::FREE_SLOT: return conc_conf.FREE_SLOT;
-            default: return SchemaProtocols::UNASSIGNED_UNUSED_NANNULL;
+            default: return SchemaProtocols::PRIVATE_REGION;
             }
         }
 
@@ -397,7 +380,7 @@ namespace BidirectionalInMemGraph
             case MacroColumnOfAPC::AUX_SLOT: return conc_conf.AUX_SLOT;
             case MacroColumnOfAPC::HETEROGENOUS_PTR: return conc_conf.HETEROGENOUS_PTR;
             case MacroColumnOfAPC::FREE_SLOT: return conc_conf.FREE_SLOT;
-            default: return DataTypeOfMacroColumn::UNASSIGNED_UNUSED_NANNULL;
+            default: return DataTypeOfMacroColumn::UINT64_T;
             }
         }
 

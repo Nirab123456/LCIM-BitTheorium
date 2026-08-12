@@ -35,5 +35,10 @@
 11. ConstructAPCIdentity::AcquireGraphMutationFlag_ : GetSegmentPoolRange + ReadAPCStateAtomically_ : varifies the desired 
     mutation flag In contrast to current mutation flags if valid acquires the flag.
 
+13. PrepareInharitedAxis : Prepares both identity + Both Edge Table Data EdgeData (owner edge which is bing muted and if 
+    the current APC who is bing linked and unlinked to a owner is also a owner then prepers that edge too)
+
 12. ConstructAPCIdentity::LinkTwoAPC : 
-    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edgetable for update only when initialized : So atleast for now Complication should justify the cost
+    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxis_(write both axis) -> PublishReservedEdge_(if the one bing linked has owned table then both) -> ReleseGraphMutationFlag_(for the one bing linked)
+    FAILURE IN ANY POINT :
+        Restore axis locks -> Restore owned edge table / child edge table if available

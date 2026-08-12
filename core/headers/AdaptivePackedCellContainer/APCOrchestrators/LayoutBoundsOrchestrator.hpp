@@ -12,7 +12,7 @@ struct LayoutBuilderAndValidator
     {
         uint32_t BeginIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         uint32_t EndIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        MacroColumnOfAPC LayoutIdentity = MacroColumnOfAPC::NULLNAN;
+        MacroColumnOfAPC LayoutIdentity{};
         bool IsValid = false;
     };
 
@@ -23,8 +23,7 @@ struct LayoutBuilderAndValidator
         if (
             APCDataStructure::IsValid32BitAPCUnit(a_layout.BeginIndex) &&
             APCDataStructure::IsValid32BitAPCUnit(a_layout.EndIndex) &&
-            a_layout.BeginIndex <= a_layout.EndIndex &&
-            ColumnConf::IsValidTrackedAPCNode(a_layout.LayoutIdentity)
+            a_layout.BeginIndex <= a_layout.EndIndex
         )
         {   a_layout.IsValid = true;
             return true;
@@ -105,11 +104,6 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
     ) noexcept
     {
-        if (!ColumnConf::IsValidTrackedAPCNode(layout_class))
-        {
-            return std::nullopt;
-        }
-
         switch (layout_class)
         {
         case MacroColumnOfAPC::FEEDFORWARD_MESSAGE:
@@ -268,11 +262,6 @@ struct BufferConfForTracking : public LayoutPercentageBuilder
 protected:
     static constexpr MacroColumnOfAPC GetMacroColumnFromBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx >= VALIDATION_IDX_OF_TRACKING_BUFFER)
-        {
-            return MacroColumnOfAPC::NULLNAN;
-        }
-
         return static_cast<MacroColumnOfAPC>(
             static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + buffer_idx
         );
@@ -281,11 +270,6 @@ protected:
 
     static constexpr std::optional<uint8_t> GetBufferIdxFromMacroColumn(MacroColumnOfAPC column) noexcept
     {
-        if (!LayoutHeaderIdentityOrchestrator::IsValidTrackedAPCNode(column))
-        {
-            return std::nullopt;
-        }
-
         return static_cast<uint8_t>(
             static_cast<uint8_t>(column) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
         );
@@ -313,10 +297,6 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
     static constexpr MacroColumnOfAPC GetOriginForLayoutClassByBufferIdx(uint8_t buffer_idx) noexcept
     {
-        if (buffer_idx >= ColumnConf::CountOfMacroColumn())
-        {
-            return MacroColumnOfAPC::NULLNAN;
-        }
         return static_cast<MacroColumnOfAPC>(
             static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) +
             buffer_idx

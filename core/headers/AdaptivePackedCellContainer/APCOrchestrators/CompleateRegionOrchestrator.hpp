@@ -28,8 +28,7 @@ namespace BidirectionalInMemGraph
             std::optional<uint8_t> equivelent_typed_count_of_64bit = CountOfTypedWordIn64Bit(return_schema.Dtype);
 
             if (
-                !equivelent_typed_count_of_64bit.has_value() ||
-                !IsKnownProtocol(return_schema.Protocol)
+                !equivelent_typed_count_of_64bit.has_value()
             )
             {
                 return_schema.IsValidSchema = false;

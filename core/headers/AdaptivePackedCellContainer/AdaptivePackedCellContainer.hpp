@@ -11,6 +11,19 @@ class AdaptivePackedCellContainer : public ReadAndWriteOfAPC
 public:
     using IAB = InstallAxisToBuffer;
 
+    // template <typename TempType> 
+    // std::array<TempType , APCDataStructure::CountOfMacroColumn()> ViewTable_
+
+    template <typename TempType>
+    TempType* BuildAViewOverRegion(MacroColumnOfAPC region) noexcept;
+
+    template <typename T>
+    bool InitiateTheContainerAsSingleRegionTypeProtocol(
+        SchemDefinition::SchemaProtocols protocol,
+        MacroColumnOfAPC column
+    ) noexcept;
+
+
     bool AttachAnotherToMe(
         AdaptivePackedCellContainer& sibbling,
         IAB::BidirectionalAxis axis,
@@ -32,6 +45,8 @@ public:
         IAB::BidirectionalAxis axis,
         IAB::DescOfInharitance inharitance
     ) noexcept;
+
+
 
 };
 

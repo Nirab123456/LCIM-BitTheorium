@@ -485,7 +485,7 @@ namespace BidirectionalInMemGraph
         }
 
         uint64_t owned_edge_raw = FABRIC_CELL_SENTINAL;
-        if (inharitance == IAB::DescOfInharitance::LINKED_CHILD)
+        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
         {
             owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
                 predessor_buffer,
@@ -695,6 +695,7 @@ namespace BidirectionalInMemGraph
                 ReleseAll___();
                 return false;
             }
+            child_owned_published = true;
         }
 
         if (!PublishReservedEdge_(owner_edge_work, owner_edge_idx))
