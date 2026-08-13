@@ -50,6 +50,7 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
+
     };
     
     

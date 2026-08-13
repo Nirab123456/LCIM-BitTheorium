@@ -847,10 +847,10 @@ namespace BidirectionalInMemGraph
         };
 
         if (
-            !ValidEdge___(before_childs_own_root_edge_data) ||
+            !ValidEdge___(before_of_roots_edge_data) ||
             (
                 child_has_own_root &&
-                !ValidEdge___(before_of_roots_edge_data)
+                !ValidEdge___(before_childs_own_root_edge_data)
             ) ||
             before_of_roots_edge_data.OwnLinkCount == UNSIGNED_ZERO
         )

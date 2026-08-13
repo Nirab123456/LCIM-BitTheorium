@@ -72,3 +72,10 @@
     ReserveAnEdge_ + InitiateRootAxis(required edges).
     FAILURE IN ANY POINT :
         Rollback the edges -> SwitchDescriptionState(switches the state back to free)
+
+
+
+
+
+
+TEST 1:
