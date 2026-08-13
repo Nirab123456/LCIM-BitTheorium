@@ -124,7 +124,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
+    bool APCHandleDescriptorConstructor::SwitchDescriptionState(
         uint64_t description_idx,
         StateOfAPC updated_state,
         StateOfAPC desired_state,
@@ -200,7 +200,7 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-            if (!SwitchOwnershipOfAReadyDescription(
+            if (!SwitchDescriptionState(
                 description_idx,
                 StateOfAPC::RESERVED,
                 StateOfAPC::FREE

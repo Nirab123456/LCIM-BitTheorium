@@ -54,6 +54,9 @@
     FAILURE IN ANY POINT :
         Revert all the changes happened before and return false
 
-15. APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription : 
+15. APCHandleDescriptorConstructor::SwitchDescriptionState : Switches state of a description by checking the 
+    the provided DESIRED state and "IsTransitionStateLeagal()"
+
+16. APCHandleDescriptorConstructor::GetASlotForNewAPCLink : Its a toy function giving a first FREE state APC
 
 15. VagueTemoraryPremativeFabric::CreateAPC : 

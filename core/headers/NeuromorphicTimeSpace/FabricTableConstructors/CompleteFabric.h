@@ -54,7 +54,7 @@ namespace BidirectionalInMemGraph
         constexpr RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
-        bool SwitchOwnershipOfAReadyDescription(
+        bool SwitchDescriptionState(
             uint64_t description_idx,
             StateOfAPC updated_state,
             StateOfAPC desired_state,

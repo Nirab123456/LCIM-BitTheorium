@@ -17,11 +17,9 @@ protected:
     uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     uint64_t* RawAPCBasePtr_{nullptr};
     
-    void ReleseFabricBindingOnly_() noexcept;
 
 public:
-
-    void FreeAll() noexcept;
+    void ReleseFabricBindingOnly_() noexcept;
 
     void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
