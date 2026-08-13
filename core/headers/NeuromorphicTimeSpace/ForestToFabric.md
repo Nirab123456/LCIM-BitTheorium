@@ -39,7 +39,7 @@
     the current APC who is bing linked and unlinked to a owner is also a owner then prepers that edge too)
 
 13. ConstructAPCIdentity::LinkTwoAPC : 
-    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxis_(write both axis) -> PublishReservedEdge_(if the one bing linked has owned table then both) -> ReleseGraphMutationFlag_(for the one bing linked)
+    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxis_(write both axis) -> PublishReservedEdge_(if the one being linked has owned table then both inhereted and current edge) -> ReleseGraphMutationFlag_(for the one bing linked)
     FAILURE IN ANY POINT :
         Restore axis locks -> Restore owned edge table / child edge table if available
 
@@ -54,9 +54,21 @@
     FAILURE IN ANY POINT :
         Revert all the changes happened before and return false
 
-15. APCHandleDescriptorConstructor::SwitchDescriptionState : Switches state of a description by checking the 
+15. APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription : Switches state of a description by checking the 
     the provided DESIRED state and "IsTransitionStateLeagal()"
 
-16. APCHandleDescriptorConstructor::GetASlotForNewAPCLink : Its a toy function giving a first FREE state APC
+16. APCHandleDescriptorConstructor::GetASlotForNewAPCLink : Its a toy function giving a first FREE state APC.
 
-15. VagueTemoraryPremativeFabric::CreateAPC : 
+17. FabricToAPCLinker::BindExternalRawFabricBacking_ : Attaches APC memory range ptr, Fabrics own ptr .... to APC.
+
+18. ReadAndWriteOfAPC::InitiateAPCMetaHeader : Configures layout, datat types of those layouts and protocol of 
+    those layouts. It requires APC state RESRVED so re-configure should reserve before request.
+
+19. VagueTemoraryPremativeFabric::StoreAPCRuntimePtr : stores pointer to temporary(temporary because APC is just a 
+    view and because probably we dont need the table) ptr table for APC
+
+20. VagueTemoraryPremativeFabric::CreateAPC : 
+    GetASlotForNewAPCLink -> AttachValidIdentity(to the new slo we got) -> BindExternalRawFabricBacking_(to the newly created APC) -> InitiateAPCMetaHeader -> SwitchDescriptionState( switch the description/APC state to LIVE) ->
+    ReserveAnEdge_ + InitiateRootAxis(required edges).
+    FAILURE IN ANY POINT :
+        Rollback the edges -> SwitchDescriptionState(switches the state back to free)

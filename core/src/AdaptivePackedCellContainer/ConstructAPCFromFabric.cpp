@@ -295,7 +295,7 @@ namespace BidirectionalInMemGraph
         IAB::BufferOfAPCIdentity identity_buffer{};
 
         if (
-            apc_idx > CountOfAPC_ ||
+            apc_idx >= CountOfAPC_ ||
             !ReadACompleateAPCDescriptorBuffer_(apc_idx, description_buffer)
         )
         {
@@ -325,7 +325,7 @@ namespace BidirectionalInMemGraph
 
         if (
             !range.IsValid ||
-            dsc_lock_files.IsValid ||
+            !dsc_lock_files.IsValid ||
             dsc_lock_files.StateOfTheAPC != StateOfAPC::RESERVED ||
             range.BeginIndex != begin_idx ||
             range.EndIndex != end_idx
@@ -500,10 +500,12 @@ namespace BidirectionalInMemGraph
             );
         }
 
+
         uint32_t roots_edge_idx = static_cast<uint32_t>(owned_edge_raw);
         EdgeBuilder::EdgeData owner_edge_before{};
 
         if (
+            !APCDataStructure::IsValid32BitAPCUnit(owned_edge_raw) ||
             !ReserveAnEdge_(
                 map.EdgeTable,
                 static_cast<uint32_t>(owned_edge_raw),
@@ -524,8 +526,6 @@ namespace BidirectionalInMemGraph
 
         const uint32_t first_lock = std::min(predessor_idx, child_idx);
         const uint32_t second_lock = std::max(predessor_idx, child_idx);
-        bool first_locked = false;
-        bool second_locked = false;
 
         if (
             !AcquireGraphMutationFlag_(first_lock, axis_flag, internal_max_tries).has_value()
@@ -709,27 +709,22 @@ namespace BidirectionalInMemGraph
                 {
                     PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
                 }
-                else if (child_owned_reserved)
-                {
-                    PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
-                }
-                ReleseAxisLockOwnerEdge___();
-                return false;
             }
+            else if (child_owned_reserved)
+            {
+                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
+            }
+            ReleseAxisLockOwnerEdge___();
+            return false;
         }
         
-        bool relese_ok = true;
-        if (predessor_idx == first_lock)
-        {
-            first_locked = false;
-        }
-        else
-        {
-            second_locked = false;
-        }
-        
-        return ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries) & relese_ok;
+        return ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries) &&
+            ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
     }
+
+
+
+
 
     bool ConstructAPCIdentity::UnlinkTwoAPC(
         uint32_t child_idx,
