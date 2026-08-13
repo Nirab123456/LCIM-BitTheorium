@@ -122,7 +122,8 @@ namespace BidirectionalInMemGraph
             }
             if (HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REGION_DISABLED))
             {
-                return desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO;
+                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO;
+                return desired_scheme.IsValidSchema;
             }
 
             if ( desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO)

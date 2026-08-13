@@ -96,9 +96,11 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
         uint32_t FreeSlot = UNSIGNED_ZERO;
     };
 
+    static const LayoutSpanAndPercentageCarrier  DEFAULT_REGION_SPAN;
+
     static constexpr std::optional<uint32_t> GetDefaultInitialPercentage(
         MacroColumnOfAPC layout_class,
-        const LayoutSpanAndPercentageCarrier& user_defined_percentage = LayoutSpanAndPercentageCarrier{}
+        const LayoutSpanAndPercentageCarrier& user_defined_percentage
     ) noexcept
     {
         switch (layout_class)
@@ -243,11 +245,14 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
 };
 
+inline constexpr LayoutPercentageBuilder::LayoutSpanAndPercentageCarrier LayoutPercentageBuilder::DEFAULT_REGION_SPAN{};
+
 struct BufferConfForTracking : public LayoutPercentageBuilder
 {
     static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = ColumnConf::CountOfMacroColumn() + 1;
     static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
     using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
+
 
     static constexpr void BuildNullTrackingBuffer(TrackingBufferOfAPC& a_layout_buffer) noexcept
     {
@@ -399,7 +404,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
     static constexpr bool BuildInitialLayoutBuffer(
         TrackingBufferOfAPC& return_buffer,
         uint32_t capacity_of_the_apc,
-        const LayoutSpanAndPercentageCarrier& provided_layout_weight = LayoutSpanAndPercentageCarrier{}
+        const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_REGION_SPAN
     ) noexcept
     {
         BuildNullTrackingBuffer(return_buffer);

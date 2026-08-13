@@ -3,7 +3,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    constexpr RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
+    RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
     {
         
         RangeOfAPC desired_segment_pool_range{};

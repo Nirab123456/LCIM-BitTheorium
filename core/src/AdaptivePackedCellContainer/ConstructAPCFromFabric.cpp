@@ -838,17 +838,20 @@ namespace BidirectionalInMemGraph
             PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
         };
 
-        auto VerifyEdge___ = [&](EdgeBuilder::EdgeData& edge_data___) noexcept -> bool
+        auto ValidEdge___ = [&](EdgeBuilder::EdgeData& edge_data___) noexcept -> bool
         {
             return 
-                !edge_data___.IsValid ||
-                edge_data___.Status != EdgeBuilder::EdgeStatus::LIVE ||
-                edge_data___.EdgeTable != map.EdgeTable;
+                edge_data___.IsValid &&
+                edge_data___.Status == EdgeBuilder::EdgeStatus::LIVE &&
+                edge_data___.EdgeTable == map.EdgeTable;
         };
 
         if (
-            !VerifyEdge___(before_childs_own_root_edge_data) ||
-            !VerifyEdge___(before_of_roots_edge_data) ||
+            !ValidEdge___(before_childs_own_root_edge_data) ||
+            (
+                child_has_own_root &&
+                !ValidEdge___(before_of_roots_edge_data)
+            ) ||
             before_of_roots_edge_data.OwnLinkCount == UNSIGNED_ZERO
         )
         {
@@ -879,14 +882,14 @@ namespace BidirectionalInMemGraph
 
         auto ReleseGraphMutation___ = [&]() noexcept -> void
         {
-            for (size_t i = 0; i < locked_count; i++)
+            while (locked_count != UNSIGNED_ZERO)
             {
+                --locked_count;
                 ReleseGraphMutationFlag_(
-                    lock_apcs_array[i],
+                    lock_apcs_array[locked_count],
                     axis,
                     internal_max_tries
                 );
-                --locked_count;
             }
         };
 
