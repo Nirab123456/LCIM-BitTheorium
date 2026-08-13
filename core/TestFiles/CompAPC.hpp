@@ -207,7 +207,6 @@ namespace TestSpace1
             if (!Fabric.InitializeFabricWithPtrTable(
                     FABRIC_SLOT_COUNT,
                     SLOT_WORDS,
-                    APCDataStructure::BRANCH_VERSION,
                     CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY))
             {
                 return false;
@@ -596,28 +595,6 @@ namespace TestSpace1
             << "  reserved payload not used    : " << KiB(m.ReservedButUnusedBytes) << " KiB\n";
     }
 
-    static void PrintComplexityModel()
-    {
-        PrintLine('=');
-        std::cout << "THEORETICAL COMPLEXITY MODEL (for operations exercised here)\n";
-        PrintLine();
-        std::cout
-            << "Operation                         vector + linked list        APC/Fabric\n"
-            << "indexed region word access        O(1)                       O(1)\n"
-            << "depth-d graph chase               O(d) pointer dereferences  O(d) identity snapshots\n"
-            << "known predecessor link            O(1)                       O(1) expected; bounded CAS retries\n"
-            << "known child unlink                O(1)                       O(1) expected; bounded CAS retries\n"
-            << "H and V independent mutation      O(1) each                  O(1) each, separate axis state\n"
-            << "vector node construction          O(region words) zero-init  n/a\n"
-            << "APC slot acquisition              n/a                        O(slot_count) worst-case CURRENTLY\n"
-            << "APC region view/metadata resolve  n/a                        O(1)\n"
-            << "persistent payload memory         O(nodes*region words)      O(fabric slots*slot words) reserve\n";
-        std::cout
-            << "\nImportant: APC link/unlink has O(1) structural work only when contention\n"
-            << "does not exhaust its bounded retry budget. Wall time under contention is\n"
-            << "therefore measured separately rather than hidden inside Big-O notation.\n";
-    }
-
     // ---------------------------------------------------------------------
     // Repeated benchmark runner
     // ---------------------------------------------------------------------
@@ -948,7 +925,6 @@ namespace TestSpace1
         // Complexity and interpretation
         // --------------------------------------------------------------
         std::cout << '\n';
-        PrintComplexityModel();
 
         PrintLine();
         std::cout << "CORRECTNESS MATRIX\n"

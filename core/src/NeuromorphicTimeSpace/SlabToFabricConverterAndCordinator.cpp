@@ -38,8 +38,6 @@ namespace BidirectionalInMemGraph
         SlabCellCount_ = UNSIGNED_ZERO;
         PerAPCRuntimeCellCount_ = UNSIGNED_ZERO;
         CountOfAPC_ = UNSIGNED_ZERO;
-        SlabId_ = APCDataStructure::BRANCH_VERSION;
-
         SegmentPoolBegin_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
         SegmentPoolEnd_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
 
@@ -62,7 +60,6 @@ namespace BidirectionalInMemGraph
         }
 
         SlabBasePtr_[static_cast<size_t>(FMI::MAGIC)] = CoreOfFabricCoordinator::FABRIC_MAGIC;
-        SlabBasePtr_[static_cast<size_t>(FMI::SLAB_ID)] = SlabId_;
         SlabBasePtr_[static_cast<size_t>(FMI::TOTAL_CELLS)] = SlabCellCount_;
         SlabBasePtr_[static_cast<size_t>(FMI::APC_DESCRIPTION_COUNT)] = CountOfAPC_;
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
@@ -124,7 +121,6 @@ namespace BidirectionalInMemGraph
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
         uint32_t slot_count,
         uint32_t slot_cell_count,
-        uint8_t slab_id,
         uint32_t fabric_thread_capacity
     ) noexcept
     {
@@ -169,7 +165,6 @@ namespace BidirectionalInMemGraph
         }
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
         PerAPCRuntimeCellCount_ = static_cast<uint32_t>(slot_cell_count);
-        SlabId_ = slab_id == UNSIGNED_ZERO ? APCDataStructure::BRANCH_VERSION : slab_id;
         ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 
         size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);

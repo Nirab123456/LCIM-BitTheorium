@@ -25,7 +25,6 @@ public:
     bool InitializeFabricWithPtrTable(
         uint32_t slot_count,
         uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
-        uint8_t slab_id = APCDataStructure::BRANCH_VERSION,
         uint32_t fabric_thread_capacity = UNSIGNED_ZERO
     ) noexcept;
 

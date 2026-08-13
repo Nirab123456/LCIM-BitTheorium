@@ -64,7 +64,6 @@ namespace BidirectionalInMemGraph
     bool VagueTemoraryPremativeFabric::InitializeFabricWithPtrTable(
         uint32_t slot_count,
         uint32_t slot_cell_count,
-        uint8_t slab_id,
         uint32_t fabric_thread_capacity
     ) noexcept
     {
@@ -72,7 +71,6 @@ namespace BidirectionalInMemGraph
         const bool base_ok = InitializeFabric(
             slot_count,
             slot_cell_count,
-            slab_id,
             fabric_thread_capacity
         );
 
