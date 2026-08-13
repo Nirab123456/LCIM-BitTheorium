@@ -1,6 +1,9 @@
+#pragma once
+
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
 #include "AdaptivePackedCellContainer/AdaptivePackedCellContainer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <barrier>
@@ -8,9 +11,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
-#include <mutex>
 #include <random>
-#include <string_view>
 #include <syncstream>
 #include <thread>
 #include <vector>
@@ -19,397 +20,467 @@ namespace TestSpace1
 {
     using namespace BidirectionalInMemGraph;
 
+    using Axis = InstallAxisToBuffer::BidirectionalAxis;
+    using Inheritance = InstallAxisToBuffer::DescOfInharitance;
     using Clock = std::chrono::steady_clock;
     using Microseconds = std::chrono::microseconds;
 
-    struct TrialResult
+    constexpr uint32_t VALUE_COUNT = 256u;
+    constexpr uint32_t PRODUCER_COUNT = 2u;
+    constexpr uint32_t FF_WORKER_COUNT = 3u;
+    constexpr uint32_t FB_WORKER_COUNT = 2u;
+    constexpr uint32_t FINAL_WORKER_COUNT = 1u;
+
+    // 2048 - 96 header = 1952 payload words. Four equal active regions
+    // leave ~488 words each, safely larger than VALUE_COUNT.
+    constexpr uint32_t SLOT_WORDS = 2048u;
+    constexpr uint32_t FABRIC_SLOT_COUNT = 16u;
+    constexpr uint32_t DYNAMIC_BRANCH_ROUNDS = 500u;
+    constexpr uint32_t CHASE_ROUNDS = 100'000u;
+
+    struct PipelineResult
     {
         bool Ok = false;
-        uint64_t SharedCount = 0;
-        uint64_t WeightedSum = 0;
-        uint64_t DoneCount = 0;
+        uint64_t SensorFFProduced = 0u;
+        uint64_t PredictorFBProduced = 0u;
+        uint64_t StateIntegrated = 0u;
+        uint64_t ErrorComputed = 0u;
+        uint64_t FinalCollected = 0u;
+        uint64_t OutputChecksumScaled2 = 0u;
         int64_t ElapsedUs = 0;
     };
 
-    static void Jitter(uint32_t seed, uint32_t max_us = 100u)
+    struct TimedResult
+    {
+        bool Ok = false;
+        uint64_t Checksum = 0u;
+        int64_t ElapsedUs = 0;
+    };
+
+    static void Jitter(uint32_t seed, uint32_t max_us = 20u)
     {
         std::minstd_rand rng(seed * 48271u + 17u);
         std::uniform_int_distribution<uint32_t> dist(0u, max_us);
         std::this_thread::sleep_for(Microseconds(dist(rng)));
     }
 
-    template <class Fn>
-    static bool TimedBool(std::string_view name, Fn&& fn)
-    {
-        const auto begin = Clock::now();
-        const bool ok = fn();
-        const auto end = Clock::now();
+    // ---------------------------------------------------------------------
+    // Current APC region/schema helpers.
+    // Test-local on purpose: once BuildAViewOverRegion() is finished, this
+    // small resolver should be replaced by the real APC view API.
+    // ---------------------------------------------------------------------
 
-        std::osyncstream(std::cout)
-            << name << " : " << (ok ? "PASS" : "FAIL")
-            << "  "
-            << std::chrono::duration_cast<Microseconds>(end - begin).count()
-            << " us\n";
-
-        return ok;
-    }
-
-    static bool VectorFetchAdd(
-        std::vector<uint64_t>& words,
-        size_t idx,
-        uint64_t delta,
-        uint32_t max_tries = 1'000'000u)
-    {
-        std::atomic_ref<uint64_t> target(words[idx]);
-        uint64_t expected = target.load(std::memory_order_acquire);
-
-        for (uint32_t attempt = 0; attempt < max_tries; ++attempt)
-        {
-            if (expected > UINT64_MAX - delta)
-            {
-                return false;
-            }
-
-            const uint64_t desired = expected + delta;
-
-            if (target.compare_exchange_weak(
-                    expected,
-                    desired,
-                    std::memory_order_acq_rel,
-                    std::memory_order_acquire))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    static bool APCFetchAdd(
-        AdaptivePackedCellContainer& apc,
-        uint32_t local_idx,
-        uint64_t delta,
-        uint32_t max_tries = 1'000'000u)
-    {
-        for (uint32_t attempt = 0; attempt < max_tries; ++attempt)
-        {
-            uint64_t observed = 0u;
-            if (!apc.AtomicallyReadLongLongAPCUnit(local_idx, observed))
-            {
-                return false;
-            }
-
-            if (observed > UINT64_MAX - delta)
-            {
-                return false;
-            }
-
-            uint64_t expected = observed;
-            if (apc.CompareExchangeStrongFromAPC(
-                    local_idx,
-                    expected,
-                    observed + delta,
-                    std::memory_order_acq_rel,
-                    std::memory_order_acquire))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    static TrialResult RunVectorSharedTrial(
-        uint32_t worker_count,
-        uint32_t iterations)
-    {
-        constexpr size_t START = 0u;
-        constexpr size_t COUNT = 1u;
-        constexpr size_t SUM = 2u;
-        constexpr size_t DONE = 3u;
-        constexpr size_t WORKER_BASE = 4u;
-
-        std::vector<uint64_t> words(WORKER_BASE + worker_count, 0u);
-        std::atomic<bool> failed{false};
-        std::vector<std::thread> workers;
-        workers.reserve(worker_count);
-
-        for (uint32_t worker = 0u; worker < worker_count; ++worker)
-        {
-            workers.emplace_back([&, worker]
-            {
-                std::atomic_ref<uint64_t> start(words[START]);
-
-                while (start.load(std::memory_order_acquire) == 0u)
-                {
-                    std::this_thread::yield();
-                }
-
-                for (uint32_t i = 0u; i < iterations; ++i)
-                {
-                    if (
-                        !VectorFetchAdd(words, COUNT, 1u) ||
-                        !VectorFetchAdd(words, SUM, static_cast<uint64_t>(worker + 1u))
-                    )
-                    {
-                        failed.store(true, std::memory_order_release);
-                        return;
-                    }
-
-                    if ((i & 1023u) == 0u)
-                    {
-                        Jitter(worker * 1009u + i, 30u);
-                    }
-                }
-
-                std::atomic_ref<uint64_t> own(words[WORKER_BASE + worker]);
-                own.store(iterations, std::memory_order_release);
-
-                if (!VectorFetchAdd(words, DONE, 1u))
-                {
-                    failed.store(true, std::memory_order_release);
-                }
-            });
-        }
-
-        const auto begin = Clock::now();
-        std::atomic_ref<uint64_t>(words[START]).store(1u, std::memory_order_release);
-
-        const auto deadline = begin + std::chrono::seconds(10);
-        std::atomic_ref<uint64_t> done(words[DONE]);
-
-        while (done.load(std::memory_order_acquire) != worker_count)
-        {
-            if (failed.load(std::memory_order_acquire) || Clock::now() >= deadline)
-            {
-                failed.store(true, std::memory_order_release);
-                break;
-            }
-            std::this_thread::yield();
-        }
-
-        for (std::thread& thread : workers)
-        {
-            thread.join();
-        }
-
-        const auto end = Clock::now();
-
-        TrialResult result{};
-        result.SharedCount = std::atomic_ref<uint64_t>(words[COUNT]).load(std::memory_order_acquire);
-        result.WeightedSum = std::atomic_ref<uint64_t>(words[SUM]).load(std::memory_order_acquire);
-        result.DoneCount = done.load(std::memory_order_acquire);
-        result.ElapsedUs = std::chrono::duration_cast<Microseconds>(end - begin).count();
-
-        const uint64_t expected_count = static_cast<uint64_t>(worker_count) * iterations;
-        const uint64_t expected_sum = static_cast<uint64_t>(iterations) *
-            (static_cast<uint64_t>(worker_count) * (worker_count + 1u) / 2u);
-
-        bool workers_ok = true;
-        for (uint32_t worker = 0u; worker < worker_count; ++worker)
-        {
-            workers_ok = workers_ok &&
-                std::atomic_ref<uint64_t>(words[WORKER_BASE + worker]).load(std::memory_order_acquire) == iterations;
-        }
-
-        result.Ok =
-            !failed.load(std::memory_order_acquire) &&
-            result.SharedCount == expected_count &&
-            result.WeightedSum == expected_sum &&
-            result.DoneCount == worker_count &&
-            workers_ok;
-
-        return result;
-    }
-
-    struct APCRegionBounds
+    struct APCRegionRef
     {
         uint32_t Begin = 0u;
         uint32_t End = 0u;
+        SchemaDefinition::RegionSchemaRecord Schema{};
         bool Valid = false;
+
+        uint32_t Size() const noexcept
+        {
+            return End >= Begin ? End - Begin : 0u;
+        }
     };
 
-    static APCRegionBounds GetStateRegionBounds(
-        AdaptivePackedCellContainer& apc)
+    static constexpr HeaderIdentifierOfAPC BoundsHeaderFor(
+        MacroColumnOfAPC region) noexcept
     {
-        uint64_t packed = FABRIC_CELL_SENTINAL;
+        switch (region)
+        {
+        case MacroColumnOfAPC::FEEDFORWARD_MESSAGE:
+            return HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS;
+        case MacroColumnOfAPC::FEEDBACKWARD_MESSAGE:
+            return HeaderIdentifierOfAPC::FEEDBACKWARD_BOUNDS;
+        case MacroColumnOfAPC::LATERAL_MESAGE:
+            return HeaderIdentifierOfAPC::LATERAL_BOUNDS;
+        case MacroColumnOfAPC::STATE_SLOT:
+            return HeaderIdentifierOfAPC::STATE_BOUNDS;
+        case MacroColumnOfAPC::ERROR_SLOT:
+            return HeaderIdentifierOfAPC::ERROR_BOUNDS;
+        case MacroColumnOfAPC::WEIGHTLESS_LOOKUP:
+            return HeaderIdentifierOfAPC::WEIGHTLESS_BOUNDS;
+        case MacroColumnOfAPC::WEIGHT_SLOT:
+            return HeaderIdentifierOfAPC::WEIGHT_BOUNDS;
+        case MacroColumnOfAPC::AUX_SLOT:
+            return HeaderIdentifierOfAPC::AUX_BOUNDS;
+        case MacroColumnOfAPC::HETEROGENOUS_PTR:
+            return HeaderIdentifierOfAPC::HETEROGENOUS_PTR_BOUNDS;
+        case MacroColumnOfAPC::FREE_SLOT:
+            return HeaderIdentifierOfAPC::FREE_BOUNDS;
+        default:
+            return HeaderIdentifierOfAPC::EOF_APC_HEADER;
+        }
+    }
 
-        if (!apc.ReadAPCMetaUnit(
-                HeaderIdentifierOfAPC::STATE_BOUNDS,
-                packed,
+    static bool ResolveRegion(
+        AdaptivePackedCellContainer& apc,
+        MacroColumnOfAPC region,
+        SchemaDefinition::SchemaProtocols expected_protocol,
+        APCRegionRef& out)
+    {
+        out = APCRegionRef{};
+
+        const HeaderIdentifierOfAPC bounds_header = BoundsHeaderFor(region);
+        if (bounds_header == HeaderIdentifierOfAPC::EOF_APC_HEADER)
+        {
+            return false;
+        }
+
+        uint64_t packed_bounds = FABRIC_CELL_SENTINAL;
+        uint64_t packed_schema = FABRIC_CELL_SENTINAL;
+
+        if (
+            !apc.ReadAPCMetaUnit(bounds_header, packed_bounds, true) ||
+            !apc.ReadAPCMetaUnit(
+                APCDataStructure::SchemaHeaderIndexFromColumnName(region),
+                packed_schema,
                 true))
         {
-            return {};
+            return false;
         }
 
-        auto carrier = LayoutBoundsOrchestrator::GetLayoutCarrierFromValidLayoutCell(
-            packed,
-            MacroColumnOfAPC::STATE_SLOT
-        );
+        const auto bounds =
+            LayoutBoundsOrchestrator::GetLayoutCarrierFromValidLayoutCell(
+                packed_bounds,
+                region);
 
-        if (!carrier.IsValid || carrier.BeginIndex >= carrier.EndIndex)
-        {
-            return {};
-        }
-
-        return APCRegionBounds{
-            carrier.BeginIndex,
-            carrier.EndIndex,
-            true
-        };
-    }
-
-    static TrialResult RunAPCSharedTrial(
-        AdaptivePackedCellContainer& apc,
-        uint32_t worker_count,
-        uint32_t iterations)
-    {
-        constexpr uint32_t START_OFF = 0u;
-        constexpr uint32_t COUNT_OFF = 1u;
-        constexpr uint32_t SUM_OFF = 2u;
-        constexpr uint32_t DONE_OFF = 3u;
-        constexpr uint32_t WORKER_BASE_OFF = 4u;
-
-        const APCRegionBounds bounds = GetStateRegionBounds(apc);
         if (
-            !bounds.Valid ||
-            bounds.End - bounds.Begin < WORKER_BASE_OFF + worker_count
-        )
+            !bounds.IsValid ||
+            bounds.BeginIndex >= bounds.EndIndex ||
+            bounds.BeginIndex < AdaptivePackedCellContainer::PayloadBegin())
         {
-            return {};
+            return false;
         }
 
-        const uint32_t START = bounds.Begin + START_OFF;
-        const uint32_t COUNT = bounds.Begin + COUNT_OFF;
-        const uint32_t SUM = bounds.Begin + SUM_OFF;
-        const uint32_t DONE = bounds.Begin + DONE_OFF;
-        const uint32_t WORKER_BASE = bounds.Begin + WORKER_BASE_OFF;
+        SchemaDefinition::RegionSchemaRecord schema{};
+        schema.ParentColumn = region;
 
-        for (uint32_t i = START; i < WORKER_BASE + worker_count; ++i)
+        if (
+            !SchemaDefinition::LayoutSchemaFromPackedCell(schema, packed_schema) ||
+            !schema.IsValidSchema ||
+            schema.ParentColumn != region ||
+            schema.Dtype != SchemaDefinition::DataTypeOfMacroColumn::UINT64_T ||
+            schema.Protocol != expected_protocol)
         {
-            apc.AtomicallyWriteU64ToAPC(i, 0u);
+            return false;
         }
 
-        std::atomic<bool> failed{false};
-        std::vector<std::thread> workers;
-        workers.reserve(worker_count);
-
-        for (uint32_t worker = 0u; worker < worker_count; ++worker)
-        {
-            workers.emplace_back([&, worker]
-            {
-                for (;;)
-                {
-                    uint64_t start = 0u;
-                    if (!apc.AtomicallyReadLongLongAPCUnit(START, start))
-                    {
-                        failed.store(true, std::memory_order_release);
-                        return;
-                    }
-
-                    if (start != 0u)
-                    {
-                        break;
-                    }
-
-                    std::this_thread::yield();
-                }
-
-                for (uint32_t i = 0u; i < iterations; ++i)
-                {
-                    if (
-                        !APCFetchAdd(apc, COUNT, 1u) ||
-                        !APCFetchAdd(apc, SUM, static_cast<uint64_t>(worker + 1u))
-                    )
-                    {
-                        failed.store(true, std::memory_order_release);
-                        return;
-                    }
-
-                    if ((i & 1023u) == 0u)
-                    {
-                        Jitter(worker * 1009u + i, 30u);
-                    }
-                }
-
-                apc.AtomicallyWriteU64ToAPC(WORKER_BASE + worker, iterations);
-
-                if (!APCFetchAdd(apc, DONE, 1u))
-                {
-                    failed.store(true, std::memory_order_release);
-                }
-            });
-        }
-
-        const auto begin = Clock::now();
-        apc.AtomicallyWriteU64ToAPC(START, 1u);
-
-        const auto deadline = begin + std::chrono::seconds(10);
-        uint64_t done = 0u;
-
-        for (;;)
-        {
-            if (!apc.AtomicallyReadLongLongAPCUnit(DONE, done))
-            {
-                failed.store(true, std::memory_order_release);
-                break;
-            }
-
-            if (done == worker_count)
-            {
-                break;
-            }
-
-            if (failed.load(std::memory_order_acquire) || Clock::now() >= deadline)
-            {
-                failed.store(true, std::memory_order_release);
-                break;
-            }
-
-            std::this_thread::yield();
-        }
-
-        for (std::thread& thread : workers)
-        {
-            thread.join();
-        }
-
-        const auto end = Clock::now();
-
-        TrialResult result{};
-        uint64_t count = 0u;
-        uint64_t sum = 0u;
-        apc.AtomicallyReadLongLongAPCUnit(COUNT, count);
-        apc.AtomicallyReadLongLongAPCUnit(SUM, sum);
-        apc.AtomicallyReadLongLongAPCUnit(DONE, done);
-
-        result.SharedCount = count;
-        result.WeightedSum = sum;
-        result.DoneCount = done;
-        result.ElapsedUs = std::chrono::duration_cast<Microseconds>(end - begin).count();
-
-        const uint64_t expected_count = static_cast<uint64_t>(worker_count) * iterations;
-        const uint64_t expected_sum = static_cast<uint64_t>(iterations) *
-            (static_cast<uint64_t>(worker_count) * (worker_count + 1u) / 2u);
-
-        bool workers_ok = true;
-        for (uint32_t worker = 0u; worker < worker_count; ++worker)
-        {
-            uint64_t worker_value = 0u;
-            workers_ok = workers_ok &&
-                apc.AtomicallyReadLongLongAPCUnit(WORKER_BASE + worker, worker_value) &&
-                worker_value == iterations;
-        }
-
-        result.Ok =
-            !failed.load(std::memory_order_acquire) &&
-            result.SharedCount == expected_count &&
-            result.WeightedSum == expected_sum &&
-            result.DoneCount == worker_count &&
-            workers_ok;
-
-        return result;
+        out.Begin = bounds.BeginIndex;
+        out.End = bounds.EndIndex;
+        out.Schema = schema;
+        out.Valid = true;
+        return true;
     }
+
+    static bool ZeroAPCRegion(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t words_to_zero)
+    {
+        if (!region.Valid || words_to_zero > region.Size())
+        {
+            return false;
+        }
+
+        std::vector<uint64_t> zeros(words_to_zero, 0u);
+        return apc.ForceCopyToAPCFromBuffer(
+            region.Begin,
+            words_to_zero,
+            zeros.data());
+    }
+
+    static bool APCSnapshotStore(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t idx,
+        uint64_t value)
+    {
+        if (!region.Valid || idx >= region.Size())
+        {
+            return false;
+        }
+
+        // IMMUTABLE_SNAPSHOT is written once per element in this test.
+        // We use the existing atomic word store as the publication event.
+        apc.AtomicallyWriteU64ToAPC(region.Begin + idx, value);
+        return true;
+    }
+
+    static bool APCSnapshotLoad(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t idx,
+        uint64_t& value)
+    {
+        if (!region.Valid || idx >= region.Size())
+        {
+            return false;
+        }
+
+        return apc.AtomicallyReadLongLongAPCUnit(region.Begin + idx, value);
+    }
+
+    static bool APCPrivateStore(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t idx,
+        uint64_t value)
+    {
+        if (!region.Valid || idx >= region.Size())
+        {
+            return false;
+        }
+
+        return apc.ForceCopyToAPCFromBuffer(
+            region.Begin + idx,
+            1u,
+            &value);
+    }
+
+    static bool APCPrivateLoad(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t idx,
+        uint64_t& value)
+    {
+        if (!region.Valid || idx >= region.Size())
+        {
+            return false;
+        }
+
+        return apc.CopyFromAPCToBuffer(
+            region.Begin + idx,
+            1u,
+            &value,
+            false);
+    }
+
+    static bool BuildFourRegionConfig(
+        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
+        SchemaDefinition::InitialRegionalDtypeConf& dtype,
+        SchemaDefinition::InitialRegionalProtocol& protocol)
+    {
+        // Exactly four active regions.
+        layout.FeedForward = 1u;
+        layout.FeedBackward = 1u;
+        layout.Lateral = 0u;
+        layout.StateSlot = 1u;
+        layout.ErrorSlot = 1u;
+        layout.Weightless = 0u;
+        layout.WeightSlot = 0u;
+        layout.AUXSlot = 0u;
+        layout.HeterogenousPtr = 0u;
+        layout.FreeSlot = 0u;
+
+        dtype.FEEDFORWARD_MESSAGE = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+        dtype.FEEDBACKWARD_MESSAGE = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+        dtype.STATE_SLOT = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+        dtype.ERROR_SLOT = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+
+        // This is the requested PRIVATE + snapshot configuration.
+        // The snapshot regions are atomically published/read in the test.
+        protocol.FEEDFORWARD_MESSAGE = SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT;
+        protocol.FEEDBACKWARD_MESSAGE = SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT;
+        protocol.STATE_SLOT = SchemaDefinition::SchemaProtocols::PRIVATE_REGION;
+        protocol.ERROR_SLOT = SchemaDefinition::SchemaProtocols::PRIVATE_REGION;
+
+        return true;
+    }
+
+    // ---------------------------------------------------------------------
+    // Raw vector/pointer-chasing baseline graph.
+    // It intentionally mirrors the APC invariant that a node can be a child
+    // and own a root on the same axis at the same time.
+    // ---------------------------------------------------------------------
+
+    struct VectorNode;
+
+    struct VectorAxisState
+    {
+        bool OwnsRoot = false;
+
+        // Owned-root side.
+        VectorNode* RootFirstChild = nullptr;
+        VectorNode* RootEnd = nullptr;
+        uint32_t RootCount = 0u;
+
+        // Inherited side.
+        VectorNode* Owner = nullptr;
+        VectorNode* Previous = nullptr;
+        VectorNode* Next = nullptr;
+    };
+
+    struct VectorNode
+    {
+        uint32_t Id = 0u;
+        std::vector<uint64_t> FeedForward;
+        std::vector<uint64_t> FeedBackward;
+        std::vector<uint64_t> State;
+        std::vector<uint64_t> Error;
+        VectorAxisState Horizontal{};
+        VectorAxisState Vertical{};
+
+        VectorNode(uint32_t id, uint32_t region_words)
+            : Id(id),
+              FeedForward(region_words, 0u),
+              FeedBackward(region_words, 0u),
+              State(region_words, 0u),
+              Error(region_words, 0u)
+        {
+        }
+    };
+
+    static VectorAxisState& AxisState(VectorNode& node, Axis axis) noexcept
+    {
+        return axis == Axis::HORIZONTAL ? node.Horizontal : node.Vertical;
+    }
+
+    // static const VectorAxisState& AxisState(const VectorNode& node, Axis axis) noexcept
+    // {
+    //     return axis == Axis::HORIZONTAL ? node.Horizontal : node.Vertical;
+    // }
+
+    static bool VectorLinkTwoAPC(
+        VectorNode& predecessor,
+        VectorNode& child,
+        Axis axis,
+        Inheritance inheritance) noexcept
+    {
+        if (&predecessor == &child)
+        {
+            return false;
+        }
+
+        VectorAxisState& child_axis = AxisState(child, axis);
+        if (
+            child_axis.Owner ||
+            child_axis.Previous ||
+            child_axis.Next)
+        {
+            return false;
+        }
+
+        if (inheritance == Inheritance::FIRST_CHILD)
+        {
+            VectorAxisState& owner_axis = AxisState(predecessor, axis);
+            if (
+                !owner_axis.OwnsRoot ||
+                owner_axis.RootFirstChild ||
+                owner_axis.RootEnd ||
+                owner_axis.RootCount != 0u)
+            {
+                return false;
+            }
+
+            owner_axis.RootFirstChild = &child;
+            owner_axis.RootEnd = &child;
+            owner_axis.RootCount = 1u;
+
+            child_axis.Owner = &predecessor;
+            child_axis.Previous = &predecessor;
+            child_axis.Next = nullptr;
+            return true;
+        }
+
+        if (inheritance == Inheritance::LINKED_CHILD)
+        {
+            VectorAxisState& predecessor_axis = AxisState(predecessor, axis);
+            VectorNode* owner = predecessor_axis.Owner;
+
+            if (!owner || predecessor_axis.Next)
+            {
+                return false;
+            }
+
+            VectorAxisState& owner_axis = AxisState(*owner, axis);
+            if (
+                !owner_axis.OwnsRoot ||
+                owner_axis.RootEnd != &predecessor)
+            {
+                return false;
+            }
+
+            predecessor_axis.Next = &child;
+            child_axis.Owner = owner;
+            child_axis.Previous = &predecessor;
+            child_axis.Next = nullptr;
+            owner_axis.RootEnd = &child;
+            ++owner_axis.RootCount;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool VectorUnlinkTwoAPC(VectorNode& child, Axis axis) noexcept
+    {
+        VectorAxisState& child_axis = AxisState(child, axis);
+        VectorNode* owner = child_axis.Owner;
+        VectorNode* previous = child_axis.Previous;
+        VectorNode* next = child_axis.Next;
+
+        if (!owner || !previous)
+        {
+            return false;
+        }
+
+        VectorAxisState& owner_axis = AxisState(*owner, axis);
+        if (!owner_axis.OwnsRoot || owner_axis.RootCount == 0u)
+        {
+            return false;
+        }
+
+        if (previous == owner)
+        {
+            if (owner_axis.RootFirstChild != &child)
+            {
+                return false;
+            }
+            owner_axis.RootFirstChild = next;
+        }
+        else
+        {
+            VectorAxisState& previous_axis = AxisState(*previous, axis);
+            if (previous_axis.Next != &child)
+            {
+                return false;
+            }
+            previous_axis.Next = next;
+        }
+
+        if (next)
+        {
+            AxisState(*next, axis).Previous = previous;
+        }
+
+        if (owner_axis.RootEnd == &child)
+        {
+            owner_axis.RootEnd = (previous == owner) ? nullptr : previous;
+        }
+
+        --owner_axis.RootCount;
+        if (owner_axis.RootCount == 0u)
+        {
+            owner_axis.RootFirstChild = nullptr;
+            owner_axis.RootEnd = nullptr;
+        }
+
+        // Crucially, the child's own root fields are left untouched.
+        child_axis.Owner = nullptr;
+        child_axis.Previous = nullptr;
+        child_axis.Next = nullptr;
+        return true;
+    }
+
+    static VectorNode* VectorOwnedFirstChild(VectorNode& node, Axis axis) noexcept
+    {
+        return AxisState(node, axis).RootFirstChild;
+    }
+
+    // ---------------------------------------------------------------------
+    // APC graph chasing helpers.
+    // ---------------------------------------------------------------------
 
     struct AxisSnapshot
     {
@@ -425,7 +496,7 @@ namespace TestSpace1
     static bool ReadAxisSnapshot(
         VagueTemoraryPremativeFabric& fabric,
         uint32_t slot,
-        InstallAxisToBuffer::BidirectionalAxis axis,
+        Axis axis,
         AxisSnapshot& out)
     {
         InstallAxisToBuffer::BufferOfAPCIdentity identity{};
@@ -453,444 +524,990 @@ namespace TestSpace1
         return true;
     }
 
-    static bool ValidateAxisChain(
+    static bool ResolveOwnedFirstChildSlot(
         VagueTemoraryPremativeFabric& fabric,
-        uint32_t root,
-        const std::vector<uint32_t>& children,
-        InstallAxisToBuffer::BidirectionalAxis axis)
+        uint32_t owner_slot,
+        Axis axis,
+        uint32_t& child_slot)
     {
-        AxisSnapshot root_snapshot{};
-        if (!ReadAxisSnapshot(fabric, root, axis, root_snapshot))
+        AxisSnapshot snapshot{};
+        if (!ReadAxisSnapshot(fabric, owner_slot, axis, snapshot))
         {
             return false;
         }
 
-        if (!APCDataStructure::IsValid32BitAPCUnit(root_snapshot.OwnedEdge))
+        if (!APCDataStructure::IsValid32BitAPCUnit(snapshot.RootFirstChild))
         {
             return false;
         }
 
-        if (children.empty())
-        {
-            return root_snapshot.RootFirstChild == FABRIC_CELL_SENTINAL;
-        }
-
-        if (root_snapshot.RootFirstChild != children.front())
-        {
-            return false;
-        }
-
-        const uint64_t expected_edge = root_snapshot.OwnedEdge;
-
-        for (size_t i = 0u; i < children.size(); ++i)
-        {
-            AxisSnapshot child{};
-            if (!ReadAxisSnapshot(fabric, children[i], axis, child))
-            {
-                return false;
-            }
-
-            const uint64_t expected_previous =
-                (i == 0u) ? root : children[i - 1u];
-
-            const uint64_t expected_next =
-                (i + 1u < children.size()) ? children[i + 1u] : FABRIC_CELL_SENTINAL;
-
-            if (
-                child.InheritedEdge != expected_edge ||
-                child.Previous != expected_previous ||
-                child.Next != expected_next
-            )
-            {
-                return false;
-            }
-        }
-
+        child_slot = static_cast<uint32_t>(snapshot.RootFirstChild);
         return true;
     }
 
-    static bool ValidateAllGraphLocksReleased(
-        VagueTemoraryPremativeFabric& fabric,
-        const std::vector<uint32_t>& slots)
+    // ---------------------------------------------------------------------
+    // Vector region access. Snapshot arrays use atomic_ref; private arrays
+    // are raw single-writer memory published by external release flags.
+    // ---------------------------------------------------------------------
+
+    static void VectorSnapshotStore(
+        std::vector<uint64_t>& region,
+        uint32_t idx,
+        uint64_t value)
     {
-        for (uint32_t slot : slots)
+        std::atomic_ref<uint64_t>(region[idx]).store(
+            value,
+            std::memory_order_release);
+    }
+
+    static uint64_t VectorSnapshotLoad(
+        std::vector<uint64_t>& region,
+        uint32_t idx)
+    {
+        return std::atomic_ref<uint64_t>(region[idx]).load(
+            std::memory_order_acquire);
+    }
+
+    static bool WaitVectorSnapshot(
+        std::vector<uint64_t>& region,
+        uint32_t idx,
+        uint64_t& value,
+        const Clock::time_point& deadline)
+    {
+        for (;;)
         {
-            InstallAxisToBuffer::GraphMutationValues values{};
-            if (
-                !fabric.ReadGraphMutationFlags(slot, values) ||
-                !InstallAxisToBuffer::IsIdentityGraphUnlocked(values.Flags)
-            )
+            value = VectorSnapshotLoad(region, idx);
+            if (value != 0u)
+            {
+                return true;
+            }
+            if (Clock::now() >= deadline)
             {
                 return false;
             }
+            std::this_thread::yield();
         }
-
-        return true;
     }
 
-    static bool BuildSingleAtomicStateConfig(
-        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
-        SchemaDefinition::InitialRegionalDtypeConf& dtype,
-        SchemaDefinition::InitialRegionalProtocol& protocol)
+    static bool WaitAPCSnapshot(
+        AdaptivePackedCellContainer& apc,
+        const APCRegionRef& region,
+        uint32_t idx,
+        uint64_t& value,
+        const Clock::time_point& deadline)
     {
-        layout.FeedForward = 0u;
-        layout.FeedBackward = 0u;
-        layout.Lateral = 0u;
-        layout.StateSlot = 1u;
-        layout.ErrorSlot = 0u;
-        layout.Weightless = 0u;
-        layout.WeightSlot = 0u;
-        layout.AUXSlot = 0u;
-        layout.HeterogenousPtr = 0u;
-        layout.FreeSlot = 0u;
-
-        dtype.STATE_SLOT = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
-        protocol.STATE_SLOT = SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY;
-        return true;
-    }
-
-    static bool RunGraphMutationTest()
-    {
-        using Axis = InstallAxisToBuffer::BidirectionalAxis;
-        using Inheritance = InstallAxisToBuffer::DescOfInharitance;
-
-        constexpr uint32_t SLOT_COUNT = 32u;
-        constexpr uint32_t SLOT_WORDS = 512u;
-        constexpr size_t NODE_COUNT = 7u;
-
-        enum Node : size_t
+        for (;;)
         {
-            R = 0u,
-            A,
-            B,
-            C,
-            N,
-            D,
-            E
-        };
-
-        VagueTemoraryPremativeFabric fabric;
-
-        if (!fabric.InitializeFabricWithPtrTable(
-                SLOT_COUNT,
-                SLOT_WORDS,
-                APCDataStructure::BRANCH_VERSION,
-                CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY))
-        {
-            std::cout << "InitializeFabricWithPtrTable : FAIL\n";
-            return false;
-        }
-
-        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-        SchemaDefinition::InitialRegionalDtypeConf dtype{};
-        SchemaDefinition::InitialRegionalProtocol protocol{};
-
-        if (!BuildSingleAtomicStateConfig(layout, dtype, protocol))
-        {
-            return false;
-        }
-
-        std::array<std::unique_ptr<AdaptivePackedCellContainer>, NODE_COUNT> nodes{};
-        std::array<uint32_t, NODE_COUNT> slots{};
-        slots.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
-
-        for (auto& node : nodes)
-        {
-            node = std::make_unique<AdaptivePackedCellContainer>();
-        }
-
-        if (!TimedBool("create R with H+V roots", [&]
-        {
-            return fabric.CreateAPC(
-                *nodes[R],
-                true,
-                true,
-                layout,
-                dtype,
-                protocol,
-                APCDataStructure::BRANCH_VERSION
-            );
-        }))
-        {
-            return false;
-        }
-
-        uint64_t root_slot = FABRIC_CELL_SENTINAL;
-        if (!nodes[R]->GetThisSlotIdx(root_slot))
-        {
-            return false;
-        }
-        slots[R] = static_cast<uint32_t>(root_slot);
-
-        std::atomic<bool> create_failed{false};
-        std::barrier create_start(static_cast<std::ptrdiff_t>(NODE_COUNT));
-        std::vector<std::thread> creators;
-        creators.reserve(NODE_COUNT - 1u);
-
-        for (size_t node_idx = 1u; node_idx < NODE_COUNT; ++node_idx)
-        {
-            creators.emplace_back([&, node_idx]
+            if (!APCSnapshotLoad(apc, region, idx, value))
             {
-                create_start.arrive_and_wait();
-                Jitter(static_cast<uint32_t>(100u + node_idx), 250u);
+                return false;
+            }
+            if (value != 0u)
+            {
+                return true;
+            }
+            if (Clock::now() >= deadline)
+            {
+                return false;
+            }
+            std::this_thread::yield();
+        }
+    }
 
-                const bool wants_h_root = node_idx == A;
-                const bool wants_v_root = node_idx == D;
+    static bool WaitReady(
+        std::vector<uint64_t>& ready,
+        uint32_t idx,
+        const Clock::time_point& deadline)
+    {
+        std::atomic_ref<uint64_t> flag(ready[idx]);
+        while (flag.load(std::memory_order_acquire) == 0u)
+        {
+            if (Clock::now() >= deadline)
+            {
+                return false;
+            }
+            std::this_thread::yield();
+        }
+        return true;
+    }
 
-                const auto begin = Clock::now();
-                const bool created = fabric.CreateAPC(
-                    *nodes[node_idx],
-                    wants_h_root,
-                    wants_v_root,
-                    layout,
-                    dtype,
-                    protocol,
-                    APCDataStructure::BRANCH_VERSION
-                );
-                const auto end = Clock::now();
+    static void PublishReady(std::vector<uint64_t>& ready, uint32_t idx)
+    {
+        std::atomic_ref<uint64_t>(ready[idx]).store(
+            1u,
+            std::memory_order_release);
+    }
 
-                uint64_t slot = FABRIC_CELL_SENTINAL;
-                const bool have_slot = created && nodes[node_idx]->GetThisSlotIdx(slot);
+    // ---------------------------------------------------------------------
+    // Vector pipeline: same logical work as the old packed-cell test.
+    // final_scaled2 = 2*state + error == 2*(old float output).
+    // For input i=1..N: state=i+1, error=1, output=i+1.5.
+    // ---------------------------------------------------------------------
 
-                if (have_slot)
+    static PipelineResult RunVectorPipeline(
+        VectorNode& sensor,
+        VectorNode& predictor,
+        VectorNode& comparator,
+        VectorNode& integrator,
+        VectorNode& motor)
+    {
+        std::fill(sensor.FeedForward.begin(), sensor.FeedForward.end(), 0u);
+        std::fill(predictor.FeedBackward.begin(), predictor.FeedBackward.end(), 0u);
+        std::fill(comparator.Error.begin(), comparator.Error.end(), 0u);
+        std::fill(integrator.State.begin(), integrator.State.end(), 0u);
+        std::fill(motor.FeedForward.begin(), motor.FeedForward.end(), 0u);
+
+        std::vector<uint64_t> state_ready(VALUE_COUNT, 0u);
+        std::vector<uint64_t> error_ready(VALUE_COUNT, 0u);
+
+        std::atomic<uint32_t> next_ff{0u};
+        std::atomic<uint32_t> next_fb{0u};
+        std::atomic<bool> failed{false};
+
+        std::atomic<uint64_t> sensor_ff_produced{0u};
+        std::atomic<uint64_t> predictor_fb_produced{0u};
+        std::atomic<uint64_t> state_integrated{0u};
+        std::atomic<uint64_t> error_computed{0u};
+        std::atomic<uint64_t> final_collected{0u};
+        std::atomic<uint64_t> checksum{0u};
+
+        constexpr std::ptrdiff_t worker_total =
+            PRODUCER_COUNT + FF_WORKER_COUNT + FB_WORKER_COUNT + FINAL_WORKER_COUNT;
+        std::barrier start(worker_total + 1);
+        std::vector<std::thread> threads;
+        threads.reserve(static_cast<size_t>(worker_total));
+
+        const auto begin = Clock::now();
+        const auto deadline = begin + std::chrono::seconds(10);
+
+        for (uint32_t p = 0u; p < PRODUCER_COUNT; ++p)
+        {
+            threads.emplace_back([&, p]
+            {
+                start.arrive_and_wait();
+                for (uint32_t idx = p; idx < VALUE_COUNT; idx += PRODUCER_COUNT)
                 {
-                    slots[node_idx] = static_cast<uint32_t>(slot);
-                }
-                else
-                {
-                    create_failed.store(true, std::memory_order_release);
-                }
+                    const uint64_t i = static_cast<uint64_t>(idx) + 1u;
+                    VectorSnapshotStore(sensor.FeedForward, idx, i);
+                    VectorSnapshotStore(predictor.FeedBackward, idx, i + 1u);
+                    sensor_ff_produced.fetch_add(1u, std::memory_order_relaxed);
+                    predictor_fb_produced.fetch_add(1u, std::memory_order_relaxed);
 
-                std::osyncstream(std::cout)
-                    << "create node " << node_idx
-                    << " : " << (have_slot ? "PASS" : "FAIL")
-                    << "  "
-                    << std::chrono::duration_cast<Microseconds>(end - begin).count()
-                    << " us\n";
+                    if ((idx & 31u) == 0u)
+                    {
+                        Jitter(1000u + p * 4099u + idx);
+                    }
+                }
             });
         }
 
-        create_start.arrive_and_wait();
+        for (uint32_t w = 0u; w < FF_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+                for (;;)
+                {
+                    const uint32_t idx = next_ff.fetch_add(1u, std::memory_order_relaxed);
+                    if (idx >= VALUE_COUNT)
+                    {
+                        break;
+                    }
 
-        for (auto& thread : creators)
+                    VectorNode* target = VectorOwnedFirstChild(sensor, Axis::HORIZONTAL);
+                    if (target != &integrator)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t input = 0u;
+                    if (!WaitVectorSnapshot(sensor.FeedForward, idx, input, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+                    target->State[idx] = input + 1u; // PRIVATE_REGION analogue.
+                    PublishReady(state_ready, idx);
+                    state_integrated.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(2000u + w * 4099u + idx);
+                    }
+                }
+            });
+        }
+
+        for (uint32_t w = 0u; w < FB_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+                for (;;)
+                {
+                    const uint32_t idx = next_fb.fetch_add(1u, std::memory_order_relaxed);
+                    if (idx >= VALUE_COUNT)
+                    {
+                        break;
+                    }
+
+                    VectorNode* target = VectorOwnedFirstChild(predictor, Axis::VERTICAL);
+                    if (target != &comparator)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t feedback = 0u;
+                    if (!WaitVectorSnapshot(predictor.FeedBackward, idx, feedback, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+                    const uint64_t expected_input = static_cast<uint64_t>(idx) + 1u;
+                    target->Error[idx] = feedback - expected_input; // always 1.
+                    PublishReady(error_ready, idx);
+                    error_computed.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(3000u + w * 4099u + idx);
+                    }
+                }
+            });
+        }
+
+        for (uint32_t w = 0u; w < FINAL_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+                uint64_t local_sum = 0u;
+
+                for (uint32_t idx = 0u; idx < VALUE_COUNT; ++idx)
+                {
+                    if (
+                        !WaitReady(state_ready, idx, deadline) ||
+                        !WaitReady(error_ready, idx, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    VectorNode* motor_from_h = VectorOwnedFirstChild(integrator, Axis::HORIZONTAL);
+                    VectorNode* motor_from_v = VectorOwnedFirstChild(comparator, Axis::VERTICAL);
+                    if (motor_from_h != &motor || motor_from_v != &motor)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    const uint64_t state = integrator.State[idx];
+                    const uint64_t error = comparator.Error[idx];
+                    const uint64_t scaled2 = 2u * state + error;
+
+                    VectorSnapshotStore(motor.FeedForward, idx, scaled2);
+                    uint64_t collected = 0u;
+                    if (!WaitVectorSnapshot(motor.FeedForward, idx, collected, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+                    local_sum += collected;
+                    final_collected.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(4000u + w * 4099u + idx);
+                    }
+                }
+
+                checksum.fetch_add(local_sum, std::memory_order_relaxed);
+            });
+        }
+
+        start.arrive_and_wait();
+        for (auto& thread : threads)
         {
             thread.join();
         }
 
-        if (create_failed.load(std::memory_order_acquire))
+        const auto end = Clock::now();
+
+        PipelineResult result{};
+        result.SensorFFProduced = sensor_ff_produced.load(std::memory_order_acquire);
+        result.PredictorFBProduced = predictor_fb_produced.load(std::memory_order_acquire);
+        result.StateIntegrated = state_integrated.load(std::memory_order_acquire);
+        result.ErrorComputed = error_computed.load(std::memory_order_acquire);
+        result.FinalCollected = final_collected.load(std::memory_order_acquire);
+        result.OutputChecksumScaled2 = checksum.load(std::memory_order_acquire);
+        result.ElapsedUs = std::chrono::duration_cast<Microseconds>(end - begin).count();
+
+        const uint64_t expected_checksum =
+            static_cast<uint64_t>(VALUE_COUNT) * (static_cast<uint64_t>(VALUE_COUNT) + 4u);
+
+        result.Ok =
+            !failed.load(std::memory_order_acquire) &&
+            result.SensorFFProduced == VALUE_COUNT &&
+            result.PredictorFBProduced == VALUE_COUNT &&
+            result.StateIntegrated == VALUE_COUNT &&
+            result.ErrorComputed == VALUE_COUNT &&
+            result.FinalCollected == VALUE_COUNT &&
+            result.OutputChecksumScaled2 == expected_checksum;
+
+        return result;
+    }
+
+    struct APCPipelineRegions
+    {
+        APCRegionRef SensorFF{};
+        APCRegionRef PredictorFB{};
+        APCRegionRef ComparatorError{};
+        APCRegionRef IntegratorState{};
+        APCRegionRef MotorFF{};
+    };
+
+    static bool ResolvePipelineRegions(
+        AdaptivePackedCellContainer& sensor,
+        AdaptivePackedCellContainer& predictor,
+        AdaptivePackedCellContainer& comparator,
+        AdaptivePackedCellContainer& integrator,
+        AdaptivePackedCellContainer& motor,
+        APCPipelineRegions& out)
+    {
+        return
+            ResolveRegion(
+                sensor,
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+                SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT,
+                out.SensorFF) &&
+            ResolveRegion(
+                predictor,
+                MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
+                SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT,
+                out.PredictorFB) &&
+            ResolveRegion(
+                comparator,
+                MacroColumnOfAPC::ERROR_SLOT,
+                SchemaDefinition::SchemaProtocols::PRIVATE_REGION,
+                out.ComparatorError) &&
+            ResolveRegion(
+                integrator,
+                MacroColumnOfAPC::STATE_SLOT,
+                SchemaDefinition::SchemaProtocols::PRIVATE_REGION,
+                out.IntegratorState) &&
+            ResolveRegion(
+                motor,
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+                SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT,
+                out.MotorFF) &&
+            out.SensorFF.Size() >= VALUE_COUNT &&
+            out.PredictorFB.Size() >= VALUE_COUNT &&
+            out.ComparatorError.Size() >= VALUE_COUNT &&
+            out.IntegratorState.Size() >= VALUE_COUNT &&
+            out.MotorFF.Size() >= VALUE_COUNT;
+    }
+
+    static PipelineResult RunAPCPipeline(
+        VagueTemoraryPremativeFabric& fabric,
+        AdaptivePackedCellContainer& sensor,
+        AdaptivePackedCellContainer& predictor,
+        AdaptivePackedCellContainer& comparator,
+        AdaptivePackedCellContainer& integrator,
+        AdaptivePackedCellContainer& motor,
+        uint32_t sensor_slot,
+        uint32_t predictor_slot,
+        uint32_t comparator_slot,
+        uint32_t integrator_slot,
+        uint32_t motor_slot,
+        const std::array<AdaptivePackedCellContainer*, FABRIC_SLOT_COUNT>& slot_map)
+    {
+        APCPipelineRegions regions{};
+        if (!ResolvePipelineRegions(sensor, predictor, comparator, integrator, motor, regions))
+        {
+            return {};
+        }
+
+        if (
+            !ZeroAPCRegion(sensor, regions.SensorFF, VALUE_COUNT) ||
+            !ZeroAPCRegion(predictor, regions.PredictorFB, VALUE_COUNT) ||
+            !ZeroAPCRegion(comparator, regions.ComparatorError, VALUE_COUNT) ||
+            !ZeroAPCRegion(integrator, regions.IntegratorState, VALUE_COUNT) ||
+            !ZeroAPCRegion(motor, regions.MotorFF, VALUE_COUNT))
+        {
+            return {};
+        }
+
+        std::vector<uint64_t> state_ready(VALUE_COUNT, 0u);
+        std::vector<uint64_t> error_ready(VALUE_COUNT, 0u);
+
+        std::atomic<uint32_t> next_ff{0u};
+        std::atomic<uint32_t> next_fb{0u};
+        std::atomic<bool> failed{false};
+
+        std::atomic<uint64_t> sensor_ff_produced{0u};
+        std::atomic<uint64_t> predictor_fb_produced{0u};
+        std::atomic<uint64_t> state_integrated{0u};
+        std::atomic<uint64_t> error_computed{0u};
+        std::atomic<uint64_t> final_collected{0u};
+        std::atomic<uint64_t> checksum{0u};
+
+        constexpr std::ptrdiff_t worker_total =
+            PRODUCER_COUNT + FF_WORKER_COUNT + FB_WORKER_COUNT + FINAL_WORKER_COUNT;
+        std::barrier start(worker_total + 1);
+        std::vector<std::thread> threads;
+        threads.reserve(static_cast<size_t>(worker_total));
+
+        auto ResolveSlotToAPC___ = [&](uint32_t slot) noexcept -> AdaptivePackedCellContainer*
+        {
+            if (slot >= slot_map.size())
+            {
+                return nullptr;
+            }
+            return slot_map[slot];
+        };
+
+        const auto begin = Clock::now();
+        const auto deadline = begin + std::chrono::seconds(10);
+
+        for (uint32_t p = 0u; p < PRODUCER_COUNT; ++p)
+        {
+            threads.emplace_back([&, p]
+            {
+                start.arrive_and_wait();
+                for (uint32_t idx = p; idx < VALUE_COUNT; idx += PRODUCER_COUNT)
+                {
+                    const uint64_t i = static_cast<uint64_t>(idx) + 1u;
+
+                    if (
+                        !APCSnapshotStore(sensor, regions.SensorFF, idx, i) ||
+                        !APCSnapshotStore(predictor, regions.PredictorFB, idx, i + 1u))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    sensor_ff_produced.fetch_add(1u, std::memory_order_relaxed);
+                    predictor_fb_produced.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 31u) == 0u)
+                    {
+                        Jitter(5000u + p * 4099u + idx);
+                    }
+                }
+            });
+        }
+
+        for (uint32_t w = 0u; w < FF_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+
+                for (;;)
+                {
+                    const uint32_t idx = next_ff.fetch_add(1u, std::memory_order_relaxed);
+                    if (idx >= VALUE_COUNT)
+                    {
+                        break;
+                    }
+
+                    uint32_t target_slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+                    if (!ResolveOwnedFirstChildSlot(fabric, sensor_slot, Axis::HORIZONTAL, target_slot))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    AdaptivePackedCellContainer* target = ResolveSlotToAPC___(target_slot);
+                    if (target != &integrator || target_slot != integrator_slot)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t input = 0u;
+                    if (
+                        !WaitAPCSnapshot(sensor, regions.SensorFF, idx, input, deadline) ||
+                        !APCPrivateStore(*target, regions.IntegratorState, idx, input + 1u))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    PublishReady(state_ready, idx);
+                    state_integrated.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(6000u + w * 4099u + idx);
+                    }
+                }
+            });
+        }
+
+        for (uint32_t w = 0u; w < FB_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+
+                for (;;)
+                {
+                    const uint32_t idx = next_fb.fetch_add(1u, std::memory_order_relaxed);
+                    if (idx >= VALUE_COUNT)
+                    {
+                        break;
+                    }
+
+                    uint32_t target_slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+                    if (!ResolveOwnedFirstChildSlot(fabric, predictor_slot, Axis::VERTICAL, target_slot))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    AdaptivePackedCellContainer* target = ResolveSlotToAPC___(target_slot);
+                    if (target != &comparator || target_slot != comparator_slot)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t feedback = 0u;
+                    if (!WaitAPCSnapshot(predictor, regions.PredictorFB, idx, feedback, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    const uint64_t expected_input = static_cast<uint64_t>(idx) + 1u;
+                    const uint64_t error = feedback - expected_input;
+
+                    if (!APCPrivateStore(*target, regions.ComparatorError, idx, error))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    PublishReady(error_ready, idx);
+                    error_computed.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(7000u + w * 4099u + idx);
+                    }
+                }
+            });
+        }
+
+        for (uint32_t w = 0u; w < FINAL_WORKER_COUNT; ++w)
+        {
+            threads.emplace_back([&, w]
+            {
+                start.arrive_and_wait();
+                uint64_t local_sum = 0u;
+
+                for (uint32_t idx = 0u; idx < VALUE_COUNT; ++idx)
+                {
+                    if (
+                        !WaitReady(state_ready, idx, deadline) ||
+                        !WaitReady(error_ready, idx, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint32_t motor_h_slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+                    uint32_t motor_v_slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+                    if (
+                        !ResolveOwnedFirstChildSlot(fabric, integrator_slot, Axis::HORIZONTAL, motor_h_slot) ||
+                        !ResolveOwnedFirstChildSlot(fabric, comparator_slot, Axis::VERTICAL, motor_v_slot) ||
+                        motor_h_slot != motor_slot ||
+                        motor_v_slot != motor_slot ||
+                        ResolveSlotToAPC___(motor_h_slot) != &motor ||
+                        ResolveSlotToAPC___(motor_v_slot) != &motor)
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t state = 0u;
+                    uint64_t error = 0u;
+                    if (
+                        !APCPrivateLoad(integrator, regions.IntegratorState, idx, state) ||
+                        !APCPrivateLoad(comparator, regions.ComparatorError, idx, error))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    const uint64_t scaled2 = 2u * state + error;
+                    if (!APCSnapshotStore(motor, regions.MotorFF, idx, scaled2))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    uint64_t collected = 0u;
+                    if (!WaitAPCSnapshot(motor, regions.MotorFF, idx, collected, deadline))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+
+                    local_sum += collected;
+                    final_collected.fetch_add(1u, std::memory_order_relaxed);
+
+                    if ((idx & 63u) == 0u)
+                    {
+                        Jitter(8000u + w * 4099u + idx);
+                    }
+                }
+
+                checksum.fetch_add(local_sum, std::memory_order_relaxed);
+            });
+        }
+
+        start.arrive_and_wait();
+        for (auto& thread : threads)
+        {
+            thread.join();
+        }
+
+        const auto end = Clock::now();
+
+        PipelineResult result{};
+        result.SensorFFProduced = sensor_ff_produced.load(std::memory_order_acquire);
+        result.PredictorFBProduced = predictor_fb_produced.load(std::memory_order_acquire);
+        result.StateIntegrated = state_integrated.load(std::memory_order_acquire);
+        result.ErrorComputed = error_computed.load(std::memory_order_acquire);
+        result.FinalCollected = final_collected.load(std::memory_order_acquire);
+        result.OutputChecksumScaled2 = checksum.load(std::memory_order_acquire);
+        result.ElapsedUs = std::chrono::duration_cast<Microseconds>(end - begin).count();
+
+        const uint64_t expected_checksum =
+            static_cast<uint64_t>(VALUE_COUNT) * (static_cast<uint64_t>(VALUE_COUNT) + 4u);
+
+        result.Ok =
+            !failed.load(std::memory_order_acquire) &&
+            result.SensorFFProduced == VALUE_COUNT &&
+            result.PredictorFBProduced == VALUE_COUNT &&
+            result.StateIntegrated == VALUE_COUNT &&
+            result.ErrorComputed == VALUE_COUNT &&
+            result.FinalCollected == VALUE_COUNT &&
+            result.OutputChecksumScaled2 == expected_checksum;
+
+        return result;
+    }
+
+    // ---------------------------------------------------------------------
+    // Content-equivalence check after both pipelines finish.
+    // ---------------------------------------------------------------------
+
+    static bool ComparePipelinePayloads(
+        VectorNode& integrator_vector,
+        VectorNode& comparator_vector,
+        VectorNode& motor_vector,
+        AdaptivePackedCellContainer& integrator_apc,
+        AdaptivePackedCellContainer& comparator_apc,
+        AdaptivePackedCellContainer& motor_apc)
+    {
+        APCRegionRef state{};
+        APCRegionRef error{};
+        APCRegionRef motor_ff{};
+
+        if (
+            !ResolveRegion(
+                integrator_apc,
+                MacroColumnOfAPC::STATE_SLOT,
+                SchemaDefinition::SchemaProtocols::PRIVATE_REGION,
+                state) ||
+            !ResolveRegion(
+                comparator_apc,
+                MacroColumnOfAPC::ERROR_SLOT,
+                SchemaDefinition::SchemaProtocols::PRIVATE_REGION,
+                error) ||
+            !ResolveRegion(
+                motor_apc,
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+                SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT,
+                motor_ff))
         {
             return false;
         }
 
-        std::atomic<bool> link_failed{false};
-        std::barrier link_start(3);
+        for (uint32_t idx = 0u; idx < VALUE_COUNT; ++idx)
+        {
+            uint64_t apc_state = 0u;
+            uint64_t apc_error = 0u;
+            uint64_t apc_motor = 0u;
+
+            if (
+                !APCPrivateLoad(integrator_apc, state, idx, apc_state) ||
+                !APCPrivateLoad(comparator_apc, error, idx, apc_error) ||
+                !APCSnapshotLoad(motor_apc, motor_ff, idx, apc_motor))
+            {
+                return false;
+            }
+
+            if (
+                integrator_vector.State[idx] != apc_state ||
+                comparator_vector.Error[idx] != apc_error ||
+                VectorSnapshotLoad(motor_vector.FeedForward, idx) != apc_motor)
+            {
+                std::cout
+                    << "payload mismatch at index " << idx
+                    << " state(vector/apc)=" << integrator_vector.State[idx] << '/' << apc_state
+                    << " error(vector/apc)=" << comparator_vector.Error[idx] << '/' << apc_error
+                    << " motor2(vector/apc)=" << VectorSnapshotLoad(motor_vector.FeedForward, idx)
+                    << '/' << apc_motor << '\n';
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // ---------------------------------------------------------------------
+    // Pure control-plane comparisons.
+    // ---------------------------------------------------------------------
+
+    static TimedResult RunVectorPointerChase(
+        VectorNode& sensor,
+        VectorNode& predictor,
+        VectorNode& expected_motor)
+    {
+        const auto begin = Clock::now();
+        uint64_t checksum = 0u;
+        bool ok = true;
+
+        for (uint32_t i = 0u; i < CHASE_ROUNDS; ++i)
+        {
+            VectorNode* h1 = VectorOwnedFirstChild(sensor, Axis::HORIZONTAL);
+            VectorNode* h2 = h1 ? VectorOwnedFirstChild(*h1, Axis::HORIZONTAL) : nullptr;
+
+            VectorNode* v1 = VectorOwnedFirstChild(predictor, Axis::VERTICAL);
+            VectorNode* v2 = v1 ? VectorOwnedFirstChild(*v1, Axis::VERTICAL) : nullptr;
+
+            if (h2 != &expected_motor || v2 != &expected_motor)
+            {
+                ok = false;
+                break;
+            }
+
+            checksum += static_cast<uint64_t>(h2->Id + v2->Id + 1u);
+        }
+
+        const auto end = Clock::now();
+        return TimedResult{
+            ok,
+            checksum,
+            std::chrono::duration_cast<Microseconds>(end - begin).count()
+        };
+    }
+
+    static TimedResult RunAPCSlotChase(
+        VagueTemoraryPremativeFabric& fabric,
+        uint32_t sensor_slot,
+        uint32_t predictor_slot,
+        uint32_t expected_motor_slot)
+    {
+        const auto begin = Clock::now();
+        uint64_t checksum = 0u;
+        bool ok = true;
+
+        for (uint32_t i = 0u; i < CHASE_ROUNDS; ++i)
+        {
+            uint32_t h1 = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t h2 = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t v1 = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t v2 = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+            if (
+                !ResolveOwnedFirstChildSlot(fabric, sensor_slot, Axis::HORIZONTAL, h1) ||
+                !ResolveOwnedFirstChildSlot(fabric, h1, Axis::HORIZONTAL, h2) ||
+                !ResolveOwnedFirstChildSlot(fabric, predictor_slot, Axis::VERTICAL, v1) ||
+                !ResolveOwnedFirstChildSlot(fabric, v1, Axis::VERTICAL, v2) ||
+                h2 != expected_motor_slot ||
+                v2 != expected_motor_slot)
+            {
+                ok = false;
+                break;
+            }
+
+            checksum += static_cast<uint64_t>(h2 + v2 + 1u);
+        }
+
+        const auto end = Clock::now();
+        return TimedResult{
+            ok,
+            checksum,
+            std::chrono::duration_cast<Microseconds>(end - begin).count()
+        };
+    }
+
+    static TimedResult RunVectorDynamicBranchMutation(
+        VectorNode& integrator,
+        VectorNode& comparator,
+        VectorNode& motor)
+    {
+        std::atomic<bool> failed{false};
+        std::barrier start(3);
+
+        const auto begin = Clock::now();
 
         std::thread horizontal([&]
         {
-            link_start.arrive_and_wait();
-
-            Jitter(201u);
-            if (!TimedBool("H R -> A FIRST_CHILD", [&]
+            start.arrive_and_wait();
+            for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
             {
-                return fabric.LinkTwoAPC(slots[R], slots[A], Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
-
-            Jitter(202u);
-            if (!TimedBool("H A -> B LINKED_CHILD", [&]
-            {
-                return fabric.LinkTwoAPC(slots[A], slots[B], Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
-
-            Jitter(203u);
-            if (!TimedBool("H B -> C LINKED_CHILD", [&]
-            {
-                return fabric.LinkTwoAPC(slots[B], slots[C], Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
-
-            Jitter(204u);
-            if (!TimedBool("H A-own-root -> N FIRST_CHILD", [&]
-            {
-                return fabric.LinkTwoAPC(slots[A], slots[N], Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
+                if (
+                    !VectorUnlinkTwoAPC(motor, Axis::HORIZONTAL) ||
+                    !VectorLinkTwoAPC(integrator, motor, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
+                {
+                    failed.store(true, std::memory_order_release);
+                    return;
+                }
+                if ((i & 63u) == 0u)
+                {
+                    Jitter(9000u + i, 10u);
+                }
+            }
         });
 
         std::thread vertical([&]
         {
-            link_start.arrive_and_wait();
-
-            Jitter(301u);
-            if (!TimedBool("V R -> D FIRST_CHILD", [&]
+            start.arrive_and_wait();
+            for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
             {
-                return fabric.LinkTwoAPC(slots[R], slots[D], Axis::VERTICAL, Inheritance::FIRST_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
-
-            Jitter(302u);
-            if (!TimedBool("V D -> E LINKED_CHILD", [&]
-            {
-                return fabric.LinkTwoAPC(slots[D], slots[E], Axis::VERTICAL, Inheritance::LINKED_CHILD);
-            })) link_failed.store(true, std::memory_order_release);
+                if (
+                    !VectorUnlinkTwoAPC(motor, Axis::VERTICAL) ||
+                    !VectorLinkTwoAPC(comparator, motor, Axis::VERTICAL, Inheritance::FIRST_CHILD))
+                {
+                    failed.store(true, std::memory_order_release);
+                    return;
+                }
+                if ((i & 63u) == 0u)
+                {
+                    Jitter(10000u + i, 10u);
+                }
+            }
         });
 
-        link_start.arrive_and_wait();
+        start.arrive_and_wait();
         horizontal.join();
         vertical.join();
 
-        if (link_failed.load(std::memory_order_acquire))
-        {
-            return false;
-        }
+        const auto end = Clock::now();
 
-        if (
-            !ValidateAxisChain(fabric, slots[R], {slots[A], slots[B], slots[C]}, Axis::HORIZONTAL) ||
-            !ValidateAxisChain(fabric, slots[A], {slots[N]}, Axis::HORIZONTAL) ||
-            !ValidateAxisChain(fabric, slots[R], {slots[D], slots[E]}, Axis::VERTICAL)
-        )
-        {
-            std::cout << "post-link topology validation : FAIL\n";
-            return false;
-        }
+        const bool topology_ok =
+            VectorOwnedFirstChild(integrator, Axis::HORIZONTAL) == &motor &&
+            VectorOwnedFirstChild(comparator, Axis::VERTICAL) == &motor &&
+            AxisState(motor, Axis::HORIZONTAL).Owner == &integrator &&
+            AxisState(motor, Axis::VERTICAL).Owner == &comparator;
 
-        std::atomic<bool> relink_failed{false};
-        std::barrier relink_start(3);
-
-        std::thread horizontal_relink([&]
-        {
-            relink_start.arrive_and_wait();
-
-            Jitter(401u);
-            if (!TimedBool("H unlink B", [&]
-            {
-                return fabric.UnlinkTwoAPC(slots[B], Axis::HORIZONTAL);
-            })) relink_failed.store(true, std::memory_order_release);
-
-            Jitter(402u);
-            if (!TimedBool("H append B after C", [&]
-            {
-                return fabric.LinkTwoAPC(slots[C], slots[B], Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
-            })) relink_failed.store(true, std::memory_order_release);
-
-            Jitter(403u);
-            if (!TimedBool("H unlink nested N", [&]
-            {
-                return fabric.UnlinkTwoAPC(slots[N], Axis::HORIZONTAL);
-            })) relink_failed.store(true, std::memory_order_release);
-
-            Jitter(404u);
-            if (!TimedBool("H reattach nested N", [&]
-            {
-                return fabric.LinkTwoAPC(slots[A], slots[N], Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-            })) relink_failed.store(true, std::memory_order_release);
-        });
-
-        std::thread vertical_relink([&]
-        {
-            relink_start.arrive_and_wait();
-
-            Jitter(501u);
-            if (!TimedBool("V unlink D", [&]
-            {
-                return fabric.UnlinkTwoAPC(slots[D], Axis::VERTICAL);
-            })) relink_failed.store(true, std::memory_order_release);
-
-            Jitter(502u);
-            if (!TimedBool("V append D after E", [&]
-            {
-                return fabric.LinkTwoAPC(slots[E], slots[D], Axis::VERTICAL, Inheritance::LINKED_CHILD);
-            })) relink_failed.store(true, std::memory_order_release);
-        });
-
-        relink_start.arrive_and_wait();
-        horizontal_relink.join();
-        vertical_relink.join();
-
-        if (relink_failed.load(std::memory_order_acquire))
-        {
-            return false;
-        }
-
-        const bool final_topology_ok =
-            ValidateAxisChain(fabric, slots[R], {slots[A], slots[C], slots[B]}, Axis::HORIZONTAL) &&
-            ValidateAxisChain(fabric, slots[A], {slots[N]}, Axis::HORIZONTAL) &&
-            ValidateAxisChain(fabric, slots[R], {slots[E], slots[D]}, Axis::VERTICAL);
-
-        std::vector<uint32_t> all_slots(slots.begin(), slots.end());
-        const bool locks_ok = ValidateAllGraphLocksReleased(fabric, all_slots);
-
-        std::cout
-            << "final topology validation : " << (final_topology_ok ? "PASS" : "FAIL") << '\n'
-            << "all graph locks released  : " << (locks_ok ? "PASS" : "FAIL") << '\n';
-
-        return final_topology_ok && locks_ok;
+        return TimedResult{
+            !failed.load(std::memory_order_acquire) && topology_ok,
+            static_cast<uint64_t>(2u) * DYNAMIC_BRANCH_ROUNDS,
+            std::chrono::duration_cast<Microseconds>(end - begin).count()
+        };
     }
 
-    int GPTGeneratedTest1()
+    static TimedResult RunAPCDynamicBranchMutation(
+        VagueTemoraryPremativeFabric& fabric,
+        uint32_t integrator_slot,
+        uint32_t comparator_slot,
+        uint32_t motor_slot)
     {
-        constexpr uint32_t WORKERS = 8u;
-        constexpr uint32_t ITERATIONS = 25'000u;
+        std::atomic<bool> failed{false};
+        std::barrier start(3);
 
-        VagueTemoraryPremativeFabric shared_test_fabric;
+        const auto begin = Clock::now();
 
-        if (!shared_test_fabric.InitializeFabricWithPtrTable(
-                8u,
-                512u,
-                APCDataStructure::BRANCH_VERSION,
-                CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY))
+        std::thread horizontal([&]
         {
-            std::cout << "shared-test fabric initialization : FAIL\n";
-            return 1;
+            start.arrive_and_wait();
+            for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
+            {
+                if (
+                    !fabric.UnlinkTwoAPC(motor_slot, Axis::HORIZONTAL) ||
+                    !fabric.LinkTwoAPC(
+                        integrator_slot,
+                        motor_slot,
+                        Axis::HORIZONTAL,
+                        Inheritance::FIRST_CHILD))
+                {
+                    failed.store(true, std::memory_order_release);
+                    return;
+                }
+                if ((i & 63u) == 0u)
+                {
+                    Jitter(11000u + i, 10u);
+                }
+            }
+        });
+
+        std::thread vertical([&]
+        {
+            start.arrive_and_wait();
+            for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
+            {
+                if (
+                    !fabric.UnlinkTwoAPC(motor_slot, Axis::VERTICAL) ||
+                    !fabric.LinkTwoAPC(
+                        comparator_slot,
+                        motor_slot,
+                        Axis::VERTICAL,
+                        Inheritance::FIRST_CHILD))
+                {
+                    failed.store(true, std::memory_order_release);
+                    return;
+                }
+                if ((i & 63u) == 0u)
+                {
+                    Jitter(12000u + i, 10u);
+                }
+            }
+        });
+
+        start.arrive_and_wait();
+        horizontal.join();
+        vertical.join();
+
+        const auto end = Clock::now();
+
+        uint32_t motor_h = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t motor_v = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        const bool topology_ok =
+            ResolveOwnedFirstChildSlot(fabric, integrator_slot, Axis::HORIZONTAL, motor_h) &&
+            ResolveOwnedFirstChildSlot(fabric, comparator_slot, Axis::VERTICAL, motor_v) &&
+            motor_h == motor_slot &&
+            motor_v == motor_slot;
+
+        bool locks_released = true;
+        for (const uint32_t slot : {integrator_slot, comparator_slot, motor_slot})
+        {
+            InstallAxisToBuffer::GraphMutationValues values{};
+            if (
+                !fabric.ReadGraphMutationFlags(slot, values) ||
+                !InstallAxisToBuffer::IsIdentityGraphUnlocked(values.Flags))
+            {
+                locks_released = false;
+                break;
+            }
         }
 
-        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-        SchemaDefinition::InitialRegionalDtypeConf dtype{};
-        SchemaDefinition::InitialRegionalProtocol protocol{};
-
-        if (!BuildSingleAtomicStateConfig(layout, dtype, protocol))
-        {
-            return 1;
-        }
-
-        AdaptivePackedCellContainer shared_apc;
-
-        if (!shared_test_fabric.CreateAPC(
-                shared_apc,
-                false,
-                false,
-                layout,
-                dtype,
-                protocol,
-                APCDataStructure::BRANCH_VERSION))
-        {
-            std::cout << "shared APC creation : FAIL\n";
-            return 1;
-        }
-
-        const TrialResult vector_result = RunVectorSharedTrial(WORKERS, ITERATIONS);
-        const TrialResult apc_result = RunAPCSharedTrial(shared_apc, WORKERS, ITERATIONS);
-
-        std::cout
-            << "\nVECTOR shared-memory correctness : " << (vector_result.Ok ? "PASS" : "FAIL") << '\n'
-            << "  count=" << vector_result.SharedCount
-            << " sum=" << vector_result.WeightedSum
-            << " done=" << vector_result.DoneCount
-            << " time=" << vector_result.ElapsedUs << " us\n"
-            << "APC shared-memory correctness    : " << (apc_result.Ok ? "PASS" : "FAIL") << '\n'
-            << "  count=" << apc_result.SharedCount
-            << " sum=" << apc_result.WeightedSum
-            << " done=" << apc_result.DoneCount
-            << " time=" << apc_result.ElapsedUs << " us\n\n";
-
-        if (!vector_result.Ok || !apc_result.Ok)
-        {
-            return 2;
-        }
-
-        const bool graph_ok = RunGraphMutationTest();
-        std::cout << "\nDYNAMIC GRAPH TEST : " << (graph_ok ? "PASS" : "FAIL") << '\n';
-
-        return graph_ok ? 0 : 3;
+        return TimedResult{
+            !failed.load(std::memory_order_acquire) && topology_ok && locks_released,
+            static_cast<uint64_t>(2u) * DYNAMIC_BRANCH_ROUNDS,
+            std::chrono::duration_cast<Microseconds>(end - begin).count()
+        };
     }
 
-
+    // ---------------------------------------------------------------------
+    // Complete benchmark entry point.
+    // ---------------------------------------------------------------------
 }
-
-

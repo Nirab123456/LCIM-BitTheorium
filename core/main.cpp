@@ -1,8 +1,8 @@
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
-#include "TestFiles/APCTest.hpp"
+#include "TestFiles/CompAPC.hpp"
 
 
 int main()
 {
-    return TestSpace1::GPTGeneratedTest1();
+    return TestSpace1::RunComprehensiveArchitectureComparison();
 }
