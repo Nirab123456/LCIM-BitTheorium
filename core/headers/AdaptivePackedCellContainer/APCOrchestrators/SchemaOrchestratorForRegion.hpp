@@ -69,11 +69,11 @@ namespace BidirectionalInMemGraph
 
         struct InitialRegionalDtypeConf 
         {
-            DataTypeOfMacroColumn FEEDFORWARD_MESSAGE  = DataTypeOfMacroColumn::UINT32_T;
-            DataTypeOfMacroColumn FEEDBACKWARD_MESSAGE = DataTypeOfMacroColumn::INT32_T;
+            DataTypeOfMacroColumn FEEDFORWARD_MESSAGE  = DataTypeOfMacroColumn::FLOAT32_T;
+            DataTypeOfMacroColumn FEEDBACKWARD_MESSAGE = DataTypeOfMacroColumn::FLOAT32_T;
             DataTypeOfMacroColumn LATERAL_MESAGE = DataTypeOfMacroColumn::FLOAT32_T;
             DataTypeOfMacroColumn STATE_SLOT = DataTypeOfMacroColumn::UINT8_T;
-            DataTypeOfMacroColumn ERROR_SLOT = DataTypeOfMacroColumn::UINT8_T;
+            DataTypeOfMacroColumn ERROR_SLOT = DataTypeOfMacroColumn::FLOAT32_T;
             DataTypeOfMacroColumn WEIGHTLESS_LOOKUP = DataTypeOfMacroColumn::UINT8_T;
             DataTypeOfMacroColumn WEIGHT_SLOT = DataTypeOfMacroColumn::UINT8_T;
             DataTypeOfMacroColumn AUX_SLOT = DataTypeOfMacroColumn::UINT8_T;
@@ -83,11 +83,11 @@ namespace BidirectionalInMemGraph
 
         struct InitialRegionalProtocol
         {
-            SchemaProtocols FEEDFORWARD_MESSAGE  = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
-            SchemaProtocols FEEDBACKWARD_MESSAGE = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
+            SchemaProtocols FEEDFORWARD_MESSAGE  = SchemaProtocols::ATOMIC_WORD_ARRAY;
+            SchemaProtocols FEEDBACKWARD_MESSAGE = SchemaProtocols::ATOMIC_WORD_ARRAY;
             SchemaProtocols LATERAL_MESAGE = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
             SchemaProtocols STATE_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
-            SchemaProtocols ERROR_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
+            SchemaProtocols ERROR_SLOT = SchemaProtocols::PRIVATE_REGION;
             SchemaProtocols WEIGHTLESS_LOOKUP = SchemaProtocols::DOUBLE_BUFFERED;
             SchemaProtocols WEIGHT_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
             SchemaProtocols AUX_SLOT = SchemaProtocols::DOUBLE_BUFFERED;

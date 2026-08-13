@@ -50,9 +50,7 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        CapacityOfThisAPC_ = cell_count;
-        FabricOwnerPtr_ = fabric_owner;
-        const RangeOfAPC range_of_this_apc = FabricOwnerPtr_->GetSegmentPoolRange(fabric_slot_idx);
+        const RangeOfAPC range_of_this_apc = fabric_owner->GetSegmentPoolRange(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
             range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != cell_count
@@ -60,6 +58,9 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+        RawAPCBasePtr_ = words_raw;
+        CapacityOfThisAPC_ = cell_count;
+        FabricOwnerPtr_ = fabric_owner;
         RangeOfThisAPCInSlab_ = range_of_this_apc;
         return true;
     }
@@ -67,10 +68,10 @@ namespace BidirectionalInMemGraph
 
     void FabricToAPCLinker::ReleseFabricBindingOnly_() noexcept
     {
-        RangeOfAPC default_null_range{};
-        RangeOfThisAPCInSlab_ = default_null_range;
+        RangeOfThisAPCInSlab_ = RangeOfAPC{};
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
+        RawAPCBasePtr_ = nullptr;
     }
 
     void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept

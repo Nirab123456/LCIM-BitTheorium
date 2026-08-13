@@ -84,24 +84,21 @@ struct LayoutPercentageBuilder : public LayoutBuilderAndValidator
 
     struct LayoutSpanAndPercentageCarrier
     {
-        uint32_t FeedForward = FEEDFOEWARD_PERCENTAGE;
-        uint32_t FeedBackward = FEEDBACKWARD_PERCENTAGE;
-        uint32_t Lateral = LATERAL_PERCENTAGE;
-        uint32_t StateSlot = STATESLOT_PERCENTAGE;
-        uint32_t ErrorSlot = ERRORSLOT_PERCENTAGE;
-        uint32_t Weightless = EDGEDESCRIPTOR_PERCENTAGE;
-        uint32_t WeightSlot = WEIGHTSLOT_PERCENTAGE;
-        uint32_t AUXSlot = AUXSLOT_PERCENTAGE;
-        uint32_t HeterogenousPtr = HETEROGENOUS_RAW_PERCENTAGE;
-        uint32_t FreeSlot = FREE_PERCENTAGE;
+        uint32_t FeedForward = 1u;
+        uint32_t FeedBackward = 1u;
+        uint32_t Lateral = UNSIGNED_ZERO;
+        uint32_t StateSlot = UNSIGNED_ZERO;
+        uint32_t ErrorSlot = 1u;
+        uint32_t Weightless = UNSIGNED_ZERO;
+        uint32_t WeightSlot = UNSIGNED_ZERO;
+        uint32_t AUXSlot = UNSIGNED_ZERO;
+        uint32_t HeterogenousPtr = UNSIGNED_ZERO;
+        uint32_t FreeSlot = UNSIGNED_ZERO;
     };
-
-
-    static const LayoutSpanAndPercentageCarrier DEFAULT_LAYOUT_WEIGHT;
 
     static constexpr std::optional<uint32_t> GetDefaultInitialPercentage(
         MacroColumnOfAPC layout_class,
-        const LayoutSpanAndPercentageCarrier& user_defined_percentage = DEFAULT_LAYOUT_WEIGHT
+        const LayoutSpanAndPercentageCarrier& user_defined_percentage = LayoutSpanAndPercentageCarrier{}
     ) noexcept
     {
         switch (layout_class)
@@ -276,9 +273,6 @@ protected:
     }
 };
 
-
-inline constexpr LayoutPercentageBuilder::LayoutSpanAndPercentageCarrier LayoutPercentageBuilder::DEFAULT_LAYOUT_WEIGHT{};
-
 struct LayoutBoundsOrchestrator : public BufferConfForTracking
 {
 
@@ -405,7 +399,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
     static constexpr bool BuildInitialLayoutBuffer(
         TrackingBufferOfAPC& return_buffer,
         uint32_t capacity_of_the_apc,
-        const LayoutSpanAndPercentageCarrier& provided_layout_weight = DEFAULT_LAYOUT_WEIGHT
+        const LayoutSpanAndPercentageCarrier& provided_layout_weight = LayoutSpanAndPercentageCarrier{}
     ) noexcept
     {
         BuildNullTrackingBuffer(return_buffer);
@@ -467,79 +461,7 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
 
 struct EasyLayout : LayoutBoundsOrchestrator
 {
-    static constexpr bool SetSingleRegionWeight(
-        LayoutSpanAndPercentageCarrier&
-            layout,
-        MacroColumnOfAPC region
-    ) noexcept
-    {
-        layout.FeedForward = 0u;
-        layout.FeedBackward = 0u;
-        layout.Lateral = 0u;
-        layout.StateSlot = 0u;
-        layout.ErrorSlot = 0u;
-        layout.Weightless = 0u;
-        layout.WeightSlot = 0u;
-        layout.AUXSlot = 0u;
-        layout.HeterogenousPtr = 0u;
-        layout.FreeSlot = 0u;
 
-        switch (region)
-        {
-        case MacroColumnOfAPC::
-            FEEDFORWARD_MESSAGE:
-            layout.FeedForward = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            FEEDBACKWARD_MESSAGE:
-            layout.FeedBackward = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            LATERAL_MESAGE:
-            layout.Lateral = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            STATE_SLOT:
-            layout.StateSlot = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            ERROR_SLOT:
-            layout.ErrorSlot = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            WEIGHTLESS_LOOKUP:
-            layout.Weightless = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            WEIGHT_SLOT:
-            layout.WeightSlot = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            AUX_SLOT:
-            layout.AUXSlot = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            HETEROGENOUS_PTR:
-            layout.HeterogenousPtr = 1u;
-            return true;
-
-        case MacroColumnOfAPC::
-            FREE_SLOT:
-            layout.FreeSlot = 1u;
-            return true;
-
-        default:
-            return false;
-        }
-    }
 };
 
 }

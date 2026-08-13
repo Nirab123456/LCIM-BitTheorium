@@ -15,6 +15,7 @@ protected:
     VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
     RangeOfAPC RangeOfThisAPCInSlab_{};
     uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
+    uint64_t* RawAPCBasePtr_{nullptr};
     
     void ReleseFabricBindingOnly_() noexcept;
 

@@ -46,4 +46,10 @@
 14. ConstructAPCIdentity::UnlinkTwoAPC : 
         I. ReadIdentityBufferOfAPC(the one being delinked) & read the inharited edge idx, predessor edge idx, next edge idx, and own edge_Idx(though redundent because it is fixed removing it atleast need a bitflag to know if ths apc allows own axis attachment or detachment)
         II. ReserveAnEdge_(reserves the roots and (childs own root if avaiavle) edge)
-        III. AcquireGraphMutationFlag_()
+        III. AcquireGraphMutationFlag_(acquire graph mutation flags for predessor, child and next if next is available)
+        IV. PrepareForDetachmentOfInharitedAxis
+        V. WriteAcquiredAxis_(Write updated identities to APC)
+        VI. (publish updated root edge and edge of the one who is being detached if availavle)
+        VII. ReleseGraphMutationFlag_(Relese all graph mutation the locks)
+    FAILURE IN ANY POINT :
+        Revert all the changes happened before and return false

@@ -32,21 +32,21 @@ namespace BidirectionalInMemGraph
         }
     public:
 
-        static constexpr std::optional<HeaderIdentifierOfAPC> EnqueueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
+        static constexpr HeaderIdentifierOfAPC EnqueueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
                 static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + RegionOrdinal(macro_column)
             );
         }
 
-        static constexpr std::optional<HeaderIdentifierOfAPC> DequeueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
+        static constexpr HeaderIdentifierOfAPC DequeueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
                 static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + RegionOrdinal(macro_column)
             );
         }
 
-        static constexpr std::optional<HeaderIdentifierOfAPC> SchemaHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
+        static constexpr HeaderIdentifierOfAPC SchemaHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
                 static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + RegionOrdinal(macro_column)

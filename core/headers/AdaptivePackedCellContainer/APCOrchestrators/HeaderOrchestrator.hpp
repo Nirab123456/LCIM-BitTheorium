@@ -57,7 +57,7 @@ namespace BidirectionalInMemGraph
             APCMetaBuffer& header_buffer,
             InstallAxisToBuffer::BufferOfAPCIdentity& identity_buffer,
             uint32_t capacity_of_apc,
-            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight = LayoutBoundsOrchestrator::DEFAULT_LAYOUT_WEIGHT,
+            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},
             const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
             const SchemaDefinition::InitialRegionalProtocol& protocol_conf = SchemaDefinition::InitialRegionalProtocol{},
             uint8_t version = APCDataStructure::BRANCH_VERSION
