@@ -36,15 +36,28 @@ public:
         ShutDownFabric();
     }
 
-    bool CreateAPC(
-        AdaptivePackedCellContainer& desired_apc,
-        bool wants_horizontal_root,
-        bool wants_vertical_root,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype,
-        const SchemaDefinition::InitialRegionalProtocol& protocol,
-        uint8_t version
-    ) noexcept;
+    // bool CreateAPC(
+    //     AdaptivePackedCellContainer& desired_apc,
+    //     bool wants_horizontal_root,
+    //     bool wants_vertical_root,
+    //     const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
+    //     const SchemaDefinition::InitialRegionalDtypeConf& dtype,
+    //     const SchemaDefinition::InitialRegionalProtocol& protocol,
+    //     uint8_t version
+    // ) noexcept
+    // {
+    //     if (
+    //         !IsFabricActive() ||
+    //         desired_apc.IsThisAPCValid()
+    //     )
+    //     {
+    //         return false;
+    //     }
+
+
+
+        
+    // }
 };
 
 

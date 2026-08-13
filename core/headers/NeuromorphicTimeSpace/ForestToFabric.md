@@ -53,3 +53,7 @@
         VII. ReleseGraphMutationFlag_(Relese all graph mutation the locks)
     FAILURE IN ANY POINT :
         Revert all the changes happened before and return false
+
+15. APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription : 
+
+15. VagueTemoraryPremativeFabric::CreateAPC : 

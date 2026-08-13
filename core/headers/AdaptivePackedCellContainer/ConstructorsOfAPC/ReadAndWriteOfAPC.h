@@ -22,7 +22,7 @@ namespace BidirectionalInMemGraph
             return 
                 IsThisAPCValid() &&
                 ReadAPCMetaUnit(HeaderIdentifierOfAPC::APC_SLOT_IDX, slot_idx, true) &&
-                IsValid32BitAPCUnit(slot_idx);
+                APCDataStructure::IsValid32BitAPCUnit(slot_idx);
         }
 
         bool InitiateAPCMetaHeader(

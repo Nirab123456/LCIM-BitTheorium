@@ -124,10 +124,10 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<uint64_t> APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
+    bool APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription(
         uint64_t description_idx,
+        StateOfAPC updated_state,
         StateOfAPC desired_state,
-        bool caller_holds_reservation,
         uint32_t max_tries
     ) noexcept
     {
@@ -135,7 +135,7 @@ namespace BidirectionalInMemGraph
 
         if (!this_apc_descriptor_range.IsValid)
         {
-            return std::nullopt;
+            return false;
         }
         const uint8_t id_st_concurrent = static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT);
         const uint64_t id_state_idx = this_apc_descriptor_range.BeginIndex + id_st_concurrent;
@@ -148,31 +148,17 @@ namespace BidirectionalInMemGraph
             uint64_t current_id_state_value = DSA::ComposeIdAndState(current_id_st);
             DSA::DescriptionLockValues updated_files{};
             updated_files.SeqLock = current_id_st.SeqLock + 1u;
-            updated_files.StateOfTheAPC = desired_state;
+            updated_files.StateOfTheAPC = updated_state;
             uint64_t updated_id_state_value = DSA::ComposeIdAndState(updated_files);
 
             if (
                 !APCDataStructure::IsValidFabricUnit(current_id_state_value) ||
                 !APCDataStructure::IsValidFabricUnit(updated_id_state_value) ||
-                !current_id_st.IsValid ||
-                (
-                    current_id_st.StateOfTheAPC == StateOfAPC::HAULTED &&
-                    !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
-                )
+                current_id_st.StateOfTheAPC != desired_state ||
+                !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, updated_state)
             )
             {
-                return std::nullopt;
-            }
-
-            const bool false_owner_claim = caller_holds_reservation && current_id_st.StateOfTheAPC != StateOfAPC::RESERVED;
-            const bool non_owner_touching_reserved = !caller_holds_reservation && current_id_st.StateOfTheAPC == StateOfAPC::RESERVED;
-            if (
-                false_owner_claim || 
-                non_owner_touching_reserved ||
-                !DSA::IsTransitionStateLeagal(current_id_st.StateOfTheAPC, desired_state)
-            )
-            {
-                continue;
+                return false;
             }
 
             if (
@@ -186,13 +172,13 @@ namespace BidirectionalInMemGraph
                 continue;
             }
             
-            return current_id_state_value;
+            return true;
         }
-        return std::nullopt;
+        return false;
     }
 
 
-    std::optional<uint64_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink(uint64_t& desired_slot) noexcept
+    std::optional<uint32_t> APCHandleDescriptorConstructor::GetASlotForNewAPCLink() noexcept
     {
         if (
             !FabricInitialized_.load(std::memory_order_acquire) ||
@@ -204,7 +190,7 @@ namespace BidirectionalInMemGraph
             return std::nullopt;
         }
 
-        for (uint64_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
+        for (uint32_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
             const DSA::DescriptionLockValues current = ReadAPCStateAtomically_(description_idx);
             if (
@@ -214,19 +200,15 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-            
-            std::optional<uint64_t> previous_st_id_value = SwitchOwnershipOfAReadyDescription(
+            if (!SwitchOwnershipOfAReadyDescription(
                 description_idx,
                 StateOfAPC::RESERVED,
-                false
-            );
-            
-            if (!previous_st_id_value.has_value())
+                StateOfAPC::FREE
+            ))
             {
                 continue;
             }
-            desired_slot = description_idx;
-            return previous_st_id_value;
+            return description_idx;
         }
 
         return std::nullopt;

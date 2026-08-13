@@ -8,7 +8,7 @@ namespace BidirectionalInMemGraph
 class VagueTemoraryPremativeFabric;
 class AdaptivePackedCellContainer;
 
-class FabricToAPCLinker : public APCDataStructure
+class FabricToAPCLinker 
 {
 
 protected:
@@ -76,7 +76,7 @@ public:
 
     static constexpr uint32_t PayloadBegin() noexcept
     {
-        return METACELL_COUNT;
+        return APCDataStructure::METACELL_COUNT;
     }
 
     constexpr bool IsThisAPCValid() noexcept
