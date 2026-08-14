@@ -65,5 +65,54 @@ namespace BidirectionalInMemGraph
         );
     }
 
+    bool AdaptivePackedCellContainer::DetachMeFromAnotherEdge(
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
+    ) noexcept
+    {
+        uint64_t my_slot = FABRIC_CELL_SENTINAL;
+
+        if (
+            !IsThisAPCValid() ||
+            !GetThisSlotIdx(my_slot)
+        )
+        {
+            return false;
+        }
+
+        return FabricOwnerPtr_->UnlinkTwoAPC(
+            static_cast<uint32_t>(my_slot),
+            axis,
+            max_tries
+        );
+    }
+
+    bool AdaptivePackedCellContainer::DetachMyChild(
+        AdaptivePackedCellContainer& sibbling,
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries 
+    ) noexcept
+    {
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        uint64_t childs_current_axis_inharitance = FABRIC_CELL_SENTINAL;
+        uint64_t my_slot_idx = FABRIC_CELL_SENTINAL;
+
+        if (
+            !IsThisAPCValid ||
+            !GetThisSlotIdx(my_slot_idx) ||
+            !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
+            my_slot_idx != childs_current_axis_inharitance
+        )
+        {
+            return false;
+        }
+        return sibbling.DetachMeFromAnotherEdge(
+            axis,
+            max_tries
+        );
+    }
+
+
 
 }

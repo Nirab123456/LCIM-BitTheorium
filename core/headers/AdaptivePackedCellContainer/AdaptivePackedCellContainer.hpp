@@ -25,15 +25,15 @@ public:
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
-    /// @brief MY IDEA IS VAUGE.
-    bool DetachMySibbling(
+    bool DetachMyChild(
+        AdaptivePackedCellContainer& sibbling,
         IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
-    bool DetachMe(
+    bool DetachMeFromAnotherEdge(
         IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
 
