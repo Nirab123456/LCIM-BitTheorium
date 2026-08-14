@@ -1,9 +1,9 @@
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
-#include "TestFiles/CompAPC.hpp"
+#include "TestFiles/APCFabricVsVectorTest.hpp"
 
 
 int main()
 {
     // return 0;
-    return TestSpace1::RunComprehensiveArchitectureComparison();
+    return APCFabricVsVectorTest::RunAPCFabricVsVectorTest();
 }
