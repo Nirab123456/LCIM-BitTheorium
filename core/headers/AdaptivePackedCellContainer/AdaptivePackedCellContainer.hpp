@@ -14,15 +14,18 @@ public:
     bool AttachAnotherToMe(
         AdaptivePackedCellContainer& sibbling,
         IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance
+        IAB::DescOfInharitance inharitance,
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool AttachMeToAnother(
         AdaptivePackedCellContainer& sibbling,
         IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance
+        IAB::DescOfInharitance inharitance,
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
+    /// @brief MY IDEA IS VAUGE.
     bool DetachMySibbling(
         IAB::BidirectionalAxis axis,
         IAB::DescOfInharitance inharitance

@@ -55,6 +55,7 @@ namespace BidirectionalInMemGraph
 
     class ConstructAPCIdentity : public SlabToFabricConverterAndCordinator
     {
+        friend class AdaptivePackedCellContainer;
     private:
 
         /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
