@@ -274,24 +274,12 @@ namespace TestSpace1
             SlotMap[SideChildSlot] = &SideChild;
 
             return
-                Fabric.LinkTwoAPC(
-                    SensorSlot, IntegratorSlot,
-                    Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
-                Fabric.LinkTwoAPC(
-                    IntegratorSlot, MotorSlot,
-                    Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
-                Fabric.LinkTwoAPC(
-                    PredictorSlot, ComparatorSlot,
-                    Axis::VERTICAL, Inheritance::FIRST_CHILD) &&
-                Fabric.LinkTwoAPC(
-                    ComparatorSlot, MotorSlot,
-                    Axis::VERTICAL, Inheritance::FIRST_CHILD) &&
-                Fabric.LinkTwoAPC(
-                    SideOwnerSlot, SideChildSlot,
-                    Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
-                Fabric.LinkTwoAPC(
-                    SideOwnerSlot, SideChildSlot,
-                    Axis::VERTICAL, Inheritance::FIRST_CHILD);
+                Sensor.AttachAnotherToMe(Integrator, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
+                Integrator.AttachAnotherToMe(Motor, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
+                Predictor.AttachAnotherToMe(Comparator, Axis::VERTICAL, Inheritance::FIRST_CHILD) &&
+                Comparator.AttachAnotherToMe(Motor, Axis::VERTICAL, Inheritance::FIRST_CHILD) &&
+                SideOwner.AttachMeToAnother(SideChild, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) &&
+                SideOwner.AttachMeToAnother(SideChild, Axis::VERTICAL, Inheritance::FIRST_CHILD);
         }
     };
 
@@ -422,7 +410,11 @@ namespace TestSpace1
             f.Fabric,
             f.SideOwnerSlot,
             f.SideOwnerSlot,
-            f.SideChildSlot);
+            f.SideChildSlot,
+            f.SideOwner,
+            f.SideOwner,
+            f.SideChild
+        );
 
         pipeline_thread.join();
         const auto end = Clock::now();
@@ -674,7 +666,9 @@ namespace TestSpace1
             const TimedResult vm = RunVectorDynamicBranchMutation(
                 v.Integrator, v.Comparator, v.Motor);
             const TimedResult am = RunAPCDynamicBranchMutation(
-                a.Fabric, a.IntegratorSlot, a.ComparatorSlot, a.MotorSlot);
+                a.Fabric, a.IntegratorSlot, a.ComparatorSlot, a.MotorSlot,
+                a.Integrator, a.Comparator, a.Motor
+            );
 
             vector_runs.MutationUs.push_back(vm.ElapsedUs);
             apc_runs.MutationUs.push_back(am.ElapsedUs);

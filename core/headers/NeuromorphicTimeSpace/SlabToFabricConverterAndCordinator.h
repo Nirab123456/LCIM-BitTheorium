@@ -77,6 +77,20 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
+        bool LinkTwoAPC(
+            uint32_t predessor_idx,
+            uint32_t child_idx,
+            IAB::BidirectionalAxis axis,
+            IAB::DescOfInharitance inharitance,
+            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool UnlinkTwoAPC(
+            uint32_t child_idx,
+            IAB::BidirectionalAxis axis,
+            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
     public:
         std::optional<StateOfAPC> ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
@@ -95,21 +109,6 @@ namespace BidirectionalInMemGraph
             uint32_t apc_slot,
             IAB::BidirectionalAxis axis
         ) noexcept;
-
-        bool LinkTwoAPC(
-            uint32_t predessor_idx,
-            uint32_t child_idx,
-            IAB::BidirectionalAxis axis,
-            IAB::DescOfInharitance inharitance,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool UnlinkTwoAPC(
-            uint32_t child_idx,
-            IAB::BidirectionalAxis axis,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-        
 
     };
     

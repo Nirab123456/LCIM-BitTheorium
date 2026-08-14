@@ -1420,7 +1420,12 @@ namespace TestSpace1
         VagueTemoraryPremativeFabric& fabric,
         uint32_t integrator_slot,
         uint32_t comparator_slot,
-        uint32_t motor_slot)
+        uint32_t motor_slot,
+        AdaptivePackedCellContainer& integrator_slot_address,
+        AdaptivePackedCellContainer& comparator_slot_address,
+        AdaptivePackedCellContainer& motor_slot_address
+
+    )
     {
         std::atomic<bool> failed{false};
         std::barrier start(3);
@@ -1433,12 +1438,9 @@ namespace TestSpace1
             for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
             {
                 if (
-                    !fabric.UnlinkTwoAPC(motor_slot, Axis::HORIZONTAL) ||
-                    !fabric.LinkTwoAPC(
-                        integrator_slot,
-                        motor_slot,
-                        Axis::HORIZONTAL,
-                        Inheritance::FIRST_CHILD))
+                    !motor_slot_address.DetachMeFromAnotherEdge(Axis::HORIZONTAL) ||
+                    !integrator_slot_address.AttachAnotherToMe(motor_slot_address, Axis::HORIZONTAL, Inheritance::FIRST_CHILD)
+                )
                 {
                     failed.store(true, std::memory_order_release);
                     return;
@@ -1456,12 +1458,9 @@ namespace TestSpace1
             for (uint32_t i = 0u; i < DYNAMIC_BRANCH_ROUNDS; ++i)
             {
                 if (
-                    !fabric.UnlinkTwoAPC(motor_slot, Axis::VERTICAL) ||
-                    !fabric.LinkTwoAPC(
-                        comparator_slot,
-                        motor_slot,
-                        Axis::VERTICAL,
-                        Inheritance::FIRST_CHILD))
+                    !motor_slot_address.DetachMeFromAnotherEdge(Axis::VERTICAL) ||
+                    !comparator_slot_address.AttachAnotherToMe(motor_slot_address, Axis::VERTICAL, Inheritance::FIRST_CHILD)
+                )
                 {
                     failed.store(true, std::memory_order_release);
                     return;

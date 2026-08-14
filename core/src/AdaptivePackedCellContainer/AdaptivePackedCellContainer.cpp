@@ -99,7 +99,7 @@ namespace BidirectionalInMemGraph
         uint64_t my_slot_idx = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsThisAPCValid ||
+            !IsThisAPCValid() ||
             !GetThisSlotIdx(my_slot_idx) ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
             my_slot_idx != childs_current_axis_inharitance

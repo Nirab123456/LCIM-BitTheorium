@@ -4,6 +4,6 @@
 
 int main()
 {
-    return 0;
-    // return TestSpace1::RunComprehensiveArchitectureComparison();
+    // return 0;
+    return TestSpace1::RunComprehensiveArchitectureComparison();
 }
