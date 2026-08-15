@@ -1,9 +1,11 @@
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
 #include "TestFiles/APCFabricVsVectorTest.hpp"
-
+#include "TestFiles/MutexedVectorVsAPC.hpp"
 
 int main()
 {
-    // return 0;
-    return APCFabricVsVectorPointerChaseTest::RunAPCFabricVsVectorPointerChaseTest();
+    APCFabricVsVectorPointerChaseTest::RunAPCFabricVsVectorPointerChaseTest();
+    std::cout << "SECOND TEST \n \n \n \n \n";
+    return APCGlobalMutexContentionBenchmark::Run();
+
 }

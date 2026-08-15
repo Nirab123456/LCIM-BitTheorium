@@ -73,11 +73,11 @@ namespace BidirectionalInMemGraph
         }
 
         return 
-            ReadASnapShotFromSlab(
+            ReadBufferwithSyncAtomicIndex(
                 this_apc_descriptor_range.BeginIndex,
                 DSA::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
                 return_buffer.data(),
-                true
+                static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)
             );
     }
 

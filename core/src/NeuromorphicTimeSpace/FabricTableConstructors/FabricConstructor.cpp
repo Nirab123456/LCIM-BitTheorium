@@ -206,4 +206,44 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+
+    bool FabricConstructor::ReadBufferwithSyncAtomicIndex(
+        size_t slab_starting_idx, 
+        size_t sequential_number_of_cells,
+        uint64_t* return_buffer,
+        uint64_t sync_idx_of_buffer
+    ) noexcept
+    {
+        if (
+            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
+            !return_buffer ||
+            sequential_number_of_cells == UNSIGNED_ZERO ||
+            sequential_number_of_cells > SlabCellCount_ - slab_starting_idx ||
+            sync_idx_of_buffer >= sequential_number_of_cells
+        )
+        {
+            return false;
+        }
+
+        try
+        {
+            uint64_t value_of_last_idx = return_buffer[sequential_number_of_cells - 1];
+            (void) value_of_last_idx;        
+        }
+        catch(...)
+        {
+            return false;
+        }
+        std::memcpy(
+            return_buffer,
+            &SlabBasePtr_[slab_starting_idx],
+            sequential_number_of_cells * sizeof(uint64_t)
+        );
+
+        return AtomicallyLoadReadAUnit(
+            slab_starting_idx + sync_idx_of_buffer,
+            return_buffer[sync_idx_of_buffer]
+        );
+    }
+
 }

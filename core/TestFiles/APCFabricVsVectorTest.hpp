@@ -1087,18 +1087,6 @@ namespace APCFabricVsVectorPointerChaseTest
 
     inline int RunAPCFabricVsVectorPointerChaseTest()
     {
-        std::cout
-            << "\n======================================================================\n"
-            << "std::vector + pointer chasing  VS  APC + Fabric\n"
-            << "PUBLIC-TRAVERSAL COMPREHENSIVE TEST\n"
-            << "======================================================================\n"
-            << "APC traversal rule: ONLY FindMyNext() and FindPrevious().\n"
-            << "No APC identity-buffer/root-table/slot lookup is used for navigation.\n\n"
-            << "Topology:\n"
-            << "  H: 0 -> 1 -> 2 -> ... -> 63                 (FIRST_CHILD depth)\n"
-            << "  V: OWNER -> bit-reversed order of 0..63     (sibling pointer chase)\n"
-            << "     first hop FIRST_CHILD, remaining hops LINKED_CHILD\n\n";
-
         const auto vector_build_begin = Clock::now();
         VectorPointerBackend vector_backend{};
         if (!BuildScenario(vector_backend)) return Fail("vector+pointer construction");

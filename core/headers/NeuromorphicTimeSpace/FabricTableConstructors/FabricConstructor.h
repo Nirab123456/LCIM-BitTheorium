@@ -80,6 +80,14 @@ namespace BidirectionalInMemGraph
             bool atomic_required = false
         ) noexcept;
 
+        /// @param sync_idx_of_buffer It is the buffer index caller dosent need to know slab index 
+        bool ReadBufferwithSyncAtomicIndex(
+            size_t slab_starting_idx, 
+            size_t sequential_number_of_cells,
+            uint64_t* return_buffer,
+            uint64_t sync_idx_of_buffer
+        ) noexcept;
+
         constexpr bool IsDesiredIndexValidInSLab(size_t desired_idx) noexcept
         {
             if (SlabBasePtr_ && desired_idx < SlabCellCount_)
