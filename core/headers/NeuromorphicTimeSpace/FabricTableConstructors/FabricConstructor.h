@@ -16,10 +16,6 @@ namespace BidirectionalInMemGraph
 
         size_t SegmentPoolBegin_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
         size_t SegmentPoolEnd_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
-        
-        uint64_t HashBucketCount_{UNSIGNED_ZERO};
-        uint64_t ThreadTableCapacity_{UNSIGNED_ZERO};
-
 
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};

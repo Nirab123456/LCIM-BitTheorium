@@ -428,8 +428,8 @@ namespace TestKit
 
             if (!Fabric_.InitializeFabricWithPtrTable(
                     FABRIC_SLOT_COUNT,
-                    SLOT_WORDS,
-                    CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY))
+                    SLOT_WORDS
+            ))
             {
                 return false;
             }

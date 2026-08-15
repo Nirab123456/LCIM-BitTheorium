@@ -40,10 +40,6 @@ namespace BidirectionalInMemGraph
         CountOfAPC_ = UNSIGNED_ZERO;
         SegmentPoolBegin_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
         SegmentPoolEnd_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
-
-        HashBucketCount_ = UNSIGNED_ZERO;
-        ThreadTableCapacity_  = UNSIGNED_ZERO;
-
         FabricInitialized_.store(false, std::memory_order_release);
         InitializationInProgress_.store(false, std::memory_order_release);
     }
@@ -66,7 +62,6 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_END_IDX)] = SegmentPoolEnd_;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
-        SlabBasePtr_[static_cast<size_t>(FMI::THREAD_TABLE_CAPACITY)] = ThreadTableCapacity_;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
@@ -120,8 +115,7 @@ namespace BidirectionalInMemGraph
 
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
         uint32_t slot_count,
-        uint32_t slot_cell_count,
-        uint32_t fabric_thread_capacity
+        uint32_t slot_cell_count
     ) noexcept
     {
         bool expected = false;
@@ -165,7 +159,6 @@ namespace BidirectionalInMemGraph
         }
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
         PerAPCRuntimeCellCount_ = static_cast<uint32_t>(slot_cell_count);
-        ThreadTableCapacity_ = fabric_thread_capacity == UNSIGNED_ZERO ? CoreOfFabricCoordinator::DEFAULT_THREAD_TABLE_CAPACITY : fabric_thread_capacity;
 
         size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);
         const size_t record_book_begin = cursor;
@@ -199,11 +192,7 @@ namespace BidirectionalInMemGraph
         const size_t device_view_table_begin = cursor;
         const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_view_table_end);
-        const size_t thread_table_begin = cursor;
-        const size_t thread_table_end = thread_table_begin + static_cast<size_t>(ThreadTableCapacity_ * CoreOfFabricCoordinator::THREAD_TABLE_RECORD_WIDTH);
-
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(thread_table_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
         SegmentPoolBegin_ = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
         SegmentPoolEnd_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
         SlabCellCount_ = SegmentPoolEnd_;
@@ -234,7 +223,6 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::THREAD_TABLE, thread_table_begin, thread_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_);
         //ENTRIES:: END ::SLAB_RECORD_MAP
 

@@ -24,8 +24,7 @@ public:
 
     bool InitializeFabricWithPtrTable(
         uint32_t slot_count,
-        uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
-        uint32_t fabric_thread_capacity = UNSIGNED_ZERO
+        uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT
     ) noexcept;
 
     void ShutDownFabricWithPtrTable() noexcept

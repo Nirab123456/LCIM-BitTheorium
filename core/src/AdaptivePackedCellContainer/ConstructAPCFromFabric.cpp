@@ -78,34 +78,29 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.PreviousSibling),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.PreviousSibling).value()],
-            std::memory_order_relaxed
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.PreviousSibling).value()]
         );
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.NextSibling),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.NextSibling).value()],
-            std::memory_order_relaxed
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.NextSibling).value()]
         );
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.InheritedEgdeTableIdx),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.InheritedEgdeTableIdx).value()],
-            std::memory_order_relaxed
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.InheritedEgdeTableIdx).value()]
         );
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.OwnedEgdeTableIdx),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.OwnedEgdeTableIdx).value()],
-            std::memory_order_relaxed
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.OwnedEgdeTableIdx).value()]
         );
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.RootOwnedChild),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.RootOwnedChild).value()],
-            std::memory_order_relaxed
+            identity[IAB::GetBufferIdxFromIdentityUnit(map.RootOwnedChild).value()]
         );
 
         return true;

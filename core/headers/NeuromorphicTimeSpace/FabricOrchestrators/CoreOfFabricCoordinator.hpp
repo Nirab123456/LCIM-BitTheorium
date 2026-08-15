@@ -125,12 +125,6 @@ namespace BidirectionalInMemGraph
                 table_class == FabricSegments::VERTICAL_EDGE_TABLE;
         }
 
-        static constexpr std::optional<uint8_t> GetOrdinalOfFabricTable(FabricSegments table) noexcept
-        {   
-            return static_cast<uint8_t>(
-                static_cast<uint8_t>(table)
-            );
-        }
 
         static constexpr size_t DefaultFabricAlignment16Cell_(size_t value) noexcept
         {

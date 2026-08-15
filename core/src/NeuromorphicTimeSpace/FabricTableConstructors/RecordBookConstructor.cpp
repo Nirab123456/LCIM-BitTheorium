@@ -27,11 +27,11 @@ namespace BidirectionalInMemGraph
         const uint64_t entry_idx = GetStartingOfAnyFabricTable_(table_class);
         if (
             entry_idx + CoreOfFabricCoordinator::RECORD_BOOK_WIDTH > SlabCellCount_ ||
-            !AtomicallyLoadReadAUnit(
+            !ReadAFabricU64Directly(
                 entry_idx + static_cast<uint8_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::BEGIN64),
                 return_bounds.BeginIndex
             ) ||
-            !AtomicallyLoadReadAUnit(
+            !ReadAFabricU64Directly(
                 entry_idx + static_cast<uint8_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64),
                 return_bounds.EndIndex
             ) ||
@@ -63,12 +63,12 @@ namespace BidirectionalInMemGraph
             return;
         }
 
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::BEGIN64), 
             begin
         );
         
-        AtomicallyStoreU64Fab(
+        DirectlyStoreFabricUnit64(
             base_idx + static_cast<size_t>(CoreOfFabricCoordinator::RecordBookInternalIndexing::END64), 
             end
         );                
@@ -84,16 +84,14 @@ namespace BidirectionalInMemGraph
             static_cast<size_t>(CoreOfFabricCoordinator::FabricMetaIndicies::RECORD_BOOK_OF_TSC_BEGIN),
             record_map_begin
         );
-        const std::optional<uint8_t> table_ordinal = CoreOfFabricCoordinator::GetOrdinalOfFabricTable(table_class);
         if (
             !read_ok ||
-            !table_ordinal.has_value() ||
             !APCDataStructure::IsValidFabricUnit(record_map_begin)
         )
         {
             return FABRIC_CELL_SENTINAL;
         }
-        return static_cast<uint64_t>(record_map_begin + (table_ordinal.value() * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH));        
+        return static_cast<uint64_t>(record_map_begin + (static_cast<uint8_t>(table_class) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH));        
     }
 
         
