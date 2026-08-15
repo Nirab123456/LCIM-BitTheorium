@@ -119,43 +119,6 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
-    bool FabricConstructor::AtomicallyCopyFromBufferToFabric(
-        size_t slab_starting_idx, 
-        uint32_t number_of_cells, 
-        const uint64_t* desired_units
-    ) noexcept
-    {
-        if (
-            !IsDesiredIndexValidInSLab(slab_starting_idx + number_of_cells - 1) ||
-            !desired_units ||
-            number_of_cells == UNSIGNED_ZERO ||
-            number_of_cells > SlabCellCount_ - slab_starting_idx
-        )
-        {
-            return false;
-        }
-
-        try
-        {
-            uint64_t value_of_last_idx = desired_units[number_of_cells - 1];
-            (void) value_of_last_idx;
-        }
-        catch(...)
-        {
-            return false;
-        }
-
-        for (size_t i = 0; i < number_of_cells; i++)
-        {
-            AtomicallyStoreU64Fab(
-                slab_starting_idx + i,
-                desired_units[i]
-            );
-        }
-        
-        return true;
-    }
-
     bool FabricConstructor::ReadASnapShotFromSlab(
         size_t slab_starting_idx, 
         size_t sequential_number_of_cells, 

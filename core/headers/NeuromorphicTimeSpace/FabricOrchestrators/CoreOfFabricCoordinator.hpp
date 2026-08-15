@@ -20,7 +20,6 @@ namespace BidirectionalInMemGraph
 
         static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;
 
-
         enum class RecordBookInternalIndexing : uint8_t
         {
             BEGIN64 = 0,

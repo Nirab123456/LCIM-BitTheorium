@@ -88,8 +88,6 @@
 
 27. FabricConstructor::ReadBufferwithSyncAtomicIndex : Input parameter is the buffer index caller dosent need to know slab index and that index is the only index is being read atomically. ReadASnapShotFromSlab -> AtomicallyLoadReadAUnit
 
-28. FabricConstructor::AtomicallyCopyFromBufferToFabric : It is not an atomic transection so better of using standered memcpy.
-
 29 . VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_ : 
 
 

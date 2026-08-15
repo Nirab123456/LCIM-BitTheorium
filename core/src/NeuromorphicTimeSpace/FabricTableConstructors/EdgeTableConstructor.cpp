@@ -269,7 +269,7 @@ namespace BidirectionalInMemGraph
         }
 
         return 
-            AtomicallyCopyFromBufferToFabric(
+            ForceNxLenMemCopy(
                 range.BeginIndex,
                 EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
                 buffer.data()

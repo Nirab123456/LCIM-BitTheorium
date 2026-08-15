@@ -67,12 +67,6 @@ namespace BidirectionalInMemGraph
             const uint64_t* desired_cells
         ) noexcept;
 
-        bool AtomicallyCopyFromBufferToFabric(
-            size_t slab_starting_idx, 
-            uint32_t number_of_cells, 
-            const uint64_t* desired_cells
-        ) noexcept;
-
         bool ReadASnapShotFromSlab(
             size_t slab_starting_idx, 
             size_t sequential_number_of_cells,

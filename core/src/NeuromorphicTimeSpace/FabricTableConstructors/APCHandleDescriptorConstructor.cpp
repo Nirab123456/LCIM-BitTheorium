@@ -99,7 +99,7 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        return AtomicallyCopyFromBufferToFabric(
+        return ForceNxLenMemCopy(
             desired_descriptor_range.BeginIndex,
             DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
             desc_buffer.data()
