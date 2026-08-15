@@ -90,6 +90,9 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t internal_max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+        
+    protected:
+        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
     public:
         std::optional<StateOfAPC> ReadIdentityBufferOfAPC(
@@ -103,7 +106,6 @@ namespace BidirectionalInMemGraph
             IAB::GraphMutationValues& values
         ) noexcept;
 
-        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
         bool InitiateRootAxis(
             uint32_t apc_slot,

@@ -5,5 +5,5 @@
 int main()
 {
     // return 0;
-    return APCFabricVsVectorTest::RunAPCFabricVsVectorTest();
+    return APCFabricVsVectorPointerChaseTest::RunAPCFabricVsVectorPointerChaseTest();
 }

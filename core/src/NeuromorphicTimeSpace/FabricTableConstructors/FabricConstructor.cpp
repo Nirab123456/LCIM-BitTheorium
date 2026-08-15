@@ -51,7 +51,6 @@ namespace BidirectionalInMemGraph
         }
         std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[slab_index]);
         fab_u64_ref.store(fabric_unit, mem_order);
-        fab_u64_ref.notify_all();
     }
 
     bool FabricConstructor::CompareExchangeStrongFromFabric(

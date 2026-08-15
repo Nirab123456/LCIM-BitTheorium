@@ -18,11 +18,12 @@ namespace BidirectionalInMemGraph
     public:
         bool GetThisSlotIdx(uint64_t& slot_idx) noexcept
         {
-            slot_idx = FABRIC_CELL_SENTINAL;
-            return 
-                IsThisAPCValid() &&
-                ReadAPCMetaUnit(HeaderIdentifierOfAPC::APC_SLOT_IDX, slot_idx, true) &&
-                APCDataStructure::IsValid32BitAPCUnit(slot_idx);
+            if (IsThisAPCValid())
+            {
+                slot_idx = RawAPCBasePtr_[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)];
+                return true;
+            }
+            return false;
         }
 
         bool InitiateAPCMetaHeader(

@@ -11,3 +11,4 @@ Dump
 /core/out
 /package-lock.json
 /package.json
+/build-release

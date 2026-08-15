@@ -46,18 +46,6 @@ namespace BidirectionalInMemGraph
             {
                 continue;
             }
-
-            // if (!AtomicallyLoadReadAUnit(st_lock_idx, after_read_lock))
-            // {
-            //     return std::nullopt;
-            // }
-            
-            // if (
-            //     after_read_lock != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
-            // )
-            // {
-            //     continue;
-            // }
             
             return current_apc_state.StateOfTheAPC;
         }
