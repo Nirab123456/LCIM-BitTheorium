@@ -136,7 +136,7 @@ namespace BidirectionalInMemGraph
 
     std::optional<uint64_t> ConstructAPCIdentity::AcquireGraphMutationFlag_(
         uint32_t apc_slot_idx,
-        IAB::MemGraphFlag desired_state,
+        IAB::BidirectionalAxis axis,
         uint32_t max_tries 
     ) noexcept
     {
@@ -144,7 +144,6 @@ namespace BidirectionalInMemGraph
         const DSA::DescriptionLockValues dsc_state = ReadAPCStateAtomically_(apc_slot_idx); 
 
         if (
-            desired_state == IAB::MemGraphFlag::LIVE ||
             !dsc_state.IsValid ||
             !IsLiveSateOfAPC(dsc_state.StateOfTheAPC) ||
             !range_of_apc.IsValid
@@ -152,6 +151,8 @@ namespace BidirectionalInMemGraph
         {
             return std::nullopt;
         }
+
+        const IAB::MemGraphFlag desired_state = IAB::GetMemGFlagFromAxis(axis);
 
         const size_t gmv_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         uint64_t gmv_raw = FABRIC_CELL_SENTINAL;
@@ -340,8 +341,6 @@ namespace BidirectionalInMemGraph
 
         IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
-        IAB::MemGraphFlag axis_lock = IAB::GetMemGFlagFromAxis(axis);
-
         EdgeBuilder::EdgeData reserved_edge{};
 
         const std::optional<EdgeBuilder::EdgeStatus> edge_status = ReadEdgeData_(
@@ -373,7 +372,7 @@ namespace BidirectionalInMemGraph
         };
 
         if (
-            !AcquireGraphMutationFlag_(apc_slot, axis_lock).has_value()
+            !AcquireGraphMutationFlag_(apc_slot, axis).has_value()
         )
         {
             RevertEdgeToFree____();
@@ -460,7 +459,6 @@ namespace BidirectionalInMemGraph
         }
 
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
 
         IAB::BufferOfAPCIdentity predessor_buffer{};
         std::optional<StateOfAPC> state_of_predessor = ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries);
@@ -514,7 +512,7 @@ namespace BidirectionalInMemGraph
         const uint32_t second_lock = std::max(predessor_idx, child_idx);
 
         if (
-            !AcquireGraphMutationFlag_(first_lock, axis_flag, internal_max_tries).has_value()
+            !AcquireGraphMutationFlag_(first_lock, axis, internal_max_tries).has_value()
         )
         {
             PublishReservedEdge_(owner_edge_before, roots_edge_idx);
@@ -522,7 +520,7 @@ namespace BidirectionalInMemGraph
         }
 
         if (
-            !AcquireGraphMutationFlag_(second_lock, axis_flag, internal_max_tries).has_value()
+            !AcquireGraphMutationFlag_(second_lock, axis, internal_max_tries).has_value()
         )
         {
             ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
@@ -704,8 +702,9 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        return ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries) &&
-            ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
+        bool ok_r1 = ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
+        bool ok_r2 = ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
+        return ok_r1 && ok_r2;
     }
 
 
@@ -724,8 +723,6 @@ namespace BidirectionalInMemGraph
         }
 
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
-
         IAB::BufferOfAPCIdentity child_buffer_idintity{};
         const std::optional<StateOfAPC> child_prob_state = ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity);
         if (
@@ -889,7 +886,7 @@ namespace BidirectionalInMemGraph
         {
             if (!AcquireGraphMutationFlag_(
                 lock_apcs_array[i],
-                axis_flag,
+                axis,
                 internal_max_tries
             ))
             {

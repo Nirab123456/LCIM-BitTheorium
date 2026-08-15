@@ -229,13 +229,16 @@ namespace BidirectionalInMemGraph
 
             --pre_switch.SeqLock;
             pre_switch.Status = edge_status_current.value();
-
-            return
+            if (                
                 CompareExchangeStrongFromFabric(
                     control_idx,
                     expected_st_lock,
                     buffer[static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)]
-                );
+                )
+            )
+            {
+                return true;
+            }
         }
         
         return false;

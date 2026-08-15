@@ -58,23 +58,10 @@ namespace BidirectionalInMemGraph
         friend class AdaptivePackedCellContainer;
     private:
 
-        /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
-        std::optional<uint64_t> AcquireGraphMutationFlag_(
-            uint32_t apc_slot_idx,
-            IAB::MemGraphFlag desired_state,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
         bool WriteAcquiredAxis_(
             uint32_t apc_slot,
             const IAB::BufferOfAPCIdentity& identity,
             IAB::BidirectionalAxis axis
-        ) noexcept;
-
-        bool ReleseGraphMutationFlag_(
-            uint32_t apc_slot,
-            IAB::BidirectionalAxis axis,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         bool LinkTwoAPC(
@@ -89,6 +76,19 @@ namespace BidirectionalInMemGraph
             uint32_t child_idx,
             IAB::BidirectionalAxis axis,
             uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
+        std::optional<uint64_t> AcquireGraphMutationFlag_(
+            uint32_t apc_slot_idx,
+            IAB::BidirectionalAxis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool ReleseGraphMutationFlag_(
+            uint32_t apc_slot,
+            IAB::BidirectionalAxis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
         
     protected:
@@ -106,15 +106,12 @@ namespace BidirectionalInMemGraph
             IAB::GraphMutationValues& values
         ) noexcept;
 
-
         bool InitiateRootAxis(
             uint32_t apc_slot,
             IAB::BidirectionalAxis axis
         ) noexcept;
 
-    };
-    
 
-
+};
 
 }
