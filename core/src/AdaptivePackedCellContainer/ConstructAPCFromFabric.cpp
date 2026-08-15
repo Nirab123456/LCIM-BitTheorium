@@ -25,17 +25,15 @@ namespace BidirectionalInMemGraph
 
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
-        // uint64_t after_read_lock = FABRIC_CELL_SENTINAL;
-        IAB::GraphMutationValues begin_values{};
-
         for (size_t i = 0; i < max_tries; i++)
         {
+            
             if (
-                !ReadASnapShotFromSlab(
+                !ReadBufferwithSyncAtomicIndex(
                     st_lock_idx,
                     APCDataStructure::TotalIdentityUnitCount(),
                     identity.data(),
-                    true
+                    IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()
                 )
             )
             {

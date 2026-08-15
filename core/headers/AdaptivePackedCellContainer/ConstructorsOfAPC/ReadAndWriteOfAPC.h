@@ -8,11 +8,9 @@ namespace BidirectionalInMemGraph
     {
 
     protected:
-        bool ReadCompleateMetaHeaderAtomically_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept;
 
         bool ReadCompleatLayoutBuffer_(
-            LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer,
-            bool atomic_required = false
+            LayoutBoundsOrchestrator::TrackingBufferOfAPC& a_layout_buffer
         ) noexcept;
 
     public:
@@ -45,12 +43,6 @@ namespace BidirectionalInMemGraph
             uint64_t& expected_value,
             uint64_t desired_value
         ) noexcept;
-
-        bool PublishIdentityBuffer(
-            InstallAxisToBuffer::BufferOfAPCIdentity& desired_identity,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
 
 
     };

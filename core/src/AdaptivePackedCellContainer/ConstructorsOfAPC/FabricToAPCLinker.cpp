@@ -79,27 +79,6 @@ namespace BidirectionalInMemGraph
         FabricOwnerPtr_ = fabric_owner;
     }
 
-    bool FabricToAPCLinker::AtomicallyCopyFromBufferToAPC(
-        uint32_t starting_idx_in_apc,
-        uint8_t sequential_number_of_cells,
-        const uint64_t* source_cells
-    ) noexcept
-    {
-        if (
-            !RangeOfThisAPCInSlab_.IsValid ||
-            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
-        )
-        {
-            return false;
-        }
-
-        return FabricOwnerPtr_->AtomicallyCopyFromBufferToFabric(
-            (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
-            sequential_number_of_cells, 
-            source_cells
-        );
-    }
-
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
         uint32_t starting_idx_in_apc,
         uint32_t sequential_number_of_cells,
@@ -124,8 +103,7 @@ namespace BidirectionalInMemGraph
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
         uint32_t starting_idx_in_apc,
         uint32_t sequential_number_of_cells,
-        uint64_t* return_buffer,
-        bool atomic_required
+        uint64_t* return_buffer
     ) noexcept
     {
         if (
@@ -139,8 +117,7 @@ namespace BidirectionalInMemGraph
         return FabricOwnerPtr_->ReadASnapShotFromSlab(
             (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
             sequential_number_of_cells, 
-            return_buffer,
-            atomic_required
+            return_buffer
         );
     }
 

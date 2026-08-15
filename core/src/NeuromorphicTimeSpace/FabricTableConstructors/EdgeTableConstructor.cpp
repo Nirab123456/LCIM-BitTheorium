@@ -95,24 +95,25 @@ namespace BidirectionalInMemGraph
         }
         const uint8_t internal_idx_st = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
         const size_t control_idx = range.BeginIndex + internal_idx_st;
-        uint64_t after_read_lock = FABRIC_CELL_SENTINAL;
+        uint64_t before_read = FABRIC_CELL_SENTINAL;
 
         for (size_t i = 0; i < max_tries; i++)
         {
+
             if (
-                !ReadASnapShotFromSlab(
-                    range.BeginIndex,
-                    EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                    return_buffer.data(),
-                    true
-                )
+                !AtomicallyLoadReadAUnit(control_idx, before_read)
             )
             {
                 return false;
             }
 
             if (
-                !AtomicallyLoadReadAUnit(control_idx, after_read_lock)
+                !ReadBufferwithSyncAtomicIndex(
+                    range.BeginIndex,
+                    EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
+                    return_buffer.data(),
+                    static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)
+                )
             )
             {
                 return false;
@@ -120,7 +121,7 @@ namespace BidirectionalInMemGraph
             
             if (
                 !EdgeBuilder::ValidateEdgeBuffer(edge_table, return_buffer) ||
-                after_read_lock != return_buffer[internal_idx_st]
+                before_read != return_buffer[internal_idx_st]
             )
             {
                 continue;

@@ -1344,12 +1344,19 @@ namespace APCGlobalMutexContentionBenchmark
     inline int Run()
     {
         std::cout
+            << "  workers 1-4 occupy separate roots; local contention begins at worker 5\n\n"
             << "Per level: " << MEASURED_RUNS << " measured runs, median reported; "
             << WARMUP_CYCLES_PER_WORKER << " warmup + "
             << MEASURED_CYCLES_PER_WORKER << " measured cycles/worker/run\n"
-            << "Latency sampling: 1/" << LATENCY_SAMPLE_STRIDE << "\n";
+            << "Latency sampling: 1/" << LATENCY_SAMPLE_STRIDE
+            << " completed cycles (throughput counts every cycle)\n\n";
 
         std::array<LevelResult, MAX_CONTENTION_LEVEL + 1u> levels{};
+
+        std::cout
+            << "level workers | vector Mc/s  p99cycle(us) p99mutexwait(us)"
+            << " | APC Mc/s  p99cycle(us) p99retrycycle(us) rejects/1k  retries/cycle  APC/vector\n"
+            << "------------------------------------------------------------------------------------------------------------------------\n";
 
         for (uint32_t level = MIN_CONTENTION_LEVEL;
              level <= MAX_CONTENTION_LEVEL;
@@ -1402,6 +1409,13 @@ namespace APCGlobalMutexContentionBenchmark
                 << r.APCTraversalRestartsPer1000
                 << '\n';
         }
+
+        std::cout
+            << "\nCSV_SUMMARY\n"
+            << "contention_level,workers,vector_cycles_per_s,vector_p99_cycle_ns,vector_p99_mutex_wait_ns,"
+            << "apc_cycles_per_s,apc_p99_cycle_ns,apc_p99_failed_attempt_ns,apc_p99_retried_cycle_ns,"
+            << "apc_rejects_per_1000,apc_traversal_restarts_per_1000,apc_retry_events_per_cycle,"
+            << "apc_p99_retry_events_per_cycle,apc_to_vector_throughput_ratio\n";
 
         for (const LevelResult& r : levels)
         {

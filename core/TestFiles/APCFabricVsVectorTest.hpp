@@ -478,7 +478,7 @@ namespace APCFabricVsVectorPointerChaseTest
             const uint32_t local = PayloadBegin_[idx] + word;
             return atomic
                 ? Nodes_[idx].AtomicallyReadLongLongAPCUnit(local, value)
-                : Nodes_[idx].CopyFromAPCToBuffer(local, 1u, &value, false);
+                : Nodes_[idx].CopyFromAPCToBuffer(local, 1u, &value);
         }
 
         bool LocksReleased() noexcept

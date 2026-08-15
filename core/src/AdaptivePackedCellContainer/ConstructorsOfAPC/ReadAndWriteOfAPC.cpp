@@ -4,32 +4,15 @@
 namespace BidirectionalInMemGraph
 {
 
-    bool ReadAndWriteOfAPC::ReadCompleateMetaHeaderAtomically_(HeaderOrchestrator::APCMetaBuffer& a_default_buffer) noexcept
-    {
-        if (!RangeOfThisAPCInSlab_.IsValid)
-        {
-            return false;
-        }
-
-        if (!CopyFromAPCToBuffer(UNSIGNED_ZERO, APCDataStructure::METACELL_COUNT, a_default_buffer.data()))
-        {
-            return false;
-        }
-        
-        return true;
-    }
-
     bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer_(
-        LayoutBoundsOrchestrator::TrackingBufferOfAPC& layout_buffer,
-        bool atomic_required 
+        LayoutBoundsOrchestrator::TrackingBufferOfAPC& layout_buffer
     ) noexcept
     {
         BufferConfForTracking::BuildNullTrackingBuffer(layout_buffer);
         if (!CopyFromAPCToBuffer(
             APCDataStructure::LayoutBufferBegainInMetaIndecies(),
             APCDataStructure::CountOfMacroColumn(),
-            layout_buffer.data(),
-            atomic_required
+            layout_buffer.data()
         ))
         {
             return false;
