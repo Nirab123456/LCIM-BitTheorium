@@ -188,7 +188,7 @@ struct GraphLockConf : public AxisConstructor
         return true;
     }
 
-    static constexpr bool DoseCurrentFlagsAllowsThisAxisMutation(uint32_t flags, BidirectionalAxis axis) noexcept
+    static constexpr bool IsDesiredAxisLocked(uint32_t flags, BidirectionalAxis axis) noexcept
     {
         switch (axis)
         {

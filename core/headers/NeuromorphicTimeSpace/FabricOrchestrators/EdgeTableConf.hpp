@@ -203,7 +203,7 @@ struct EdgeBuilder : public EdgeTableConf
             !IAB::IsOwnedAxisDisabled(identity_buffer, axis) ||
             !APCDataStructure::IsValid32BitAPCUnit(owned_edge_idx) ||
             !IAB::GetGraphMutationValues(identity_buffer, values_gm) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(values_gm.Flags, axis)
+            !IAB::IsDesiredAxisLocked(values_gm.Flags, axis)
         )
         {
             return false;
@@ -270,9 +270,9 @@ struct EdgeBuilder : public EdgeTableConf
             owner_edge.EdgeTable != map.EdgeTable ||
             predessor_slot == current_slot  ||
             !IAB::GetGraphMutationValues(predessor, gmv_predecessor) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_predecessor.Flags, axis) ||
+            !IAB::IsDesiredAxisLocked(gmv_predecessor.Flags, axis) ||
             !IAB::GetGraphMutationValues(current_identity, gmv_current) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_current.Flags, axis)
+            !IAB::IsDesiredAxisLocked(gmv_current.Flags, axis)
         )
         {
             return false;
@@ -404,13 +404,13 @@ struct EdgeBuilder : public EdgeTableConf
             owner_edge.EdgeTable != map.EdgeTable ||
             !IAB::GetGraphMutationValues(predecessor_identity, gmv_predecessor) ||
             !IAB::GetGraphMutationValues(current_identity, gmv_current) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_predecessor.Flags, axis) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_current.Flags, axis) ||
+            !IAB::IsDesiredAxisLocked(gmv_predecessor.Flags, axis) ||
+            !IAB::IsDesiredAxisLocked(gmv_current.Flags, axis) ||
             (
                 next_identity &&
                 (
                     !IAB::GetGraphMutationValues(*next_identity, gmv_next) ||
-                    !IAB::DoseCurrentFlagsAllowsThisAxisMutation(gmv_next.Flags, axis)
+                    !IAB::IsDesiredAxisLocked(gmv_next.Flags, axis)
                 )
             )
         )

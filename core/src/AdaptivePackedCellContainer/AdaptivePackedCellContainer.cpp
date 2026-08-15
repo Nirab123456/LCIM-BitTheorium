@@ -114,5 +114,83 @@ namespace BidirectionalInMemGraph
     }
 
 
+    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious(IAB::BidirectionalAxis axis) noexcept
+    {
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        IAB::GraphMutationValues gmv_values{};
+        
+        uint64_t slot_idx = FABRIC_CELL_SENTINAL;
+
+        uint64_t previous = FABRIC_CELL_SENTINAL;
+
+        if (
+            !IsThisAPCValid() ||
+            !GetThisSlotIdx(slot_idx) ||
+            !FabricOwnerPtr_->ReadGraphMutationFlags(
+                static_cast<uint32_t>(slot_idx),
+                gmv_values
+            ) ||
+            !gmv_values.IsValid ||
+            IAB::IsDesiredAxisLocked(gmv_values.Flags, axis) ||
+            !ReadAPCMetaUnit(map.PreviousSibling, previous) ||
+            !APCDataStructure::IsValid32BitAPCUnit(previous)
+        )
+        {
+            return nullptr;
+        }
+
+        DescriptionOfAPC::DescriptionLockValues previous_apc_dsc_lock = FabricOwnerPtr_->ReadAPCStateAtomically_(previous);
+
+        if (
+            previous_apc_dsc_lock.IsValid && 
+            IsLiveSateOfAPC(previous_apc_dsc_lock.StateOfTheAPC)
+        )
+        {
+            return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
+        }
+        return nullptr;
+    }
+
+
+    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindMyNext(
+        IAB::BidirectionalAxis axis,
+        IAB::DescOfInharitance inharitance
+    ) noexcept
+    {
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        IAB::GraphMutationValues gmv_values{};
+        uint64_t slot_idx = FABRIC_CELL_SENTINAL;
+        uint64_t desired_next = FABRIC_CELL_SENTINAL;
+
+        const HeaderIdentifierOfAPC next_on_inharitance = inharitance == IAB::DescOfInharitance::FIRST_CHILD ?
+            map.NextSibling : map.RootOwnedChild;
+
+        if (
+            !IsThisAPCValid() ||
+            !GetThisSlotIdx(slot_idx) ||
+            !FabricOwnerPtr_->ReadGraphMutationFlags(
+                static_cast<uint32_t>(slot_idx),
+                gmv_values
+            ) ||
+            !gmv_values.IsValid ||
+            IAB::IsDesiredAxisLocked(gmv_values.Flags, axis) ||
+            !ReadAPCMetaUnit(next_on_inharitance, desired_next) ||
+            !APCDataStructure::IsValid32BitAPCUnit(desired_next)
+        )
+        {
+            return nullptr;
+        }
+        DescriptionOfAPC::DescriptionLockValues next_apc_dsc_lock = FabricOwnerPtr_->ReadAPCStateAtomically_(desired_next);
+        if (
+            next_apc_dsc_lock.IsValid && 
+            IsLiveSateOfAPC(next_apc_dsc_lock.StateOfTheAPC)
+        )
+        {
+            return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(desired_next);
+        }
+        return nullptr;
+    }
+
+
 
 }

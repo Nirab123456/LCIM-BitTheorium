@@ -36,6 +36,13 @@ public:
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
+    AdaptivePackedCellContainer* FindPrevious(IAB::BidirectionalAxis axis) noexcept;
+
+    AdaptivePackedCellContainer* FindMyNext(
+        IAB::BidirectionalAxis axis,
+        IAB::DescOfInharitance inharitance
+    ) noexcept;
+
 
 
 };

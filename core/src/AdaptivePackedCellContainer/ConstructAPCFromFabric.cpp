@@ -25,7 +25,7 @@ namespace BidirectionalInMemGraph
 
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
-        uint64_t after_read_lock = FABRIC_CELL_SENTINAL;
+        // uint64_t after_read_lock = FABRIC_CELL_SENTINAL;
         IAB::GraphMutationValues begin_values{};
 
         for (size_t i = 0; i < max_tries; i++)
@@ -47,17 +47,17 @@ namespace BidirectionalInMemGraph
                 continue;
             }
 
-            if (!AtomicallyLoadReadAUnit(st_lock_idx, after_read_lock))
-            {
-                return std::nullopt;
-            }
+            // if (!AtomicallyLoadReadAUnit(st_lock_idx, after_read_lock))
+            // {
+            //     return std::nullopt;
+            // }
             
-            if (
-                after_read_lock != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
-            )
-            {
-                continue;
-            }
+            // if (
+            //     after_read_lock != identity[IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()]
+            // )
+            // {
+            //     continue;
+            // }
             
             return current_apc_state.StateOfTheAPC;
         }
@@ -86,7 +86,7 @@ namespace BidirectionalInMemGraph
                 HeaderIdentifierOfAPC::APC_SLOT_IDX
             ) != apc_slot ||
             !ReadGraphMutationFlags(apc_slot, current_lock) ||
-            !IAB::DoseCurrentFlagsAllowsThisAxisMutation(current_lock.Flags, axis)
+            !IAB::IsDesiredAxisLocked(current_lock.Flags, axis)
         )
         {
             return false;

@@ -6,7 +6,7 @@ namespace BidirectionalInMemGraph
 
 class VagueTemoraryPremativeFabric : public ConstructAPCIdentity
 {
-
+    friend class AdaptivePackedCellContainer;
 private:
 
     /// @brief IN FUTURE EITHER GET RID OF THE TABLE OR: STORE INSIDE FABRICE BY USING  WildCardOfPackedCell::RAW_30x2BIT

@@ -74,15 +74,16 @@
         Rollback the edges -> SwitchDescriptionState(switches the state back to free)
 
 21. AdaptivePackedCellContainer::AttachAnotherToMe  &  AttachMeToAnother :
-    A Thin Wrapper Calling "ConstructAPCIdentity::LinkTwoAPC" Minimising Direct Touch To Fabric LinkTwoAPC and UnlinkTwoAPC can be protected.
+    A Thin Wrapper Calling "ConstructAPCIdentity::UnlinkTwoAPC" 
 
-22. 
+22. AdaptivePackedCellContainer::DetachMyChild & DetachMeFromAnotherEdge :
+    A Thin Wrapper Calling "ConstructAPCIdentity::LinkTwoAPC" 
 
-22. ConstructAPCIdentity::ReadGraphMutationFlags : GetSegmentPoolRange + Just atomically reads the Graph mutation flags.
+23. ConstructAPCIdentity::ReadGraphMutationFlags : GetSegmentPoolRange + Just atomically reads the Graph mutation flags.
 
-22. ReadAndWriteOfAPC::ReadAPCMetaUnit : should be protected direct access to meta header should be prohibated. It should have extensions to read identity , schema, layout (schema, and layout read can be direct access they are build once or when build the APC IS RESERVED) but identity shoud be validated by ReadGraphMutationFlags
+24. ReadAndWriteOfAPC::ReadAPCMetaUnit : should be protected direct access to meta header should be prohibated. It should have extensions to read identity , schema, layout (schema, and layout read can be direct access they are build once or when build the APC IS RESERVED) but identity shoud be validated by ReadGraphMutationFlags
 
-
+25. AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious :
 
 
 TEST 1:
