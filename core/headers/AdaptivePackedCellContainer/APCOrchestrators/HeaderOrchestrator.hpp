@@ -7,8 +7,6 @@ namespace BidirectionalInMemGraph
 
     struct DescriptionOfAPC 
     {
-
-        using APCDescriptorRange = RangeOfAPC;
         
         struct SeqLockAndStateStruct
         {

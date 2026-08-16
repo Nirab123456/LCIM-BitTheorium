@@ -6,22 +6,22 @@
 namespace BidirectionalInMemGraph
 {
 
-    std::optional<StateOfAPC> ConstructAPCIdentity::ReadIdentityBufferOfAPC(
+    bool ConstructAPCIdentity::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
         IAB::BufferOfAPCIdentity& identity,
         uint32_t max_tries
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
+        // DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
 
-        if (
-            !range_of_apc_sagmant_pool.IsValid ||
-            !current_apc_state.IsValid
-        )
-        {
-            return std::nullopt;
-        }
+        // if (
+        //     !range_of_apc_sagmant_pool.IsValid ||
+        //     !current_apc_state.IsValid
+        // )
+        // {
+        //     return std::nullopt;
+        // }
 
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
@@ -37,18 +37,15 @@ namespace BidirectionalInMemGraph
                 )
             )
             {
-                return std::nullopt;
+                return false;
             }
 
-            if (!IAB::ValidateIdentityBuffer(identity))
+            if (IAB::ValidateIdentityBuffer(identity))
             {
-                continue;
+                return true;
             }
-            
-            return current_apc_state.StateOfTheAPC;
         }
-        
-        return std::nullopt;
+        return false;
     }
 
     bool ConstructAPCIdentity::WriteAcquiredAxis_(
@@ -351,11 +348,8 @@ namespace BidirectionalInMemGraph
         };
 
         IAB::BufferOfAPCIdentity identity_buffer{};
-        const std::optional<StateOfAPC> current_apc_state = ReadIdentityBufferOfAPC(apc_slot, identity_buffer);
-
         if (
-            !IsLiveSateOfAPC(current_apc_state) ||
-            !IAB::IsOwnedAxisDisabled(identity_buffer, axis)
+            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer)
         )
         {
             ReleseAxis___();
@@ -416,9 +410,8 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         IAB::BufferOfAPCIdentity predessor_buffer{};
-        std::optional<StateOfAPC> state_of_predessor = ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries);
 
-        if (!IsLiveSateOfAPC(state_of_predessor))
+        if (!ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries))
         {
             return false;
         }
@@ -497,14 +490,9 @@ namespace BidirectionalInMemGraph
 
 
         IAB::BufferOfAPCIdentity child_buffer{};
-
-        const std::optional<StateOfAPC> predessor_state = ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer);
-        const std::optional<StateOfAPC> child_state = ReadIdentityBufferOfAPC(child_idx, child_buffer);
-
-
         if (
-            !IsLiveSateOfAPC(predessor_state) ||
-            !IsLiveSateOfAPC(child_state) ||
+            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer) ||
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer) ||
             !IAB::IsInheritedAxisDisabled(child_buffer, axis)
         )
         {
@@ -679,10 +667,8 @@ namespace BidirectionalInMemGraph
 
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         IAB::BufferOfAPCIdentity child_buffer_idintity{};
-        const std::optional<StateOfAPC> child_prob_state = ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity);
         if (
-            !IsLiveSateOfAPC(child_prob_state) ||
-            IAB::IsInheritedAxisDisabled(child_buffer_idintity, axis)
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity)
         )
         {
             return false;
@@ -854,28 +840,31 @@ namespace BidirectionalInMemGraph
         IAB::BufferOfAPCIdentity predessor_buffer{};
         IAB::BufferOfAPCIdentity next_id_buffer{};
 
-        const std::optional<StateOfAPC> predessor_state = ReadIdentityBufferOfAPC(
-            predessor_idx,
-            predessor_buffer,
-            internal_max_tries
-        );
-
-        const std::optional<StateOfAPC> child_state = ReadIdentityBufferOfAPC(
-            child_idx,
-            child_buffer_idintity,
-            internal_max_tries
-        );
-
-        std::optional<StateOfAPC> next_state = std::nullopt;
-
-        if (has_next)
-        {
-            next_state = ReadIdentityBufferOfAPC(
-                static_cast<uint32_t>(next_idx_of_same_parent),
-                next_id_buffer,
+        if (
+            !ReadIdentityBufferOfAPC(
+                predessor_idx,
+                predessor_buffer,
                 internal_max_tries
-            );
+            ) ||
+            !ReadIdentityBufferOfAPC(
+                child_idx,
+                child_buffer_idintity,
+                internal_max_tries
+            ) ||
+            (
+                has_next &&
+                !ReadIdentityBufferOfAPC(
+                    static_cast<uint32_t>(next_idx_of_same_parent),
+                    next_id_buffer,
+                    internal_max_tries
+                )
+            )
+        )
+        {
+            ReleseReservedGraphAndEdge___();
+            return false;
         }
+        
 
         const IAB::BufferOfAPCIdentity before_predessor_buffer = predessor_buffer;
         const IAB::BufferOfAPCIdentity before_child_buffer = child_buffer_idintity;

@@ -2,7 +2,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    using EdgeTableRange = DescriptionOfAPC::APCDescriptorRange;
+    using EdgeTableRange = RangeOfAPC;
 
     EdgeTableRange EdgeTableConstructor::ReadAnEdgeTableRange_(
         FabricSegments edge_table,

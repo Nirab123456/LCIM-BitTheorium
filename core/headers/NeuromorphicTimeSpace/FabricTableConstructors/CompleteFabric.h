@@ -34,11 +34,11 @@ namespace BidirectionalInMemGraph
 
     class APCLifeCycle : public RecordBookConstructor
     {
+        friend class FabricToAPCLinker;
     protected:
     
         std::optional<uint64_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;
 
-    public:
         RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
@@ -60,7 +60,7 @@ namespace BidirectionalInMemGraph
     class EdgeTableConstructor : public APCLifeCycle
     {
     public:
-        using EdgeTableRange = DSA::APCDescriptorRange;
+        using EdgeTableRange = RangeOfAPC;
 
     private :
         bool SwitchEdgeState__(

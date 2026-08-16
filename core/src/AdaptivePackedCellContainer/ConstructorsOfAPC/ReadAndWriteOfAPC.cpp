@@ -32,7 +32,8 @@ namespace BidirectionalInMemGraph
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
         IAB::BufferOfAPCIdentity idintity_buffer{};
 
-        const std::optional<StateOfAPC> current_state = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(APCSlotIdx_), idintity_buffer);
+        const bool read_identity_buffer_ok = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(APCSlotIdx_), idintity_buffer);
+        
 
         if (
             !IsThisAPCValid() ||

@@ -91,7 +91,7 @@ namespace BidirectionalInMemGraph
         bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
     public:
-        std::optional<StateOfAPC> ReadIdentityBufferOfAPC(
+        bool ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
             IAB::BufferOfAPCIdentity& identity,
             uint32_t max_tries = DEFAULT_MAX_TRIES
