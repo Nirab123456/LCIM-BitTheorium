@@ -17,6 +17,7 @@ protected:
     uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
     uint64_t* RawAPCBasePtr_{nullptr};
     
+    uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
 
 public:
     void ReleseFabricBindingOnly_() noexcept;
@@ -87,6 +88,10 @@ public:
             sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
     }
 
+    uint32_t GetThisSlotIdx() noexcept
+    {
+        return APCSlotIdx_;
+    }
 
 };
     

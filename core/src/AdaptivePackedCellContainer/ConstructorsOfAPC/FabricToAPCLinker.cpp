@@ -58,6 +58,7 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+        APCSlotIdx_ = static_cast<uint32_t>(fabric_slot_idx);
         RawAPCBasePtr_ = words_raw;
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;

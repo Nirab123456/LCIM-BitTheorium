@@ -136,13 +136,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc = GetSegmentPoolRange(apc_slot_idx);
-        const DSA::DescriptionLockValues dsc_state = ReadAPCStateAtomically_(apc_slot_idx); 
-
-        if (
-            !dsc_state.IsValid ||
-            !IsLiveSateOfAPC(dsc_state.StateOfTheAPC) ||
-            !range_of_apc.IsValid
-        )
+        if (!range_of_apc.IsValid)
         {
             return std::nullopt;
         }

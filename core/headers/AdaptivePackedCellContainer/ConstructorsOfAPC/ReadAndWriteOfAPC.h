@@ -14,15 +14,7 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
-        bool GetThisSlotIdx(uint64_t& slot_idx) noexcept
-        {
-            if (IsThisAPCValid())
-            {
-                slot_idx = RawAPCBasePtr_[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)];
-                return true;
-            }
-            return false;
-        }
+
 
         bool InitiateAPCMetaHeader(
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},

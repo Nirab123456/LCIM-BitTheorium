@@ -12,21 +12,18 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        uint64_t my_slot_idx = FABRIC_CELL_SENTINAL;
-        uint64_t childs_slot_idx = FABRIC_CELL_SENTINAL;
 
         if (
-            !GetThisSlotIdx(my_slot_idx) ||
-            !sibbling.GetThisSlotIdx(childs_slot_idx) ||
-            !FabricOwnerPtr_
+            !IsThisAPCValid() ||
+            !sibbling.IsThisAPCValid()
         )
         {
             return false;
         }
         
         return FabricOwnerPtr_->LinkTwoAPC(
-            static_cast<uint32_t>(my_slot_idx),
-            static_cast<uint32_t>(childs_slot_idx),
+            APCSlotIdx_,
+            sibbling.APCSlotIdx_,
             axis,
             inharitance,
             max_tries
@@ -40,21 +37,17 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        uint64_t my_slot_idx = FABRIC_CELL_SENTINAL;
-        uint64_t parents_slot_idx = FABRIC_CELL_SENTINAL;
-
         if (
-            !GetThisSlotIdx(my_slot_idx) ||
-            !sibbling.GetThisSlotIdx(parents_slot_idx) ||
-            !FabricOwnerPtr_
+            !IsThisAPCValid() ||
+            !sibbling.IsThisAPCValid()
         )
         {
             return false;
         }
         
         return FabricOwnerPtr_->LinkTwoAPC(
-            static_cast<uint32_t>(parents_slot_idx),
-            static_cast<uint32_t>(my_slot_idx),
+            sibbling.APCSlotIdx_,
+            APCSlotIdx_,
             axis,
             inharitance,
             max_tries
@@ -66,20 +59,13 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        uint64_t my_slot = FABRIC_CELL_SENTINAL;
-
-        if (
-            !GetThisSlotIdx(my_slot)
-        )
-        {
-            return false;
-        }
-
-        return FabricOwnerPtr_->UnlinkTwoAPC(
-            static_cast<uint32_t>(my_slot),
-            axis,
-            max_tries
-        );
+        return 
+            IsThisAPCValid() &&
+            FabricOwnerPtr_->UnlinkTwoAPC(
+                static_cast<uint32_t>(APCSlotIdx_),
+                axis,
+                max_tries
+            );
     }
 
     bool AdaptivePackedCellContainer::DetachMyChild(
@@ -91,12 +77,11 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         uint64_t childs_current_axis_inharitance = FABRIC_CELL_SENTINAL;
-        uint64_t my_slot_idx = FABRIC_CELL_SENTINAL;
 
         if (
-            !GetThisSlotIdx(my_slot_idx) ||
+            !IsThisAPCValid() ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
-            my_slot_idx != childs_current_axis_inharitance
+            APCSlotIdx_ != childs_current_axis_inharitance
         )
         {
             return false;
@@ -112,15 +97,13 @@ namespace BidirectionalInMemGraph
     {
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         IAB::GraphMutationValues gmv_values{};
-        
-        uint64_t slot_idx = FABRIC_CELL_SENTINAL;
 
         uint64_t previous = FABRIC_CELL_SENTINAL;
 
         if (
-            !GetThisSlotIdx(slot_idx) ||
+            !IsThisAPCValid() ||
             !FabricOwnerPtr_->ReadGraphMutationFlags(
-                static_cast<uint32_t>(slot_idx),
+                static_cast<uint32_t>(APCSlotIdx_),
                 gmv_values
             ) ||
             !gmv_values.IsValid ||
@@ -132,15 +115,6 @@ namespace BidirectionalInMemGraph
             return nullptr;
         }
 
-        // DescriptionOfAPC::DescriptionLockValues previous_apc_dsc_lock = FabricOwnerPtr_->ReadAPCStateAtomically_(previous);
-
-        // if (
-        //     previous_apc_dsc_lock.IsValid && 
-        //     IsLiveSateOfAPC(previous_apc_dsc_lock.StateOfTheAPC)
-        // )
-        // {
-        //     return ;
-        // }
         return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
     }
 
@@ -152,16 +126,15 @@ namespace BidirectionalInMemGraph
     {
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         IAB::GraphMutationValues gmv_values{};
-        uint64_t slot_idx = FABRIC_CELL_SENTINAL;
         uint64_t desired_next = FABRIC_CELL_SENTINAL;
 
         const HeaderIdentifierOfAPC next_on_inharitance = inharitance == IAB::DescOfInharitance::FIRST_CHILD ?
             map.RootOwnedChild : map.NextSibling;
 
         if (
-            !GetThisSlotIdx(slot_idx) ||
+            !IsThisAPCValid() ||
             !FabricOwnerPtr_->ReadGraphMutationFlags(
-                static_cast<uint32_t>(slot_idx),
+                static_cast<uint32_t>(APCSlotIdx_),
                 gmv_values
             ) ||
             !gmv_values.IsValid ||
@@ -175,14 +148,6 @@ namespace BidirectionalInMemGraph
 
         return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(desired_next);
 
-        // DescriptionOfAPC::DescriptionLockValues next_apc_dsc_lock = FabricOwnerPtr_->ReadAPCStateAtomically_(desired_next);
-        // if (
-        //     next_apc_dsc_lock.IsValid && 
-        //     IsLiveSateOfAPC(next_apc_dsc_lock.StateOfTheAPC)
-        // )
-        // {
-        // }
-        // return nullptr;
     }
 
 

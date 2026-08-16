@@ -32,15 +32,10 @@ namespace BidirectionalInMemGraph
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
         IAB::BufferOfAPCIdentity idintity_buffer{};
 
-        uint64_t slot_idx = FABRIC_CELL_SENTINAL;
-
-        if (!GetThisSlotIdx(slot_idx))
-        {
-            return false;
-        }
-        const std::optional<StateOfAPC> current_state = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(slot_idx), idintity_buffer);
+        const std::optional<StateOfAPC> current_state = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(APCSlotIdx_), idintity_buffer);
 
         if (
+            !IsThisAPCValid() ||
             !current_state.has_value() ||
             current_state != StateOfAPC::RESERVED ||
             !HeaderOrchestrator::InitializeDefaultHeaderBuffer(

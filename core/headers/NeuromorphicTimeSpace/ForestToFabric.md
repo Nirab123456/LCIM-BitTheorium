@@ -92,5 +92,9 @@
 
 29. RecordBookConstructor::WriteARecordBookOfTSCEntry_ : 
 
+
+FOUND:
+    Probably most important question I must answer before progressing how should I retire an APC when Nobody is really reading the Descriptor 
+
 TEST 1:
     1. APC Link treversal should be in build system and extreamly efficient.

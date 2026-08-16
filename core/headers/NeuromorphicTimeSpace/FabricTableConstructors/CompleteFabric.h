@@ -45,11 +45,6 @@ namespace BidirectionalInMemGraph
             DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
         ) noexcept;
 
-        /// @brief UPDATES: A Description In ONE SHOT
-        bool OneShotUpdateReservedDescription_(
-            DescriptionOfAPC::SingleAPCDescriptionCellBuffer& a_valid_description_buffer
-        ) noexcept;
-
     public:
         RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 

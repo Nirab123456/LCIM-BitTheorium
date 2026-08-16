@@ -466,8 +466,8 @@ namespace TestKit
                     return false;
                 }
 
-                uint64_t slot = FABRIC_CELL_SENTINAL;
-                if (!Nodes_[i].GetThisSlotIdx(slot) ||
+                uint64_t slot = Nodes_[i].GetThisSlotIdx();
+                if (
                     !APCDataStructure::IsValid32BitAPCUnit(slot) ||
                     slot >= FABRIC_SLOT_COUNT)
                 {

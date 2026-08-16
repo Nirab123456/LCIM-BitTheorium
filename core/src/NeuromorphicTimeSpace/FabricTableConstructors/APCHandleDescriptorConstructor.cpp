@@ -66,30 +66,6 @@ namespace BidirectionalInMemGraph
     }
 
 
-
-    bool APCHandleDescriptorConstructor::OneShotUpdateReservedDescription_(
-        DescriptionOfAPC::SingleAPCDescriptionCellBuffer& desc_buffer
-    ) noexcept
-    {
-        const uint64_t slot_idx = desc_buffer[static_cast<size_t>(DescriptionOfAPC::DescriptionIndexing::APC_INDEX)];
-        const DescriptionOfAPC::APCDescriptorRange desired_descriptor_range = ReadAPCDescriptionRanges_(slot_idx);
-        const  DescriptionOfAPC::DescriptionLockValues current_description_state = ReadAPCStateAtomically_(slot_idx);
-        if (
-            !current_description_state.IsValid ||
-            current_description_state.StateOfTheAPC != StateOfAPC::RESERVED ||
-            !desired_descriptor_range.IsValid ||
-            !DescriptionOfAPC::ValidateADescriptionBuffer(desc_buffer)
-        )
-        {
-            return false;
-        }
-        return ForceNxLenMemCopy(
-            desired_descriptor_range.BeginIndex,
-            DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
-            desc_buffer.data()
-        );
-    }
-    
     DescriptionOfAPC::DescriptionLockValues APCHandleDescriptorConstructor::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
         DescriptionOfAPC::DescriptionLockValues return_files{};
