@@ -18,11 +18,8 @@ protected:
     uint64_t* RawAPCBasePtr_{nullptr};
     
     uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
-
 public:
     void ReleseFabricBindingOnly_() noexcept;
-
-    void SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept;
 
     bool ForceCopyToAPCFromBuffer(
         uint32_t tarting_idx_in_apc,
@@ -71,21 +68,11 @@ public:
         return APCDataStructure::METACELL_COUNT;
     }
 
-    constexpr bool IsThisAPCValid() noexcept
+    bool IsThisAPCValid() noexcept
     {
-        return 
-            FabricOwnerPtr_ != nullptr &&
-            RangeOfThisAPCInSlab_.IsValid &&
-            APCDataStructure::IsCapacityOfAPCValid(CapacityOfThisAPC_);
-    }
-
-    constexpr bool IsValidAPCRange(size_t starting_idx_in_slab, uint32_t sequential_number_of_cells) noexcept
-    {
-        return RangeOfThisAPCInSlab_.IsValid && 
+        return
             FabricOwnerPtr_ &&
-            sequential_number_of_cells != UNSIGNED_ZERO &&
-            starting_idx_in_slab <= CapacityOfThisAPC_ &&
-            sequential_number_of_cells <= (CapacityOfThisAPC_ - starting_idx_in_slab);
+            RangeOfThisAPCInSlab_.IsValid;
     }
 
     uint32_t GetThisSlotIdx() noexcept

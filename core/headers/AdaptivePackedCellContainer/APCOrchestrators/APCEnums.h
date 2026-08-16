@@ -40,9 +40,7 @@ namespace BidirectionalInMemGraph
         FREE_BOUNDS = 24,
 
         LAYOUT_VERSION = 25,
-        LAYOUT_MUTATION_EPOCH = 26,
-        LAYOUT_FLAGS = 27,
-        ///
+        GLOBAL_EPOCH = 26,
 
         FEEDFORWARD_ENQUEUE_POSITION = 28,
         FEEDBACKWARD_ENQUEUE_POSITION = 29,

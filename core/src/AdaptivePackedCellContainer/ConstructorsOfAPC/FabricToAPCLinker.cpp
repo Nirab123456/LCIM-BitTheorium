@@ -8,15 +8,12 @@ namespace BidirectionalInMemGraph
         uint64_t& return_value
     ) noexcept
     {
-        if (!IsValidAPCRange(idx, 1))
-        {
-            return false;
-        }
-
-        return FabricOwnerPtr_->AtomicallyLoadReadAUnit(
-            RangeOfThisAPCInSlab_.BeginIndex + idx,
-            return_value
-        );
+        return 
+            IsThisAPCValid() &&
+            FabricOwnerPtr_->AtomicallyLoadReadAUnit(
+                RangeOfThisAPCInSlab_.BeginIndex + idx,
+                return_value
+            );
     }
 
     void FabricToAPCLinker::AtomicallyWriteU64ToAPC(
@@ -24,7 +21,9 @@ namespace BidirectionalInMemGraph
         const uint64_t& value
     ) noexcept
     {
-        if (!IsValidAPCRange(idx, 1))
+        if (
+            !IsThisAPCValid()
+        )
         {
             return;
         }
@@ -75,30 +74,20 @@ namespace BidirectionalInMemGraph
         RawAPCBasePtr_ = nullptr;
     }
 
-    void FabricToAPCLinker::SetFabricOwnerForGlobalAPC(VagueTemoraryPremativeFabric* fabric_owner) noexcept
-    {
-        FabricOwnerPtr_ = fabric_owner;
-    }
-
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
         uint32_t starting_idx_in_apc,
         uint32_t sequential_number_of_cells,
         const uint64_t* source_cells
     ) noexcept
     {
-        if (
-            !RangeOfThisAPCInSlab_.IsValid ||
-            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
-        )
-        {
-            return false;
-        }
-        
-        return FabricOwnerPtr_->ForceNxLenMemCopy(
-            (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
-            sequential_number_of_cells, 
-            source_cells
-        );
+        return 
+            IsThisAPCValid() &&
+            starting_idx_in_apc + sequential_number_of_cells < CapacityOfThisAPC_ &&
+            FabricOwnerPtr_->ForceNxLenMemCopy(
+                (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
+                sequential_number_of_cells, 
+                source_cells
+            );
     }
 
     bool FabricToAPCLinker::CopyFromAPCToBuffer(
@@ -106,20 +95,14 @@ namespace BidirectionalInMemGraph
         uint32_t sequential_number_of_cells,
         uint64_t* return_buffer
     ) noexcept
-    {
-        if (
-            !RangeOfThisAPCInSlab_.IsValid ||
-            !IsValidAPCRange(starting_idx_in_apc, sequential_number_of_cells)
-        )
-        {
-            return false;
-        }
-        
-        return FabricOwnerPtr_->ReadASnapShotFromSlab(
-            (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
-            sequential_number_of_cells, 
-            return_buffer
-        );
+    {   
+        return 
+            IsThisAPCValid() &&
+            FabricOwnerPtr_->ReadASnapShotFromSlab(
+                (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
+                sequential_number_of_cells, 
+                return_buffer
+            );
     }
 
     bool FabricToAPCLinker::CompareExchangeStrongFromAPC(
@@ -130,21 +113,15 @@ namespace BidirectionalInMemGraph
         std::memory_order mem_order_failure
     ) noexcept
     {
-        if (
-            !RangeOfThisAPCInSlab_.IsValid ||
-            !IsValidAPCRange(apc_idx, 1u)
-        )
-        {
-            return false;
-        }
-
-        return FabricOwnerPtr_->CompareExchangeStrongFromFabric(
-            RangeOfThisAPCInSlab_.BeginIndex + apc_idx,
-            expected_unit,
-            desired_unit,
-            mem_order_success,
-            mem_order_failure
-        );
+        return 
+            apc_idx < CapacityOfThisAPC_ &&
+            FabricOwnerPtr_->CompareExchangeStrongFromFabric(
+                RangeOfThisAPCInSlab_.BeginIndex + apc_idx,
+                expected_unit,
+                desired_unit,
+                mem_order_success,
+                mem_order_failure
+            );
     }
 
 }

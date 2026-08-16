@@ -66,7 +66,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const uint8_t idx_u = static_cast<uint8_t>(meta_idx);
-        if (!IsValidAPCRange(idx_u, 1u))
+        if (!IsThisAPCValid())
         {
             return false;
         }
@@ -93,12 +93,13 @@ namespace BidirectionalInMemGraph
     {
         const uint8_t local_idx_u = static_cast<uint8_t>(meta_idx);
 
-        return IsValidAPCRange(local_idx_u, 1u) &&
+        return 
+            IsThisAPCValid() &&
             FabricOwnerPtr_->CompareExchangeStrongFromFabric(
-                RangeOfThisAPCInSlab_.BeginIndex + local_idx_u,
-                expected_value,
-                desired_value
-            );
+                    RangeOfThisAPCInSlab_.BeginIndex + local_idx_u,
+                    expected_value,
+                    desired_value
+                );
     }
 
 

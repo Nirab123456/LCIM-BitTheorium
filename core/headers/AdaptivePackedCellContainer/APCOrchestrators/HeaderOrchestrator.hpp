@@ -117,8 +117,6 @@ namespace BidirectionalInMemGraph
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_MUTATION_EPOCH)] = 0u;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_FLAGS)] = 0u;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::NODE_GROUP_SIZE)] = 1u;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
