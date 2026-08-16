@@ -5,8 +5,92 @@
 namespace BidirectionalInMemGraph
 {
 
+    struct DescriptionOfAPC 
+    {
 
-    struct HeaderOrchestrator
+        using APCDescriptorRange = RangeOfAPC;
+        
+        struct DescriptionLockValues
+        {
+            uint32_t SeqLock = UINT32_MAX;
+            StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
+            bool IsValid = false;
+        };
+
+        static_assert(sizeof(DescriptionLockValues) <= sizeof(uint64_t));
+
+        static constexpr uint64_t ComposeSeqLockAndState(DescriptionLockValues& files) noexcept
+        {
+            if (
+                !APCDataStructure::IsValid32BitAPCUnit(files.SeqLock) ||
+                !ValidateDescriptionFiles(files)
+            )
+            {
+                return FABRIC_CELL_SENTINAL;
+            }
+            return TwinU32ToU64::PackDoubleUnsigned32In64(files.SeqLock, static_cast<uint32_t>(files.StateOfTheAPC));
+        }
+
+        static constexpr bool GetSeqLockAndLifeCycle(
+            uint64_t desc_id_state,
+            DescriptionLockValues& values
+        ) noexcept
+        {
+            values = DescriptionLockValues{};
+            values.SeqLock = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
+            values.StateOfTheAPC = static_cast<StateOfAPC>(TwinU32ToU64::ExtractHigh32Of64(desc_id_state));
+
+            if (!APCDataStructure::IsValidFabricUnit(values.SeqLock))
+            {
+                return false;
+            }
+            return ValidateDescriptionFiles(values);
+        }
+
+        static constexpr bool ValidateDescriptionFiles(DescriptionLockValues& files) noexcept
+        {
+            if (!APCDataStructure::IsValidFabricUnit(files.SeqLock))
+            {
+                files.IsValid = false;
+                return false;
+            }
+            if (
+                files.StateOfTheAPC == StateOfAPC::RESERVED &&
+                InstallAxisToBuffer::IsValidEven64(files.SeqLock)
+            )
+            {
+                files.IsValid = false;
+                return false;
+            }
+            if (
+                files.StateOfTheAPC != StateOfAPC::RESERVED &&
+                !InstallAxisToBuffer::IsValidEven64(files.SeqLock)
+            )
+            {
+                files.IsValid = false;
+                return false;
+            }
+
+            files.IsValid = true;
+            return true;
+        }
+
+        static constexpr bool IsTransitionStateLeagal(StateOfAPC current_state, StateOfAPC desired_state) noexcept
+        {
+            return (current_state == StateOfAPC::FREE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::FREE) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::LIVE) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::RESERVED && desired_state == StateOfAPC::RETIRED) ||
+                (current_state == StateOfAPC::RETIRED && desired_state == StateOfAPC::RESERVED) ||
+                (current_state == StateOfAPC::LIVE && desired_state == StateOfAPC::HAULTED) ||
+                (current_state == StateOfAPC::HAULTED && desired_state == StateOfAPC::LIVE);
+                
+        }
+
+    };
+
+    struct HeaderOrchestrator : DescriptionOfAPC
     {
         static constexpr uint64_t COMPLETE_HEADER_VALIDATION_MARK = 3333;
         static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT + 1;
@@ -63,6 +147,7 @@ namespace BidirectionalInMemGraph
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept
         {
+            // const uint64_t seq
             for (uint64_t& word : header_buffer)
             {
                 word  = UNSIGNED_ZERO;
@@ -114,10 +199,8 @@ namespace BidirectionalInMemGraph
             }
             CopyAllBuffersToHeaderBuffer_(header_buffer, layout_buffer, schema_buffer, cursors_buffrers);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::SEGMENT_CONF_FLAGS)] = UNSIGNED_ZERO;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::NODE_GROUP_SIZE)] = 1u;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
 

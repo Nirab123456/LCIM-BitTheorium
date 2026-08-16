@@ -40,7 +40,7 @@ namespace BidirectionalInMemGraph
         {
             return return_files;
         }
-        return_files = DescriptionOfAPC::GetDescriptionFile(state_of_apc_cell);
+        DescriptionOfAPC::GetSeqLockAndLifeCycle(state_of_apc_cell, return_files);
         return return_files;
     }
 
@@ -59,9 +59,6 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        
-
-        DSA::SingleAPCDescriptionCellBuffer description_buffer{};
 
         for (size_t i = 0; i < max_tries; i++)
         {

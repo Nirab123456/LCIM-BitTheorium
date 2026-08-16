@@ -40,7 +40,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     ) noexcept
     {
         if (
-            !IsValidEdgeTable(edge.EdgeTable) ||
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge.EdgeTable) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.Root) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||

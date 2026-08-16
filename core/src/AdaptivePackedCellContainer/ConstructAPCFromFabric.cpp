@@ -281,15 +281,10 @@ namespace BidirectionalInMemGraph
 
         const DSA::DescriptionLockValues dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
 
-        if (
-            !dsc_lock_files.IsValid ||
-            dsc_lock_files.StateOfTheAPC != StateOfAPC::RESERVED 
-        )
-        {
-            return false;
-        }
-
         return
+            dsc_lock_files.IsValid &&
+            dsc_lock_files.StateOfTheAPC == StateOfAPC::RESERVED &&
+            IAB::IdentityBufferFromSegmentPoolRange(apc_idx, range, identity_buffer) &&    
             ForceNxLenMemCopy(
                 range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
                 APCDataStructure::TotalIdentityUnitCount(),

@@ -116,10 +116,6 @@ namespace BidirectionalInMemGraph
         const size_t record_book_end = record_book_begin + static_cast<size_t>(RecordBookConf::RECORD_BOOK_INTERNAL_SEGMENT_COUNT) * CoreOfFabricCoordinator::RECORD_BOOK_WIDTH;
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(record_book_end);
-        const size_t apc_description_begin = cursor;
-        const size_t apc_description_end = apc_description_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX);
-
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_description_end);
         const size_t horizontal_edge_begin = cursor;
         const size_t horizontal_edge_end = horizontal_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
         
@@ -166,7 +162,6 @@ namespace BidirectionalInMemGraph
 
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
         WriteARecordBookOfTSCEntry_(FabricSegments::SLAB_RECORD_MAP, record_book_begin, record_book_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_DESCRIPTOR, apc_description_begin, apc_description_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_EDGE_TABLE, horizontal_edge_begin, horizontal_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, vertical_edge_begin, vertical_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::FREE_APC_LIST, free_list_begin, free_list_end);
@@ -175,7 +170,6 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SlabCellCount_);
 
-        DescriptionBeginIdx_ = apc_description_begin;
         HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
 
@@ -186,7 +180,6 @@ namespace BidirectionalInMemGraph
         IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::WORK_QUEUE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::DEVICE_VIEW_TABLE);
-        IdleAFabricTableClassRangesMemory_(FabricSegments::THREAD_TABLE);
         //END:: IDELING
 
         //INIT: EDGE TABLES

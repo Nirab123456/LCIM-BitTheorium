@@ -60,7 +60,7 @@ namespace BidirectionalInMemGraph
     class EdgeTableConstructor : public APCLifeCycle
     {
     public:
-        using EdgeTableRange = DescriptorConf::APCDescriptorRange;
+        using EdgeTableRange = DSA::APCDescriptorRange;
 
     private :
         bool SwitchEdgeState__(

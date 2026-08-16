@@ -44,15 +44,13 @@ namespace BidirectionalInMemGraph
     enum class FabricSegments : uint8_t
     {
         SLAB_RECORD_MAP = 0,
-        APC_HANDLE_DESCRIPTOR = 1,
-        HORIZONTAL_EDGE_TABLE = 2,
-        VERTICAL_EDGE_TABLE = 3,
-        FREE_APC_LIST = 4,
-        READY_QUEUE = 5,
-        WORK_QUEUE = 6,
-        DEVICE_VIEW_TABLE = 7,
-        THREAD_TABLE  = 8,
-        SEGMENT_POOL = 9
+        HORIZONTAL_EDGE_TABLE = 1,
+        VERTICAL_EDGE_TABLE = 2,
+        FREE_APC_LIST = 3,
+        READY_QUEUE = 4,
+        WORK_QUEUE = 5,
+        DEVICE_VIEW_TABLE = 6,
+        SEGMENT_POOL = 7
     };
 
     enum class StateOfAPC : uint8_t
