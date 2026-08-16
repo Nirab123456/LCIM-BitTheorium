@@ -25,6 +25,29 @@ namespace BidirectionalInMemGraph
         return range;
     }
 
+    bool EdgeTableConstructor::ReadEdgedataAtomically(
+        FabricSegments edge_table,
+        uint32_t edge_idx,
+        EdgeBuilder::EdgeLockValues& values
+    ) noexcept
+    {
+        uint64_t raw_st_lock = FABRIC_CELL_SENTINAL;
+        EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+
+        if (
+            !range.IsValid ||
+            !AtomicallyLoadReadAUnit(
+                range.BeginIndex + static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE),
+                raw_st_lock
+            ) 
+        )
+        {
+            return false;
+        }
+
+        values = DSA::GetDescriptionFile(raw_st_lock);
+        return values.IsValid;
+    }
 
     void EdgeTableConstructor::InitializeEdgeTable_(FabricSegments edge_table) noexcept
     {
@@ -234,36 +257,28 @@ namespace BidirectionalInMemGraph
         uint32_t edge_idx
     ) noexcept
     {
-        EdgeBuilder::EdgeData edge_data_current{};
         EdgeBuilder::EdgeBuffer buffer{};
         const EdgeTableRange range = ReadAnEdgeTableRange_(desired_data.EdgeTable, edge_idx);
-        std::optional<EdgeBuilder::EdgeStatus> current_status = ReadEdgeData_(
-            desired_data.EdgeTable,
-            edge_idx,
-            edge_data_current
-        );
 
-        desired_data.SeqLock = edge_data_current.SeqLock + 1u;
-
+        EdgeBuilder::EdgeLockValues edge_status{};
         if (
-            !range.IsValid ||
-            !current_status.has_value() ||
-            current_status.value() != EdgeBuilder::EdgeStatus::RESERVED ||
-            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) ||
-            !EdgeBuilder::IsTransitionStateLeagal(current_status.value(), desired_data.Status)
+            !ReadEdgedataAtomically(desired_data.EdgeTable, edge_idx, edge_status) ||
+            edge_status.StateOfTheAPC != EdgeBuilder::EdgeStatus::RESERVED
         )
         {
             return false;
         }
 
+        desired_data.SeqLock = edge_status.SeqLock + 1u;
+
         return 
+            EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) &&
+            EdgeBuilder::IsTransitionStateLeagal(edge_status.StateOfTheAPC, desired_data.Status) &&
             ForceNxLenMemCopy(
                 range.BeginIndex,
                 EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
                 buffer.data()
             );
     }
-
-
 
 }

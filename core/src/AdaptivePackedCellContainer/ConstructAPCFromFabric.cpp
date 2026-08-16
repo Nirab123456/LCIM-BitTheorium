@@ -336,19 +336,11 @@ namespace BidirectionalInMemGraph
 
         IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
-        EdgeBuilder::EdgeData reserved_edge{};
-
-        const std::optional<EdgeBuilder::EdgeStatus> edge_status = ReadEdgeData_(
-            map.EdgeTable,
-            apc_slot,
-            reserved_edge
-        );
+        EdgeBuilder::EdgeLockValues edge_status{};
 
         if (
-            !edge_status.has_value() ||
-            edge_status.value() != EdgeBuilder::EdgeStatus::RESERVED ||
-            !reserved_edge.IsValid ||
-            reserved_edge.Root != apc_slot
+            !ReadEdgedataAtomically(map.EdgeTable, apc_slot, edge_status) ||
+            edge_status.StateOfTheAPC != EdgeBuilder::EdgeStatus::RESERVED
         )
         {
             return false;
