@@ -128,7 +128,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         return true;
     }
 
-    using EdgeLockValues = DescriptionLockValues;
+    using EdgeLockValues = SeqLockAndStateStruct;
     
 
     static constexpr EdgeStatus ReadEdgeFromBufferStatically(

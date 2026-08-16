@@ -27,9 +27,9 @@ namespace BidirectionalInMemGraph
         
     }
 
-    DescriptionOfAPC::DescriptionLockValues APCLifeCycle::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
+    DescriptionOfAPC::SeqLockAndStateStruct APCLifeCycle::ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept
     {
-        DescriptionOfAPC::DescriptionLockValues return_files{};
+        DescriptionOfAPC::SeqLockAndStateStruct return_files{};
         std::optional<uint64_t> maybe_id_state_idx = GetDescriptionLockIdxInFabric_(apc_description_index);
         uint64_t state_of_apc_cell = FABRIC_CELL_SENTINAL;
 
@@ -62,9 +62,9 @@ namespace BidirectionalInMemGraph
 
         for (size_t i = 0; i < max_tries; i++)
         {
-            DSA::DescriptionLockValues current_id_st = ReadAPCStateAtomically_(description_idx);
+            DSA::SeqLockAndStateStruct current_id_st = ReadAPCStateAtomically_(description_idx);
             uint64_t current_id_state_value = DSA::ComposeSeqLockAndState(current_id_st);
-            DSA::DescriptionLockValues updated_files{};
+            DSA::SeqLockAndStateStruct updated_files{};
             updated_files.SeqLock = current_id_st.SeqLock + 1u;
             updated_files.StateOfTheAPC = updated_state;
             uint64_t updated_id_state_value = DSA::ComposeSeqLockAndState(updated_files);
@@ -110,7 +110,7 @@ namespace BidirectionalInMemGraph
 
         for (uint32_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
         {
-            const DSA::DescriptionLockValues current = ReadAPCStateAtomically_(description_idx);
+            const DSA::SeqLockAndStateStruct current = ReadAPCStateAtomically_(description_idx);
             if (
                 !current.IsValid ||
                 current.StateOfTheAPC != StateOfAPC::FREE
@@ -157,7 +157,7 @@ namespace BidirectionalInMemGraph
                 return;
             }
 
-            DescriptionOfAPC::DescriptionLockValues values{};
+            DescriptionOfAPC::SeqLockAndStateStruct values{};
             values.StateOfTheAPC = StateOfAPC::FREE;
             values.SeqLock = 2u;
 

@@ -10,20 +10,20 @@ namespace BidirectionalInMemGraph
 
         using APCDescriptorRange = RangeOfAPC;
         
-        struct DescriptionLockValues
+        struct SeqLockAndStateStruct
         {
             uint32_t SeqLock = UINT32_MAX;
             StateOfAPC StateOfTheAPC = StateOfAPC::RETIRED;
             bool IsValid = false;
         };
 
-        static_assert(sizeof(DescriptionLockValues) <= sizeof(uint64_t));
+        static_assert(sizeof(SeqLockAndStateStruct) <= sizeof(uint64_t));
 
-        static constexpr uint64_t ComposeSeqLockAndState(DescriptionLockValues& files) noexcept
+        static constexpr uint64_t ComposeSeqLockAndState(SeqLockAndStateStruct& files) noexcept
         {
             if (
                 !APCDataStructure::IsValid32BitAPCUnit(files.SeqLock) ||
-                !ValidateDescriptionFiles(files)
+                !ValidateStateAgainstSeqLock(files)
             )
             {
                 return FABRIC_CELL_SENTINAL;
@@ -33,10 +33,10 @@ namespace BidirectionalInMemGraph
 
         static constexpr bool GetSeqLockAndLifeCycle(
             uint64_t desc_id_state,
-            DescriptionLockValues& values
+            SeqLockAndStateStruct& values
         ) noexcept
         {
-            values = DescriptionLockValues{};
+            values = SeqLockAndStateStruct{};
             values.SeqLock = TwinU32ToU64::ExtractLow32Of64(desc_id_state);
             values.StateOfTheAPC = static_cast<StateOfAPC>(TwinU32ToU64::ExtractHigh32Of64(desc_id_state));
 
@@ -44,10 +44,10 @@ namespace BidirectionalInMemGraph
             {
                 return false;
             }
-            return ValidateDescriptionFiles(values);
+            return ValidateStateAgainstSeqLock(values);
         }
 
-        static constexpr bool ValidateDescriptionFiles(DescriptionLockValues& files) noexcept
+        static constexpr bool ValidateStateAgainstSeqLock(SeqLockAndStateStruct& files) noexcept
         {
             if (!APCDataStructure::IsValidFabricUnit(files.SeqLock))
             {
@@ -147,7 +147,20 @@ namespace BidirectionalInMemGraph
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept
         {
-            // const uint64_t seq
+            SeqLockAndStateStruct values{};
+            if (
+                !GetSeqLockAndLifeCycle(header_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)], values) ||
+                values.StateOfTheAPC != StateOfAPC::RESERVED
+            )
+            {
+                return false;
+            }
+
+            values.StateOfTheAPC = StateOfAPC::LIVE;
+            ++values.SeqLock;
+            const uint64_t raw_new_state_seq = ComposeSeqLockAndState(values);
+            
+
             for (uint64_t& word : header_buffer)
             {
                 word  = UNSIGNED_ZERO;
@@ -192,7 +205,8 @@ namespace BidirectionalInMemGraph
             
             if (
                 !CompleateRegionOrchestrator::ValidateSchemaBufferAgainstLayoutBuffer(schema_buffer, layout_buffer) ||
-                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(cursors_buffrers, schema_buffer)
+                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(cursors_buffrers, schema_buffer) ||
+                !APCDataStructure::IsValidFabricUnit(raw_new_state_seq)
             )
             {
                 return false;
@@ -201,6 +215,7 @@ namespace BidirectionalInMemGraph
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
+            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
 

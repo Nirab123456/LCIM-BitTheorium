@@ -51,7 +51,7 @@ namespace BidirectionalInMemGraph
 
         std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
 
-        DescriptionOfAPC::DescriptionLockValues ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+        DescriptionOfAPC::SeqLockAndStateStruct ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
 
         void InitAllAPCLifeCycleState() noexcept;
 

@@ -13,7 +13,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
 
         if (
             !range_of_apc_sagmant_pool.IsValid ||
@@ -58,7 +58,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot);
+        DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
         IAB::GraphMutationValues current_lock{};
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
@@ -204,7 +204,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        const DSA::DescriptionLockValues current_apc_state = ReadAPCStateAtomically_(apc_slot); 
+        const DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot); 
         const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
 
         if (
@@ -279,7 +279,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        const DSA::DescriptionLockValues dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
+        const DSA::SeqLockAndStateStruct dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
 
         return
             dsc_lock_files.IsValid &&
