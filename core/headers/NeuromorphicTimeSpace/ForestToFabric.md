@@ -88,7 +88,7 @@
 
 27. FabricConstructor::ReadBufferwithSyncAtomicIndex : Input parameter is the buffer index caller dosent need to know slab index and that index is the only index is being read atomically. ReadASnapShotFromSlab -> AtomicallyLoadReadAUnit
 
-28. 
+28. IdentityBufferFromSegmentPoolRange : Compiles initial Idintity buffer from  segment pool Range.
 
 28 . VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_ : 
 

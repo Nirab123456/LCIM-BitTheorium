@@ -145,18 +145,6 @@ namespace BidirectionalInMemGraph
             uint8_t version = APCDataStructure::BRANCH_VERSION
         ) noexcept
         {
-            SeqLockAndStateStruct values{};
-            if (
-                !GetSeqLockAndLifeCycle(header_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)], values) ||
-                values.StateOfTheAPC != StateOfAPC::RESERVED
-            )
-            {
-                return false;
-            }
-
-            values.StateOfTheAPC = StateOfAPC::LIVE;
-            ++values.SeqLock;
-            const uint64_t raw_new_state_seq = ComposeSeqLockAndState(values);
             
 
             for (uint64_t& word : header_buffer)
@@ -203,8 +191,7 @@ namespace BidirectionalInMemGraph
             
             if (
                 !CompleateRegionOrchestrator::ValidateSchemaBufferAgainstLayoutBuffer(schema_buffer, layout_buffer) ||
-                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(cursors_buffrers, schema_buffer) ||
-                !APCDataStructure::IsValidFabricUnit(raw_new_state_seq)
+                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(cursors_buffrers, schema_buffer)
             )
             {
                 return false;
@@ -213,7 +200,6 @@ namespace BidirectionalInMemGraph
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] = CompleateRegionOrchestrator::ComputeAPCSchemaId(layout_buffer, schema_buffer);
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] = version;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
             header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
 

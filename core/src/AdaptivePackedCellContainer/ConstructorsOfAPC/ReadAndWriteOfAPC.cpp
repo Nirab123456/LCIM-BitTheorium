@@ -29,16 +29,19 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
+        using DSA = DescriptionOfAPC;
+
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
         IAB::BufferOfAPCIdentity idintity_buffer{};
 
         const bool read_identity_buffer_ok = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(APCSlotIdx_), idintity_buffer);
-        
+        DSA::SeqLockAndStateStruct current_state = FabricOwnerPtr_->ReadAPCStateAtomically_(APCSlotIdx_);
 
         if (
             !IsThisAPCValid() ||
-            !current_state.has_value() ||
-            current_state != StateOfAPC::RESERVED ||
+            !read_identity_buffer_ok ||
+            !current_state.IsValid ||
+            current_state.StateOfTheAPC != StateOfAPC::RESERVED ||
             !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
             header_meta_buffer,
             idintity_buffer,
@@ -53,11 +56,19 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        return ForceCopyToAPCFromBuffer(
-            UNSIGNED_ZERO,
-            APCDataStructure::METACELL_COUNT,
-            header_meta_buffer.data()
-        );
+
+        current_state.StateOfTheAPC = StateOfAPC::LIVE;
+        ++current_state.SeqLock;
+        const uint64_t raw_new_state_seq = DSA::ComposeSeqLockAndState(current_state);
+        header_meta_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
+
+        return 
+            APCDataStructure::IsValidFabricUnit(raw_new_state_seq) &&
+            ForceCopyToAPCFromBuffer(
+                UNSIGNED_ZERO,
+                APCDataStructure::METACELL_COUNT,
+                header_meta_buffer.data()
+            );
     }
 
     bool ReadAndWriteOfAPC::ReadAPCMetaUnit(
