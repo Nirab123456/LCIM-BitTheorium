@@ -88,13 +88,15 @@
 
 27. FabricConstructor::ReadBufferwithSyncAtomicIndex : Input parameter is the buffer index caller dosent need to know slab index and that index is the only index is being read atomically. ReadASnapShotFromSlab -> AtomicallyLoadReadAUnit
 
+28. 
+
 28 . VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_ : 
 
 29. RecordBookConstructor::WriteARecordBookOfTSCEntry_ : 
 
 
 FOUND:
-    Probably most important question I must answer before progressing how should I retire an APC when Nobody is really reading the Descriptor 
+    I will remove "APC_HANDLE_DESCRIPTOR" and just copy its SEQLock + Lifesycle inside The APC itself. Removing one more memory & tyime complexity hogging APC Performance
 
 TEST 1:
     1. APC Link treversal should be in build system and extreamly efficient.
