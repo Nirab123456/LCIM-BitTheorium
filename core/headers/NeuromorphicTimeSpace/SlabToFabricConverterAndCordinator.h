@@ -15,9 +15,6 @@ namespace BidirectionalInMemGraph
 
         void ResetScalarsofTheFabric_() noexcept;
 
-        /// @brief BUILD: & INITIALIZED: All The APC Handle Descriptor With Segment Pool <-  CONSISTING: Packed CEll -> PacvkedMode::VALUE32
-        void InitializeAPCDescriptorTable_() noexcept;
-
         /// @brief INITIALIZES: All FabricMetaIndicies
         /// @param table_directory_begin 
         /// @param table_directory_end 

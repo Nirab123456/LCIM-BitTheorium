@@ -162,6 +162,35 @@ namespace BidirectionalInMemGraph
                 IsValidGraphMutationState(values);
         }
 
+        static constexpr bool IdentityBufferFromSegmentPoolRange(
+            uint32_t apc_slot_idx,
+            const RangeOfAPC& range_of_segmentpool,
+            BufferOfAPCIdentity& buffer
+        ) noexcept
+        {
+
+            BuildNullIdentityBuffer(buffer);
+            if (
+                !range_of_segmentpool.IsValid ||
+                !InsertAnIdentityInBuffer(buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX, apc_slot_idx) ||
+                !InsertAnIdentityInBuffer(buffer, HeaderIdentifierOfAPC::BOUNDS_BEGIN, range_of_segmentpool.BeginIndex) ||
+                !InsertAnIdentityInBuffer(buffer, HeaderIdentifierOfAPC::BOUNDS_END, range_of_segmentpool.EndIndex)
+            )
+            {
+                return false;
+            }
+            
+
+            GraphMutationValues values{};
+            values.Flags = static_cast<uint32_t>(MemGraphFlag::LIVE);
+            values.SeqLockVertical = UNSIGNED_ZERO;
+            values.SeqLockHorizontal = UNSIGNED_ZERO;
+            return 
+                InsertGraphIdentityMutation(buffer, values) &&
+                SealIdentityBuffer(buffer);
+        }
+
+
     };
     
     

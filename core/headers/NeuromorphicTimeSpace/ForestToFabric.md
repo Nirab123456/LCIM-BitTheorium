@@ -1,6 +1,6 @@
-1. RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange :: Reads Range of A APC statically not from descriptor the whole architecture is built on this, still keeping track of APC range inside FabricSegments::APC_HANDLE_DESCRIPTOR
+1. RangeOfAPC APCLifeCycle::GetSegmentPoolRange :: Reads Range of A APC statically not from descriptor the whole architecture is built on this, still keeping track of APC range inside FabricSegments::APC_HANDLE_DESCRIPTOR
 
-2. APCHandleDescriptorConstructor::ReadAPCStateAtomically_ : Reads state of the APC 
+2. APCLifeCycle::ReadAPCStateAtomically_ : Reads state of the APC 
 
 3. bool ConstructAPCIdentity::ReleseGraphMutationFlag_ : Reads APC range by -> GetSegmentPoolRange : checks if the axis available to relese if so releses
 
@@ -53,10 +53,10 @@
     FAILURE IN ANY POINT :
         Revert all the changes happened before and return false
 
-15. APCHandleDescriptorConstructor::SwitchOwnershipOfAReadyDescription : Switches state of a description by checking the 
+15. APCLifeCycle::SwitchOwnershipOfAReadyDescription : Switches state of a description by checking the 
     the provided DESIRED state and "IsTransitionStateLeagal()"
 
-16. APCHandleDescriptorConstructor::GetASlotForNewAPCLink : Its a toy function giving a first FREE state APC.
+16. APCLifeCycle::GetASlotForNewAPCLink : Its a toy function giving a first FREE state APC.
 
 17. FabricToAPCLinker::BindExternalRawFabricBacking_ : Attaches APC memory range ptr, Fabrics own ptr .... to APC.
 

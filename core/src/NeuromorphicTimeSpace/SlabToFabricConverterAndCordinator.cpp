@@ -64,53 +64,6 @@ namespace BidirectionalInMemGraph
     }
 
 
-    void SlabToFabricConverterAndCordinator::InitializeAPCDescriptorTable_() noexcept
-    {
-
-        for (uint64_t desc_idx = 0; desc_idx < CountOfAPC_; desc_idx++)
-        {
-            const DescriptorConf::APCDescriptorRange self_range = ReadAPCDescriptionRanges_(desc_idx);
-            const RangeOfAPC segment_pool_range = GetSegmentPoolRange(desc_idx);
-            if (!self_range.IsValid || !segment_pool_range.IsValid)
-            {
-                continue;
-            }
-
-            DescriptionOfAPC::SingleAPCDescriptionCellBuffer description_buffer{};
-
-            bool dsc_ok = DescriptionOfAPC::ConstructInitialAPCDescriptionBuffer(
-                description_buffer,
-                desc_idx,
-                segment_pool_range.BeginIndex,
-                segment_pool_range.EndIndex
-            );
-
-            if (!dsc_ok)
-            {
-                continue;
-            }
-
-            if (
-                !ForceNxLenMemCopy(
-                    self_range.BeginIndex,
-                    CoreOfFabricCoordinator::DESCRIPTION_WIDTH_AND_VALIDATION_IDX,
-                    description_buffer.data()
-                )
-            )
-            {
-                continue;
-            }
-            
-            
-            for (size_t seg_idx = segment_pool_range.BeginIndex; seg_idx < segment_pool_range.EndIndex; seg_idx++)
-            {
-                DirectlyStoreFabricUnit64(seg_idx, UNSIGNED_ZERO);
-            }
-            
-        }
-                
-    }
-
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
         uint32_t slot_count,
         uint32_t slot_cell_count
@@ -240,8 +193,8 @@ namespace BidirectionalInMemGraph
         InitializeEdgeTable_(FabricSegments::HORIZONTAL_EDGE_TABLE);
         InitializeEdgeTable_(FabricSegments::VERTICAL_EDGE_TABLE);
         //END::: 
-        //INIT:DESCRIPTOR TABLE
-        InitializeAPCDescriptorTable_();
+        //INIT:Life Cycle
+        InitAllAPCLifeCycleState();
 
         //CONFERMATION
         FabricInitialized_.store(true, std::memory_order_release);

@@ -18,7 +18,7 @@ namespace BidirectionalInMemGraph
 
         static_assert(sizeof(DescriptionLockValues) <= sizeof(uint64_t));
 
-        static constexpr uint64_t ComposeIdAndState(DescriptionLockValues& files) noexcept
+        static constexpr uint64_t ComposeSeqLockAndState(DescriptionLockValues& files) noexcept
         {
             if (
                 !APCDataStructure::IsValid32BitAPCUnit(files.SeqLock) ||
@@ -148,7 +148,7 @@ namespace BidirectionalInMemGraph
             files.SeqLock = 2u;
             files.StateOfTheAPC = StateOfAPC::FREE;
 
-            const uint64_t id_state_unit = ComposeIdAndState(files);
+            const uint64_t id_state_unit = ComposeSeqLockAndState(files);
             if (
                 !APCDataStructure::IsValidFabricUnit(id_state_unit)
             )
@@ -190,6 +190,8 @@ namespace BidirectionalInMemGraph
                 IAB::InsertGraphIdentityMutation(identity, values) &&
                 IAB::SealIdentityBuffer(identity);
         }
+
+
 
     };
 

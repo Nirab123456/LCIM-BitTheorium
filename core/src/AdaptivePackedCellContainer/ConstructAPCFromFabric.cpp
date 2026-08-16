@@ -267,44 +267,23 @@ namespace BidirectionalInMemGraph
     bool ConstructAPCIdentity::AttachValidIdentity(uint32_t apc_idx) noexcept
     {
 
-        DSA::SingleAPCDescriptionCellBuffer description_buffer{};
         IAB::BufferOfAPCIdentity identity_buffer{};
 
+        const RangeOfAPC range = GetSegmentPoolRange(apc_idx);
+
         if (
-            apc_idx >= CountOfAPC_ ||
-            !ReadACompleateAPCDescriptorBuffer_(apc_idx, description_buffer)
+            apc_idx >= CountOfAPC_  ||
+            !range.IsValid
         )
         {
             return false;
         }
 
-        const DSA::DescriptionLockValues dsc_st_lock = DSA::GetDescriptionFile(
-            description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]
-        );
+        const DSA::DescriptionLockValues dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
 
         if (
-            !dsc_st_lock.IsValid ||
-            dsc_st_lock.StateOfTheAPC != StateOfAPC::RESERVED ||
-            !DSA::BuildIdentityBufferFromDescriptionBuffer(
-                description_buffer,
-                identity_buffer
-            )
-        )
-        {
-            return false;
-        }
-
-        RangeOfAPC range = GetSegmentPoolRange(apc_idx);
-        const DSA::DescriptionLockValues dsc_lock_files = DSA::GetDescriptionFile(description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::ID_STATE_CONCURRENT)]);
-        const uint64_t begin_idx = description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_BEGAIN_SLAB)];
-        const uint64_t end_idx = description_buffer[static_cast<uint8_t>(DSA::DescriptionIndexing::APC_SEGMENTPOOL_END_SLAB)];
-
-        if (
-            !range.IsValid ||
             !dsc_lock_files.IsValid ||
-            dsc_lock_files.StateOfTheAPC != StateOfAPC::RESERVED ||
-            range.BeginIndex != begin_idx ||
-            range.EndIndex != end_idx
+            dsc_lock_files.StateOfTheAPC != StateOfAPC::RESERVED 
         )
         {
             return false;

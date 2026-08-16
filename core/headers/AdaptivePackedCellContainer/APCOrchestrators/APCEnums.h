@@ -39,8 +39,8 @@ namespace BidirectionalInMemGraph
         HETEROGENOUS_PTR_BOUNDS = 23,
         FREE_BOUNDS = 24,
 
-        LAYOUT_VERSION = 25,
-        GLOBAL_EPOCH = 26,
+        APC_LIFE_CYCLE = 25,
+        LAYOUT_VERSION = 26,
 
         FEEDFORWARD_ENQUEUE_POSITION = 28,
         FEEDBACKWARD_ENQUEUE_POSITION = 29,
