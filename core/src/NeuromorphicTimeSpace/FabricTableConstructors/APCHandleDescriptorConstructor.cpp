@@ -5,7 +5,6 @@ namespace BidirectionalInMemGraph
 
     RangeOfAPC APCHandleDescriptorConstructor::GetSegmentPoolRange(uint64_t single_description_index) noexcept
     {
-        
         RangeOfAPC desired_segment_pool_range{};
 
         if (
@@ -16,14 +15,12 @@ namespace BidirectionalInMemGraph
             return desired_segment_pool_range;
         }
 
-
         const uint64_t apc_count_offset = single_description_index * PerAPCRuntimeCellCount_;
         desired_segment_pool_range.BeginIndex = SegmentPoolBegin_ + static_cast<size_t>(apc_count_offset);
         desired_segment_pool_range.EndIndex = desired_segment_pool_range.BeginIndex + static_cast<size_t>(PerAPCRuntimeCellCount_);
         desired_segment_pool_range.IsValid =
             desired_segment_pool_range.BeginIndex >= SegmentPoolBegin_ &&
             desired_segment_pool_range.BeginIndex < desired_segment_pool_range.EndIndex &&
-            desired_segment_pool_range.EndIndex <= SegmentPoolEnd_ &&
             desired_segment_pool_range.EndIndex <= SlabCellCount_;
 
         return desired_segment_pool_range;
@@ -32,31 +29,18 @@ namespace BidirectionalInMemGraph
 
     DescriptorConf::APCDescriptorRange APCHandleDescriptorConstructor::ReadAPCDescriptionRanges_(uint64_t apc_slot_index) noexcept
     {
-        RecordBookConf::RecordBookTablesBoundsCarrier descripor_directory_map{};
-        const bool ok = GetRecordMapCarrierRanges_(
-            FabricSegments::APC_HANDLE_DESCRIPTOR,
-            descripor_directory_map
-        );
-
         DescriptorConf::APCDescriptorRange desired_slot_of_apc_descriptor{};
-        if (
-            !ok ||
-            apc_slot_index >= CountOfAPC_ ||
-            descripor_directory_map.EndIndex > SlabCellCount_
-        )
-        {
-            desired_slot_of_apc_descriptor.IsValid = false;
-            return desired_slot_of_apc_descriptor;
-        }
 
-        desired_slot_of_apc_descriptor.BeginIndex = descripor_directory_map.BeginIndex + static_cast<size_t>(apc_slot_index) * DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
+        desired_slot_of_apc_descriptor.BeginIndex = DescriptionBeginIdx_ + static_cast<size_t>(apc_slot_index) * DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
         desired_slot_of_apc_descriptor.EndIndex = desired_slot_of_apc_descriptor.BeginIndex + DescriptionOfAPC::DESCRIPTION_WIDTH_AND_VALIDATION_IDX;
         desired_slot_of_apc_descriptor.IsValid = 
-            desired_slot_of_apc_descriptor.BeginIndex >= descripor_directory_map.BeginIndex &&
+            DescriptionBeginIdx_ > CoreOfFabricCoordinator::FABRIC_UNIT_COUNT &&
+            desired_slot_of_apc_descriptor.BeginIndex >= DescriptionBeginIdx_ &&
             desired_slot_of_apc_descriptor.BeginIndex < desired_slot_of_apc_descriptor.EndIndex &&
-            desired_slot_of_apc_descriptor.EndIndex <= descripor_directory_map.EndIndex;
+            desired_slot_of_apc_descriptor.EndIndex < SlabCellCount_;
         return desired_slot_of_apc_descriptor;
     }
+
 
 
     bool APCHandleDescriptorConstructor::ReadACompleateAPCDescriptorBuffer_(

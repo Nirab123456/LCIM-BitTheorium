@@ -39,7 +39,6 @@ namespace BidirectionalInMemGraph
         PerAPCRuntimeCellCount_ = UNSIGNED_ZERO;
         CountOfAPC_ = UNSIGNED_ZERO;
         SegmentPoolBegin_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
-        SegmentPoolEnd_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
         FabricInitialized_.store(false, std::memory_order_release);
         InitializationInProgress_.store(false, std::memory_order_release);
     }
@@ -59,7 +58,6 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::TOTAL_CELLS)] = SlabCellCount_;
         SlabBasePtr_[static_cast<size_t>(FMI::APC_DESCRIPTION_COUNT)] = CountOfAPC_;
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
-        SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_END_IDX)] = SegmentPoolEnd_;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
@@ -194,8 +192,7 @@ namespace BidirectionalInMemGraph
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
         SegmentPoolBegin_ = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
-        SegmentPoolEnd_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
-        SlabCellCount_ = SegmentPoolEnd_;
+        SlabCellCount_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
 
         if (SlabCellCount_ == UNSIGNED_ZERO || SlabCellCount_ >= FABRIC_CELL_SENTINAL)
         {
@@ -223,7 +220,12 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SegmentPoolEnd_);
+        WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SlabCellCount_);
+
+        DescriptionBeginIdx_ = apc_description_begin;
+        HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
+        VerticalEdgeBeginIdx_ = vertical_edge_begin;
+
         //ENTRIES:: END ::SLAB_RECORD_MAP
 
         //IDLE UNUSED FabricSegments

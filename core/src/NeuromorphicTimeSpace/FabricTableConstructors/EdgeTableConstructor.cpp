@@ -10,33 +10,18 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         EdgeTableRange range{};
-        RBC::RecordBookTablesBoundsCarrier edge_table_bounds{};
+        
+        uint64_t& desired_begin = edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE ? 
+            HorizontalEdgeBeginIdx_ : VerticalEdgeBeginIdx_;
 
-        if (
-            !DSA::IsValidEdgeTable(edge_table) ||
-            edge_idx >= CountOfAPC_ ||
-            !GetRecordMapCarrierRanges_(
-                edge_table,
-                edge_table_bounds
-            )
-        )
-        {
-            return range;
-        }
-
-        range.BeginIndex = edge_table_bounds.BeginIndex + static_cast<uint64_t>(edge_idx) * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
+        range.BeginIndex = desired_begin + static_cast<uint64_t>(edge_idx) * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
         range.EndIndex = range.BeginIndex + EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
-        range.IsValid = true;
-
-        if (
-            range.BeginIndex < edge_table_bounds.BeginIndex ||
-            range.BeginIndex >= edge_table_bounds.EndIndex ||
-            range.EndIndex > edge_table_bounds.EndIndex ||
-            range.EndIndex > SlabCellCount_
-        )
-        {
-            range.IsValid = false;
-        }
+        range.IsValid = 
+            DSA::IsValidEdgeTable(edge_table) &&
+            edge_idx < CountOfAPC_ &&
+            desired_begin > DescriptionBeginIdx_ &&
+            range.BeginIndex >= desired_begin &&
+            range.EndIndex < SlabCellCount_;
         return range;
     }
 

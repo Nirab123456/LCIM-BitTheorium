@@ -105,6 +105,11 @@ namespace BidirectionalInMemGraph
             EdgeBuilder::EdgeBuffer* edge_buffer_return = nullptr
         ) noexcept;
 
+        EdgeBuilder::EdgeLockValues ReadEdgedataAtomically(
+            FabricSegments edge_table,
+            uint32_t edge_idx
+        ) noexcept;
+
         bool ReserveAnEdge_(
             FabricSegments edge_table,
             uint32_t edge_idx,

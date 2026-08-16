@@ -10,12 +10,15 @@ namespace BidirectionalInMemGraph
     protected:
         uint64_t* SlabBasePtr_{nullptr};
 
-        size_t SlabCellCount_{UNSIGNED_ZERO};
         uint32_t PerAPCRuntimeCellCount_{UNSIGNED_ZERO};
         uint64_t CountOfAPC_{UNSIGNED_ZERO};
 
+        size_t SlabCellCount_{UNSIGNED_ZERO};
         size_t SegmentPoolBegin_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
-        size_t SegmentPoolEnd_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
+
+        uint64_t DescriptionBeginIdx_{UNSIGNED_ZERO};
+        uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};
+        uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
 
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};

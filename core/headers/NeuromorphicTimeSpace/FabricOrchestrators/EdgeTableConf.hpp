@@ -128,6 +128,9 @@ struct EdgeTableConf : public DescriptionOfAPC
         return true;
     }
 
+    using EdgeLockValues = DescriptionLockValues;
+    
+
     static constexpr EdgeStatus ReadEdgeFromBufferStatically(
         FabricSegments edge_table,
         const EdgeBuffer& edge_buffer,

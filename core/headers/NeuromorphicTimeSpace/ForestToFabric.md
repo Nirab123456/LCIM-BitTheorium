@@ -88,8 +88,9 @@
 
 27. FabricConstructor::ReadBufferwithSyncAtomicIndex : Input parameter is the buffer index caller dosent need to know slab index and that index is the only index is being read atomically. ReadASnapShotFromSlab -> AtomicallyLoadReadAUnit
 
-29 . VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_ : 
+28 . VagueTemoraryPremativeFabric::GetAPCRuntimePtrBySlotIndex_ : 
 
+29. RecordBookConstructor::WriteARecordBookOfTSCEntry_ : 
 
 TEST 1:
     1. APC Link treversal should be in build system and extreamly efficient.
