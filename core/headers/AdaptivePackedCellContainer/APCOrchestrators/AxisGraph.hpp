@@ -15,6 +15,8 @@ struct AxisConstructor
         VERTICAL = 2
     };
 
+    static constexpr uint8_t MUTABLE_IDINTITY_COUNT_PER_AXIS = 5u;
+
     struct AxisConstructionMap
     {
         FabricSegments EdgeTable{};
@@ -56,6 +58,22 @@ struct AxisConstructor
         return 
             (value & 1u) == UNSIGNED_ZERO;
     }
+
+    using EasyAxisMapArray = std::array<HeaderIdentifierOfAPC, MUTABLE_IDINTITY_COUNT_PER_AXIS>;
+
+    static constexpr EasyAxisMapArray GetMutableAxisArray(BidirectionalAxis axis) noexcept
+    {
+        const AxisConstructionMap map = ConstructAxisMap(axis);
+
+        return EasyAxisMapArray{
+            map.PreviousSibling,
+            map.NextSibling,
+            map.InheritedEgdeTableIdx,
+            map.OwnedEgdeTableIdx,
+            map.RootOwnedChild
+        };
+    }
+
 };
 
 struct GraphLockConf : public AxisConstructor

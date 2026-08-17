@@ -60,6 +60,13 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis
         ) noexcept;
 
+        void WriteAcquiredAxisDelta_(
+            uint32_t apc_slot,
+            const IAB::BufferOfAPCIdentity& before_idintity,
+            const IAB::BufferOfAPCIdentity& desired_identity,
+            IAB::BidirectionalAxis axis
+        ) noexcept;
+
         bool LinkTwoAPC(
             uint32_t predessor_idx,
             uint32_t child_idx,

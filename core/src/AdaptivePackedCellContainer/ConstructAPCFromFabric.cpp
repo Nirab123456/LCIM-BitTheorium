@@ -103,6 +103,41 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+    void ConstructAPCIdentity::WriteAcquiredAxisDelta_(
+        uint32_t apc_slot,
+        const IAB::BufferOfAPCIdentity& before_idintity,
+        const IAB::BufferOfAPCIdentity& desired_identity,
+        IAB::BidirectionalAxis axis
+    ) noexcept
+    {
+        const RangeOfAPC range = GetSegmentPoolRange(apc_slot);
+        if (
+            !range.IsValid ||
+            IAB::ValueOfAnIdentityFromBuffer(before_idintity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot ||
+            IAB::ValueOfAnIdentityFromBuffer(desired_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot 
+        )
+        {
+            return;
+        }
+
+        const IAB::EasyAxisMapArray axis_map_array = IAB::GetMutableAxisArray(axis);
+
+        for (const HeaderIdentifierOfAPC unit : axis_map_array)
+        {
+            if (
+                before_idintity[IAB::GetBufferIdxFromIdentityUnit(unit).value()] == desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()]
+            )
+            {
+                continue;
+            }
+            
+            DirectlyStoreFabricUnit64(
+                range.BeginIndex + static_cast<uint8_t>(unit),
+                desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()]
+            );
+        }
+    }
+
     bool ConstructAPCIdentity::ReadGraphMutationFlags(
         uint32_t slot_idx,
         IAB::GraphMutationValues& values
