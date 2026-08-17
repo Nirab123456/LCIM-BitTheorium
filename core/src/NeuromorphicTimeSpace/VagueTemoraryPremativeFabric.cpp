@@ -187,7 +187,7 @@ namespace BidirectionalInMemGraph
                     StateOfAPC::FREE,
                     internal_max_tries
                 ) ||
-                !InitiateRootAxis(slot_new.value(), IAB::BidirectionalAxis::HORIZONTAL)
+                !InitiateRootAxis(slot_new.value(), IAB::BidirectionalAxis::HORIZONTAL, internal_max_tries)
             )
 
         )
@@ -206,7 +206,7 @@ namespace BidirectionalInMemGraph
                     StateOfAPC::FREE,
                     internal_max_tries
                 ) ||
-                !InitiateRootAxis(slot_new.value(), IAB::BidirectionalAxis::VERTICAL)
+                !InitiateRootAxis(slot_new.value(), IAB::BidirectionalAxis::VERTICAL, internal_max_tries)
             )
         )
         {

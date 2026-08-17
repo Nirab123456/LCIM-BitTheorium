@@ -326,7 +326,8 @@ namespace BidirectionalInMemGraph
 
     bool ConstructAPCIdentity::InitiateRootAxis(
         uint32_t apc_slot,
-        IAB::BidirectionalAxis axis
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
     ) noexcept
     {
         if (apc_slot >= CountOfAPC_ )
@@ -384,7 +385,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity identity_buffer{};
         if (
-            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer)
+            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer, max_tries)
         )
         {
             ReleseAxis___();
@@ -406,17 +407,29 @@ namespace BidirectionalInMemGraph
             RevertEdgeToFree____();
             return false;
         }
-        
-        if (!WriteAcquiredAxis_(apc_slot, identity_buffer, axis))
-        {
-            ReleseAxis___();
-            RevertEdgeToFree____();
-            return false;
-        }
+
+        WriteAcquiredAxisDelta_(
+            apc_slot,
+            before_identity,
+            identity_buffer,
+            axis
+        );
+
+        WriteAcquiredAxisDelta_(
+            apc_slot,
+            before_identity,
+            identity_buffer,
+            axis
+        );
 
         if (!PublishReservedEdge_(desired_edge, apc_slot))
         {
-            WriteAcquiredAxis_(apc_slot, identity_buffer, axis);
+            WriteAcquiredAxisDelta_(
+                apc_slot,
+                identity_buffer,
+                before_identity,
+                axis
+            );
             RevertEdgeToFree____();
             ReleseAxis___();
             return false;
@@ -526,8 +539,8 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity child_buffer{};
         if (
-            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer) ||
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer) ||
+            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries) ||
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer, internal_max_tries) ||
             !IAB::IsInheritedAxisDisabled(child_buffer, axis)
         )
         {
@@ -612,20 +625,38 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        const bool predessor_written = WriteAcquiredAxis_(predessor_idx, predessor_buffer, axis);
-        const bool child_written = WriteAcquiredAxis_(child_idx, child_buffer, axis);
+        WriteAcquiredAxisDelta_(
+            predessor_idx,
+            predessor_before,
+            predessor_buffer,
+            axis
+        );
+
+        WriteAcquiredAxisDelta_
+        (
+            child_idx,
+            child_before,
+            child_buffer,
+            axis
+        );
 
         auto RestoreIdentityValues___ = [&]() noexcept -> void
         {
-            if (predessor_written)
-            {
-                WriteAcquiredAxis_(predessor_idx, predessor_before, axis);
-            }
+            WriteAcquiredAxisDelta_(
+                predessor_idx,
+                predessor_buffer,
+                predessor_before,
+                axis
+            );
 
-            if (child_written)
-            {
-                WriteAcquiredAxis_(child_idx, child_before, axis);
-            }
+            WriteAcquiredAxisDelta_
+            (
+                child_idx,
+                child_buffer,
+                child_before,
+                axis
+            );
+
         };
 
         auto ReleseAll___ = [&]() noexcept -> void
@@ -637,15 +668,6 @@ namespace BidirectionalInMemGraph
             }
             ReleseAxisLockOwnerEdge___();
         };
-
-        if (
-            !predessor_written ||
-            !child_written
-        )
-        {
-            ReleseAll___();
-            return false;   
-        }
 
         if (child_owned_reserved)
         {
@@ -703,7 +725,7 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         IAB::BufferOfAPCIdentity child_buffer_idintity{};
         if (
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity)
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity, internal_max_tries)
         )
         {
             return false;

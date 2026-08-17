@@ -111,7 +111,8 @@ namespace BidirectionalInMemGraph
 
         bool InitiateRootAxis(
             uint32_t apc_slot,
-            IAB::BidirectionalAxis axis
+            IAB::BidirectionalAxis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
 
