@@ -2159,18 +2159,8 @@ namespace Test02_ContentionSweep
     }
 }
 
-// ============================================================================
-// TEST 3
-// One writer continuously detach/attaches one child on one axis while N
-// readers call the PUBLIC FindMyNext/FindPrevious APIs.
-//
-// Important methodology:
-//   nullptr alone is NOT a failure because detached state is legal and the
-//   current public reader also returns nullptr when the axis is temporarily
-//   locked. We therefore accept only samples bracketed by the same unlocked
-//   sequence on BOTH participating APCs. Raw metadata is read only as a test
-//   oracle inside that stable bracket; it is never used for navigation.
-// ============================================================================
+
+
 namespace Test03_ReaderWriterTraversal
 {
     using namespace TestKit;
@@ -2178,33 +2168,90 @@ namespace Test03_ReaderWriterTraversal
     constexpr size_t OWNER = 0u;
     constexpr size_t CHILD = 1u;
     constexpr size_t NODE_COUNT = 2u;
-    constexpr uint64_t WRITER_CYCLES = 100'000u;
-    constexpr std::array<uint32_t, 5u> READER_COUNTS{1u, 2u, 4u, 8u, 16u};
+
+    // 50,000 FindMyNext +
+    // 50,000 FindPrevious
+    // = 100,000 public traversal calls PER READER.
+    constexpr uint64_t CALL_PAIRS_PER_READER = 50'000u;
+    constexpr uint64_t MIN_PUBLIC_CALLS = 10'000u;
+
+    constexpr std::array<uint32_t, 5u> READER_COUNTS{
+        1u, 2u, 4u, 8u, 16u
+    };
 
     using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
 
+    struct ApiStats
+    {
+        uint64_t Calls = 0u;
+
+        // before == after, both valid + unlocked
+        uint64_t StableWindows = 0u;
+
+        // both endpoints unlocked, but sequence changed.
+        //
+        // This is the important race-coverage counter.
+        uint64_t CompletedMutationWindows = 0u;
+
+        // One/both endpoint samples were locked.
+        uint64_t BoundaryUnstableWindows = 0u;
+
+        uint64_t StableAttached = 0u;
+        uint64_t StableDetached = 0u;
+
+        // Public result disagreed with metadata while the source sequence
+        // remained unchanged across both the public call and oracle read.
+        uint64_t StableContractFailures = 0u;
+
+        // STRICT SNAPSHOT FAILURE:
+        //
+        // Public function returned a usable pointer although an entire
+        // sequence change was observed across the public call.
+        uint64_t AcceptedAcrossMutation = 0u;
+
+        // Public function produced some non-null pointer other than the
+        // only legal target in this topology.
+        uint64_t WrongPointerFailures = 0u;
+
+        // The raw relationship word contained neither the legal target
+        // nor FABRIC_CELL_SENTINAL while protected by a stable sequence.
+        uint64_t OracleStructuralFailures = 0u;
+
+        // Raw oracle read itself failed.
+        uint64_t OracleReadFailures = 0u;
+
+        // Graph mutation state could not be decoded/read.
+        uint64_t VersionReadFailures = 0u;
+
+        // Public call was stable, but mutation started while subsequently
+        // collecting the raw oracle. This is NOT a public-read failure.
+        uint64_t OracleRacedWindows = 0u;
+    };
+
     struct ReaderStats
     {
-        uint64_t Iterations = 0u;
-        uint64_t StableWindows = 0u;
-        uint64_t UnstableWindows = 0u;
-        uint64_t AttachedStable = 0u;
-        uint64_t DetachedStable = 0u;
-        uint64_t PublicReadFailures = 0u;
-        uint64_t WrongPointerFailures = 0u;
-        uint64_t OracleStructuralFailures = 0u;
+        ApiStats FindNext{};
+        ApiStats FindPrevious{};
     };
 
     struct RunStats
     {
         bool Ok = false;
+
         uint32_t Readers = 0u;
-        uint64_t WriterCompleted = 0u;
+
+        uint64_t WriterCycles = 0u;
         uint64_t WriterFailures = 0u;
+
         ReaderStats ReadersTotal{};
+
+        bool EnoughCalls = false;
+        bool HadMutationCoverage = false;
+
         bool FinalTopologyOk = false;
         bool LocksReleased = false;
     };
+
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
@@ -2213,224 +2260,794 @@ namespace Test03_ReaderWriterTraversal
         return roots;
     }
 
-    static void Add(ReaderStats& dst, const ReaderStats& src) noexcept
+
+    static void Add(ApiStats& dst, const ApiStats& src) noexcept
     {
-        dst.Iterations += src.Iterations;
+        dst.Calls += src.Calls;
+
         dst.StableWindows += src.StableWindows;
-        dst.UnstableWindows += src.UnstableWindows;
-        dst.AttachedStable += src.AttachedStable;
-        dst.DetachedStable += src.DetachedStable;
-        dst.PublicReadFailures += src.PublicReadFailures;
+        dst.CompletedMutationWindows += src.CompletedMutationWindows;
+        dst.BoundaryUnstableWindows += src.BoundaryUnstableWindows;
+
+        dst.StableAttached += src.StableAttached;
+        dst.StableDetached += src.StableDetached;
+
+        dst.StableContractFailures += src.StableContractFailures;
+        dst.AcceptedAcrossMutation += src.AcceptedAcrossMutation;
+
         dst.WrongPointerFailures += src.WrongPointerFailures;
+
         dst.OracleStructuralFailures += src.OracleStructuralFailures;
+        dst.OracleReadFailures += src.OracleReadFailures;
+        dst.VersionReadFailures += src.VersionReadFailures;
+        dst.OracleRacedWindows += src.OracleRacedWindows;
     }
 
-    RunStats RunOnce(uint32_t reader_count)
+
+    static void Add(ReaderStats& dst, const ReaderStats& src) noexcept
+    {
+        Add(dst.FindNext, src.FindNext);
+        Add(dst.FindPrevious, src.FindPrevious);
+    }
+
+
+    static uint64_t HardFailures(const ApiStats& s) noexcept
+    {
+        return
+            s.StableContractFailures +
+            s.AcceptedAcrossMutation +
+            s.WrongPointerFailures +
+            s.OracleStructuralFailures +
+            s.OracleReadFailures +
+            s.VersionReadFailures;
+    }
+
+
+    static uint64_t TotalCalls(const ReaderStats& s) noexcept
+    {
+        return
+            s.FindNext.Calls +
+            s.FindPrevious.Calls;
+    }
+
+
+    static uint64_t TotalCompletedMutationWindows(
+        const ReaderStats& s
+    ) noexcept
+    {
+        return
+            s.FindNext.CompletedMutationWindows +
+            s.FindPrevious.CompletedMutationWindows;
+    }
+
+
+    static uint64_t TotalHardFailures(
+        const ReaderStats& s
+    ) noexcept
+    {
+        return
+            HardFailures(s.FindNext) +
+            HardFailures(s.FindPrevious);
+    }
+
+
+    // ------------------------------------------------------------------------
+    // One public traversal call.
+    //
+    // IMPORTANT:
+    //
+    // The public function is surrounded ONLY by version reads of the
+    // APC whose relationship word that public function actually reads.
+    //
+    // FindMyNext(owner)   -> OWNER version
+    // FindPrevious(child) -> CHILD version
+    //
+    // We DO NOT bracket both APCs around both public calls like the old test.
+    // ------------------------------------------------------------------------
+
+    template <typename PublicCall>
+    static void ExercisePublicRead(
+        APCBackend& backend,
+        size_t source_node,
+        HeaderIdentifierOfAPC relationship_field,
+        APCBackend::Handle legal_attached_handle,
+        uint32_t legal_attached_slot,
+        PublicCall&& public_call,
+        ApiStats& stats
+    ) noexcept
+    {
+        const AxisVersion before =
+            ReadAxisVersion(
+                backend,
+                source_node,
+                Axis::HORIZONTAL
+            );
+
+        // ================================================================
+        // ACTUAL API UNDER TEST
+        // ================================================================
+
+        APCBackend::Handle observed =
+            public_call();
+
+        // ================================================================
+
+        const AxisVersion after =
+            ReadAxisVersion(
+                backend,
+                source_node,
+                Axis::HORIZONTAL
+            );
+
+        ++stats.Calls;
+
+
+        // ------------------------------------------------------------
+        // This is always a real failure.
+        //
+        // nullptr is legal.
+        // legal_attached_handle is legal.
+        // Anything else is impossible in this test topology.
+        // ------------------------------------------------------------
+
+        if (
+            observed != nullptr &&
+            observed != legal_attached_handle
+        )
+        {
+            ++stats.WrongPointerFailures;
+        }
+
+
+        // ------------------------------------------------------------
+        // Graph-state read itself should remain valid.
+        // ------------------------------------------------------------
+
+        if (!before.Valid || !after.Valid)
+        {
+            ++stats.VersionReadFailures;
+            return;
+        }
+
+
+        // ------------------------------------------------------------
+        // CASE 1:
+        //
+        // Entire completed mutation observed across the public call:
+        //
+        //       unlocked sequence X
+        //            CALL
+        //       unlocked sequence Y
+        //
+        // X != Y
+        //
+        // DO NOT DISCARD THIS WINDOW.
+        //
+        // This is exactly the kind of window the previous test threw away.
+        // ------------------------------------------------------------
+
+        if (
+            !before.Locked &&
+            !after.Locked &&
+            before.Sequence != after.Sequence
+        )
+        {
+            ++stats.CompletedMutationWindows;
+
+            // Strict seqlock/snapshot contract:
+            //
+            // if the sequence crossed a complete mutation, the public
+            // reader must not silently publish a usable relationship.
+            //
+            // The safe current return representation is nullptr.
+            if (observed != nullptr)
+            {
+                ++stats.AcceptedAcrossMutation;
+            }
+
+            return;
+        }
+
+
+        // ------------------------------------------------------------
+        // CASE 2:
+        //
+        // We sampled a lock boundary.
+        //
+        // This is useful race coverage, but we cannot classify the public
+        // result against one stable topology from outside the function.
+        //
+        // Record it. Do not call it correctness failure.
+        // ------------------------------------------------------------
+
+        if (!SameStableVersion(before, after))
+        {
+            ++stats.BoundaryUnstableWindows;
+            return;
+        }
+
+
+        // ------------------------------------------------------------
+        // CASE 3:
+        //
+        // Public call was surrounded by one stable source sequence.
+        //
+        // Now validate its result against the raw relationship field.
+        //
+        // We must ALSO ensure the oracle read remained in that same
+        // stable sequence.
+        // ------------------------------------------------------------
+
+        uint64_t raw_relationship =
+            FABRIC_CELL_SENTINAL;
+
+        if (
+            !backend.ReadMeta(
+                source_node,
+                relationship_field,
+                raw_relationship
+            )
+        )
+        {
+            ++stats.OracleReadFailures;
+            return;
+        }
+
+        const AxisVersion oracle_after =
+            ReadAxisVersion(
+                backend,
+                source_node,
+                Axis::HORIZONTAL
+            );
+
+
+        // A mutation began after the public call but while collecting
+        // the oracle.
+        //
+        // Do not blame the public reader for this.
+        if (!SameStableVersion(after, oracle_after))
+        {
+            ++stats.OracleRacedWindows;
+            return;
+        }
+
+
+        ++stats.StableWindows;
+
+
+        // ------------------------------------------------------------
+        // Stable ATTACHED topology.
+        // ------------------------------------------------------------
+
+        if (raw_relationship == legal_attached_slot)
+        {
+            ++stats.StableAttached;
+
+            if (observed != legal_attached_handle)
+            {
+                ++stats.StableContractFailures;
+            }
+
+            return;
+        }
+
+
+        // ------------------------------------------------------------
+        // Stable DETACHED topology.
+        // ------------------------------------------------------------
+
+        if (raw_relationship == FABRIC_CELL_SENTINAL)
+        {
+            ++stats.StableDetached;
+
+            if (observed != nullptr)
+            {
+                ++stats.StableContractFailures;
+            }
+
+            return;
+        }
+
+
+        // ------------------------------------------------------------
+        // Stable sequence but impossible relationship value.
+        //
+        // This is a write-side / metadata structural problem, not merely
+        // a public-reader disagreement.
+        // ------------------------------------------------------------
+
+        ++stats.OracleStructuralFailures;
+    }
+
+
+    static RunStats RunOnce(uint32_t reader_count)
     {
         RunStats out{};
         out.Readers = reader_count;
 
         APCBackend backend{};
-        if (!backend.Initialize(MakeRootPlan()) ||
-            !backend.Attach(OWNER, CHILD, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
+
+        if (
+            !backend.Initialize(MakeRootPlan()) ||
+            !backend.Attach(
+                OWNER,
+                CHILD,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            )
+        )
         {
             return out;
         }
 
+
+        const auto owner_handle =
+            backend.HandleAt(OWNER);
+
+        const auto child_handle =
+            backend.HandleAt(CHILD);
+
+        const uint32_t owner_slot =
+            backend.SlotOf(OWNER);
+
+        const uint32_t child_slot =
+            backend.SlotOf(CHILD);
+
+        const auto map =
+            InstallAxisToBuffer::ConstructAxisMap(
+                Axis::HORIZONTAL
+            );
+
+
         std::atomic<bool> start{false};
-        std::atomic<bool> stop{false};
-        std::atomic<uint64_t> writer_completed{0u};
+
+        std::atomic<uint32_t> readers_done{0u};
+
+        std::atomic<uint64_t> writer_cycles{0u};
         std::atomic<uint64_t> writer_failures{0u};
-        std::vector<ReaderStats> reader_stats(reader_count);
+
+
+        std::vector<ReaderStats> reader_stats(
+            reader_count
+        );
+
         std::vector<std::thread> readers{};
         readers.reserve(reader_count);
 
-        const auto owner_handle = backend.HandleAt(OWNER);
-        const auto child_handle = backend.HandleAt(CHILD);
-        const uint32_t owner_slot = backend.SlotOf(OWNER);
-        const uint32_t child_slot = backend.SlotOf(CHILD);
-        const auto map = InstallAxisToBuffer::ConstructAxisMap(Axis::HORIZONTAL);
 
-        for (uint32_t reader = 0u; reader < reader_count; ++reader)
+        // ================================================================
+        // READERS
+        // ================================================================
+
+        for (
+            uint32_t reader = 0u;
+            reader < reader_count;
+            ++reader
+        )
         {
-            readers.emplace_back([&, reader]
+            readers.emplace_back(
+                [&, reader]
+                {
+                    ReaderStats local{};
+
+                    while (
+                        !start.load(
+                            std::memory_order_acquire
+                        )
+                    )
+                    {
+                        std::this_thread::yield();
+                    }
+
+
+                    for (
+                        uint64_t call_pair = 0u;
+                        call_pair < CALL_PAIRS_PER_READER;
+                        ++call_pair
+                    )
+                    {
+                        // ------------------------------------------------
+                        // FindMyNext:
+                        //
+                        // source relationship belongs to OWNER.
+                        // ------------------------------------------------
+
+                        ExercisePublicRead(
+                            backend,
+                            OWNER,
+                            map.RootOwnedChild,
+                            child_handle,
+                            child_slot,
+
+                            [&]() noexcept
+                                -> APCBackend::Handle
+                            {
+                                return backend.FindNext(
+                                    owner_handle,
+                                    Axis::HORIZONTAL,
+                                    Inheritance::FIRST_CHILD
+                                );
+                            },
+
+                            local.FindNext
+                        );
+
+
+                        // ------------------------------------------------
+                        // FindPrevious:
+                        //
+                        // source relationship belongs to CHILD.
+                        // ------------------------------------------------
+
+                        ExercisePublicRead(
+                            backend,
+                            CHILD,
+                            map.PreviousSibling,
+                            owner_handle,
+                            owner_slot,
+
+                            [&]() noexcept
+                                -> APCBackend::Handle
+                            {
+                                return backend.FindPrevious(
+                                    child_handle,
+                                    Axis::HORIZONTAL
+                                );
+                            },
+
+                            local.FindPrevious
+                        );
+
+
+                        PerturbSchedule(
+                            call_pair +
+                            static_cast<uint64_t>(reader)
+                        );
+                    }
+
+
+                    reader_stats[reader] = local;
+
+                    readers_done.fetch_add(
+                        1u,
+                        std::memory_order_release
+                    );
+                }
+            );
+        }
+
+
+        // ================================================================
+        // WRITER
+        //
+        // Writer does NOT stop after some arbitrary fixed number of cycles.
+        //
+        // It keeps mutating while readers are actually executing their
+        // fixed call count. This avoids the old problem where readers could
+        // spend a large portion of the test running after mutation stopped.
+        // ================================================================
+
+        std::thread writer(
+            [&]
             {
-                ReaderStats local{};
-                while (!start.load(std::memory_order_acquire))
+                while (
+                    !start.load(
+                        std::memory_order_acquire
+                    )
+                )
                 {
                     std::this_thread::yield();
                 }
 
-                while (!stop.load(std::memory_order_acquire))
+
+                uint64_t cycle = 0u;
+
+                while (
+                    readers_done.load(
+                        std::memory_order_acquire
+                    ) != reader_count
+                )
                 {
-                    const AxisVersion owner_before = ReadAxisVersion(backend, OWNER, Axis::HORIZONTAL);
-                    const AxisVersion child_before = ReadAxisVersion(backend, CHILD, Axis::HORIZONTAL);
-
-                    // APIs under test.
-                    auto public_next = backend.FindNext(
-                        owner_handle, Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-                    auto public_previous = backend.FindPrevious(
-                        child_handle, Axis::HORIZONTAL);
-
-                    // Oracle only. Never used to navigate.
-                    uint64_t raw_owner_child = FABRIC_CELL_SENTINAL;
-                    uint64_t raw_child_previous = FABRIC_CELL_SENTINAL;
-                    const bool oracle_read_ok =
-                        backend.ReadMeta(OWNER, map.RootOwnedChild, raw_owner_child) &&
-                        backend.ReadMeta(CHILD, map.PreviousSibling, raw_child_previous);
-
-                    const AxisVersion child_after = ReadAxisVersion(backend, CHILD, Axis::HORIZONTAL);
-                    const AxisVersion owner_after = ReadAxisVersion(backend, OWNER, Axis::HORIZONTAL);
-
-                    ++local.Iterations;
-
-                    if (public_next && public_next != child_handle)
+                    if (
+                        !backend.Detach(
+                            CHILD,
+                            Axis::HORIZONTAL
+                        )
+                    )
                     {
-                        ++local.WrongPointerFailures;
-                    }
-                    if (public_previous && public_previous != owner_handle)
-                    {
-                        ++local.WrongPointerFailures;
+                        writer_failures.fetch_add(
+                            1u,
+                            std::memory_order_relaxed
+                        );
+                        break;
                     }
 
-                    const bool stable =
-                        oracle_read_ok &&
-                        SameStableVersion(owner_before, owner_after) &&
-                        SameStableVersion(child_before, child_after);
 
-                    if (!stable)
+                    if (
+                        !backend.Attach(
+                            OWNER,
+                            CHILD,
+                            Axis::HORIZONTAL,
+                            Inheritance::FIRST_CHILD
+                        )
+                    )
                     {
-                        ++local.UnstableWindows;
-                        continue;
+                        writer_failures.fetch_add(
+                            1u,
+                            std::memory_order_relaxed
+                        );
+                        break;
                     }
 
-                    ++local.StableWindows;
 
-                    const bool oracle_attached =
-                        raw_owner_child == child_slot &&
-                        raw_child_previous == owner_slot;
-                    const bool oracle_detached =
-                        raw_owner_child == FABRIC_CELL_SENTINAL &&
-                        raw_child_previous == FABRIC_CELL_SENTINAL;
+                    writer_cycles.fetch_add(
+                        1u,
+                        std::memory_order_relaxed
+                    );
 
-                    if (!oracle_attached && !oracle_detached)
-                    {
-                        ++local.OracleStructuralFailures;
-                        continue;
-                    }
+                    PerturbSchedule(cycle);
 
-                    if (oracle_attached)
-                    {
-                        ++local.AttachedStable;
-                        if (public_next != child_handle || public_previous != owner_handle)
-                        {
-                            ++local.PublicReadFailures;
-                        }
-                    }
-                    else
-                    {
-                        ++local.DetachedStable;
-                        if (public_next != nullptr || public_previous != nullptr)
-                        {
-                            ++local.PublicReadFailures;
-                        }
-                    }
+                    ++cycle;
                 }
+            }
+        );
 
-                reader_stats[reader] = local;
-            });
+
+        // ================================================================
+        // START
+        // ================================================================
+
+        start.store(
+            true,
+            std::memory_order_release
+        );
+
+
+        for (auto& reader : readers)
+        {
+            reader.join();
         }
 
-        std::thread writer([&]
-        {
-            while (!start.load(std::memory_order_acquire))
-            {
-                std::this_thread::yield();
-            }
-
-            for (uint64_t cycle = 0u; cycle < WRITER_CYCLES; ++cycle)
-            {
-                if (!backend.Detach(CHILD, Axis::HORIZONTAL) ||
-                    !backend.Attach(OWNER, CHILD, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
-                {
-                    writer_failures.fetch_add(1u, std::memory_order_relaxed);
-                    break;
-                }
-                writer_completed.fetch_add(1u, std::memory_order_relaxed);
-                PerturbSchedule(cycle);
-            }
-            stop.store(true, std::memory_order_release);
-        });
-
-        start.store(true, std::memory_order_release);
         writer.join();
-        for (auto& t : readers) t.join();
 
-        for (const auto& s : reader_stats) Add(out.ReadersTotal, s);
-        out.WriterCompleted = writer_completed.load(std::memory_order_acquire);
-        out.WriterFailures = writer_failures.load(std::memory_order_acquire);
+
+        // ================================================================
+        // COLLECT
+        // ================================================================
+
+        for (const ReaderStats& stats : reader_stats)
+        {
+            Add(
+                out.ReadersTotal,
+                stats
+            );
+        }
+
+
+        out.WriterCycles =
+            writer_cycles.load(
+                std::memory_order_acquire
+            );
+
+        out.WriterFailures =
+            writer_failures.load(
+                std::memory_order_acquire
+            );
+
+
+        const uint64_t total_calls =
+            TotalCalls(out.ReadersTotal);
+
+        const uint64_t mutation_windows =
+            TotalCompletedMutationWindows(
+                out.ReadersTotal
+            );
+
+
+        out.EnoughCalls =
+            total_calls >= MIN_PUBLIC_CALLS;
+
+        out.HadMutationCoverage =
+            mutation_windows != 0u;
+
+
+        // Writer always performs a full detach + attach cycle before
+        // checking readers_done again, so successful completion should
+        // finish attached.
         out.FinalTopologyOk =
-            backend.FindNext(backend.HandleAt(OWNER), Axis::HORIZONTAL, Inheritance::FIRST_CHILD) ==
-                backend.HandleAt(CHILD) &&
-            backend.FindPrevious(backend.HandleAt(CHILD), Axis::HORIZONTAL) ==
-                backend.HandleAt(OWNER);
-        out.LocksReleased = backend.LocksReleased();
+            backend.FindNext(
+                backend.HandleAt(OWNER),
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            ) == backend.HandleAt(CHILD)
+            &&
+            backend.FindPrevious(
+                backend.HandleAt(CHILD),
+                Axis::HORIZONTAL
+            ) == backend.HandleAt(OWNER);
+
+
+        out.LocksReleased =
+            backend.LocksReleased();
+
+
+        // ================================================================
+        // FINAL CONTRACT
+        // ================================================================
 
         out.Ok =
             out.WriterFailures == 0u &&
-            out.WriterCompleted == WRITER_CYCLES &&
-            out.ReadersTotal.PublicReadFailures == 0u &&
-            out.ReadersTotal.WrongPointerFailures == 0u &&
-            out.ReadersTotal.OracleStructuralFailures == 0u &&
+            out.WriterCycles != 0u &&
+            out.EnoughCalls &&
+            out.HadMutationCoverage &&
+            TotalHardFailures(out.ReadersTotal) == 0u &&
             out.FinalTopologyOk &&
             out.LocksReleased;
+
+
         return out;
     }
 
+
+    static void PrintApiStats(
+        const char* name,
+        const ApiStats& s
+    )
+    {
+        std::cout
+            << "    " << name << '\n'
+
+            << "      calls                       : "
+            << s.Calls << '\n'
+
+            << "      stable validated            : "
+            << s.StableWindows << '\n'
+
+            << "      completed mutation windows  : "
+            << s.CompletedMutationWindows << '\n'
+
+            << "      boundary unstable windows   : "
+            << s.BoundaryUnstableWindows << '\n'
+
+            << "      oracle raced windows        : "
+            << s.OracleRacedWindows << '\n'
+
+            << "      stable attached             : "
+            << s.StableAttached << '\n'
+
+            << "      stable detached             : "
+            << s.StableDetached << '\n'
+
+            << "      stable contract failures    : "
+            << s.StableContractFailures << '\n'
+
+            << "      accepted across mutation    : "
+            << s.AcceptedAcrossMutation << '\n'
+
+            << "      wrong pointer failures      : "
+            << s.WrongPointerFailures << '\n'
+
+            << "      oracle structural failures  : "
+            << s.OracleStructuralFailures << '\n'
+
+            << "      oracle read failures        : "
+            << s.OracleReadFailures << '\n'
+
+            << "      version read failures       : "
+            << s.VersionReadFailures << '\n';
+    }
+
+
     inline Result Run()
     {
-        Banner("TEST 3 - ONE WRITER + N FindMyNext/FindPrevious READERS");
+        Banner(
+            "TEST 3 - PUBLIC READER SNAPSHOT / WRITER RACE"
+        );
+
         std::cout
-            << "Writer: repeatedly detach/reattach CHILD as OWNER's H FIRST_CHILD.\n"
-            << "Readers: public FindMyNext/FindPrevious only for navigation.\n"
-            << "Stable-read validation: same unlocked H sequence before/after on owner+child.\n"
-            << "Raw identity fields are used only as a validation oracle.\n\n";
+            << "Writer: continuously detach + reattach CHILD as OWNER's H FIRST_CHILD.\n"
+            << "Readers: FindMyNext() and FindPrevious() only.\n"
+            << "Each reader performs "
+            << CALL_PAIRS_PER_READER
+            << " call pairs = "
+            << (CALL_PAIRS_PER_READER * 2u)
+            << " public calls.\n"
+            << "Changed sequence windows are RECORDED, not discarded.\n"
+            << "A non-null result across a completed sequence change is a "
+               "strict snapshot-contract failure.\n\n";
+
 
         bool all_ok = true;
-        std::cout
-            << "readers | writer cycles | stable windows | unstable windows | public read fails | wrong ptr | oracle fail | final\n";
-        Divider();
 
-        for (uint32_t readers : READER_COUNTS)
+
+        for (uint32_t reader_count : READER_COUNTS)
         {
-            const RunStats r = RunOnce(readers);
-            all_ok = all_ok && r.Ok;
-            std::cout
-                << std::setw(7) << readers << " | "
-                << std::setw(13) << r.WriterCompleted << " | "
-                << std::setw(14) << r.ReadersTotal.StableWindows << " | "
-                << std::setw(16) << r.ReadersTotal.UnstableWindows << " | "
-                << std::setw(17) << r.ReadersTotal.PublicReadFailures << " | "
-                << std::setw(9) << r.ReadersTotal.WrongPointerFailures << " | "
-                << std::setw(11) << r.ReadersTotal.OracleStructuralFailures << " | "
-                << (r.Ok ? "PASS" : "FAIL") << '\n';
+            const RunStats r =
+                RunOnce(reader_count);
 
-            if (!r.Ok)
-            {
-                std::cout
-                    << "    writer failures : " << r.WriterFailures << '\n'
-                    << "    attached stable : " << r.ReadersTotal.AttachedStable << '\n'
-                    << "    detached stable : " << r.ReadersTotal.DetachedStable << '\n'
-                    << "    topology final  : " << (r.FinalTopologyOk ? "PASS" : "FAIL") << '\n'
-                    << "    locks released  : " << (r.LocksReleased ? "PASS" : "FAIL") << '\n';
-            }
+            all_ok =
+                all_ok &&
+                r.Ok;
+
+
+            std::cout
+                << "READERS = "
+                << reader_count
+                << '\n';
+
+            std::cout
+                << "  writer cycles       : "
+                << r.WriterCycles
+                << '\n'
+
+                << "  writer failures     : "
+                << r.WriterFailures
+                << '\n'
+
+                << "  total public calls  : "
+                << TotalCalls(r.ReadersTotal)
+                << '\n'
+
+                << "  mutation crossings  : "
+                << TotalCompletedMutationWindows(
+                    r.ReadersTotal
+                )
+                << '\n'
+
+                << "  hard failures       : "
+                << TotalHardFailures(
+                    r.ReadersTotal
+                )
+                << '\n';
+
+
+            PrintApiStats(
+                "FindMyNext",
+                r.ReadersTotal.FindNext
+            );
+
+            PrintApiStats(
+                "FindPrevious",
+                r.ReadersTotal.FindPrevious
+            );
+
+
+            std::cout
+                << "    enough calls       : "
+                << (r.EnoughCalls ? "PASS" : "FAIL")
+                << '\n'
+
+                << "    mutation coverage  : "
+                << (r.HadMutationCoverage ? "PASS" : "FAIL")
+                << '\n'
+
+                << "    final topology     : "
+                << (r.FinalTopologyOk ? "PASS" : "FAIL")
+                << '\n'
+
+                << "    locks released     : "
+                << (r.LocksReleased ? "PASS" : "FAIL")
+                << '\n'
+
+                << "    RUN RESULT         : "
+                << (r.Ok ? "PASS" : "FAIL")
+                << "\n\n";
         }
 
-        std::cout << "\nTEST 3 OVERALL: " << (all_ok ? "PASS" : "FAIL") << '\n';
-        return all_ok ? Result::PASS : Result::FAIL;
-    }
-}
 
+        std::cout
+            << "TEST 3 OVERALL: "
+            << (all_ok ? "PASS" : "FAIL")
+            << '\n';
+
+
+        return
+            all_ok ?
+            Result::PASS :
+            Result::FAIL;
+    }
+
+} // namespace Test03_ReaderWriterTraversal
 inline int RunAll()
 {
     using TestKit::Result;

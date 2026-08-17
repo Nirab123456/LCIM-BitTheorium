@@ -76,9 +76,10 @@ namespace BidirectionalInMemGraph
                 continue;
             }
             
-            DirectlyStoreFabricUnit64(
+            AtomicallyStoreU64Fab(
                 range.BeginIndex + static_cast<uint8_t>(unit),
-                desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()]
+                desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()],
+                std::memory_order_relaxed
             );
         }
     }

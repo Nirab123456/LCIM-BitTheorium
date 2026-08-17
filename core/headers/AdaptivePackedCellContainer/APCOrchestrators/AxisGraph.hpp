@@ -287,6 +287,26 @@ struct GraphLockConf : public AxisConstructor
     }
 
 
+    static constexpr bool CompareGmvPreVSPostSequense(
+        GraphMutationValues& gmv_pre,
+        GraphMutationValues& gmv_post,
+        BidirectionalAxis axis
+    ) noexcept
+    {
+        switch (axis)
+        {
+        case BidirectionalAxis::HORIZONTAL:
+            return
+                gmv_pre.SeqLockHorizontal == gmv_post.SeqLockHorizontal;
+        case BidirectionalAxis::VERTICAL:
+            return
+                gmv_pre.SeqLockVertical == gmv_post.SeqLockVertical;
+        default:
+            return false;
+        }
+    }
+
+
 protected:
     static constexpr uint8_t FlagMask(MemGraphFlag flag) noexcept
     {

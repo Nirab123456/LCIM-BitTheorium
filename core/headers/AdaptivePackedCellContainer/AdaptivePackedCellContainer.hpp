@@ -9,6 +9,7 @@ static_assert(__cpp_lib_atomic_wait, "C++ must suppoet atomic wait/notify");
 class AdaptivePackedCellContainer : public ReadAndWriteOfAPC
 {
 public:
+    static constexpr uint8_t DEFAULT_REALTION_FIND_TRIES = 1;
     using IAB = InstallAxisToBuffer;
 
     bool AttachAnotherToMe(
@@ -36,7 +37,10 @@ public:
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
-    AdaptivePackedCellContainer* FindPrevious(IAB::BidirectionalAxis axis) noexcept;
+    AdaptivePackedCellContainer* FindPrevious(
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries = DEFAULT_REALTION_FIND_TRIES
+    ) noexcept;
 
     AdaptivePackedCellContainer* FindMyNext(
         IAB::BidirectionalAxis axis,

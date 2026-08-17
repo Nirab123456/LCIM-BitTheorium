@@ -93,29 +93,64 @@ namespace BidirectionalInMemGraph
     }
 
 
-    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious(IAB::BidirectionalAxis axis) noexcept
+    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious(
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
+    ) noexcept
     {
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-        IAB::GraphMutationValues gmv_values{};
+        IAB::GraphMutationValues gmv_values_pre{};
+        IAB::GraphMutationValues gmv_values_post{};
 
-        uint64_t previous = FABRIC_CELL_SENTINAL;
-
-        if (
-            !IsThisAPCValid() ||
-            !FabricOwnerPtr_->ReadGraphMutationFlags(
-                static_cast<uint32_t>(APCSlotIdx_),
-                gmv_values
-            ) ||
-            !gmv_values.IsValid ||
-            IAB::IsDesiredAxisLocked(gmv_values.Flags, axis) ||
-            !ReadAPCMetaUnit(map.PreviousSibling, previous) ||
-            !APCDataStructure::IsValid32BitAPCUnit(previous)
-        )
+        if (!IsThisAPCValid())
         {
             return nullptr;
         }
+        
+        uint64_t previous = FABRIC_CELL_SENTINAL;
 
-        return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !FabricOwnerPtr_->ReadGraphMutationFlags(
+                    static_cast<uint32_t>(APCSlotIdx_),
+                    gmv_values_pre
+                ) ||
+                IAB::IsDesiredAxisLocked(gmv_values_pre.Flags, axis)
+            )
+            {
+                continue;
+            }
+
+            if (!ReadAPCMetaUnit(map.PreviousSibling, previous))
+            {
+                continue;
+            }
+
+            if (
+                !FabricOwnerPtr_->ReadGraphMutationFlags(
+                    static_cast<uint32_t>(APCSlotIdx_),
+                    gmv_values_post
+                ) ||
+                IAB::IsDesiredAxisLocked(gmv_values_post.Flags, axis) ||
+                !IAB::CompareGmvPreVSPostSequense(gmv_values_pre, gmv_values_post, axis)
+            )
+            {
+                continue;
+            }
+
+            if (
+                !APCDataStructure::IsValid32BitAPCUnit(previous)
+            )
+            {
+                return nullptr;
+            }
+
+            return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
+        }
+
+        return nullptr;
     }
 
 
