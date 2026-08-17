@@ -165,13 +165,7 @@ namespace BidirectionalInMemGraph
         }
         
         if (
-            !StoreAPCRuntimePtr(slot_new.value(), &desired_apc) ||
-            !SwitchDescriptionState(
-                slot_new.value(),
-                StateOfAPC::LIVE,
-                StateOfAPC::RESERVED,
-                internal_max_tries
-            )
+            !StoreAPCRuntimePtr(slot_new.value(), &desired_apc)
         )
         {
             AbortCreation___();
