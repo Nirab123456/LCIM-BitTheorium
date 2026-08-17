@@ -19,6 +19,19 @@ protected:
     
     uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
 public:
+    enum class MutationOperation : uint8_t
+    {
+        FOUND = 0,
+        NONE = 1,
+        RETRY = 2
+    };
+
+    struct RelationOparation 
+    {
+        AdaptivePackedCellContainer* APCPtr_ = nullptr;
+        MutationOperation MutationOP_ = MutationOperation::NONE;
+    };
+
     void ReleseFabricBindingOnly_() noexcept;
 
     bool ForceCopyToAPCFromBuffer(

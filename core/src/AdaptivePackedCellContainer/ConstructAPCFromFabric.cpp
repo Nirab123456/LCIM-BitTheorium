@@ -182,12 +182,9 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        const DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot); 
         const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
 
         if (
-            !current_apc_state.IsValid || 
-            !IsLiveSateOfAPC(current_apc_state.StateOfTheAPC) ||
             !range_of_apc_sagmant_pool.IsValid
         )
         {
@@ -361,13 +358,6 @@ namespace BidirectionalInMemGraph
             axis
         );
 
-        WriteAcquiredAxisDelta_(
-            apc_slot,
-            before_identity,
-            identity_buffer,
-            axis
-        );
-
         if (!PublishReservedEdge_(desired_edge, apc_slot))
         {
             WriteAcquiredAxisDelta_(
@@ -404,28 +394,23 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         IAB::BufferOfAPCIdentity predessor_buffer{};
+        const RangeOfAPC range_predessor = GetSegmentPoolRange(predessor_idx);
 
-        if (!ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries))
+        HeaderIdentifierOfAPC edge_idintity = inharitance == IAB::DescOfInharitance::FIRST_CHILD ?
+            map.OwnedEgdeTableIdx : map.InheritedEgdeTableIdx;
+
+        uint64_t owned_edge_raw = FABRIC_CELL_SENTINAL;
+
+        if (
+            !range_predessor.IsValid ||
+            !AtomicallyLoadReadAUnit(
+                range_predessor.BeginIndex + static_cast<uint8_t>(edge_idintity),
+                owned_edge_raw
+            )
+        )
         {
             return false;
         }
-
-        uint64_t owned_edge_raw = FABRIC_CELL_SENTINAL;
-        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
-        {
-            owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
-                predessor_buffer,
-                map.OwnedEgdeTableIdx
-            );
-        }
-        else
-        {
-            owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
-                predessor_buffer,
-                map.InheritedEgdeTableIdx
-            );
-        }
-
 
         uint32_t roots_edge_idx = static_cast<uint32_t>(owned_edge_raw);
         EdgeBuilder::EdgeData owner_edge_before{};
@@ -436,7 +421,7 @@ namespace BidirectionalInMemGraph
                 map.EdgeTable,
                 static_cast<uint32_t>(owned_edge_raw),
                 &owner_edge_before,
-                std::nullopt,
+                EdgeBuilder::EdgeStatus::LIVE,
                 internal_max_tries
             )
         )
@@ -727,6 +712,8 @@ namespace BidirectionalInMemGraph
         EdgeBuilder::EdgeData before_of_roots_edge_data{};
         EdgeBuilder::EdgeData before_childs_own_root_edge_data{};
 
+        bool child_owned_published = false;
+
         if (
             !ReserveAnEdge_(
                 map.EdgeTable,
@@ -757,10 +744,26 @@ namespace BidirectionalInMemGraph
         }
         
         auto RevBothEdge___ = [&]() noexcept -> void
-        {
+        {   
             if (child_has_own_root)
             {
-                PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
+                if (child_owned_published)
+                {
+                    if (!ReserveAnEdge_(
+                        map.EdgeTable,
+                        static_cast<uint32_t>(child_as_root_edge_idx),
+                        nullptr,
+                        EdgeBuilder::EdgeStatus::LIVE,
+                        internal_max_tries
+                    ))
+                    {
+                        PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
+                    }
+                    else
+                    {
+                        PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
+                    }
+                }
             }
             PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
         };
@@ -964,6 +967,7 @@ namespace BidirectionalInMemGraph
                 AbortMutation___();
                 return false;
             }
+            child_owned_published = true;
         }
 
         if (!PublishReservedEdge_(roots_edge_data, roots_edge_idx))

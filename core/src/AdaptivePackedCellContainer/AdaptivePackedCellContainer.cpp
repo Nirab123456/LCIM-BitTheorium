@@ -91,7 +91,7 @@ namespace BidirectionalInMemGraph
             max_tries
         );
     }
-
+    
 
     AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious(
         IAB::BidirectionalAxis axis,
