@@ -48,61 +48,6 @@ namespace BidirectionalInMemGraph
         return false;
     }
 
-    bool ConstructAPCIdentity::WriteAcquiredAxis_(
-        uint32_t apc_slot,
-        const IAB::BufferOfAPCIdentity& identity,
-        IAB::BidirectionalAxis axis
-    ) noexcept
-    {
-        RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
-        IAB::GraphMutationValues current_lock{};
-        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-
-        if (
-            !IsLiveSateOfAPC(current_apc_state.StateOfTheAPC) ||
-            !current_apc_state.IsValid ||
-            !range_of_apc_sagmant_pool.IsValid ||
-            !IAB::ValidateIdentityBuffer(identity) ||
-            IAB::ValueOfAnIdentityFromBuffer(
-                identity,
-                HeaderIdentifierOfAPC::APC_SLOT_IDX
-            ) != apc_slot ||
-            !ReadGraphMutationFlags(apc_slot, current_lock) ||
-            !IAB::IsDesiredAxisLocked(current_lock.Flags, axis)
-        )
-        {
-            return false;
-        }
-
-        DirectlyStoreFabricUnit64(
-            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.PreviousSibling),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.PreviousSibling).value()]
-        );
-
-        DirectlyStoreFabricUnit64(
-            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.NextSibling),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.NextSibling).value()]
-        );
-
-        DirectlyStoreFabricUnit64(
-            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.InheritedEgdeTableIdx),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.InheritedEgdeTableIdx).value()]
-        );
-
-        DirectlyStoreFabricUnit64(
-            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.OwnedEgdeTableIdx),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.OwnedEgdeTableIdx).value()]
-        );
-
-        DirectlyStoreFabricUnit64(
-            range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(map.RootOwnedChild),
-            identity[IAB::GetBufferIdxFromIdentityUnit(map.RootOwnedChild).value()]
-        );
-
-        return true;
-    }
-
     void ConstructAPCIdentity::WriteAcquiredAxisDelta_(
         uint32_t apc_slot,
         const IAB::BufferOfAPCIdentity& before_idintity,
@@ -947,34 +892,33 @@ namespace BidirectionalInMemGraph
         }
         
 
-        bool predessor_wrritten = false;
-        bool next_wrritten = false;
-        bool child_wrritten = false;
 
         auto RestoreIdinties___ = [&]() noexcept -> void
         {
-            if (predessor_wrritten)
-            {
-                WriteAcquiredAxis_(predessor_idx, before_predessor_buffer, axis);
-            }
 
-            if (next_wrritten)
+            WriteAcquiredAxisDelta_(
+                predessor_idx,
+                predessor_buffer,
+                before_predessor_buffer,
+                axis
+            );
+
+            if (has_next)
             {
-                WriteAcquiredAxis_(
+                WriteAcquiredAxisDelta_(
                     static_cast<uint32_t>(next_idx_of_same_parent),
+                    next_id_buffer,
                     before_next_id_buffer,
                     axis
                 );
             }
+            WriteAcquiredAxisDelta_(
+                child_idx,
+                child_buffer_idintity,
+                before_child_buffer,
+                axis
+            );
 
-            if (child_wrritten)
-            {
-                WriteAcquiredAxis_(
-                    child_idx,
-                    before_child_buffer,
-                    axis
-                );
-            }
         };
 
         auto AbortMutation___ = [&]() noexcept -> void
@@ -983,39 +927,29 @@ namespace BidirectionalInMemGraph
             ReleseReservedGraphAndEdge___();
         };
 
-        if (WriteAcquiredAxis_(predessor_idx, predessor_buffer, axis))
+        WriteAcquiredAxisDelta_(
+            predessor_idx,
+            before_predessor_buffer,
+            predessor_buffer,
+            axis
+        );
+
+        if (has_next)
         {
-            predessor_wrritten = true;
-        }
-        else
-        {
-            ReleseReservedGraphAndEdge___();
-            return false;
+            WriteAcquiredAxisDelta_(
+                static_cast<uint32_t>(next_idx_of_same_parent),
+                before_next_id_buffer,
+                next_id_buffer,
+                axis
+            );
         }
 
-        if (
-            has_next &&
-            WriteAcquiredAxis_(static_cast<uint32_t>(next_idx_of_same_parent), next_id_buffer, axis)
-        )
-        {
-            next_wrritten = true;
-        }
-
-        if (has_next && !next_wrritten)
-        {
-            AbortMutation___();
-            return false;
-        }
-
-        if (WriteAcquiredAxis_(child_idx, child_buffer_idintity, axis))
-        {
-            child_wrritten = true;
-        }
-        else
-        {
-            AbortMutation___();
-            return false;
-        }
+        WriteAcquiredAxisDelta_(
+            child_idx,
+            before_child_buffer,
+            child_buffer_idintity,
+            axis
+        );
 
         if (child_has_own_root)
         {

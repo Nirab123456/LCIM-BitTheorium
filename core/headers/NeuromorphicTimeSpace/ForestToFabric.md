@@ -4,12 +4,12 @@
 
 3. bool ConstructAPCIdentity::ReleseGraphMutationFlag_ : Reads APC range by -> GetSegmentPoolRange : checks if the axis available to relese if so releses
 
-4. ConstructAPCIdentity::WriteAcquiredAxis_ : Reads APC range from GetAPCSegmentPoolRange, and reads Mutation flag inside the APC and , Reads current APC state from Description and checks if Description == RESERVED and desired axis Is locked + validates the idintity buffer and just writes only those axis value and returns.
+4. ConstructAPCIdentity::WriteAcquiredAxisDelta_ : Compares current and previous locally and updates only the changed field of desired axis and it is unsafe if miseused.
 
 6. EdgeTableConstructor::PublishReservedEdge_ : Checks current edge status = EdgeStatus::RESERVED build a valid Edge buffer with with updated sequense lock and provided data by EdgeBuilder::EdgeData struct and just updates atomically.
 
 5. ConstructAPCIdentity::InitiateRootAxis : 
-    (Check EDGE == RESERVED) -> (DESCRIPTION == LIVE) -> (Call To WriteAcquiredAxis_) -> (Call To PublishReservedEdge_)
+    (Check EDGE == RESERVED) -> (DESCRIPTION == LIVE) -> (Call To WriteAcquiredAxisDelta_) -> (Call To PublishReservedEdge_)
     FAILURE IN ANY POINT :
     (ReleseGraphMutationFlag_) -> (RELESE: Axis lock by PublishReservedEdge_)
 
@@ -38,7 +38,7 @@
     the current APC who is bing linked and unlinked to a owner is also a owner then prepers that edge too)
 
 13. ConstructAPCIdentity::LinkTwoAPC : 
-    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxis_(write both axis) -> PublishReservedEdge_(if the one being linked has owned table then both inhereted and current edge) -> ReleseGraphMutationFlag_(for the one bing linked)
+    ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxisDelta_(write both axis) -> PublishReservedEdge_(if the one being linked has owned table then both inhereted and current edge) -> ReleseGraphMutationFlag_(for the one bing linked)
     FAILURE IN ANY POINT :
         Restore axis locks -> Restore owned edge table / child edge table if available
 
@@ -47,7 +47,7 @@
         II. ReserveAnEdge_(reserves the roots and (childs own root if avaiavle) edge)
         III. AcquireGraphMutationFlag_(acquire graph mutation flags for predessor, child and next if next is available)
         IV. PrepareForDetachmentOfInharitedAxis
-        V. WriteAcquiredAxis_(Write updated identities to APC)
+        V. WriteAcquiredAxisDelta_(Write updated identities to APC)
         VI. (publish updated root edge and edge of the one who is being detached if availavle)
         VII. ReleseGraphMutationFlag_(Relese all graph mutation the locks)
     FAILURE IN ANY POINT :

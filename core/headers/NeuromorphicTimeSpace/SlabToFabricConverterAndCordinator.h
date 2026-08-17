@@ -54,11 +54,6 @@ namespace BidirectionalInMemGraph
         friend class AdaptivePackedCellContainer;
     private:
 
-        bool WriteAcquiredAxis_(
-            uint32_t apc_slot,
-            const IAB::BufferOfAPCIdentity& identity,
-            IAB::BidirectionalAxis axis
-        ) noexcept;
 
         void WriteAcquiredAxisDelta_(
             uint32_t apc_slot,
