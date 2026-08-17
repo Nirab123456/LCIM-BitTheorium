@@ -26,6 +26,8 @@ namespace BidirectionalInMemGraph
 
 
     public:
+        using IAB = InstallAxisToBuffer;
+        using DSA = DescriptionOfAPC;
 
         bool ReadAFabricU64Directly(
             size_t slab_index,

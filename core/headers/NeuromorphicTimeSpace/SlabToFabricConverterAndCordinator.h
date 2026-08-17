@@ -15,9 +15,6 @@ namespace BidirectionalInMemGraph
 
         void ResetScalarsofTheFabric_() noexcept;
 
-        /// @brief BUILD: & INITIALIZED: All The APC Handle Descriptor With Segment Pool <-  CONSISTING: Packed CEll -> PacvkedMode::VALUE32
-        void InitializeAPCDescriptorTable_() noexcept;
-
         /// @brief INITIALIZES: All FabricMetaIndicies
         /// @param table_directory_begin 
         /// @param table_directory_end 
@@ -94,7 +91,7 @@ namespace BidirectionalInMemGraph
         bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
     public:
-        std::optional<StateOfAPC> ReadIdentityBufferOfAPC(
+        bool ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
             IAB::BufferOfAPCIdentity& identity,
             uint32_t max_tries = DEFAULT_MAX_TRIES

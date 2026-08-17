@@ -63,7 +63,7 @@ namespace BidirectionalInMemGraph
     struct APCDataStructure : public ColumnConf
     {
 
-        static constexpr uint8_t METACELL_COUNT = 96;
+        static constexpr uint8_t METACELL_COUNT = 64;
         static constexpr uint8_t FABRIC_CELL_COUNT = 64;
 
 

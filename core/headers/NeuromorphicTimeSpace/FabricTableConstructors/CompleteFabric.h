@@ -32,20 +32,14 @@ namespace BidirectionalInMemGraph
     };
 
 
-    class APCHandleDescriptorConstructor : public RecordBookConstructor
+    class APCLifeCycle : public RecordBookConstructor
     {
+        friend class FabricToAPCLinker;
+        friend class ReadAndWriteOfAPC;
     protected:
-
-        DescriptorConf::APCDescriptorRange ReadAPCDescriptionRanges_(uint64_t apc_slot_index) noexcept;
     
-        std::optional<size_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;
+        std::optional<uint64_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;
 
-        bool ReadACompleateAPCDescriptorBuffer_(
-            uint64_t apc_description_index, 
-            DescriptionOfAPC::SingleAPCDescriptionCellBuffer& return_buffer
-        ) noexcept;
-
-    public:
         RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
@@ -58,14 +52,16 @@ namespace BidirectionalInMemGraph
 
         std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
 
-        DescriptionOfAPC::DescriptionLockValues ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+        DescriptionOfAPC::SeqLockAndStateStruct ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
+
+        void InitAllAPCLifeCycleState() noexcept;
 
     };
 
-    class EdgeTableConstructor : public APCHandleDescriptorConstructor
+    class EdgeTableConstructor : public APCLifeCycle
     {
     public:
-        using EdgeTableRange = DescriptorConf::APCDescriptorRange;
+        using EdgeTableRange = RangeOfAPC;
 
     private :
         bool SwitchEdgeState__(

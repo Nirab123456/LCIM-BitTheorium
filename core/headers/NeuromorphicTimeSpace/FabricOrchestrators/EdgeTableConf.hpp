@@ -40,7 +40,7 @@ struct EdgeTableConf : public DescriptionOfAPC
     ) noexcept
     {
         if (
-            !IsValidEdgeTable(edge.EdgeTable) ||
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge.EdgeTable) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.Root) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||
@@ -128,7 +128,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         return true;
     }
 
-    using EdgeLockValues = DescriptionLockValues;
+    using EdgeLockValues = SeqLockAndStateStruct;
     
 
     static constexpr EdgeStatus ReadEdgeFromBufferStatically(

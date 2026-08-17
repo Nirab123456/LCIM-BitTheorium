@@ -2,7 +2,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    using EdgeTableRange = DescriptorConf::APCDescriptorRange;
+    using EdgeTableRange = RangeOfAPC;
 
     EdgeTableRange EdgeTableConstructor::ReadAnEdgeTableRange_(
         FabricSegments edge_table,
@@ -17,7 +17,7 @@ namespace BidirectionalInMemGraph
         range.BeginIndex = desired_begin + static_cast<uint64_t>(edge_idx) * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
         range.EndIndex = range.BeginIndex + EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
         range.IsValid = 
-            DSA::IsValidEdgeTable(edge_table) &&
+            CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) &&
             edge_idx < CountOfAPC_ &&
             desired_begin > DescriptionBeginIdx_ &&
             range.BeginIndex >= desired_begin &&
@@ -44,14 +44,12 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-
-        values = DSA::GetDescriptionFile(raw_st_lock);
-        return values.IsValid;
+        return DSA::GetSeqLockAndLifeCycle(raw_st_lock, values);
     }
 
     void EdgeTableConstructor::InitializeEdgeTable_(FabricSegments edge_table) noexcept
     {
-        if (!EdgeBuilder::IsValidEdgeTable(edge_table))
+        if (!CoreOfFabricCoordinator::IsValidEdgeTable(edge_table))
         {
             return;
         }

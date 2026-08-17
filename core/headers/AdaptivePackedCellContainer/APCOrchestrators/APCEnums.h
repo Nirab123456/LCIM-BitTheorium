@@ -38,10 +38,11 @@ namespace BidirectionalInMemGraph
         AUX_BOUNDS = 22,
         HETEROGENOUS_PTR_BOUNDS = 23,
         FREE_BOUNDS = 24,
-
-        LAYOUT_VERSION = 25,
-        GLOBAL_EPOCH = 26,
-
+        // Self Record
+        BRANCH_PRIORITY = 25,
+        LAYOUT_VERSION = 26,
+        LOCAL_FULL_CLOCK = 27,
+        //ENQUEUE
         FEEDFORWARD_ENQUEUE_POSITION = 28,
         FEEDBACKWARD_ENQUEUE_POSITION = 29,
         LATERAL_ENQUEUE_POSITION = 30,
@@ -52,7 +53,7 @@ namespace BidirectionalInMemGraph
         AUX_ENQUEUE_POSITION = 35,
         HETEROGENOUS_ENQUEUE_POSITION = 36,
         FREE_ENQUEUE_POSITION = 37,
-
+        //DEQUEUE
         FEEDFORWARD_DEQUEUE_POSITION = 38,
         FEEDBACKWARD_DEQUEUE_POSITION = 39,
         LATERAL_DEQUEUE_POSITION = 40,
@@ -75,26 +76,11 @@ namespace BidirectionalInMemGraph
         AUX_REGION_SCHEMA = 55,
         HETEROGENOUS_REGION_SCHEMA = 56,
         FREE_REGION_SCHEMA = 57,
+        CURRENT_ACTIVE_THREADS = 58,
+        APC_SCHEMA_ID = 59,
 
-
-
-        
-        ////-------NEEDS UPDATE IN FUTURE---------
-        // runtime-control
-        SEGMENT_CONF_FLAGS = 85,
-        BRANCH_PRIORITY = 86,
-        CURRENT_ACTIVE_THREADS = 87,
-        SPLIT_THRESHOLD_PERCENTAGE = 88,
-        RESERVED_89 = 89,
-        PAGED_NODE_READY_BIT = 90,
-        APC_SCHEMA_ID = 91,
-        TOTAL_CAS_FAILURE_FOR_THIS_APC_BRANCH = 92,
-        NODE_GROUP_SIZE = 93,
-        ///
-        // INTERNAL TIMER
-        LOCAL_FULL_CLOCK = 94,
-        ///
-        EOF_APC_HEADER = 95
+        APC_LIFE_CYCLE = 62,
+        EOF_APC_HEADER = 63
     };
 
     static_assert(
