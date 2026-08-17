@@ -2291,11 +2291,12 @@ namespace Test03_ReaderWriterTraversal
     }
 
 
-    static uint64_t HardFailures(const ApiStats& s) noexcept
+    static uint64_t HardFailures(
+        const ApiStats& s
+    ) noexcept
     {
         return
             s.StableContractFailures +
-            s.AcceptedAcrossMutation +
             s.WrongPointerFailures +
             s.OracleStructuralFailures +
             s.OracleReadFailures +

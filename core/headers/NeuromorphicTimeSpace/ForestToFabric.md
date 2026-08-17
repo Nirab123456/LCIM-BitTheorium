@@ -82,7 +82,7 @@
 
 24. ReadAndWriteOfAPC::ReadAPCMetaUnit : should be protected direct access to meta header should be prohibated. It should have extensions to read identity , schema, layout (schema, and layout read can be direct access they are build once or when build the APC IS RESERVED) but identity shoud be validated by ReadGraphMutationFlags
 
-25. AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious + FindMyNext : Simply reads the Graph mutation flags if not RESERVED gets the APC ptr from runtime APC ptr table. ReadGraphMutationFlags -> GetAPCRuntimePtrBySlotIndex_
+25. AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious + FindMyNext : Sequence locked topest layer of the ForestS API.
 
 26. FabricConstructor::AtomicallyLoadReadAUnit : reads a uint64_t atomically.
 
