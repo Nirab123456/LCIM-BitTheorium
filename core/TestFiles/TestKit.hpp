@@ -2144,7 +2144,7 @@ namespace Test02_ContentionSweep
     {
         if (!b.Initialize(MakeRootPlan())) return false;
 
-        // Every worker starts on Root A of its group.
+        // Every worker starts on OwnerAPCSlot A of its group.
         // Multiple workers in one group form a sibling chain there.
         std::array<size_t, GROUP_COUNT> tails{};
         for (uint32_t group = 0u; group < GROUP_COUNT; ++group)

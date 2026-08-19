@@ -6,7 +6,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    bool ConstructAPCIdentity::ReadIdentityBufferOfAPC(
+    bool ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
         IAB::BufferOfAPCIdentity& identity,
         uint32_t max_tries
@@ -48,7 +48,7 @@ namespace BidirectionalInMemGraph
         return false;
     }
 
-    void ConstructAPCIdentity::WriteAcquiredAxisDelta_(
+    void ConstructForestOnEachAxis::WriteAcquiredAxisDelta_(
         uint32_t apc_slot,
         const IAB::BufferOfAPCIdentity& before_idintity,
         const IAB::BufferOfAPCIdentity& desired_identity,
@@ -84,7 +84,7 @@ namespace BidirectionalInMemGraph
         }
     }
 
-    bool ConstructAPCIdentity::ReadGraphMutationFlags(
+    bool ConstructForestOnEachAxis::ReadGraphMutationFlags(
         uint32_t slot_idx,
         IAB::GraphMutationValues& values
     ) noexcept
@@ -107,7 +107,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<uint64_t> ConstructAPCIdentity::AcquireGraphMutationFlag_(
+    std::optional<uint64_t> ConstructForestOnEachAxis::AcquireGraphMutationFlag_(
         uint32_t apc_slot_idx,
         IAB::BidirectionalAxis axis,
         uint32_t max_tries 
@@ -175,7 +175,7 @@ namespace BidirectionalInMemGraph
         return std::nullopt;
     }
 
-    bool ConstructAPCIdentity::ReleseGraphMutationFlag_(
+    bool ConstructForestOnEachAxis::ReleseGraphMutationFlag_(
         uint32_t apc_slot,
         IAB::BidirectionalAxis axis,
         uint32_t max_tries
@@ -239,35 +239,8 @@ namespace BidirectionalInMemGraph
         return false;
     }
 
-    bool ConstructAPCIdentity::AttachValidIdentity(uint32_t apc_idx) noexcept
-    {
 
-        IAB::BufferOfAPCIdentity identity_buffer{};
-
-        const RangeOfAPC range = GetSegmentPoolRange(apc_idx);
-
-        if (
-            apc_idx >= CountOfAPC_  ||
-            !range.IsValid
-        )
-        {
-            return false;
-        }
-
-        const DSA::SeqLockAndStateStruct dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
-
-        return
-            dsc_lock_files.IsValid &&
-            dsc_lock_files.StateOfTheAPC == StateOfAPC::RESERVED &&
-            IAB::IdentityBufferFromSegmentPoolRange(apc_idx, range, identity_buffer) &&    
-            ForceNxLenMemCopy(
-                range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
-                APCDataStructure::TotalIdentityUnitCount(),
-                identity_buffer.data()
-            );
-    }
-
-    bool ConstructAPCIdentity::InitiateRootAxis(
+    bool ConstructForestOnEachAxis::OpenForestGateOnAxis(
         uint32_t apc_slot,
         IAB::BidirectionalAxis axis,
         uint32_t max_tries
@@ -374,7 +347,7 @@ namespace BidirectionalInMemGraph
         return ReleseAxis___();
     }
 
-    bool ConstructAPCIdentity::LinkTwoAPC(
+    bool ConstructForestOnEachAxis::AnchorADetachedChildToParent(
         uint32_t predessor_idx,
         uint32_t child_idx,
         IAB::BidirectionalAxis axis,
@@ -642,7 +615,7 @@ namespace BidirectionalInMemGraph
 
 
 
-    bool ConstructAPCIdentity::UnlinkTwoAPC(
+    bool ConstructForestOnEachAxis::UnlinkTwoAPC(
         uint32_t child_idx,
         IAB::BidirectionalAxis axis,
         uint32_t internal_max_tries
@@ -790,7 +763,7 @@ namespace BidirectionalInMemGraph
         }
         
         if (
-            before_of_roots_edge_data.End == child_idx &&
+            before_of_roots_edge_data.Tail == child_idx &&
             has_next
         )
         {
@@ -986,7 +959,7 @@ namespace BidirectionalInMemGraph
             ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries);
     }
 
-    bool ConstructAPCIdentity::UnlinkAndRelinkToTail(
+    bool ConstructForestOnEachAxis::UnlinkAndRelinkToTail(
         uint32_t apc_slot_idx,
         uint32_t unlink_edge_idx,
         uint32_t relink_edge_idx,
@@ -1165,7 +1138,7 @@ namespace BidirectionalInMemGraph
                 !same_edge &&
                 (
                     !PerticipantValid___(owned_edge_part) ||
-                    owned_edge_part->Before.Root != apc_slot_idx ||
+                    owned_edge_part->Before.OwnerAPCSlot != apc_slot_idx ||
                     owned_edge_part->Before.ParentEdgeIndex != unlink_edge_idx
                 )
             )
@@ -1177,7 +1150,7 @@ namespace BidirectionalInMemGraph
         
         if (
             same_edge &&
-            unlink_edge_part->Before.End == apc_slot_idx &&
+            unlink_edge_part->Before.Tail == apc_slot_idx &&
             !hash_next
         )
         {
@@ -1202,16 +1175,16 @@ namespace BidirectionalInMemGraph
 
         if (same_edge)
         {
-            relinke_predessor_idx = unlink_edge_part->Before.Root;
+            relinke_predessor_idx = unlink_edge_part->Before.OwnerAPCSlot;
         }
         else if (relink_edge_part->Before.OwnLinkCount == UNSIGNED_ZERO)
         {
-            relinke_predessor_idx = relink_edge_part->Before.Root;
+            relinke_predessor_idx = relink_edge_part->Before.OwnerAPCSlot;
             relink_inharitance = IAB::DescOfInharitance::FIRST_CHILD;
         }
         else
         {
-            relinke_predessor_idx = relink_edge_part->Before.End;
+            relinke_predessor_idx = relink_edge_part->Before.Tail;
         }
 
         if (
@@ -1338,7 +1311,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        const bool previous_is_owner = unlink_edge_part->Before.Root == previous_apc &&
+        const bool previous_is_owner = unlink_edge_part->Before.OwnerAPCSlot == previous_apc &&
             IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.OwnedEgdeTableIdx) == unlink_edge_idx &&
             IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.RootOwnedChild) == apc_slot_idx;
 
@@ -1357,11 +1330,11 @@ namespace BidirectionalInMemGraph
             ) ||
             (
                 hash_next &&
-                unlink_edge_part->Before.End == apc_slot_idx
+                unlink_edge_part->Before.Tail == apc_slot_idx
             ) ||
             (
                 !hash_next &&
-                unlink_edge_part->Before.End != apc_slot_idx
+                unlink_edge_part->Before.Tail != apc_slot_idx
             )
         )
         {
@@ -1405,9 +1378,9 @@ namespace BidirectionalInMemGraph
         
         EdgeBuilder::EdgeData* source_work = &unlink_edge_part->Work;
 
-        if (source_work->End == apc_slot_idx)
+        if (source_work->Tail == apc_slot_idx)
         {
-            source_work->End = (source_work->OwnLinkCount == 1u) ?
+            source_work->Tail = (source_work->OwnLinkCount == 1u) ?
                 APCDataStructure::APC_INDEX_BOUND_SENTINAL : static_cast<uint32_t>(previous_apc);
 
         }
@@ -1420,8 +1393,8 @@ namespace BidirectionalInMemGraph
         {
             if (
                 relink_inharitance != IAB::DescOfInharitance::FIRST_CHILD ||
-                destination_work->Root != relinke_predessor_idx ||
-                destination_work->End != APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
+                destination_work->OwnerAPCSlot != relinke_predessor_idx ||
+                destination_work->Tail != APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
                 IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.OwnedEgdeTableIdx) != relink_edge_idx ||
                 IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.RootOwnedChild) != FABRIC_CELL_SENTINAL ||
                 !IAB::InsertAnIdentityInBuffer(relink_predessor_slot_part->WorkIdentity, map.RootOwnedChild, apc_slot_idx)
@@ -1436,7 +1409,7 @@ namespace BidirectionalInMemGraph
         {
             if (
                 relink_inharitance != IAB::DescOfInharitance::LINKED_CHILD ||
-                destination_work->End != relinke_predessor_idx ||
+                destination_work->Tail != relinke_predessor_idx ||
                 IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.InheritedEgdeTableIdx) != relink_edge_idx ||
                 IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling) != FABRIC_CELL_SENTINAL ||
                 !IAB::InsertAnIdentityInBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling, apc_slot_idx)
@@ -1460,7 +1433,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        destination_work->End = apc_slot_idx;
+        destination_work->Tail = apc_slot_idx;
         ++destination_work->OwnLinkCount;
 
         if (!same_edge && owned_edge_part)

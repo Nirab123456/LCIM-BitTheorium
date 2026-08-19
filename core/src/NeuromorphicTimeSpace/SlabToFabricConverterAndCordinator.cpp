@@ -211,4 +211,34 @@ namespace BidirectionalInMemGraph
         ResetScalarsofTheFabric_();
     }
 
+
+    bool SlabToFabricConverterAndCordinator::AttachValidIdentity(uint32_t apc_idx) noexcept
+    {
+
+        IAB::BufferOfAPCIdentity identity_buffer{};
+
+        const RangeOfAPC range = GetSegmentPoolRange(apc_idx);
+
+        if (
+            apc_idx >= CountOfAPC_  ||
+            !range.IsValid
+        )
+        {
+            return false;
+        }
+
+        const DSA::SeqLockAndStateStruct dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
+
+        return
+            dsc_lock_files.IsValid &&
+            dsc_lock_files.StateOfTheAPC == StateOfAPC::RESERVED &&
+            IAB::IdentityBufferFromSegmentPoolRange(apc_idx, range, identity_buffer) &&    
+            ForceNxLenMemCopy(
+                range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
+                APCDataStructure::TotalIdentityUnitCount(),
+                identity_buffer.data()
+            );
+    }
+
+
 }

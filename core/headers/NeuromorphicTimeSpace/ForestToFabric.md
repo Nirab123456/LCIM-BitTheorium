@@ -2,13 +2,13 @@
 
 2. APCLifeCycle::ReadAPCStateAtomically_ : Reads state of the APC 
 
-3. bool ConstructAPCIdentity::ReleseGraphMutationFlag_ : Reads APC range by -> GetSegmentPoolRange : checks if the axis available to relese if so releses
+3. bool ConstructForestOnEachAxis::ReleseGraphMutationFlag_ : Reads APC range by -> GetSegmentPoolRange : checks if the axis available to relese if so releses
 
-4. ConstructAPCIdentity::WriteAcquiredAxisDelta_ : Compares current and previous locally and updates only the changed field of desired axis and it is unsafe if miseused.
+4. ConstructForestOnEachAxis::WriteAcquiredAxisDelta_ : Compares current and previous locally and updates only the changed field of desired axis and it is unsafe if miseused.
 
 6. EdgeTableConstructor::PublishReservedEdge_ : Checks current edge status = EdgeStatus::RESERVED build a valid Edge buffer with with updated sequense lock and provided data by EdgeBuilder::EdgeData struct and just updates atomically.
 
-5. ConstructAPCIdentity::InitiateRootAxis : 
+5. ConstructForestOnEachAxis::OpenForestGateOnAxis : 
     (Check EDGE == RESERVED) -> (DESCRIPTION == LIVE) -> (Call To WriteAcquiredAxisDelta_) -> (Call To PublishReservedEdge_)
     FAILURE IN ANY POINT :
     (ReleseGraphMutationFlag_) -> (RELESE: Axis lock by PublishReservedEdge_)
@@ -20,7 +20,7 @@
 
 8. InstallAxisToBuffer:ValidateIdentityBuffer : ValidateDefaultIdentity + IsValidGraphMutationState.
 
-9. std::optional<StateOfAPC> ConstructAPCIdentity::ReadIdentityBufferOfAPC : 
+9. std::optional<StateOfAPC> ConstructForestOnEachAxis::ReadIdentityBufferOfAPC : 
     I.GetSegmentPoolRange + ReadAPCStateAtomically_ :: Failure in either returns std::nullopt means read operation itself is invalid,
     II. ReadASnapShotFromSlab -> with APCDataStructure::TotalIdentityUnitCount() + ValidateIdentityBuffer :: If either
     fails returns std::nullopt
@@ -31,18 +31,18 @@
     EXTENSIONS:
         I. ReserveAnEdge_
 
-11. ConstructAPCIdentity::AcquireGraphMutationFlag_ : GetSegmentPoolRange +
+11. ConstructForestOnEachAxis::AcquireGraphMutationFlag_ : GetSegmentPoolRange +
     ReadAPCStateAtomically_ : varifies the desired mutation flag In contrast to current mutation flags if valid acquires the flag.
 
 12. PrepareInharitedAxis : Prepares both identity + Both Edge Table Data EdgeData (owner edge which is bing muted and if 
     the current APC who is bing linked and unlinked to a owner is also a owner then prepers that edge too)
 
-13. ConstructAPCIdentity::LinkTwoAPC : 
+13. ConstructForestOnEachAxis::AnchorADetachedChildToParent : 
     ReadIdentityBufferOfAPC -> ReserveAnEdge_:: Reserve the desired edge -> Acquire axis lock for bot apc on that axis by AcquireGraphMutationFlag_ -||> Reservs Childs edge-table for update only when initialized : So atleast for now Complication should justify the cost -> PrepareInharitedAxis -> WriteAcquiredAxisDelta_(write both axis) -> PublishReservedEdge_(if the one being linked has owned table then both inhereted and current edge) -> ReleseGraphMutationFlag_(for the one bing linked)
     FAILURE IN ANY POINT :
         Restore axis locks -> Restore owned edge table / child edge table if available
 
-14. ConstructAPCIdentity::UnlinkTwoAPC : 
+14. ConstructForestOnEachAxis::UnlinkTwoAPC : 
         I. ReadIdentityBufferOfAPC(the one being delinked) & read the inharited edge idx, predessor edge idx, next edge idx, and own edge_Idx(though redundent because it is fixed removing it atleast need a bitflag to know if ths apc allows own axis attachment or detachment)
         II. ReserveAnEdge_(reserves the roots and (childs own root if avaiavle) edge)
         III. AcquireGraphMutationFlag_(acquire graph mutation flags for predessor, child and next if next is available)
@@ -68,17 +68,17 @@
 
 20. VagueTemoraryPremativeFabric::CreateAPC : 
     GetASlotForNewAPCLink -> AttachValidIdentity(to the new slo we got) -> BindExternalRawFabricBacking_(to the newly created APC) -> InitiateAPCMetaHeader -> SwitchDescriptionState( switch the description/APC state to LIVE) ->
-    ReserveAnEdge_ + InitiateRootAxis(required edges).
+    ReserveAnEdge_ + OpenForestGateOnAxis(required edges).
     FAILURE IN ANY POINT :
         Rollback the edges -> SwitchDescriptionState(switches the state back to free)
 
 21. AdaptivePackedCellContainer::AttachSiblingOrChild  &  AttachMeToAnother :
-    A Thin Wrapper Calling "ConstructAPCIdentity::UnlinkTwoAPC" 
+    A Thin Wrapper Calling "ConstructForestOnEachAxis::UnlinkTwoAPC" 
 
 22. AdaptivePackedCellContainer::DetachMyChild & DetachMeFromAnotherEdge :
-    A Thin Wrapper Calling "ConstructAPCIdentity::LinkTwoAPC" 
+    A Thin Wrapper Calling "ConstructForestOnEachAxis::AnchorADetachedChildToParent" 
 
-23. ConstructAPCIdentity::ReadGraphMutationFlags : GetSegmentPoolRange + Just atomically reads the Graph mutation flags.
+23. ConstructForestOnEachAxis::ReadGraphMutationFlags : GetSegmentPoolRange + Just atomically reads the Graph mutation flags.
 
 24. ReadAndWriteOfAPC::ReadAPCMetaUnit : should be protected direct access to meta header should be prohibated. It should have extensions to read identity , schema, layout (schema, and layout read can be direct access they are build once or when build the APC IS RESERVED) but identity shoud be validated by ReadGraphMutationFlags
 

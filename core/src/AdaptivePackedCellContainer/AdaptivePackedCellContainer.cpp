@@ -21,7 +21,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        return FabricOwnerPtr_->LinkTwoAPC(
+        return FabricOwnerPtr_->AnchorADetachedChildToParent(
             APCSlotIdx_,
             sibbling.APCSlotIdx_,
             axis,
@@ -45,7 +45,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        return FabricOwnerPtr_->LinkTwoAPC(
+        return FabricOwnerPtr_->AnchorADetachedChildToParent(
             sibbling.APCSlotIdx_,
             APCSlotIdx_,
             axis,

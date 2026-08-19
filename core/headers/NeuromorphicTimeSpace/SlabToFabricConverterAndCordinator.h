@@ -20,6 +20,9 @@ namespace BidirectionalInMemGraph
         /// @param table_directory_end 
         void InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept;
 
+    protected :
+        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
+
     public:
         SlabToFabricConverterAndCordinator(/* args */) noexcept = default;
 
@@ -49,7 +52,7 @@ namespace BidirectionalInMemGraph
         
     };
 
-    class ConstructAPCIdentity : public SlabToFabricConverterAndCordinator
+    class ConstructForestOnEachAxis : public SlabToFabricConverterAndCordinator
     {
         friend class AdaptivePackedCellContainer;
     private:
@@ -62,7 +65,7 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis
         ) noexcept;
 
-        bool LinkTwoAPC(
+        bool AnchorADetachedChildToParent(
             uint32_t predessor_idx,
             uint32_t child_idx,
             IAB::BidirectionalAxis axis,
@@ -98,7 +101,6 @@ namespace BidirectionalInMemGraph
         ) noexcept;
         
     protected:
-        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
     public:
         bool ReadIdentityBufferOfAPC(
@@ -112,7 +114,7 @@ namespace BidirectionalInMemGraph
             IAB::GraphMutationValues& values
         ) noexcept;
 
-        bool InitiateRootAxis(
+        bool OpenForestGateOnAxis(
             uint32_t apc_slot,
             IAB::BidirectionalAxis axis,
             uint32_t max_tries = DEFAULT_MAX_TRIES
