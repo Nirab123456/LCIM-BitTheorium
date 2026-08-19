@@ -27,7 +27,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         uint32_t End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         //PAIR-2
         uint32_t OwnLinkCount = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        uint32_t DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t ParentEdgeIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         //PAIR-3
         uint32_t SeqLock = UNSIGNED_ZERO;
         EdgeStatus Status = EdgeStatus::RESERVED;
@@ -45,8 +45,8 @@ struct EdgeTableConf : public DescriptionOfAPC
             !APCDataStructure::IsValid32BitAPCUnit(edge.OwnLinkCount) ||
             !APCDataStructure::IsValid32BitAPCUnit(edge.SeqLock) ||
             !(
-                edge.DoubellyLinkedIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
-                APCDataStructure::IsValid32BitAPCUnit(edge.DoubellyLinkedIndex)
+                edge.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
+                APCDataStructure::IsValid32BitAPCUnit(edge.ParentEdgeIndex)
             )
         )
         {
@@ -121,7 +121,7 @@ struct EdgeTableConf : public DescriptionOfAPC
             TwinU32ToU64::PackDoubleUnsigned32In64(edge.Root, edge.End);
         
         buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)] =
-            TwinU32ToU64::PackDoubleUnsigned32In64(edge.OwnLinkCount, edge.DoubellyLinkedIndex);
+            TwinU32ToU64::PackDoubleUnsigned32In64(edge.OwnLinkCount, edge.ParentEdgeIndex);
         
         buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)] = 
             TwinU32ToU64::PackDoubleUnsigned32In64(edge.SeqLock, static_cast<uint8_t>(edge.Status));
@@ -142,7 +142,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         edge_data.End = TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::ROOT_AND_END)]);
 
         edge_data.OwnLinkCount = TwinU32ToU64::ExtractLow32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)]);
-        edge_data.DoubellyLinkedIndex = TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)]);
+        edge_data.ParentEdgeIndex = TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::COUNT_AND_SIBBLING)]);
 
         edge_data.SeqLock = TwinU32ToU64::ExtractLow32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)]);
         edge_data.Status = static_cast<EdgeStatus>(TwinU32ToU64::ExtractHigh32Of64(edge_buffer[static_cast<uint8_t>(EdgeTableIndexing::SEQLOCK_STATE)]));
@@ -162,7 +162,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         edge_data.Root = root_slot;
         edge_data.End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         edge_data.OwnLinkCount = UNSIGNED_ZERO;
-        edge_data.DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        edge_data.ParentEdgeIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         edge_data.SeqLock = UNSIGNED_ZERO;
         edge_data.Status = EdgeStatus::FREE;
         edge_data.IsValid = ValidateEdgeData(edge_data);
@@ -227,7 +227,7 @@ struct EdgeBuilder : public EdgeTableConf
         desired_edge.Root = root_slot;
         desired_edge.End = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         desired_edge.OwnLinkCount = UNSIGNED_ZERO;
-        desired_edge.DoubellyLinkedIndex = roots_inharited_edge;
+        desired_edge.ParentEdgeIndex = roots_inharited_edge;
         desired_edge.SeqLock = 2u;
         desired_edge.Status = EdgeStatus::LIVE;
         desired_edge.IsValid = ValidateEdgeData(desired_edge);
@@ -358,7 +358,7 @@ struct EdgeBuilder : public EdgeTableConf
             {
                 return false;
             }
-            current_owned_edge->DoubellyLinkedIndex = owner_edge_idx;
+            current_owned_edge->ParentEdgeIndex = owner_edge_idx;
         }
         else if (current_owned_edge)
         {
@@ -502,12 +502,12 @@ struct EdgeBuilder : public EdgeTableConf
                 !current_owned_edge->IsValid ||
                 current_owned_edge->Root != current_slot ||
                 current_owned_edge->EdgeTable != map.EdgeTable ||
-                current_owned_edge->DoubellyLinkedIndex != owner_edge_index
+                current_owned_edge->ParentEdgeIndex != owner_edge_index
             )
             {
                 return false;
             }
-            current_owned_edge->DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            current_owned_edge->ParentEdgeIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         }
         else if (current_owned_edge)
         {
@@ -562,7 +562,7 @@ struct EdgeBuilder : public EdgeTableConf
             return false;
         }
 
-        owned_edge.DoubellyLinkedIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        owned_edge.ParentEdgeIndex = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         owned_edge.Status = EdgeStatus::RETIRED;
         return 
             IAB::DisableOwnedRoot(identity_buffer, axis) &&

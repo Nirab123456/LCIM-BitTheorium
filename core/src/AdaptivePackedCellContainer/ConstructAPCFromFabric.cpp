@@ -1041,7 +1041,8 @@ namespace BidirectionalInMemGraph
             previous_apc >= CountOfAPC_ ||
             previous_apc == apc_slot_idx ||
             next_apc == apc_slot_idx ||
-            apc_slot_idx == unlink_edge_idx 
+            apc_slot_idx == unlink_edge_idx ||
+            apc_slot_idx == relink_edge_idx
         )
         {
             return false;
@@ -1055,7 +1056,14 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        if (hash_next && !APCDataStructure::IsValid32BitAPCUnit(next_apc))
+        if (
+            hash_next && 
+            (
+                !APCDataStructure::IsValid32BitAPCUnit(next_apc) ||
+                next_apc >= CountOfAPC_ ||
+                next_apc == previous_apc
+            )
+        )
         {
             return false;
         }
@@ -1072,11 +1080,14 @@ namespace BidirectionalInMemGraph
         std::array<uint32_t, EdgeBuilder::MUTATION_MAX_PARTICIPATE> edge_indecies{};
         edge_indecies.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
 
-        uint8_t edge_count = 2u;
+        uint8_t edge_count = same_edge ? 1u : 2u;
 
         edge_indecies[0u] = unlink_edge_idx;
-        edge_indecies[1u] = relink_edge_idx;
-
+        if (!same_edge)
+        {
+            edge_indecies[1u] = relink_edge_idx;
+        }
+        
         if (is_owne_axis_defined && !same_edge)
         {
             edge_indecies[2u] = apc_slot_idx;
@@ -1151,10 +1162,11 @@ namespace BidirectionalInMemGraph
             !PerticipantValid___(relink_edge_part) ||
             (
                 is_owne_axis_defined &&
+                !same_edge &&
                 (
                     !PerticipantValid___(owned_edge_part) ||
                     owned_edge_part->Before.Root != apc_slot_idx ||
-                    owned_edge_part->Before.DoubellyLinkedIndex != unlink_edge_idx
+                    owned_edge_part->Before.ParentEdgeIndex != unlink_edge_idx
                 )
             )
         )
@@ -1190,23 +1202,16 @@ namespace BidirectionalInMemGraph
 
         if (same_edge)
         {
-            if (unlink_edge_part->Before.End == apc_slot_idx)
-            {
-                if (unlink_edge_part->Before.OwnLinkCount == 1u)
-                {
-                    relinke_predessor_idx = unlink_edge_part->Before.Root;
-                    relink_inharitance = IAB::DescOfInharitance::FIRST_CHILD;
-                }
-                else
-                {
-                    relinke_predessor_idx = static_cast<uint32_t>(previous_apc);
-                }
-            }
+            relinke_predessor_idx = unlink_edge_part->Before.Root;
         }
         else if (relink_edge_part->Before.OwnLinkCount == UNSIGNED_ZERO)
         {
             relinke_predessor_idx = relink_edge_part->Before.Root;
             relink_inharitance = IAB::DescOfInharitance::FIRST_CHILD;
+        }
+        else
+        {
+            relinke_predessor_idx = relink_edge_part->Before.End;
         }
 
         if (
@@ -1226,23 +1231,29 @@ namespace BidirectionalInMemGraph
 
         lock_slots[0u] = static_cast<uint32_t>(previous_apc);
         lock_slots[1u] = apc_slot_idx;
-        lock_slots[2u] = relink_edge_idx;
+        lock_slots[2u] = relinke_predessor_idx;
         if (hash_next)
         {
             lock_slots[3u] = static_cast<uint32_t>(next_apc);
             ++lock_count;
         }
         
-        std::sort(lock_slots.begin(), lock_slots.end() + static_cast<std::ptrdiff_t>(lock_count));
+        auto lock_end = lock_slots.begin() + static_cast<std::ptrdiff_t>(lock_count);
+        std::sort(lock_slots.begin(), lock_end);
+
+        lock_count = static_cast<uint8_t>(
+            std::distance(lock_slots.begin(), std::unique(lock_slots.begin(), lock_end))
+        );
 
         size_t acquired_lock_count = UNSIGNED_ZERO;
 
+        bool all_relesed = false;
         auto ReleseGraphLocks___ = [&]() noexcept -> void
         {
             while (acquired_lock_count != UNSIGNED_ZERO)
             {
                 --acquired_lock_count;
-                ReleseGraphMutationFlag_(
+                all_relesed = ReleseGraphMutationFlag_(
                     lock_slots[acquired_lock_count],
                     axis,
                     internal_max_tries
@@ -1319,7 +1330,7 @@ namespace BidirectionalInMemGraph
             IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx) != unlink_edge_idx ||
             IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.PreviousSibling) != previous_apc ||
             IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.NextSibling) != next_apc ||
-            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.OwnedEgdeTableIdx) != apc_slot_idx
+            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.OwnedEgdeTableIdx) != own_edge_slot_idx
         )
         {
             ReleseGraphLocks___();
@@ -1392,7 +1403,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        EdgeBuilder::EdgeData* source_work = &unlink_edge_part->Before;
+        EdgeBuilder::EdgeData* source_work = &unlink_edge_part->Work;
 
         if (source_work->End == apc_slot_idx)
         {
@@ -1403,7 +1414,7 @@ namespace BidirectionalInMemGraph
         
         --source_work->OwnLinkCount;
 
-        EdgeBuilder::EdgeData* destination_work = same_edge ? source_work : &relink_edge_part->Before;
+        EdgeBuilder::EdgeData* destination_work = same_edge ? source_work : &relink_edge_part->Work;
 
         if (destination_work->OwnLinkCount == UNSIGNED_ZERO)
         {
@@ -1421,6 +1432,22 @@ namespace BidirectionalInMemGraph
                 return false;
             }
         }
+        else
+        {
+            if (
+                relink_inharitance != IAB::DescOfInharitance::LINKED_CHILD ||
+                destination_work->End != relinke_predessor_idx ||
+                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.InheritedEgdeTableIdx) != relink_edge_idx ||
+                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling) != FABRIC_CELL_SENTINAL ||
+                !IAB::InsertAnIdentityInBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling, apc_slot_idx)
+            )
+            {
+                ReleseGraphLocks___();
+                RestoreReservedEdge___();
+                return false;
+            }
+            
+        }
 
         if (
             !IAB::InsertAnIdentityInBuffer(child_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx, relink_edge_idx) ||
@@ -1436,15 +1463,11 @@ namespace BidirectionalInMemGraph
         destination_work->End = apc_slot_idx;
         ++destination_work->OwnLinkCount;
 
-        if (same_edge)
+        if (!same_edge && owned_edge_part)
         {
-            unlink_edge_part->Work = *destination_work;
+            owned_edge_part->Work.ParentEdgeIndex = relink_edge_idx;
         }
-        else
-        {
-            unlink_edge_part->Work = *source_work;
-            relink_edge_part->Work = *destination_work;
-        }
+        
 
         if (
             !EdgeBuilder::ValidateEdgeData(unlink_edge_part->Work) ||
@@ -1522,6 +1545,10 @@ namespace BidirectionalInMemGraph
                     }
                     part.published = false;
                 }
+                else
+                {
+                    PublishReservedEdge_(part.Before, part.Index);
+                }
             }
         };
 
@@ -1539,8 +1566,7 @@ namespace BidirectionalInMemGraph
         
         reserved_edge_count = UNSIGNED_ZERO;
         ReleseGraphLocks___();
-        return true;
-        
+        return all_relesed;
     }
         
 

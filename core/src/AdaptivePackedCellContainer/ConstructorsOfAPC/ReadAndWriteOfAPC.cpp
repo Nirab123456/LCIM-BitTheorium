@@ -77,24 +77,16 @@ namespace BidirectionalInMemGraph
         bool atomic_required
     ) noexcept
     {
-        const uint8_t idx_u = static_cast<uint8_t>(meta_idx);
         if (!IsThisAPCValid())
         {
             return false;
         }
-        
+        const uint8_t idx_u = static_cast<uint8_t>(meta_idx);
         const size_t slab_idx = static_cast<uint64_t>(RangeOfThisAPCInSlab_.BeginIndex + idx_u);
-        uint64_t meta_value = UNSIGNED_ZERO;
         bool read_ok =  atomic_required ? 
-            FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, meta_value) :
-            FabricOwnerPtr_->ReadAFabricU64Directly(slab_idx, meta_value);
-
-        if (!read_ok)
-        {
-            return false;
-        }
-        return_value = meta_value;
-        return true;
+            FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, return_value) :
+            FabricOwnerPtr_->ReadAFabricU64Directly(slab_idx, return_value);
+        return read_ok;
     }
 
     bool ReadAndWriteOfAPC::CompareExchangeAPCMetaUinit(

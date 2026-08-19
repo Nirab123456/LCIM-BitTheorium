@@ -506,7 +506,7 @@ namespace TestKit
             uint32_t max_tries = DEFAULT_MAX_TRIES) noexcept
         {
             return predecessor < NodeCount && child < NodeCount &&
-                Nodes_[predecessor].AttachAnotherToMe(
+                Nodes_[predecessor].AttachSiblingOrChild(
                     Nodes_[child], axis, inheritance, max_tries);
         }
 

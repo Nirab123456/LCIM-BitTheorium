@@ -72,7 +72,7 @@
     FAILURE IN ANY POINT :
         Rollback the edges -> SwitchDescriptionState(switches the state back to free)
 
-21. AdaptivePackedCellContainer::AttachAnotherToMe  &  AttachMeToAnother :
+21. AdaptivePackedCellContainer::AttachSiblingOrChild  &  AttachMeToAnother :
     A Thin Wrapper Calling "ConstructAPCIdentity::UnlinkTwoAPC" 
 
 22. AdaptivePackedCellContainer::DetachMyChild & DetachMeFromAnotherEdge :

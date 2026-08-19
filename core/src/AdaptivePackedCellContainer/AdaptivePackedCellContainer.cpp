@@ -5,7 +5,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    bool AdaptivePackedCellContainer::AttachAnotherToMe(
+    bool AdaptivePackedCellContainer::AttachSiblingOrChild(
         AdaptivePackedCellContainer& sibbling,
         IAB::BidirectionalAxis axis,
         IAB::DescOfInharitance inharitance,
@@ -90,6 +90,76 @@ namespace BidirectionalInMemGraph
             axis,
             max_tries
         );
+    }
+
+    bool AdaptivePackedCellContainer::DetachAndReAttachMeToThisParent(
+        AdaptivePackedCellContainer& root_parent,
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
+    ) noexcept
+    {
+        IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
+
+        if (
+            !IsThisAPCValid() ||
+            !root_parent.IsThisAPCValid() ||
+            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge, true)
+        )
+        {
+            return false;
+        }
+
+        if (current_parent_edge == FABRIC_CELL_SENTINAL)
+        {
+            return AttachMeToAnother(root_parent, axis, IAB::DescOfInharitance::FIRST_CHILD);
+        }
+
+        return FabricOwnerPtr_->UnlinkAndRelinkToTail(
+            APCSlotIdx_,
+            static_cast<uint32_t>(current_parent_edge),
+            root_parent.APCSlotIdx_,
+            axis,
+            max_tries
+        );
+    }
+
+
+    bool AdaptivePackedCellContainer::DetachAndReattachMeAsEquivelentSibbling(
+        AdaptivePackedCellContainer& sibbling,
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries
+    ) noexcept
+    {
+        IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
+        uint64_t sibbling_parent_edge = FABRIC_CELL_SENTINAL;
+
+        if (
+            !IsThisAPCValid() ||
+            !sibbling.IsThisAPCValid() ||
+            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge, true) ||
+            !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge, true)
+        )
+        {
+            return false;
+        }
+
+        if (current_parent_edge == FABRIC_CELL_SENTINAL)
+        {
+            return AttachMeToAnother(sibbling, axis, IAB::DescOfInharitance::LINKED_CHILD);
+        }
+
+        return FabricOwnerPtr_->UnlinkAndRelinkToTail(
+            APCSlotIdx_,
+            static_cast<uint32_t>(current_parent_edge),
+            static_cast<uint32_t>(sibbling_parent_edge),
+            axis,
+            max_tries
+        );
+
     }
     
 
