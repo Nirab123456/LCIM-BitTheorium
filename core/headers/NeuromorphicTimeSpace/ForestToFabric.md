@@ -100,3 +100,17 @@ FOUND:
 
 TEST 1:
     1. APC Link treversal should be in build system and extreamly efficient.
+
+
+LINE GRAPH:
+                         FABRIC
+                            |
+             +--------------+--------------+
+             |                             |
+          H FOREST                       V FOREST
+             |                             |
+         APC A                           APC A
+        /  |  \                         /    \
+       B   C   D                       X      Y
+      / \       \                            |
+     E   F       G                           Z

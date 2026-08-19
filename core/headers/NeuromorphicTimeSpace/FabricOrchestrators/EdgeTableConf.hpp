@@ -184,6 +184,7 @@ struct EdgeTableConf : public DescriptionOfAPC
         );
         return data->IsValid;
     }
+    static constexpr uint8_t MUTATION_MAX_PARTICIPATE = 3;
 
 };
 

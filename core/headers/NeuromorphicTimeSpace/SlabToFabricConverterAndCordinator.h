@@ -88,6 +88,14 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        bool UnlinkAndRelinkToTail(
+            uint32_t apc_slot_idx,
+            uint32_t unlink_edge_idx,
+            uint32_t relink_edge_idx,
+            IAB::BidirectionalAxis axis,
+            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
         
     protected:
         bool AttachValidIdentity(uint32_t apc_idx) noexcept;

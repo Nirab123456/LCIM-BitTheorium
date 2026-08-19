@@ -73,12 +73,14 @@ namespace BidirectionalInMemGraph
             const AxisConstructionMap map = ConstructAxisMap(axis);
             const uint64_t own_edge_idx = ValueOfAnIdentityFromBuffer(identity_buffer, map.OwnedEgdeTableIdx);
             const uint64_t first_child = ValueOfAnIdentityFromBuffer(identity_buffer, map.RootOwnedChild);
+            const uint64_t own_slot_idx = ValueOfAnIdentityFromBuffer(identity_buffer, HeaderIdentifierOfAPC::APC_SLOT_IDX);
             return 
                 APCDataStructure::IsValid32BitAPCUnit(own_edge_idx) &&
                 (
                     first_child == FABRIC_CELL_SENTINAL ||
                     APCDataStructure::IsValid32BitAPCUnit(first_child)
-                );
+                ) &&
+                own_slot_idx == own_edge_idx;
         }
 
         static constexpr bool IsValidOwnedRoot(
