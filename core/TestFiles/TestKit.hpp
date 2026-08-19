@@ -4,18 +4,19 @@
 // APC / Fabric modular comprehensive test suite
 //
 // Tests
-//   1. Public traversal/data/control baseline: std::vector+pointer vs APC/Fabric
-//   2. Global-mutex vector vs APC/Fabric internal synchronization contention
-//   3. One writer + N public traversal readers on one H relationship
-//   4. Uncontended Acquire/Release graph-CAS attempt audit
+//   1. Traversal/data baseline + real compound parent/sibling mutation
+//   2. Global-mutex vector compound move vs APC/Fabric compound move contention
+//   3. Public reader snapshot race against one compound cross-parent writer
+//   4. Primitive two-call mutation APIs vs compound one-call mutation APIs
 //
 // Design rule:
 //   Test-specific workloads live in Test01..Test04.
 //   Graph storage, APC fixture construction, timing/statistics and common
 //   validation live in TestKit and are shared.
 //
-// Test 4 requires the small LCIM_ENABLE_GRAPH_CAS_TEST_PROBE patch supplied
-// with this file. Tests 1-3 remain usable without the probe.
+// The suite intentionally avoids repeatedly moving an already-tail child to
+// the same edge, because UnlinkAndRelinkToTail has a validated same-edge-tail
+// fast path. Timed compound workloads therefore perform real topology changes.
 // ============================================================================
 
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
@@ -235,6 +236,73 @@ namespace TestKit
             return Detach_(HandleAt(child), axis);
         }
 
+        // Compound-operation baseline equivalent to
+        // AdaptivePackedCellContainer::DetachAndReAttachMeToThisParent().
+        //
+        // In concurrent vector tests the caller deliberately holds the one
+        // global graph mutex across this complete function, so the detached
+        // intermediate state is never visible to another vector worker.
+        bool DetachAndReAttachToParent(
+            size_t child,
+            size_t root_parent,
+            Axis axis,
+            uint32_t /*max_tries*/ = DEFAULT_MAX_TRIES) noexcept
+        {
+            if (child >= NodeCount || root_parent >= NodeCount || child == root_parent)
+            {
+                return false;
+            }
+
+            Handle child_handle = HandleAt(child);
+            Handle parent_handle = HandleAt(root_parent);
+            auto& child_axis = Axis_(child_handle, axis);
+
+            // Match the APC wrapper's detached-child fallback.
+            if (!child_axis.Owner && !child_axis.Previous && !child_axis.Next)
+            {
+                return Attach_(parent_handle, child_handle, axis, Inheritance::FIRST_CHILD);
+            }
+
+            return MoveAttachedChildToOwnerTail_(child_handle, parent_handle, axis);
+        }
+
+        // Compound-operation baseline equivalent to
+        // AdaptivePackedCellContainer::DetachAndReattachMeAsEquivelentSibbling().
+        bool DetachAndReattachAsEquivalentSibling(
+            size_t child,
+            size_t sibling,
+            Axis axis,
+            uint32_t /*max_tries*/ = DEFAULT_MAX_TRIES) noexcept
+        {
+            if (child >= NodeCount || sibling >= NodeCount || child == sibling)
+            {
+                return false;
+            }
+
+            Handle child_handle = HandleAt(child);
+            Handle sibling_handle = HandleAt(sibling);
+            auto& child_axis = Axis_(child_handle, axis);
+            auto& sibling_axis = Axis_(sibling_handle, axis);
+
+            // Match the APC wrapper's detached-child fallback: attach after
+            // the supplied sibling, which therefore must currently be tail.
+            if (!child_axis.Owner && !child_axis.Previous && !child_axis.Next)
+            {
+                return Attach_(sibling_handle, child_handle, axis, Inheritance::LINKED_CHILD);
+            }
+
+            if (!sibling_axis.Owner)
+            {
+                return false;
+            }
+
+            return MoveAttachedChildToOwnerTail_(
+                child_handle,
+                sibling_axis.Owner,
+                axis
+            );
+        }
+
         Handle FindNext(Handle from, Axis axis, Inheritance inheritance) noexcept
         {
             if (!from) return nullptr;
@@ -353,6 +421,57 @@ namespace TestKit
             }
 
             return false;
+        }
+
+        static bool MoveAttachedChildToOwnerTail_(
+            Handle child,
+            Handle destination_owner,
+            Axis axis) noexcept
+        {
+            if (!child || !destination_owner || child == destination_owner)
+            {
+                return false;
+            }
+
+            auto& child_axis = Axis_(child, axis);
+            auto& destination_axis = Axis_(destination_owner, axis);
+
+            if (!child_axis.Owner || !child_axis.Previous || !destination_axis.OwnsRoot)
+            {
+                return false;
+            }
+
+            // Match UnlinkAndRelinkToTail's same-edge tail fast path.
+            if (
+                child_axis.Owner == destination_owner &&
+                destination_axis.LastChild == child &&
+                child_axis.Next == nullptr
+            )
+            {
+                return true;
+            }
+
+            if (!Detach_(child, axis))
+            {
+                return false;
+            }
+
+            if (destination_axis.ChildCount == 0u)
+            {
+                return Attach_(
+                    destination_owner,
+                    child,
+                    axis,
+                    Inheritance::FIRST_CHILD
+                );
+            }
+
+            return Attach_(
+                destination_axis.LastChild,
+                child,
+                axis,
+                Inheritance::LINKED_CHILD
+            );
         }
 
         static bool Detach_(Handle child, Axis axis) noexcept
@@ -529,6 +648,34 @@ namespace TestKit
                 Nodes_[owner].DetachMyChild(Nodes_[child], axis, max_tries);
         }
 
+        bool DetachAndReAttachToParent(
+            size_t child,
+            size_t root_parent,
+            Axis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES) noexcept
+        {
+            return child < NodeCount && root_parent < NodeCount &&
+                Nodes_[child].DetachAndReAttachMeToThisParent(
+                    Nodes_[root_parent],
+                    axis,
+                    max_tries
+                );
+        }
+
+        bool DetachAndReattachAsEquivalentSibling(
+            size_t child,
+            size_t sibling,
+            Axis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES) noexcept
+        {
+            return child < NodeCount && sibling < NodeCount &&
+                Nodes_[child].DetachAndReattachMeAsEquivelentSibbling(
+                    Nodes_[sibling],
+                    axis,
+                    max_tries
+                );
+        }
+
         Handle FindNext(Handle from, Axis axis, Inheritance inheritance) noexcept
         {
             return from ? from->FindMyNext(axis, inheritance) : nullptr;
@@ -689,7 +836,7 @@ namespace TestKit
 
 // ============================================================================
 // TEST 1
-// Public traversal/data/control baseline.
+// Public traversal/data/control baseline + real compound mutation.
 // ============================================================================
 namespace Test01_PublicTraversalBaseline
 {
@@ -697,13 +844,15 @@ namespace Test01_PublicTraversalBaseline
 
     constexpr size_t CHAIN_LENGTH = 64u;
     constexpr size_t OWNER_INDEX = CHAIN_LENGTH;
-    constexpr size_t NODE_COUNT = CHAIN_LENGTH + 1u;
+    constexpr size_t V_AUX_ROOT = CHAIN_LENGTH + 1u;
+    constexpr size_t V_AUX_ANCHOR = CHAIN_LENGTH + 2u;
+    constexpr size_t NODE_COUNT = CHAIN_LENGTH + 3u;
     constexpr size_t PAYLOAD_WORDS = 32u;
 
     constexpr uint32_t TRAVERSAL_ROUNDS = 20'000u;
     constexpr uint32_t PAYLOAD_ROUNDS = 200u;
     constexpr uint32_t GRAPH_PAYLOAD_ROUNDS = 2'000u;
-    constexpr uint32_t MUTATION_ROUNDS = 500u;
+    constexpr uint32_t MUTATION_ROUNDS = 512u; // even and divisible by 64
     constexpr uint32_t MEASURED_RUNS = 5u;
     constexpr uint32_t CONCURRENT_TRIALS = 20u;
 
@@ -747,11 +896,21 @@ namespace Test01_PublicTraversalBaseline
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
         RootPlan<NODE_COUNT> roots{};
+
+        // H: 0 -> 1 -> ... -> 63, therefore 0..62 own H roots.
         for (size_t i = 0u; i + 1u < CHAIN_LENGTH; ++i)
         {
             roots.Horizontal[i] = true;
         }
+
+        // Main V sibling edge.
         roots.Vertical[OWNER_INDEX] = true;
+
+        // Independent auxiliary V edge. Keeping this outside the 0..63
+        // measured sibling chain lets sibling compound mutation perform a
+        // REAL cross-edge move instead of relying on the currently unsupported
+        // same-edge non-tail relink case.
+        roots.Vertical[V_AUX_ROOT] = true;
         return roots;
     }
 
@@ -768,7 +927,11 @@ namespace Test01_PublicTraversalBaseline
             }
         }
 
-        if (!b.Attach(OWNER_INDEX, VERTICAL_ORDER[0], Axis::VERTICAL, Inheritance::FIRST_CHILD))
+        if (!b.Attach(
+                OWNER_INDEX,
+                VERTICAL_ORDER[0],
+                Axis::VERTICAL,
+                Inheritance::FIRST_CHILD))
         {
             return false;
         }
@@ -785,14 +948,25 @@ namespace Test01_PublicTraversalBaseline
             }
         }
 
+        if (!b.Attach(
+                V_AUX_ROOT,
+                V_AUX_ANCHOR,
+                Axis::VERTICAL,
+                Inheritance::FIRST_CHILD))
+        {
+            return false;
+        }
+
         for (size_t node = 0u; node < NODE_COUNT; ++node)
         {
             for (uint32_t word = 0u; word < PAYLOAD_WORDS; ++word)
             {
-                const uint64_t value = (static_cast<uint64_t>(node + 1u) << 32u) | word;
+                const uint64_t value =
+                    (static_cast<uint64_t>(node + 1u) << 32u) | word;
                 if (!b.StorePayload(node, word, value, false)) return false;
             }
         }
+
         return true;
     }
 
@@ -804,11 +978,18 @@ namespace Test01_PublicTraversalBaseline
 
         for (size_t expected = 1u; expected < CHAIN_LENGTH; ++expected)
         {
-            current = b.FindNext(current, Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
+            current = b.FindNext(
+                current,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            );
             if (current != b.HandleAt(expected)) return false;
         }
 
-        if (b.FindNext(current, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) != nullptr)
+        if (b.FindNext(
+                current,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD) != nullptr)
         {
             return false;
         }
@@ -825,19 +1006,28 @@ namespace Test01_PublicTraversalBaseline
     template <typename Backend>
     bool ValidateVertical(Backend& b)
     {
-        auto current = b.HandleAt(OWNER_INDEX);
-        if (!current) return false;
+        auto current = b.FindNext(
+            b.HandleAt(OWNER_INDEX),
+            Axis::VERTICAL,
+            Inheritance::FIRST_CHILD
+        );
 
-        current = b.FindNext(current, Axis::VERTICAL, Inheritance::FIRST_CHILD);
         if (current != b.HandleAt(VERTICAL_ORDER[0])) return false;
 
         for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
         {
-            current = b.FindNext(current, Axis::VERTICAL, Inheritance::LINKED_CHILD);
+            current = b.FindNext(
+                current,
+                Axis::VERTICAL,
+                Inheritance::LINKED_CHILD
+            );
             if (current != b.HandleAt(VERTICAL_ORDER[i])) return false;
         }
 
-        if (b.FindNext(current, Axis::VERTICAL, Inheritance::LINKED_CHILD) != nullptr)
+        if (b.FindNext(
+                current,
+                Axis::VERTICAL,
+                Inheritance::LINKED_CHILD) != nullptr)
         {
             return false;
         }
@@ -850,7 +1040,26 @@ namespace Test01_PublicTraversalBaseline
 
         current = b.FindPrevious(current, Axis::VERTICAL);
         if (current != b.HandleAt(OWNER_INDEX)) return false;
-        return b.FindPrevious(current, Axis::VERTICAL) == nullptr;
+        if (b.FindPrevious(current, Axis::VERTICAL) != nullptr) return false;
+
+        // Auxiliary V edge must return to its one permanent anchor.
+        auto aux_anchor = b.FindNext(
+            b.HandleAt(V_AUX_ROOT),
+            Axis::VERTICAL,
+            Inheritance::FIRST_CHILD
+        );
+
+        return
+            aux_anchor == b.HandleAt(V_AUX_ANCHOR) &&
+            b.FindPrevious(
+                aux_anchor,
+                Axis::VERTICAL
+            ) == b.HandleAt(V_AUX_ROOT) &&
+            b.FindNext(
+                aux_anchor,
+                Axis::VERTICAL,
+                Inheritance::LINKED_CHILD
+            ) == nullptr;
     }
 
     template <typename Backend>
@@ -864,20 +1073,31 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
         {
             auto current = b.HandleAt(0u);
             for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
             {
-                current = b.FindNext(current, Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
+                current = b.FindNext(
+                    current,
+                    Axis::HORIZONTAL,
+                    Inheritance::FIRST_CHILD
+                );
                 if (!current) return {};
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
+        return {
+            true,
+            checksum,
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * (CHAIN_LENGTH - 1u),
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     template <typename Backend>
@@ -885,6 +1105,7 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
         {
             auto current = b.HandleAt(CHAIN_LENGTH - 1u);
@@ -895,10 +1116,16 @@ namespace Test01_PublicTraversalBaseline
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
+        return {
+            true,
+            checksum,
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * (CHAIN_LENGTH - 1u),
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     template <typename Backend>
@@ -906,24 +1133,38 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
         {
             auto current = b.FindNext(
-                b.HandleAt(OWNER_INDEX), Axis::VERTICAL, Inheritance::FIRST_CHILD);
+                b.HandleAt(OWNER_INDEX),
+                Axis::VERTICAL,
+                Inheritance::FIRST_CHILD
+            );
             if (!current) return {};
             checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
 
             for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
             {
-                current = b.FindNext(current, Axis::VERTICAL, Inheritance::LINKED_CHILD);
+                current = b.FindNext(
+                    current,
+                    Axis::VERTICAL,
+                    Inheritance::LINKED_CHILD
+                );
                 if (!current) return {};
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
+        return {
+            true,
+            checksum,
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * CHAIN_LENGTH,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     template <typename Backend>
@@ -931,6 +1172,7 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
         {
             auto current = b.HandleAt(VERTICAL_ORDER.back());
@@ -940,14 +1182,21 @@ namespace Test01_PublicTraversalBaseline
                 if (!current) return {};
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
+
             current = b.FindPrevious(current, Axis::VERTICAL);
             if (current != b.HandleAt(OWNER_INDEX)) return {};
             checksum += static_cast<uint64_t>(OWNER_INDEX + 1u);
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
+        return {
+            true,
+            checksum,
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * CHAIN_LENGTH,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     template <typename Backend>
@@ -955,6 +1204,7 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < PAYLOAD_ROUNDS; ++round)
         {
             for (size_t node = 0u; node < CHAIN_LENGTH; ++node)
@@ -968,10 +1218,17 @@ namespace Test01_PublicTraversalBaseline
                 }
             }
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
-            static_cast<uint64_t>(PAYLOAD_ROUNDS) * CHAIN_LENGTH * PAYLOAD_WORDS,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+        return {
+            true,
+            checksum,
+            static_cast<uint64_t>(PAYLOAD_ROUNDS) *
+                CHAIN_LENGTH * PAYLOAD_WORDS,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     template <typename Backend>
@@ -979,10 +1236,14 @@ namespace Test01_PublicTraversalBaseline
     {
         uint64_t checksum = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t round = 0u; round < GRAPH_PAYLOAD_ROUNDS; ++round)
         {
             auto current = b.FindNext(
-                b.HandleAt(OWNER_INDEX), Axis::VERTICAL, Inheritance::FIRST_CHILD);
+                b.HandleAt(OWNER_INDEX),
+                Axis::VERTICAL,
+                Inheritance::FIRST_CHILD
+            );
             if (!current) return {};
 
             for (size_t i = 0u; i < CHAIN_LENGTH; ++i)
@@ -990,67 +1251,119 @@ namespace Test01_PublicTraversalBaseline
                 uint64_t value = 0u;
                 if (!b.LoadPayload(
                         current,
-                        static_cast<uint32_t>(i & (PAYLOAD_WORDS - 1u)),
+                        static_cast<uint32_t>(i % PAYLOAD_WORDS),
                         value,
                         false))
                 {
                     return {};
                 }
+
                 checksum += value;
 
                 if (i + 1u < CHAIN_LENGTH)
                 {
-                    current = b.FindNext(current, Axis::VERTICAL, Inheritance::LINKED_CHILD);
+                    current = b.FindNext(
+                        current,
+                        Axis::VERTICAL,
+                        Inheritance::LINKED_CHILD
+                    );
                     if (!current) return {};
                 }
             }
         }
+
         const auto end = Clock::now();
-        return {true, checksum,
+        return {
+            true,
+            checksum,
             static_cast<uint64_t>(GRAPH_PAYLOAD_ROUNDS) * CHAIN_LENGTH,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
+    // Real cross-edge move every call:
+    //
+    //   ... 61 -> 62 -> 63
+    //
+    // 63 alternates between root edge 61 and root edge 62.
+    // The even round count restores the original H chain.
     template <typename Backend>
-    Timing SerialHorizontalTailMutation(Backend& b)
+    Timing SerialHorizontalCompoundParentMove(Backend& b)
     {
-        const size_t tail = CHAIN_LENGTH - 1u;
-        const size_t parent = CHAIN_LENGTH - 2u;
+        const size_t child = CHAIN_LENGTH - 1u;
+        const size_t parent_a = CHAIN_LENGTH - 2u; // initial parent: 62
+        const size_t parent_b = CHAIN_LENGTH - 3u; // alternate parent: 61
+
         uint64_t completed = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
         {
-            if (!b.DetachChild(parent, tail, Axis::HORIZONTAL) ||
-                !b.Attach(parent, tail, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
+            const size_t destination = (i & 1u) == 0u ? parent_b : parent_a;
+            if (!b.DetachAndReAttachToParent(
+                    child,
+                    destination,
+                    Axis::HORIZONTAL))
             {
                 return {};
             }
             ++completed;
         }
+
         const auto end = Clock::now();
-        return {ValidateHorizontal(b), completed, completed,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+        return {
+            ValidateHorizontal(b),
+            completed,
+            completed,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
+    // Real cross-edge sibling move every call:
+    // child 63 alternates between the main V edge and an auxiliary V edge.
+    // The destination object supplied to the sibling API is always a real
+    // sibling already attached to the destination edge.
     template <typename Backend>
-    Timing SerialVerticalTailMutation(Backend& b)
+    Timing SerialVerticalCompoundSiblingMove(Backend& b)
     {
-        const size_t tail = VERTICAL_ORDER.back();
-        const size_t previous = VERTICAL_ORDER[CHAIN_LENGTH - 2u];
+        const size_t child = VERTICAL_ORDER.back();
+        const size_t main_destination_sibling =
+            VERTICAL_ORDER[CHAIN_LENGTH - 2u];
+
         uint64_t completed = 0u;
         const auto begin = Clock::now();
+
         for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
         {
-            if (!b.Detach(tail, Axis::VERTICAL) ||
-                !b.Attach(previous, tail, Axis::VERTICAL, Inheritance::LINKED_CHILD))
+            const size_t destination_sibling =
+                (i & 1u) == 0u ?
+                V_AUX_ANCHOR :
+                main_destination_sibling;
+
+            if (!b.DetachAndReattachAsEquivalentSibling(
+                    child,
+                    destination_sibling,
+                    Axis::VERTICAL))
             {
                 return {};
             }
+
             ++completed;
         }
+
         const auto end = Clock::now();
-        return {ValidateVertical(b), completed, completed,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()};
+        return {
+            ValidateVertical(b),
+            completed,
+            completed,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count()
+        };
     }
 
     struct ConcurrentMutationResult
@@ -1059,34 +1372,40 @@ namespace Test01_PublicTraversalBaseline
         bool IntegrityOk = false;
         uint64_t HorizontalCompleted = 0u;
         uint64_t VerticalCompleted = 0u;
-        int64_t ElapsedNs = 0;
     };
 
+    // Same APC (63), two axes, two independent compound cross-edge moves.
+    // H alternates 61 <-> 62. V alternates V_AUX_ROOT <-> main root 64.
     template <typename Backend>
-    ConcurrentMutationResult ConcurrentSameNodeHVMutation(Backend& b)
+    ConcurrentMutationResult ConcurrentSameNodeHVCompoundMutation(Backend& b)
     {
-        const size_t tail = CHAIN_LENGTH - 1u;
-        const size_t h_parent = CHAIN_LENGTH - 2u;
-        const size_t v_previous = VERTICAL_ORDER[CHAIN_LENGTH - 2u];
+        const size_t child = CHAIN_LENGTH - 1u;
 
         std::atomic<bool> failed{false};
         std::atomic<uint64_t> h_done{0u};
         std::atomic<uint64_t> v_done{0u};
         std::barrier start(3);
 
-        const auto begin = Clock::now();
-
         std::thread h([&]
         {
             start.arrive_and_wait();
+
             for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
             {
-                if (!b.DetachChild(h_parent, tail, Axis::HORIZONTAL) ||
-                    !b.Attach(h_parent, tail, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
+                const size_t destination =
+                    (i & 1u) == 0u ?
+                    CHAIN_LENGTH - 3u :
+                    CHAIN_LENGTH - 2u;
+
+                if (!b.DetachAndReAttachToParent(
+                        child,
+                        destination,
+                        Axis::HORIZONTAL))
                 {
                     failed.store(true, std::memory_order_release);
                     return;
                 }
+
                 h_done.fetch_add(1u, std::memory_order_relaxed);
                 PerturbSchedule(i);
             }
@@ -1095,14 +1414,23 @@ namespace Test01_PublicTraversalBaseline
         std::thread v([&]
         {
             start.arrive_and_wait();
+
             for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
             {
-                if (!b.Detach(tail, Axis::VERTICAL) ||
-                    !b.Attach(v_previous, tail, Axis::VERTICAL, Inheritance::LINKED_CHILD))
+                const size_t destination =
+                    (i & 1u) == 0u ?
+                    V_AUX_ROOT :
+                    OWNER_INDEX;
+
+                if (!b.DetachAndReAttachToParent(
+                        child,
+                        destination,
+                        Axis::VERTICAL))
                 {
                     failed.store(true, std::memory_order_release);
                     return;
                 }
+
                 v_done.fetch_add(1u, std::memory_order_relaxed);
                 PerturbSchedule(i + 1000u);
             }
@@ -1112,19 +1440,16 @@ namespace Test01_PublicTraversalBaseline
         h.join();
         v.join();
 
-        const auto end = Clock::now();
         const uint64_t hd = h_done.load(std::memory_order_acquire);
         const uint64_t vd = v_done.load(std::memory_order_acquire);
-        const bool operations_ok =
-            !failed.load(std::memory_order_acquire) &&
-            hd == MUTATION_ROUNDS && vd == MUTATION_ROUNDS;
 
         return {
-            operations_ok,
+            !failed.load(std::memory_order_acquire) &&
+                hd == MUTATION_ROUNDS &&
+                vd == MUTATION_ROUNDS,
             ValidateAll(b),
             hd,
-            vd,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
+            vd
         };
     }
 
@@ -1139,7 +1464,8 @@ namespace Test01_PublicTraversalBaseline
         double CompletionPercent() const noexcept
         {
             return Trials == 0u ? 0.0 :
-                100.0 * static_cast<double>(FullCompletionTrials) / static_cast<double>(Trials);
+                100.0 * static_cast<double>(FullCompletionTrials) /
+                static_cast<double>(Trials);
         }
     };
 
@@ -1147,19 +1473,23 @@ namespace Test01_PublicTraversalBaseline
     ConcurrentStressSummary RunConcurrentStress(Backend& b)
     {
         ConcurrentStressSummary out{};
+
         for (uint32_t trial = 0u; trial < CONCURRENT_TRIALS; ++trial)
         {
-            const auto r = ConcurrentSameNodeHVMutation(b);
+            const auto r = ConcurrentSameNodeHVCompoundMutation(b);
             ++out.Trials;
             out.HorizontalCycles += r.HorizontalCompleted;
             out.VerticalCycles += r.VerticalCompleted;
+
             if (r.OperationsOk) ++out.FullCompletionTrials;
+
             if (!r.IntegrityOk)
             {
                 ++out.IntegrityFailures;
                 break;
             }
         }
+
         return out;
     }
 
@@ -1172,8 +1502,8 @@ namespace Test01_PublicTraversalBaseline
         PAYLOAD_DIRECT,
         PAYLOAD_ATOMIC,
         GRAPH_PAYLOAD,
-        MUTATE_H,
-        MUTATE_V,
+        COMPOUND_PARENT_H,
+        COMPOUND_SIBLING_V,
         COUNT
     };
 
@@ -1190,8 +1520,8 @@ namespace Test01_PublicTraversalBaseline
         case Metric::PAYLOAD_DIRECT: return "payload direct read";
         case Metric::PAYLOAD_ATOMIC: return "payload atomic read";
         case Metric::GRAPH_PAYLOAD: return "scrambled graph+payload";
-        case Metric::MUTATE_H: return "serial H tail mutate";
-        case Metric::MUTATE_V: return "serial V tail mutate";
+        case Metric::COMPOUND_PARENT_H: return "compound H parent move";
+        case Metric::COMPOUND_SIBLING_V: return "compound V sibling move";
         default: return "unknown";
         }
     }
@@ -1208,30 +1538,251 @@ namespace Test01_PublicTraversalBaseline
         case Metric::PAYLOAD_DIRECT: return SequentialPayloadRead(b, false);
         case Metric::PAYLOAD_ATOMIC: return SequentialPayloadRead(b, true);
         case Metric::GRAPH_PAYLOAD: return ScrambledGraphPlusPayload(b);
-        case Metric::MUTATE_H: return SerialHorizontalTailMutation(b);
-        case Metric::MUTATE_V: return SerialVerticalTailMutation(b);
-        default: return {};
+        case Metric::COMPOUND_PARENT_H:
+            return SerialHorizontalCompoundParentMove(b);
+        case Metric::COMPOUND_SIBLING_V:
+            return SerialVerticalCompoundSiblingMove(b);
+        default:
+            return {};
         }
     }
 
-    static void PrintMetric(const char* name, double baseline_ns, double apc_ns)
+    // Vector mutation rows use the same logical compound move, but the entire
+    // move is protected by one global mutex. Traversal/data rows remain the
+    // raw vector+pointer lower bound so Test 1 still answers the original
+    // public traversal/data question.
+    Timing RunVectorMetricLocked(
+        VectorBackend& b,
+        Metric m,
+        std::mutex& global_graph_mutex)
+    {
+        if (m == Metric::COMPOUND_PARENT_H)
+        {
+            const size_t child = CHAIN_LENGTH - 1u;
+            const size_t parent_a = CHAIN_LENGTH - 2u;
+            const size_t parent_b = CHAIN_LENGTH - 3u;
+
+            uint64_t completed = 0u;
+            const auto begin = Clock::now();
+
+            for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
+            {
+                const size_t destination =
+                    (i & 1u) == 0u ? parent_b : parent_a;
+
+                {
+                    std::lock_guard<std::mutex> lock(global_graph_mutex);
+                    if (!b.DetachAndReAttachToParent(
+                            child,
+                            destination,
+                            Axis::HORIZONTAL))
+                    {
+                        return {};
+                    }
+                }
+
+                ++completed;
+            }
+
+            const auto end = Clock::now();
+
+            return {
+                ValidateHorizontal(b),
+                completed,
+                completed,
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            };
+        }
+
+        if (m == Metric::COMPOUND_SIBLING_V)
+        {
+            const size_t child = VERTICAL_ORDER.back();
+            const size_t main_destination_sibling =
+                VERTICAL_ORDER[CHAIN_LENGTH - 2u];
+
+            uint64_t completed = 0u;
+            const auto begin = Clock::now();
+
+            for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
+            {
+                const size_t destination_sibling =
+                    (i & 1u) == 0u ?
+                    V_AUX_ANCHOR :
+                    main_destination_sibling;
+
+                {
+                    std::lock_guard<std::mutex> lock(global_graph_mutex);
+                    if (!b.DetachAndReattachAsEquivalentSibling(
+                            child,
+                            destination_sibling,
+                            Axis::VERTICAL))
+                    {
+                        return {};
+                    }
+                }
+
+                ++completed;
+            }
+
+            const auto end = Clock::now();
+
+            return {
+                ValidateVertical(b),
+                completed,
+                completed,
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            };
+        }
+
+        return RunMetric(b, m);
+    }
+
+    ConcurrentMutationResult ConcurrentSameNodeHVCompoundMutationLocked(
+        VectorBackend& b,
+        std::mutex& global_graph_mutex)
+    {
+        const size_t child = CHAIN_LENGTH - 1u;
+
+        std::atomic<bool> failed{false};
+        std::atomic<uint64_t> h_done{0u};
+        std::atomic<uint64_t> v_done{0u};
+        std::barrier start(3);
+
+        std::thread h([&]
+        {
+            start.arrive_and_wait();
+
+            for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
+            {
+                const size_t destination =
+                    (i & 1u) == 0u ?
+                    CHAIN_LENGTH - 3u :
+                    CHAIN_LENGTH - 2u;
+
+                {
+                    std::lock_guard<std::mutex> lock(global_graph_mutex);
+                    if (!b.DetachAndReAttachToParent(
+                            child,
+                            destination,
+                            Axis::HORIZONTAL))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+                }
+
+                h_done.fetch_add(1u, std::memory_order_relaxed);
+                PerturbSchedule(i);
+            }
+        });
+
+        std::thread v([&]
+        {
+            start.arrive_and_wait();
+
+            for (uint32_t i = 0u; i < MUTATION_ROUNDS; ++i)
+            {
+                const size_t destination =
+                    (i & 1u) == 0u ?
+                    V_AUX_ROOT :
+                    OWNER_INDEX;
+
+                {
+                    std::lock_guard<std::mutex> lock(global_graph_mutex);
+                    if (!b.DetachAndReAttachToParent(
+                            child,
+                            destination,
+                            Axis::VERTICAL))
+                    {
+                        failed.store(true, std::memory_order_release);
+                        return;
+                    }
+                }
+
+                v_done.fetch_add(1u, std::memory_order_relaxed);
+                PerturbSchedule(i + 1000u);
+            }
+        });
+
+        start.arrive_and_wait();
+        h.join();
+        v.join();
+
+        const uint64_t hd = h_done.load(std::memory_order_acquire);
+        const uint64_t vd = v_done.load(std::memory_order_acquire);
+
+        return {
+            !failed.load(std::memory_order_acquire) &&
+                hd == MUTATION_ROUNDS &&
+                vd == MUTATION_ROUNDS,
+            ValidateAll(b),
+            hd,
+            vd
+        };
+    }
+
+    ConcurrentStressSummary RunVectorConcurrentStressLocked(
+        VectorBackend& b)
+    {
+        ConcurrentStressSummary out{};
+        std::mutex global_graph_mutex{};
+
+        for (uint32_t trial = 0u; trial < CONCURRENT_TRIALS; ++trial)
+        {
+            const auto r =
+                ConcurrentSameNodeHVCompoundMutationLocked(
+                    b,
+                    global_graph_mutex
+                );
+
+            ++out.Trials;
+            out.HorizontalCycles += r.HorizontalCompleted;
+            out.VerticalCycles += r.VerticalCompleted;
+
+            if (r.OperationsOk) ++out.FullCompletionTrials;
+
+            if (!r.IntegrityOk)
+            {
+                ++out.IntegrityFailures;
+                break;
+            }
+        }
+
+        return out;
+    }
+
+    static void PrintMetric(
+        const char* name,
+        double baseline_ns,
+        double apc_ns)
     {
         std::cout
-            << std::left << std::setw(28) << name
-            << " vector+ptr=" << std::right << std::setw(10) << std::fixed << std::setprecision(2)
+            << std::left << std::setw(30) << name
+            << " vector-base=" << std::right << std::setw(10)
+            << std::fixed << std::setprecision(2)
             << baseline_ns << " ns/op"
             << "  APC=" << std::setw(10) << apc_ns << " ns/op"
-            << "  ratio=" << std::setw(8) << std::setprecision(2)
+            << "  ratio=" << std::setw(8)
             << Ratio(apc_ns, baseline_ns) << "x\n";
     }
 
     inline Result Run()
     {
-        Banner("TEST 1 - PUBLIC TRAVERSAL / DATA / CONTROL BASELINE");
+        Banner("TEST 1 - PUBLIC TRAVERSAL / DATA + COMPOUND MUTATION BASELINE");
+
         std::cout
-            << "APC navigation under test: FindMyNext() + FindPrevious() only.\n"
-            << "H topology: 0 -> 1 -> ... -> 63 (FIRST_CHILD depth)\n"
-            << "V topology: owner -> bit-reversed 0..63 sibling chain\n\n";
+            << "Navigation: FindMyNext() + FindPrevious() only.\n"
+            << "H topology: 0 -> 1 -> ... -> 63.\n"
+            << "V topology: owner -> bit-reversed 0..63 sibling chain + isolated auxiliary V edge.\n"
+            << "Mutation rows use real DetachAndReAttachMeToThisParent / "
+               "DetachAndReattachMeAsEquivelentSibbling-equivalent moves.\n"
+            << "No repeated same-edge-tail no-op is timed.\n"
+            << "Vector mutation rows/stress hold ONE global std::mutex across each whole move; "
+               "traversal/data rows remain raw vector+pointer lower bounds.\n\n";
 
         const auto vector_build_begin = Clock::now();
         VectorBackend vector_backend{};
@@ -1243,16 +1794,23 @@ namespace Test01_PublicTraversalBaseline
         if (!BuildScenario(apc_backend)) return Result::FAIL;
         const auto apc_build_end = Clock::now();
 
+        std::mutex vector_graph_mutex{};
+
         if (!ValidateAll(vector_backend) || !ValidateAll(apc_backend))
         {
             std::cout << "Initial topology validation: FAIL\n";
             return Result::FAIL;
         }
 
-        const auto vector_build_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            vector_build_end - vector_build_begin).count();
-        const auto apc_build_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            apc_build_end - apc_build_begin).count();
+        const auto vector_build_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                vector_build_end - vector_build_begin
+            ).count();
+
+        const auto apc_build_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                apc_build_end - apc_build_begin
+            ).count();
 
         std::cout
             << "CORRECTNESS\n"
@@ -1263,13 +1821,19 @@ namespace Test01_PublicTraversalBaseline
             << "  vector+pointer : " << vector_build_us << " us\n"
             << "  APC+Fabric     : " << apc_build_us << " us\n"
             << "  ratio          : " << std::fixed << std::setprecision(2)
-            << Ratio(static_cast<double>(apc_build_us), static_cast<double>(vector_build_us))
+            << Ratio(
+                static_cast<double>(apc_build_us),
+                static_cast<double>(vector_build_us)
+            )
             << "x\n\n";
 
-        std::array<std::array<double, MEASURED_RUNS>, METRIC_COUNT> vector_samples{};
-        std::array<std::array<double, MEASURED_RUNS>, METRIC_COUNT> apc_samples{};
+        std::array<std::array<double, MEASURED_RUNS>, METRIC_COUNT>
+            vector_samples{};
+        std::array<std::array<double, MEASURED_RUNS>, METRIC_COUNT>
+            apc_samples{};
 
         std::cout << "MEASURED RUNS\n";
+
         for (uint32_t run = 0u; run < MEASURED_RUNS; ++run)
         {
             for (size_t mi = 0u; mi < METRIC_COUNT; ++mi)
@@ -1280,20 +1844,22 @@ namespace Test01_PublicTraversalBaseline
 
                 if ((run & 1u) == 0u)
                 {
-                    v = RunMetric(vector_backend, metric);
+                    v = RunVectorMetricLocked(vector_backend, metric, vector_graph_mutex);
                     a = RunMetric(apc_backend, metric);
                 }
                 else
                 {
                     a = RunMetric(apc_backend, metric);
-                    v = RunMetric(vector_backend, metric);
+                    v = RunVectorMetricLocked(vector_backend, metric, vector_graph_mutex);
                 }
 
                 if (!v.Ok || !a.Ok)
                 {
-                    std::cout << "  failed metric: " << MetricName(metric)
-                              << " vector=" << (v.Ok ? "PASS" : "FAIL")
-                              << " APC=" << (a.Ok ? "PASS" : "FAIL") << '\n';
+                    std::cout
+                        << "  failed metric: " << MetricName(metric)
+                        << " vector=" << (v.Ok ? "PASS" : "FAIL")
+                        << " APC=" << (a.Ok ? "PASS" : "FAIL")
+                        << '\n';
                     return Result::FAIL;
                 }
 
@@ -1306,41 +1872,55 @@ namespace Test01_PublicTraversalBaseline
                 std::cout << "  post-run topology/lock validation: FAIL\n";
                 return Result::FAIL;
             }
-            std::cout << "  run " << (run + 1u) << '/' << MEASURED_RUNS << " : PASS\n";
+
+            std::cout
+                << "  run " << (run + 1u)
+                << '/' << MEASURED_RUNS
+                << " : PASS\n";
         }
 
         std::array<double, METRIC_COUNT> vector_median{};
         std::array<double, METRIC_COUNT> apc_median{};
 
         std::cout << "\nMEDIAN COST PER OPERATION\n";
+
         for (size_t mi = 0u; mi < METRIC_COUNT; ++mi)
         {
             vector_median[mi] = Median(vector_samples[mi]);
             apc_median[mi] = Median(apc_samples[mi]);
-            PrintMetric(MetricName(static_cast<Metric>(mi)), vector_median[mi], apc_median[mi]);
+
+            PrintMetric(
+                MetricName(static_cast<Metric>(mi)),
+                vector_median[mi],
+                apc_median[mi]
+            );
         }
 
-        std::cout << "\nSAME-NODE H/V CONCURRENT MUTATION STRESS\n";
-        const auto vector_concurrent = RunConcurrentStress(vector_backend);
+        std::cout << "\nSAME-NODE H/V COMPOUND MUTATION STRESS\n";
+
+        const auto vector_concurrent = RunVectorConcurrentStressLocked(vector_backend);
         const auto apc_concurrent = RunConcurrentStress(apc_backend);
 
         std::cout
-            << "  vector+ptr full-completion trials : "
-            << vector_concurrent.FullCompletionTrials << '/' << vector_concurrent.Trials
-            << "  (" << std::fixed << std::setprecision(1)
+            << "  vector+ptr+lock full-completion trials : "
+            << vector_concurrent.FullCompletionTrials << '/'
+            << vector_concurrent.Trials << "  ("
+            << std::fixed << std::setprecision(1)
             << vector_concurrent.CompletionPercent() << "%)\n"
-            << "  vector+ptr integrity failures     : " << vector_concurrent.IntegrityFailures << '\n'
+            << "  vector+ptr+lock integrity failures     : "
+            << vector_concurrent.IntegrityFailures << '\n'
             << "  APC+Fabric full-completion trials : "
-            << apc_concurrent.FullCompletionTrials << '/' << apc_concurrent.Trials
-            << "  (" << apc_concurrent.CompletionPercent() << "%)\n"
-            << "  APC+Fabric integrity failures     : " << apc_concurrent.IntegrityFailures << '\n'
-            << "  APC completed H/V cycles          : "
-            << apc_concurrent.HorizontalCycles << " / " << apc_concurrent.VerticalCycles << '\n';
+            << apc_concurrent.FullCompletionTrials << '/'
+            << apc_concurrent.Trials << "  ("
+            << apc_concurrent.CompletionPercent() << "%)\n"
+            << "  APC+Fabric integrity failures     : "
+            << apc_concurrent.IntegrityFailures << '\n'
+            << "  APC completed H/V compound moves  : "
+            << apc_concurrent.HorizontalCycles << " / "
+            << apc_concurrent.VerticalCycles << '\n';
 
         const bool vector_final = ValidateAll(vector_backend);
-        const bool apc_h_final = ValidateHorizontal(apc_backend);
-        const bool apc_v_final = ValidateVertical(apc_backend);
-        const bool apc_locks_final = apc_backend.LocksReleased();
+        const bool apc_final = ValidateAll(apc_backend);
 
         std::cout
             << "\nMEMORY FOOTPRINT SIGNAL (lower bounds, not process RSS)\n"
@@ -1353,88 +1933,127 @@ namespace Test01_PublicTraversalBaseline
 
         const bool final_ok =
             vector_final &&
+            apc_final &&
             vector_concurrent.IntegrityFailures == 0u &&
-            apc_concurrent.IntegrityFailures == 0u &&
-            apc_h_final && apc_v_final && apc_locks_final;
+            apc_concurrent.IntegrityFailures == 0u;
 
         std::cout
             << "\nLACKING SIGNALS RELATIVE TO VECTOR\n"
-            << "  sequential graph-hop tax : " << std::setprecision(2)
-            << Ratio(apc_median[static_cast<size_t>(Metric::H_FORWARD)],
-                     vector_median[static_cast<size_t>(Metric::H_FORWARD)]) << "x\n"
+            << "  sequential graph-hop tax : "
+            << Ratio(
+                apc_median[static_cast<size_t>(Metric::H_FORWARD)],
+                vector_median[static_cast<size_t>(Metric::H_FORWARD)]
+            ) << "x\n"
             << "  scrambled graph-hop tax  : "
-            << Ratio(apc_median[static_cast<size_t>(Metric::V_FORWARD)],
-                     vector_median[static_cast<size_t>(Metric::V_FORWARD)]) << "x\n"
+            << Ratio(
+                apc_median[static_cast<size_t>(Metric::V_FORWARD)],
+                vector_median[static_cast<size_t>(Metric::V_FORWARD)]
+            ) << "x\n"
             << "  direct payload-read tax  : "
-            << Ratio(apc_median[static_cast<size_t>(Metric::PAYLOAD_DIRECT)],
-                     vector_median[static_cast<size_t>(Metric::PAYLOAD_DIRECT)]) << "x\n"
-            << "  serial H mutation tax    : "
-            << Ratio(apc_median[static_cast<size_t>(Metric::MUTATE_H)],
-                     vector_median[static_cast<size_t>(Metric::MUTATE_H)]) << "x\n"
-            << "  serial V mutation tax    : "
-            << Ratio(apc_median[static_cast<size_t>(Metric::MUTATE_V)],
-                     vector_median[static_cast<size_t>(Metric::MUTATE_V)]) << "x\n";
+            << Ratio(
+                apc_median[static_cast<size_t>(Metric::PAYLOAD_DIRECT)],
+                vector_median[static_cast<size_t>(Metric::PAYLOAD_DIRECT)]
+            ) << "x\n"
+            << "  compound parent-move tax : "
+            << Ratio(
+                apc_median[static_cast<size_t>(Metric::COMPOUND_PARENT_H)],
+                vector_median[static_cast<size_t>(Metric::COMPOUND_PARENT_H)]
+            ) << "x\n"
+            << "  compound sibling-move tax: "
+            << Ratio(
+                apc_median[static_cast<size_t>(Metric::COMPOUND_SIBLING_V)],
+                vector_median[static_cast<size_t>(Metric::COMPOUND_SIBLING_V)]
+            ) << "x\n";
 
         std::cout
-            << "\nTEST 1 OVERALL: " << (final_ok ? "PASS" : "FAIL") << '\n';
+            << "\nTEST 1 OVERALL: "
+            << (final_ok ? "PASS" : "FAIL")
+            << '\n';
+
         return final_ok ? Result::PASS : Result::FAIL;
     }
-}
+
+} // namespace Test01_PublicTraversalBaseline
 
 // ============================================================================
 // TEST 2
-// Global std::mutex vector vs APC internal synchronization contention sweep.
+// Global-mutex vector compound move vs APC/Fabric compound move contention.
+//
+// Fairness rule:
+//   - every worker owns one child; no worker can consume another worker's
+//     detached intermediate state;
+//   - each contention group owns TWO H roots;
+//   - a worker alternates its child between those two roots;
+//   - vector holds ONE global mutex across the whole logical move;
+//   - APC performs one DetachAndReAttachMeToThisParent-equivalent call and
+//     retries that complete transaction when max_tries=1 rejects contention.
 // ============================================================================
 namespace Test02_ContentionSweep
 {
     using namespace TestKit;
 
-    constexpr uint32_t SHARD_COUNT = 4u;
+    constexpr uint32_t GROUP_COUNT = 4u;
+    constexpr uint32_t ROOTS_PER_GROUP = 2u;
+    constexpr uint32_t ROOT_COUNT = GROUP_COUNT * ROOTS_PER_GROUP;
+
     constexpr uint32_t MIN_CONTENTION_LEVEL = 0u;
     constexpr uint32_t MAX_CONTENTION_LEVEL = 19u;
     constexpr uint32_t MAX_WORKERS = MAX_CONTENTION_LEVEL + 1u;
-    static_assert(MAX_WORKERS % SHARD_COUNT == 0u);
 
-    constexpr size_t OWNER_BASE = 0u;
-    constexpr size_t ANCHOR_BASE = OWNER_BASE + SHARD_COUNT;
-    constexpr size_t FIRST_WORKER_CHILD_INDEX = ANCHOR_BASE + SHARD_COUNT;
-    constexpr size_t NODE_COUNT = FIRST_WORKER_CHILD_INDEX + MAX_WORKERS;
-    constexpr size_t WORKER_CHILDREN_PER_SHARD = MAX_WORKERS / SHARD_COUNT;
-    constexpr size_t CHILDREN_PER_SHARD = 1u + WORKER_CHILDREN_PER_SHARD;
+    constexpr size_t FIRST_CHILD_INDEX = ROOT_COUNT;
+    constexpr size_t NODE_COUNT = FIRST_CHILD_INDEX + MAX_WORKERS;
 
     constexpr uint32_t WARMUP_CYCLES_PER_WORKER = 1'000u;
     constexpr uint32_t MEASURED_CYCLES_PER_WORKER = 20'000u;
     constexpr uint32_t MEASURED_RUNS = 3u;
     constexpr uint32_t LATENCY_SAMPLE_STRIDE = 16u;
-    constexpr uint32_t APC_INTERNAL_TRIES_PER_PUBLIC_CALL = 1u;
+
+    constexpr uint32_t APC_INTERNAL_TRIES_PER_COMPOUND_CALL = 1u;
     constexpr uint64_t MAX_RETRY_EVENTS_PER_CYCLE = 1'000'000ull;
     constexpr size_t MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD = 100'000u;
 
     using VectorBackend = VectorGraphBackend<NODE_COUNT, 0u, false>;
     using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
 
-    static_assert((LATENCY_SAMPLE_STRIDE & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u);
+    static_assert(
+        (LATENCY_SAMPLE_STRIDE & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u
+    );
 
-    constexpr size_t OwnerForShard(uint32_t shard) noexcept { return OWNER_BASE + shard; }
-    constexpr size_t AnchorForShard(uint32_t shard) noexcept { return ANCHOR_BASE + shard; }
-    constexpr uint32_t ShardForWorker(uint32_t worker) noexcept { return worker % SHARD_COUNT; }
-    constexpr size_t ChildForWorker(uint32_t worker) noexcept { return FIRST_WORKER_CHILD_INDEX + worker; }
+    constexpr uint32_t GroupForWorker(uint32_t worker) noexcept
+    {
+        return worker % GROUP_COUNT;
+    }
+
+    constexpr size_t RootAForGroup(uint32_t group) noexcept
+    {
+        return static_cast<size_t>(group * ROOTS_PER_GROUP);
+    }
+
+    constexpr size_t RootBForGroup(uint32_t group) noexcept
+    {
+        return RootAForGroup(group) + 1u;
+    }
+
+    constexpr size_t ChildForWorker(uint32_t worker) noexcept
+    {
+        return FIRST_CHILD_INDEX + worker;
+    }
+
     constexpr uint32_t WorkerForChild(size_t child) noexcept
     {
-        return static_cast<uint32_t>(child - FIRST_WORKER_CHILD_INDEX);
-    }
-    constexpr size_t OwnerForChild(size_t child) noexcept
-    {
-        return OwnerForShard(ShardForWorker(WorkerForChild(child)));
+        return static_cast<uint32_t>(child - FIRST_CHILD_INDEX);
     }
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
         RootPlan<NODE_COUNT> roots{};
-        for (uint32_t shard = 0u; shard < SHARD_COUNT; ++shard)
+
+        for (uint32_t group = 0u; group < GROUP_COUNT; ++group)
         {
-            roots.Horizontal[OwnerForShard(shard)] = true;
+            roots.Horizontal[RootAForGroup(group)] = true;
+            roots.Horizontal[RootBForGroup(group)] = true;
         }
+
         return roots;
     }
 
@@ -1442,7 +2061,6 @@ namespace Test02_ContentionSweep
     {
         uint64_t CompletedCycles = 0u;
         uint64_t MutationRejects = 0u;
-        uint64_t TraversalRestarts = 0u;
         uint64_t RetryEvents = 0u;
 
         std::vector<uint64_t> CycleLatencyNs{};
@@ -1453,13 +2071,22 @@ namespace Test02_ContentionSweep
 
         void ReserveForMeasuredRun()
         {
-            CycleLatencyNs.reserve(MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE + 8u);
-            RetriedCycleLatencyNs.reserve(MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE + 8u);
+            CycleLatencyNs.reserve(
+                MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE + 8u
+            );
+            RetriedCycleLatencyNs.reserve(
+                MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE + 8u
+            );
             RetryEventsPerCycle.reserve(MEASURED_CYCLES_PER_WORKER);
-            MutexWaitLatencyNs.reserve(MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE * 2u + 8u);
+            MutexWaitLatencyNs.reserve(
+                MEASURED_CYCLES_PER_WORKER / LATENCY_SAMPLE_STRIDE + 8u
+            );
             FailedMutationAttemptLatencyNs.reserve(
-                std::min<size_t>(MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD,
-                                 MEASURED_CYCLES_PER_WORKER));
+                std::min<size_t>(
+                    MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD,
+                    MEASURED_CYCLES_PER_WORKER
+                )
+            );
         }
     };
 
@@ -1469,13 +2096,13 @@ namespace Test02_ContentionSweep
         bool Aborted = false;
         bool TopologyOk = false;
         bool LocksReleased = false;
+
         uint32_t Workers = 0u;
         uint64_t CompletedCycles = 0u;
         int64_t ElapsedNs = 0;
 
         double ThroughputCyclesPerSecond = 0.0;
         double MutationRejectsPer1000Cycles = 0.0;
-        double TraversalRestartsPer1000Cycles = 0.0;
         double RetryEventsPerCompletedCycle = 0.0;
 
         uint64_t P99CycleLatencyNs = 0u;
@@ -1487,6 +2114,7 @@ namespace Test02_ContentionSweep
 
     struct LevelResult
     {
+        bool Ok = false;
         uint32_t ContentionLevel = 0u;
         uint32_t Workers = 0u;
 
@@ -1499,112 +2127,130 @@ namespace Test02_ContentionSweep
         double APCP99FailedAttemptNs = 0.0;
         double APCP99RetriedCycleNs = 0.0;
         double APCRejectsPer1000 = 0.0;
-        double APCTraversalRestartsPer1000 = 0.0;
         double APCRetryEventsPerCycle = 0.0;
         double APCP99RetryEventsPerCycle = 0.0;
-        bool Ok = false;
     };
 
     inline void RetryBackoff(uint64_t retry_events) noexcept
     {
-        if ((retry_events & 63ull) == 0ull) std::this_thread::yield();
+        if ((retry_events & 63ull) == 0ull)
+        {
+            std::this_thread::yield();
+        }
     }
 
     template <typename Backend>
-    bool BuildSharedSiblingTopology(Backend& b)
+    bool BuildContentionTopology(Backend& b, uint32_t active_workers)
     {
         if (!b.Initialize(MakeRootPlan())) return false;
 
-        for (uint32_t shard = 0u; shard < SHARD_COUNT; ++shard)
+        // Every worker starts on Root A of its group.
+        // Multiple workers in one group form a sibling chain there.
+        std::array<size_t, GROUP_COUNT> tails{};
+        for (uint32_t group = 0u; group < GROUP_COUNT; ++group)
         {
-            const size_t owner = OwnerForShard(shard);
-            const size_t anchor = AnchorForShard(shard);
-            if (!b.Attach(owner, anchor, Axis::HORIZONTAL, Inheritance::FIRST_CHILD))
-            {
-                return false;
-            }
+            tails[group] = RootAForGroup(group);
+        }
 
-            size_t predecessor = anchor;
-            for (uint32_t worker = shard; worker < MAX_WORKERS; worker += SHARD_COUNT)
+        for (uint32_t worker = 0u; worker < active_workers; ++worker)
+        {
+            const uint32_t group = GroupForWorker(worker);
+            const size_t child = ChildForWorker(worker);
+
+            if (tails[group] == RootAForGroup(group))
             {
-                const size_t child = ChildForWorker(worker);
-                if (!b.Attach(predecessor, child, Axis::HORIZONTAL, Inheritance::LINKED_CHILD))
+                if (!b.Attach(
+                        RootAForGroup(group),
+                        child,
+                        Axis::HORIZONTAL,
+                        Inheritance::FIRST_CHILD))
                 {
                     return false;
                 }
-                predecessor = child;
             }
+            else
+            {
+                if (!b.Attach(
+                        tails[group],
+                        child,
+                        Axis::HORIZONTAL,
+                        Inheritance::LINKED_CHILD))
+                {
+                    return false;
+                }
+            }
+
+            tails[group] = child;
         }
+
         return true;
     }
 
     template <typename Backend>
-    bool FindCurrentTailIndex(Backend& b, size_t owner_index, size_t& tail_index) noexcept
-    {
-        auto current = b.FindNext(
-            b.HandleAt(owner_index), Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-        if (!current) return false;
-
-        for (size_t step = 0u; step < CHILDREN_PER_SHARD; ++step)
-        {
-            auto next = b.FindNext(current, Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
-            if (!next)
-            {
-                const size_t idx = b.IndexOf(current);
-                if (idx >= NODE_COUNT) return false;
-                tail_index = idx;
-                return true;
-            }
-            current = next;
-        }
-        return false;
-    }
-
-    template <typename Backend>
-    bool ValidateSharedSiblingTopology(Backend& b)
+    bool ValidateContentionTopology(
+        Backend& b,
+        uint32_t active_workers)
     {
         std::array<bool, NODE_COUNT> seen{};
 
-        for (uint32_t shard = 0u; shard < SHARD_COUNT; ++shard)
+        for (uint32_t group = 0u; group < GROUP_COUNT; ++group)
         {
-            auto owner = b.HandleAt(OwnerForShard(shard));
-            auto current = b.FindNext(owner, Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
-            if (current != b.HandleAt(AnchorForShard(shard))) return false;
-
-            typename Backend::Handle previous = owner;
-            size_t count = 0u;
-            while (current)
+            for (uint32_t which = 0u; which < ROOTS_PER_GROUP; ++which)
             {
-                const size_t idx = b.IndexOf(current);
-                if (idx < ANCHOR_BASE || idx >= NODE_COUNT || seen[idx]) return false;
+                const size_t root =
+                    which == 0u ?
+                    RootAForGroup(group) :
+                    RootBForGroup(group);
 
-                if (idx != AnchorForShard(shard))
+                auto previous = b.HandleAt(root);
+                auto current = b.FindNext(
+                    previous,
+                    Axis::HORIZONTAL,
+                    Inheritance::FIRST_CHILD
+                );
+
+                size_t guard = 0u;
+
+                while (current)
                 {
-                    if (idx < FIRST_WORKER_CHILD_INDEX ||
-                        ShardForWorker(WorkerForChild(idx)) != shard)
+                    const size_t idx = b.IndexOf(current);
+
+                    if (
+                        idx < FIRST_CHILD_INDEX ||
+                        idx >= FIRST_CHILD_INDEX + active_workers ||
+                        seen[idx]
+                    )
                     {
                         return false;
                     }
+
+                    const uint32_t worker = WorkerForChild(idx);
+                    if (GroupForWorker(worker) != group)
+                    {
+                        return false;
+                    }
+
+                    if (b.FindPrevious(
+                            current,
+                            Axis::HORIZONTAL) != previous)
+                    {
+                        return false;
+                    }
+
+                    seen[idx] = true;
+                    previous = current;
+                    current = b.FindNext(
+                        current,
+                        Axis::HORIZONTAL,
+                        Inheritance::LINKED_CHILD
+                    );
+
+                    if (++guard > active_workers) return false;
                 }
-
-                if (b.FindPrevious(current, Axis::HORIZONTAL) != previous) return false;
-
-                seen[idx] = true;
-                ++count;
-                if (count > CHILDREN_PER_SHARD) return false;
-
-                previous = current;
-                current = b.FindNext(current, Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
             }
-
-            if (count != CHILDREN_PER_SHARD) return false;
         }
 
-        for (uint32_t shard = 0u; shard < SHARD_COUNT; ++shard)
-        {
-            if (!seen[AnchorForShard(shard)]) return false;
-        }
-        for (uint32_t worker = 0u; worker < MAX_WORKERS; ++worker)
+        for (uint32_t worker = 0u; worker < active_workers; ++worker)
         {
             if (!seen[ChildForWorker(worker)]) return false;
         }
@@ -1616,60 +2262,73 @@ namespace Test02_ContentionSweep
         VectorBackend& b,
         std::mutex& global_graph_mutex,
         size_t child,
+        size_t destination_root,
         ThreadStats* measured,
         bool sample_latency) noexcept
     {
         Clock::time_point cycle_begin{};
-        if (sample_latency) cycle_begin = Clock::now();
-
         Clock::time_point wait_begin{};
-        if (sample_latency) wait_begin = Clock::now();
-        global_graph_mutex.lock();
-        if (sample_latency && measured)
+
+        if (sample_latency)
         {
-            measured->MutexWaitLatencyNs.push_back(static_cast<uint64_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    Clock::now() - wait_begin).count()));
+            cycle_begin = Clock::now();
+            wait_begin = cycle_begin;
         }
 
-        const bool detached = b.Detach(child, Axis::HORIZONTAL);
-        global_graph_mutex.unlock();
-        if (!detached) return false;
+        std::unique_lock<std::mutex> lock(
+            global_graph_mutex,
+            std::defer_lock
+        );
 
-        if (sample_latency) wait_begin = Clock::now();
-        global_graph_mutex.lock();
+        lock.lock();
+
         if (sample_latency && measured)
         {
-            measured->MutexWaitLatencyNs.push_back(static_cast<uint64_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    Clock::now() - wait_begin).count()));
+            measured->MutexWaitLatencyNs.push_back(
+                static_cast<uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        Clock::now() - wait_begin
+                    ).count()
+                )
+            );
         }
 
-        const size_t owner = OwnerForChild(child);
-        size_t tail = NODE_COUNT;
-        const bool tail_ok = FindCurrentTailIndex(b, owner, tail);
-        const bool attached = tail_ok &&
-            b.Attach(tail, child, Axis::HORIZONTAL, Inheritance::LINKED_CHILD);
-        global_graph_mutex.unlock();
-        if (!attached) return false;
+        // One critical section = one logical move.
+        // No detached state is globally visible in the vector baseline.
+        const bool ok = b.DetachAndReAttachToParent(
+            child,
+            destination_root,
+            Axis::HORIZONTAL
+        );
+
+        lock.unlock();
+
+        if (!ok) return false;
 
         if (measured)
         {
             ++measured->CompletedCycles;
             measured->RetryEventsPerCycle.push_back(0u);
+
             if (sample_latency)
             {
-                measured->CycleLatencyNs.push_back(static_cast<uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        Clock::now() - cycle_begin).count()));
+                measured->CycleLatencyNs.push_back(
+                    static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            Clock::now() - cycle_begin
+                        ).count()
+                    )
+                );
             }
         }
+
         return true;
     }
 
     bool APCCycle(
         APCBackend& b,
         size_t child,
+        size_t destination_root,
         ThreadStats* measured,
         bool sample_latency) noexcept
     {
@@ -1678,68 +2337,45 @@ namespace Test02_ContentionSweep
 
         uint64_t retry_events = 0u;
         uint64_t mutation_rejects = 0u;
-        uint64_t traversal_restarts = 0u;
 
         for (;;)
         {
             Clock::time_point attempt_begin{};
             if (sample_latency) attempt_begin = Clock::now();
 
-            const bool ok = b.Detach(
-                child, Axis::HORIZONTAL, APC_INTERNAL_TRIES_PER_PUBLIC_CALL);
-            if (ok) break;
-
-            ++retry_events;
-            ++mutation_rejects;
-            if (sample_latency && measured &&
-                measured->FailedMutationAttemptLatencyNs.size() <
-                    MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD)
-            {
-                measured->FailedMutationAttemptLatencyNs.push_back(static_cast<uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        Clock::now() - attempt_begin).count()));
-            }
-
-            if (retry_events >= MAX_RETRY_EVENTS_PER_CYCLE) return false;
-            RetryBackoff(retry_events);
-        }
-
-        for (;;)
-        {
-            const size_t owner = OwnerForChild(child);
-            size_t tail = NODE_COUNT;
-            if (!FindCurrentTailIndex(b, owner, tail))
-            {
-                ++retry_events;
-                ++traversal_restarts;
-                if (retry_events >= MAX_RETRY_EVENTS_PER_CYCLE) return false;
-                RetryBackoff(retry_events);
-                continue;
-            }
-
-            Clock::time_point attempt_begin{};
-            if (sample_latency) attempt_begin = Clock::now();
-
-            const bool ok = b.Attach(
-                tail,
+            const bool ok = b.DetachAndReAttachToParent(
                 child,
+                destination_root,
                 Axis::HORIZONTAL,
-                Inheritance::LINKED_CHILD,
-                APC_INTERNAL_TRIES_PER_PUBLIC_CALL);
+                APC_INTERNAL_TRIES_PER_COMPOUND_CALL
+            );
+
             if (ok) break;
 
             ++retry_events;
             ++mutation_rejects;
-            if (sample_latency && measured &&
+
+            if (
+                sample_latency &&
+                measured &&
                 measured->FailedMutationAttemptLatencyNs.size() <
-                    MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD)
+                    MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD
+            )
             {
-                measured->FailedMutationAttemptLatencyNs.push_back(static_cast<uint64_t>(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        Clock::now() - attempt_begin).count()));
+                measured->FailedMutationAttemptLatencyNs.push_back(
+                    static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            Clock::now() - attempt_begin
+                        ).count()
+                    )
+                );
             }
 
-            if (retry_events >= MAX_RETRY_EVENTS_PER_CYCLE) return false;
+            if (retry_events >= MAX_RETRY_EVENTS_PER_CYCLE)
+            {
+                return false;
+            }
+
             RetryBackoff(retry_events);
         }
 
@@ -1748,18 +2384,52 @@ namespace Test02_ContentionSweep
             ++measured->CompletedCycles;
             measured->RetryEventsPerCycle.push_back(retry_events);
             measured->MutationRejects += mutation_rejects;
-            measured->TraversalRestarts += traversal_restarts;
             measured->RetryEvents += retry_events;
 
             if (sample_latency)
             {
                 const uint64_t cycle_ns = static_cast<uint64_t>(
                     std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        Clock::now() - cycle_begin).count());
+                        Clock::now() - cycle_begin
+                    ).count()
+                );
+
                 measured->CycleLatencyNs.push_back(cycle_ns);
-                if (retry_events != 0u) measured->RetriedCycleLatencyNs.push_back(cycle_ns);
+
+                if (retry_events != 0u)
+                {
+                    measured->RetriedCycleLatencyNs.push_back(cycle_ns);
+                }
             }
         }
+
+        return true;
+    }
+
+    template <typename BackendCycle>
+    bool RunWorkerCycles(
+        uint32_t worker,
+        uint32_t count,
+        BackendCycle&& cycle)
+    {
+        bool on_a = true;
+
+        for (uint32_t i = 0u; i < count; ++i)
+        {
+            const uint32_t group = GroupForWorker(worker);
+            const size_t destination =
+                on_a ?
+                RootBForGroup(group) :
+                RootAForGroup(group);
+
+            if (!cycle(destination, i))
+            {
+                return false;
+            }
+
+            on_a = !on_a;
+        }
+
         return true;
     }
 
@@ -1769,7 +2439,10 @@ namespace Test02_ContentionSweep
         out.Workers = workers;
 
         VectorBackend backend{};
-        if (!BuildSharedSiblingTopology(backend) || !ValidateSharedSiblingTopology(backend))
+        if (
+            !BuildContentionTopology(backend, workers) ||
+            !ValidateContentionTopology(backend, workers)
+        )
         {
             return out;
         }
@@ -1781,7 +2454,11 @@ namespace Test02_ContentionSweep
         std::atomic<bool> abort{false};
         std::atomic<uint32_t> warmup_ready{0u};
         std::atomic<bool> go{false};
-        std::barrier launch(static_cast<std::ptrdiff_t>(workers + 1u));
+
+        std::barrier launch(
+            static_cast<std::ptrdiff_t>(workers + 1u)
+        );
+
         std::vector<std::thread> threads{};
         threads.reserve(workers);
 
@@ -1790,40 +2467,82 @@ namespace Test02_ContentionSweep
             threads.emplace_back([&, worker]
             {
                 const size_t child = ChildForWorker(worker);
+                const uint32_t group = GroupForWorker(worker);
+                bool on_a = true;
+
                 launch.arrive_and_wait();
 
-                for (uint32_t i = 0u; i < WARMUP_CYCLES_PER_WORKER; ++i)
+                for (uint32_t i = 0u;
+                     i < WARMUP_CYCLES_PER_WORKER;
+                     ++i)
                 {
-                    if (!VectorCycle(backend, global_graph_mutex, child, nullptr, false))
+                    const size_t destination =
+                        on_a ?
+                        RootBForGroup(group) :
+                        RootAForGroup(group);
+
+                    if (!VectorCycle(
+                            backend,
+                            global_graph_mutex,
+                            child,
+                            destination,
+                            nullptr,
+                            false))
                     {
                         abort.store(true, std::memory_order_release);
                         break;
                     }
+
+                    on_a = !on_a;
                 }
 
                 warmup_ready.fetch_add(1u, std::memory_order_acq_rel);
-                while (!go.load(std::memory_order_acquire) &&
-                       !abort.load(std::memory_order_acquire))
+
+                while (
+                    !go.load(std::memory_order_acquire) &&
+                    !abort.load(std::memory_order_acquire)
+                )
                 {
                     std::this_thread::yield();
                 }
+
                 if (abort.load(std::memory_order_acquire)) return;
 
-                for (uint32_t i = 0u; i < MEASURED_CYCLES_PER_WORKER; ++i)
+                for (uint32_t i = 0u;
+                     i < MEASURED_CYCLES_PER_WORKER;
+                     ++i)
                 {
-                    const bool sample = (i & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u;
-                    if (!VectorCycle(backend, global_graph_mutex, child, &stats[worker], sample))
+                    const size_t destination =
+                        on_a ?
+                        RootBForGroup(group) :
+                        RootAForGroup(group);
+
+                    const bool sample =
+                        (i & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u;
+
+                    if (!VectorCycle(
+                            backend,
+                            global_graph_mutex,
+                            child,
+                            destination,
+                            &stats[worker],
+                            sample))
                     {
                         abort.store(true, std::memory_order_release);
                         return;
                     }
+
+                    on_a = !on_a;
                 }
             });
         }
 
         launch.arrive_and_wait();
-        while (warmup_ready.load(std::memory_order_acquire) != workers &&
-               !abort.load(std::memory_order_acquire))
+
+        while (
+            warmup_ready.load(std::memory_order_acquire) != workers &&
+            !abort.load(std::memory_order_acquire)
+        )
         {
             std::this_thread::yield();
         }
@@ -1838,32 +2557,55 @@ namespace Test02_ContentionSweep
 
         const auto begin = Clock::now();
         go.store(true, std::memory_order_release);
+
         for (auto& t : threads) t.join();
+
         const auto end = Clock::now();
 
         std::vector<uint64_t> cycle_latencies{};
         std::vector<uint64_t> mutex_wait_latencies{};
+
         for (auto& s : stats)
         {
             out.CompletedCycles += s.CompletedCycles;
-            cycle_latencies.insert(cycle_latencies.end(),
-                s.CycleLatencyNs.begin(), s.CycleLatencyNs.end());
-            mutex_wait_latencies.insert(mutex_wait_latencies.end(),
-                s.MutexWaitLatencyNs.begin(), s.MutexWaitLatencyNs.end());
+
+            cycle_latencies.insert(
+                cycle_latencies.end(),
+                s.CycleLatencyNs.begin(),
+                s.CycleLatencyNs.end()
+            );
+
+            mutex_wait_latencies.insert(
+                mutex_wait_latencies.end(),
+                s.MutexWaitLatencyNs.begin(),
+                s.MutexWaitLatencyNs.end()
+            );
         }
 
-        out.ElapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-        out.ThroughputCyclesPerSecond = out.ElapsedNs > 0
-            ? 1.0e9 * static_cast<double>(out.CompletedCycles) / static_cast<double>(out.ElapsedNs)
-            : 0.0;
+        out.ElapsedNs =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count();
+
+        out.ThroughputCyclesPerSecond =
+            out.ElapsedNs > 0 ?
+            1.0e9 * static_cast<double>(out.CompletedCycles) /
+                static_cast<double>(out.ElapsedNs) :
+            0.0;
+
         out.P99CycleLatencyNs = P99(cycle_latencies);
         out.P99MutexWaitLatencyNs = P99(mutex_wait_latencies);
-        out.TopologyOk = ValidateSharedSiblingTopology(backend);
+        out.TopologyOk = ValidateContentionTopology(backend, workers);
         out.LocksReleased = true;
         out.Aborted = abort.load(std::memory_order_acquire);
-        out.Ok = !out.Aborted &&
-            out.CompletedCycles == static_cast<uint64_t>(workers) * MEASURED_CYCLES_PER_WORKER &&
+
+        out.Ok =
+            !out.Aborted &&
+            out.CompletedCycles ==
+                static_cast<uint64_t>(workers) *
+                MEASURED_CYCLES_PER_WORKER &&
             out.TopologyOk;
+
         return out;
     }
 
@@ -1873,7 +2615,10 @@ namespace Test02_ContentionSweep
         out.Workers = workers;
 
         APCBackend backend{};
-        if (!BuildSharedSiblingTopology(backend) || !ValidateSharedSiblingTopology(backend))
+        if (
+            !BuildContentionTopology(backend, workers) ||
+            !ValidateContentionTopology(backend, workers)
+        )
         {
             return out;
         }
@@ -1884,7 +2629,11 @@ namespace Test02_ContentionSweep
         std::atomic<bool> abort{false};
         std::atomic<uint32_t> warmup_ready{0u};
         std::atomic<bool> go{false};
-        std::barrier launch(static_cast<std::ptrdiff_t>(workers + 1u));
+
+        std::barrier launch(
+            static_cast<std::ptrdiff_t>(workers + 1u)
+        );
+
         std::vector<std::thread> threads{};
         threads.reserve(workers);
 
@@ -1893,40 +2642,80 @@ namespace Test02_ContentionSweep
             threads.emplace_back([&, worker]
             {
                 const size_t child = ChildForWorker(worker);
+                const uint32_t group = GroupForWorker(worker);
+                bool on_a = true;
+
                 launch.arrive_and_wait();
 
-                for (uint32_t i = 0u; i < WARMUP_CYCLES_PER_WORKER; ++i)
+                for (uint32_t i = 0u;
+                     i < WARMUP_CYCLES_PER_WORKER;
+                     ++i)
                 {
-                    if (!APCCycle(backend, child, nullptr, false))
+                    const size_t destination =
+                        on_a ?
+                        RootBForGroup(group) :
+                        RootAForGroup(group);
+
+                    if (!APCCycle(
+                            backend,
+                            child,
+                            destination,
+                            nullptr,
+                            false))
                     {
                         abort.store(true, std::memory_order_release);
                         break;
                     }
+
+                    on_a = !on_a;
                 }
 
                 warmup_ready.fetch_add(1u, std::memory_order_acq_rel);
-                while (!go.load(std::memory_order_acquire) &&
-                       !abort.load(std::memory_order_acquire))
+
+                while (
+                    !go.load(std::memory_order_acquire) &&
+                    !abort.load(std::memory_order_acquire)
+                )
                 {
                     std::this_thread::yield();
                 }
+
                 if (abort.load(std::memory_order_acquire)) return;
 
-                for (uint32_t i = 0u; i < MEASURED_CYCLES_PER_WORKER; ++i)
+                for (uint32_t i = 0u;
+                     i < MEASURED_CYCLES_PER_WORKER;
+                     ++i)
                 {
-                    const bool sample = (i & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u;
-                    if (!APCCycle(backend, child, &stats[worker], sample))
+                    const size_t destination =
+                        on_a ?
+                        RootBForGroup(group) :
+                        RootAForGroup(group);
+
+                    const bool sample =
+                        (i & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u;
+
+                    if (!APCCycle(
+                            backend,
+                            child,
+                            destination,
+                            &stats[worker],
+                            sample))
                     {
                         abort.store(true, std::memory_order_release);
                         return;
                     }
+
+                    on_a = !on_a;
                 }
             });
         }
 
         launch.arrive_and_wait();
-        while (warmup_ready.load(std::memory_order_acquire) != workers &&
-               !abort.load(std::memory_order_acquire))
+
+        while (
+            warmup_ready.load(std::memory_order_acquire) != workers &&
+            !abort.load(std::memory_order_acquire)
+        )
         {
             std::this_thread::yield();
         }
@@ -1941,7 +2730,9 @@ namespace Test02_ContentionSweep
 
         const auto begin = Clock::now();
         go.store(true, std::memory_order_release);
+
         for (auto& t : threads) t.join();
+
         const auto end = Clock::now();
 
         std::vector<uint64_t> cycle_latencies{};
@@ -1950,72 +2741,100 @@ namespace Test02_ContentionSweep
         std::vector<uint64_t> retry_events_per_cycle{};
 
         uint64_t total_rejects = 0u;
-        uint64_t total_traversal_restarts = 0u;
         uint64_t total_retry_events = 0u;
 
         for (auto& s : stats)
         {
             out.CompletedCycles += s.CompletedCycles;
             total_rejects += s.MutationRejects;
-            total_traversal_restarts += s.TraversalRestarts;
             total_retry_events += s.RetryEvents;
 
-            cycle_latencies.insert(cycle_latencies.end(),
-                s.CycleLatencyNs.begin(), s.CycleLatencyNs.end());
-            retried_cycle_latencies.insert(retried_cycle_latencies.end(),
-                s.RetriedCycleLatencyNs.begin(), s.RetriedCycleLatencyNs.end());
-            failed_attempt_latencies.insert(failed_attempt_latencies.end(),
-                s.FailedMutationAttemptLatencyNs.begin(), s.FailedMutationAttemptLatencyNs.end());
-            retry_events_per_cycle.insert(retry_events_per_cycle.end(),
-                s.RetryEventsPerCycle.begin(), s.RetryEventsPerCycle.end());
+            cycle_latencies.insert(
+                cycle_latencies.end(),
+                s.CycleLatencyNs.begin(),
+                s.CycleLatencyNs.end()
+            );
+
+            retried_cycle_latencies.insert(
+                retried_cycle_latencies.end(),
+                s.RetriedCycleLatencyNs.begin(),
+                s.RetriedCycleLatencyNs.end()
+            );
+
+            failed_attempt_latencies.insert(
+                failed_attempt_latencies.end(),
+                s.FailedMutationAttemptLatencyNs.begin(),
+                s.FailedMutationAttemptLatencyNs.end()
+            );
+
+            retry_events_per_cycle.insert(
+                retry_events_per_cycle.end(),
+                s.RetryEventsPerCycle.begin(),
+                s.RetryEventsPerCycle.end()
+            );
         }
 
-        out.ElapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-        out.ThroughputCyclesPerSecond = out.ElapsedNs > 0
-            ? 1.0e9 * static_cast<double>(out.CompletedCycles) / static_cast<double>(out.ElapsedNs)
-            : 0.0;
+        out.ElapsedNs =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count();
+
+        out.ThroughputCyclesPerSecond =
+            out.ElapsedNs > 0 ?
+            1.0e9 * static_cast<double>(out.CompletedCycles) /
+                static_cast<double>(out.ElapsedNs) :
+            0.0;
 
         if (out.CompletedCycles != 0u)
         {
             out.MutationRejectsPer1000Cycles =
                 1000.0 * static_cast<double>(total_rejects) /
                 static_cast<double>(out.CompletedCycles);
-            out.TraversalRestartsPer1000Cycles =
-                1000.0 * static_cast<double>(total_traversal_restarts) /
-                static_cast<double>(out.CompletedCycles);
+
             out.RetryEventsPerCompletedCycle =
                 static_cast<double>(total_retry_events) /
                 static_cast<double>(out.CompletedCycles);
         }
 
         out.P99CycleLatencyNs = P99(cycle_latencies);
-        out.P99FailedMutationAttemptLatencyNs = P99(failed_attempt_latencies);
-        out.P99RetriedCycleLatencyNs = P99(retried_cycle_latencies);
-        out.P99RetryEventsPerCycle = P99(retry_events_per_cycle);
-        out.TopologyOk = ValidateSharedSiblingTopology(backend);
+        out.P99FailedMutationAttemptLatencyNs =
+            P99(failed_attempt_latencies);
+        out.P99RetriedCycleLatencyNs =
+            P99(retried_cycle_latencies);
+        out.P99RetryEventsPerCycle =
+            P99(retry_events_per_cycle);
+
+        out.TopologyOk = ValidateContentionTopology(backend, workers);
         out.LocksReleased = backend.LocksReleased();
         out.Aborted = abort.load(std::memory_order_acquire);
-        out.Ok = !out.Aborted &&
-            out.CompletedCycles == static_cast<uint64_t>(workers) * MEASURED_CYCLES_PER_WORKER &&
-            out.TopologyOk && out.LocksReleased;
+
+        out.Ok =
+            !out.Aborted &&
+            out.CompletedCycles ==
+                static_cast<uint64_t>(workers) *
+                MEASURED_CYCLES_PER_WORKER &&
+            out.TopologyOk &&
+            out.LocksReleased;
+
         return out;
     }
 
     bool MeasureLevel(uint32_t level, LevelResult& out)
     {
         const uint32_t workers = level + 1u;
+
         out.ContentionLevel = level;
         out.Workers = workers;
 
         std::array<double, MEASURED_RUNS> vector_tput{};
         std::array<double, MEASURED_RUNS> vector_p99_cycle{};
         std::array<double, MEASURED_RUNS> vector_p99_wait{};
+
         std::array<double, MEASURED_RUNS> apc_tput{};
         std::array<double, MEASURED_RUNS> apc_p99_cycle{};
         std::array<double, MEASURED_RUNS> apc_p99_failed{};
         std::array<double, MEASURED_RUNS> apc_p99_retried{};
         std::array<double, MEASURED_RUNS> apc_rejects{};
-        std::array<double, MEASURED_RUNS> apc_restarts{};
         std::array<double, MEASURED_RUNS> apc_retries{};
         std::array<double, MEASURED_RUNS> apc_p99_retries{};
 
@@ -2023,6 +2842,7 @@ namespace Test02_ContentionSweep
         {
             RunResult v{};
             RunResult a{};
+
             if ((run & 1u) == 0u)
             {
                 v = RunVectorOnce(workers);
@@ -2037,71 +2857,93 @@ namespace Test02_ContentionSweep
             if (!v.Ok || !a.Ok)
             {
                 std::cout
-                    << "  level " << level << " run " << (run + 1u)
-                    << " failed: vector=" << (v.Ok ? "PASS" : "FAIL")
-                    << " APC=" << (a.Ok ? "PASS" : "FAIL") << '\n'
-                    << "    APC aborted=" << (a.Aborted ? "yes" : "no")
-                    << " completed=" << a.CompletedCycles << '/'
-                    << static_cast<uint64_t>(workers) * MEASURED_CYCLES_PER_WORKER
-                    << " topology=" << (a.TopologyOk ? "PASS" : "FAIL")
-                    << " locks=" << (a.LocksReleased ? "PASS" : "FAIL") << '\n';
+                    << "  level " << level
+                    << " run " << run
+                    << " failed. vector="
+                    << (v.Ok ? "PASS" : "FAIL")
+                    << " APC="
+                    << (a.Ok ? "PASS" : "FAIL")
+                    << '\n';
                 return false;
             }
 
             vector_tput[run] = v.ThroughputCyclesPerSecond;
-            vector_p99_cycle[run] = static_cast<double>(v.P99CycleLatencyNs);
-            vector_p99_wait[run] = static_cast<double>(v.P99MutexWaitLatencyNs);
+            vector_p99_cycle[run] =
+                static_cast<double>(v.P99CycleLatencyNs);
+            vector_p99_wait[run] =
+                static_cast<double>(v.P99MutexWaitLatencyNs);
+
             apc_tput[run] = a.ThroughputCyclesPerSecond;
-            apc_p99_cycle[run] = static_cast<double>(a.P99CycleLatencyNs);
-            apc_p99_failed[run] = static_cast<double>(a.P99FailedMutationAttemptLatencyNs);
-            apc_p99_retried[run] = static_cast<double>(a.P99RetriedCycleLatencyNs);
+            apc_p99_cycle[run] =
+                static_cast<double>(a.P99CycleLatencyNs);
+            apc_p99_failed[run] =
+                static_cast<double>(a.P99FailedMutationAttemptLatencyNs);
+            apc_p99_retried[run] =
+                static_cast<double>(a.P99RetriedCycleLatencyNs);
             apc_rejects[run] = a.MutationRejectsPer1000Cycles;
-            apc_restarts[run] = a.TraversalRestartsPer1000Cycles;
             apc_retries[run] = a.RetryEventsPerCompletedCycle;
-            apc_p99_retries[run] = static_cast<double>(a.P99RetryEventsPerCycle);
+            apc_p99_retries[run] =
+                static_cast<double>(a.P99RetryEventsPerCycle);
         }
 
         out.VectorThroughput = Median(vector_tput);
         out.VectorP99CycleNs = Median(vector_p99_cycle);
         out.VectorP99MutexWaitNs = Median(vector_p99_wait);
+
         out.APCThroughput = Median(apc_tput);
         out.APCP99CycleNs = Median(apc_p99_cycle);
         out.APCP99FailedAttemptNs = Median(apc_p99_failed);
         out.APCP99RetriedCycleNs = Median(apc_p99_retried);
         out.APCRejectsPer1000 = Median(apc_rejects);
-        out.APCTraversalRestartsPer1000 = Median(apc_restarts);
         out.APCRetryEventsPerCycle = Median(apc_retries);
         out.APCP99RetryEventsPerCycle = Median(apc_p99_retries);
+
         out.Ok = true;
         return true;
     }
 
     inline Result Run()
     {
-        Banner("TEST 2 - GLOBAL-MUTEX VECTOR vs APC/FABRIC CONTENTION SWEEP");
+        Banner(
+            "TEST 2 - GLOBAL-MUTEX VECTOR vs APC/FABRIC COMPOUND CONTENTION SWEEP"
+        );
+
         std::cout
-            << "4 independent H roots. Workers map round-robin to roots.\n"
-            << "vector: every graph primitive/traversal under ONE global std::mutex\n"
-            << "APC: no external graph lock; public-call max_tries="
-            << APC_INTERNAL_TRIES_PER_PUBLIC_CALL << "\n"
-            << "Workers 1-4 occupy separate roots; same-root contention starts at worker 5.\n"
-            << "Sweep: " << (MIN_CONTENTION_LEVEL + 1u) << ".."
-            << (MAX_CONTENTION_LEVEL + 1u) << " workers\n\n";
+            << "4 independent contention groups; each group has TWO H roots.\n"
+            << "Each worker owns one child and alternates it root-A <-> root-B.\n"
+            << "vector: one global std::mutex covers the COMPLETE logical move.\n"
+            << "APC: one compound DetachAndReAttachMeToThisParent-equivalent call; "
+               "no external graph lock.\n"
+            << "APC compound-call max_tries="
+            << APC_INTERNAL_TRIES_PER_COMPOUND_CALL << ".\n"
+            << "Workers 1-4 occupy separate root-pairs; same-group contention "
+               "starts at worker 5.\n"
+            << "Sweep: " << (MIN_CONTENTION_LEVEL + 1u)
+            << ".." << (MAX_CONTENTION_LEVEL + 1u)
+            << " workers.\n\n";
 
         std::array<LevelResult, MAX_CONTENTION_LEVEL + 1u> levels{};
 
         std::cout
             << "level workers | vector Mc/s p99cycle(us) p99mutex(us) | "
             << "APC Mc/s p99cycle(us) p99retry(us) rejects/1k retries/cycle APC/vector\n";
+
         Divider();
 
-        for (uint32_t level = MIN_CONTENTION_LEVEL; level <= MAX_CONTENTION_LEVEL; ++level)
+        for (
+            uint32_t level = MIN_CONTENTION_LEVEL;
+            level <= MAX_CONTENTION_LEVEL;
+            ++level
+        )
         {
             LevelResult r{};
             if (!MeasureLevel(level, r)) return Result::FAIL;
+
             levels[level] = r;
 
-            const double ratio = Ratio(r.APCThroughput, r.VectorThroughput);
+            const double ratio =
+                Ratio(r.APCThroughput, r.VectorThroughput);
+
             std::cout
                 << std::setw(5) << level << ' '
                 << std::setw(7) << r.Workers << " | "
@@ -2112,250 +2954,268 @@ namespace Test02_ContentionSweep
                 << std::setw(8) << r.APCThroughput / 1.0e6 << ' '
                 << std::setw(12) << NsToUs(r.APCP99CycleNs) << ' '
                 << std::setw(12) << NsToUs(r.APCP99RetriedCycleNs) << ' '
-                << std::setw(11) << std::setprecision(2) << r.APCRejectsPer1000 << ' '
-                << std::setw(13) << std::setprecision(3) << r.APCRetryEventsPerCycle << ' '
+                << std::setw(11) << std::setprecision(2)
+                << r.APCRejectsPer1000 << ' '
+                << std::setw(13) << std::setprecision(3)
+                << r.APCRetryEventsPerCycle << ' '
                 << std::setw(9) << ratio << "x\n";
         }
 
         std::cout
-            << "\nAPC RETRY DIAGNOSTICS\n"
-            << "level workers | p99 failed attempt(us) | p99 retry events/cycle | traversal restarts/1k\n";
+            << "\nAPC WHOLE-TRANSACTION RETRY DIAGNOSTICS\n"
+            << "level workers | p99 failed compound(us) | "
+               "p99 retry events/cycle\n";
+
         Divider();
+
         for (const auto& r : levels)
         {
             std::cout
                 << std::setw(5) << r.ContentionLevel << ' '
                 << std::setw(7) << r.Workers << " | "
-                << std::setw(22) << std::fixed << std::setprecision(3)
+                << std::setw(23) << std::fixed << std::setprecision(3)
                 << NsToUs(r.APCP99FailedAttemptNs) << " | "
                 << std::setw(22) << std::setprecision(1)
-                << r.APCP99RetryEventsPerCycle << " | "
-                << std::setw(21) << std::setprecision(2)
-                << r.APCTraversalRestartsPer1000 << '\n';
+                << r.APCP99RetryEventsPerCycle << '\n';
         }
 
-        const auto& low = levels[MIN_CONTENTION_LEVEL];
-        const auto& high = levels[MAX_CONTENTION_LEVEL];
-        const double low_ratio = Ratio(low.APCThroughput, low.VectorThroughput);
-        const double high_ratio = Ratio(high.APCThroughput, high.VectorThroughput);
+        const LevelResult& low = levels[MIN_CONTENTION_LEVEL];
+        const LevelResult& high = levels[MAX_CONTENTION_LEVEL];
+
+        const double low_ratio =
+            Ratio(low.APCThroughput, low.VectorThroughput);
+        const double high_ratio =
+            Ratio(high.APCThroughput, high.VectorThroughput);
+
+        const bool final_ok =
+            low.Ok &&
+            high.Ok &&
+            low.VectorThroughput > 0.0 &&
+            high.VectorThroughput > 0.0 &&
+            low.APCThroughput > 0.0 &&
+            high.APCThroughput > 0.0;
 
         std::cout
             << "\nCORE-BET SIGNAL\n"
             << "  uncontended APC/vector throughput ratio : "
-            << std::fixed << std::setprecision(3) << low_ratio << "x\n"
-            << "  max-contention APC/vector ratio         : " << high_ratio << "x\n"
-            << "  ratio recovery level " << MIN_CONTENTION_LEVEL << " -> "
-            << MAX_CONTENTION_LEVEL << "           : "
+            << low_ratio << "x\n"
+            << "  max-contention APC/vector ratio         : "
+            << high_ratio << "x\n"
+            << "  ratio recovery level 0 -> 19           : "
             << Ratio(high_ratio, low_ratio) << "x\n"
             << "  APC max-contention p99 cycle            : "
             << NsToUs(high.APCP99CycleNs) << " us\n"
             << "  APC max-contention p99 retry-cycle      : "
             << NsToUs(high.APCP99RetriedCycleNs) << " us\n"
-            << "  APC max-contention rejects/1000 cycles  : "
-            << high.APCRejectsPer1000 << "\n"
-            << "\nTEST 2 OVERALL: PASS\n";
+            << "  APC max-contention rejects/1000 moves   : "
+            << high.APCRejectsPer1000 << '\n';
 
-        return Result::PASS;
+        std::cout
+            << "\nTEST 2 OVERALL: "
+            << (final_ok ? "PASS" : "FAIL")
+            << '\n';
+
+        return final_ok ? Result::PASS : Result::FAIL;
     }
-}
 
+} // namespace Test02_ContentionSweep
 
-
+// ============================================================================
+// TEST 3
+// Public reader snapshot / compound writer race.
+//
+// The writer never performs public Detach() followed later by public Attach().
+// It alternates one child between two H roots with ONE compound move.
+// This removes the old intentionally-visible detached phase from the workload.
+// ============================================================================
 namespace Test03_ReaderWriterTraversal
 {
     using namespace TestKit;
 
-    constexpr size_t OWNER = 0u;
-    constexpr size_t CHILD = 1u;
-    constexpr size_t NODE_COUNT = 2u;
+    constexpr size_t PARENT_A = 0u;
+    constexpr size_t PARENT_B = 1u;
+    constexpr size_t CHILD = 2u;
+    constexpr size_t NODE_COUNT = 3u;
 
-    // 50,000 FindMyNext +
-    // 50,000 FindPrevious
-    // = 100,000 public traversal calls PER READER.
-    constexpr uint64_t CALL_PAIRS_PER_READER = 50'000u;
-    constexpr uint64_t MIN_PUBLIC_CALLS = 10'000u;
+    constexpr uint32_t CALL_PAIRS_PER_READER = 50'000u;
+    constexpr uint64_t MIN_PUBLIC_CALLS_PER_READER =
+        static_cast<uint64_t>(CALL_PAIRS_PER_READER) * 2u;
 
     constexpr std::array<uint32_t, 5u> READER_COUNTS{
         1u, 2u, 4u, 8u, 16u
     };
 
+    using VectorBackend = VectorGraphBackend<NODE_COUNT, 0u, false>;
     using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
-
-    struct ApiStats
-    {
-        uint64_t Calls = 0u;
-
-        // before == after, both valid + unlocked
-        uint64_t StableWindows = 0u;
-
-        // both endpoints unlocked, but sequence changed.
-        //
-        // This is the important race-coverage counter.
-        uint64_t CompletedMutationWindows = 0u;
-
-        // One/both endpoint samples were locked.
-        uint64_t BoundaryUnstableWindows = 0u;
-
-        uint64_t StableAttached = 0u;
-        uint64_t StableDetached = 0u;
-
-        // Public result disagreed with metadata while the source sequence
-        // remained unchanged across both the public call and oracle read.
-        uint64_t StableContractFailures = 0u;
-
-        // STRICT SNAPSHOT FAILURE:
-        //
-        // Public function returned a usable pointer although an entire
-        // sequence change was observed across the public call.
-        uint64_t AcceptedAcrossMutation = 0u;
-
-        // Public function produced some non-null pointer other than the
-        // only legal target in this topology.
-        uint64_t WrongPointerFailures = 0u;
-
-        // The raw relationship word contained neither the legal target
-        // nor FABRIC_CELL_SENTINAL while protected by a stable sequence.
-        uint64_t OracleStructuralFailures = 0u;
-
-        // Raw oracle read itself failed.
-        uint64_t OracleReadFailures = 0u;
-
-        // Graph mutation state could not be decoded/read.
-        uint64_t VersionReadFailures = 0u;
-
-        // Public call was stable, but mutation started while subsequently
-        // collecting the raw oracle. This is NOT a public-read failure.
-        uint64_t OracleRacedWindows = 0u;
-    };
-
-    struct ReaderStats
-    {
-        ApiStats FindNext{};
-        ApiStats FindPrevious{};
-    };
-
-    struct RunStats
-    {
-        bool Ok = false;
-
-        uint32_t Readers = 0u;
-
-        uint64_t WriterCycles = 0u;
-        uint64_t WriterFailures = 0u;
-
-        ReaderStats ReadersTotal{};
-
-        bool EnoughCalls = false;
-        bool HadMutationCoverage = false;
-
-        bool FinalTopologyOk = false;
-        bool LocksReleased = false;
-    };
-
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
         RootPlan<NODE_COUNT> roots{};
-        roots.Horizontal[OWNER] = true;
+        roots.Horizontal[PARENT_A] = true;
+        roots.Horizontal[PARENT_B] = true;
         return roots;
     }
 
+    template <typename Backend>
+    bool BuildScenario(Backend& backend)
+    {
+        return
+            backend.Initialize(MakeRootPlan()) &&
+            backend.Attach(
+                PARENT_A,
+                CHILD,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            );
+    }
+
+    template <typename Backend>
+    bool ValidateTwoParentTopology(Backend& backend)
+    {
+        auto parent_a = backend.HandleAt(PARENT_A);
+        auto parent_b = backend.HandleAt(PARENT_B);
+        auto child = backend.HandleAt(CHILD);
+
+        if (!parent_a || !parent_b || !child) return false;
+
+        auto a_child = backend.FindNext(
+            parent_a,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+
+        auto b_child = backend.FindNext(
+            parent_b,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+
+        const bool on_a =
+            a_child == child &&
+            b_child == nullptr;
+
+        const bool on_b =
+            b_child == child &&
+            a_child == nullptr;
+
+        if (!on_a && !on_b) return false;
+
+        if (backend.FindNext(
+                child,
+                Axis::HORIZONTAL,
+                Inheritance::LINKED_CHILD) != nullptr)
+        {
+            return false;
+        }
+
+        const auto previous =
+            backend.FindPrevious(child, Axis::HORIZONTAL);
+
+        if (on_a && previous != parent_a) return false;
+        if (on_b && previous != parent_b) return false;
+
+        return backend.LocksReleased();
+    }
+
+    struct ApiStats
+    {
+        uint64_t Calls = 0u;
+        uint64_t StableValidated = 0u;
+        uint64_t StableNull = 0u;
+        uint64_t StableNonNull = 0u;
+        uint64_t CompletedMutationWindows = 0u;
+        uint64_t BoundaryUnstableWindows = 0u;
+        uint64_t OracleRacedWindows = 0u;
+
+        uint64_t WrongPointerFailures = 0u;
+        uint64_t StableContractFailures = 0u;
+        uint64_t OracleStructuralFailures = 0u;
+        uint64_t OracleReadFailures = 0u;
+        uint64_t VersionReadFailures = 0u;
+    };
+
+    struct ReaderStats
+    {
+        ApiStats FindNextParentA{};
+        ApiStats FindPreviousChild{};
+    };
 
     static void Add(ApiStats& dst, const ApiStats& src) noexcept
     {
         dst.Calls += src.Calls;
-
-        dst.StableWindows += src.StableWindows;
+        dst.StableValidated += src.StableValidated;
+        dst.StableNull += src.StableNull;
+        dst.StableNonNull += src.StableNonNull;
         dst.CompletedMutationWindows += src.CompletedMutationWindows;
         dst.BoundaryUnstableWindows += src.BoundaryUnstableWindows;
-
-        dst.StableAttached += src.StableAttached;
-        dst.StableDetached += src.StableDetached;
-
-        dst.StableContractFailures += src.StableContractFailures;
-        dst.AcceptedAcrossMutation += src.AcceptedAcrossMutation;
+        dst.OracleRacedWindows += src.OracleRacedWindows;
 
         dst.WrongPointerFailures += src.WrongPointerFailures;
-
+        dst.StableContractFailures += src.StableContractFailures;
         dst.OracleStructuralFailures += src.OracleStructuralFailures;
         dst.OracleReadFailures += src.OracleReadFailures;
         dst.VersionReadFailures += src.VersionReadFailures;
-        dst.OracleRacedWindows += src.OracleRacedWindows;
     }
-
 
     static void Add(ReaderStats& dst, const ReaderStats& src) noexcept
     {
-        Add(dst.FindNext, src.FindNext);
-        Add(dst.FindPrevious, src.FindPrevious);
+        Add(dst.FindNextParentA, src.FindNextParentA);
+        Add(dst.FindPreviousChild, src.FindPreviousChild);
     }
 
-
-    static uint64_t HardFailures(
-        const ApiStats& s
-    ) noexcept
+    static uint64_t HardFailures(const ApiStats& s) noexcept
     {
         return
-            s.StableContractFailures +
             s.WrongPointerFailures +
+            s.StableContractFailures +
             s.OracleStructuralFailures +
             s.OracleReadFailures +
             s.VersionReadFailures;
     }
 
+    static uint64_t HardFailures(const ReaderStats& s) noexcept
+    {
+        return
+            HardFailures(s.FindNextParentA) +
+            HardFailures(s.FindPreviousChild);
+    }
 
     static uint64_t TotalCalls(const ReaderStats& s) noexcept
     {
         return
-            s.FindNext.Calls +
-            s.FindPrevious.Calls;
+            s.FindNextParentA.Calls +
+            s.FindPreviousChild.Calls;
     }
 
-
-    static uint64_t TotalCompletedMutationWindows(
-        const ReaderStats& s
-    ) noexcept
+    static uint64_t MutationWindows(const ReaderStats& s) noexcept
     {
         return
-            s.FindNext.CompletedMutationWindows +
-            s.FindPrevious.CompletedMutationWindows;
+            s.FindNextParentA.CompletedMutationWindows +
+            s.FindPreviousChild.CompletedMutationWindows;
     }
 
-
-    static uint64_t TotalHardFailures(
-        const ReaderStats& s
-    ) noexcept
+    static uint64_t RaceCoverageWindows(const ReaderStats& s) noexcept
     {
         return
-            HardFailures(s.FindNext) +
-            HardFailures(s.FindPrevious);
+            s.FindNextParentA.CompletedMutationWindows +
+            s.FindNextParentA.BoundaryUnstableWindows +
+            s.FindNextParentA.OracleRacedWindows +
+            s.FindPreviousChild.CompletedMutationWindows +
+            s.FindPreviousChild.BoundaryUnstableWindows +
+            s.FindPreviousChild.OracleRacedWindows;
     }
-
-
-    // ------------------------------------------------------------------------
-    // One public traversal call.
-    //
-    // IMPORTANT:
-    //
-    // The public function is surrounded ONLY by version reads of the
-    // APC whose relationship word that public function actually reads.
-    //
-    // FindMyNext(owner)   -> OWNER version
-    // FindPrevious(child) -> CHILD version
-    //
-    // We DO NOT bracket both APCs around both public calls like the old test.
-    // ------------------------------------------------------------------------
 
     template <typename PublicCall>
-    static void ExercisePublicRead(
+    static void ExerciseAPCRead(
         APCBackend& backend,
         size_t source_node,
         HeaderIdentifierOfAPC relationship_field,
-        APCBackend::Handle legal_attached_handle,
-        uint32_t legal_attached_slot,
+        APCBackend::Handle legal_handle_1,
+        uint32_t legal_slot_1,
+        APCBackend::Handle legal_handle_2,
+        uint32_t legal_slot_2,
         PublicCall&& public_call,
-        ApiStats& stats
-    ) noexcept
+        ApiStats& stats) noexcept
     {
         const AxisVersion before =
             ReadAxisVersion(
@@ -2364,14 +3224,7 @@ namespace Test03_ReaderWriterTraversal
                 Axis::HORIZONTAL
             );
 
-        // ================================================================
-        // ACTUAL API UNDER TEST
-        // ================================================================
-
-        APCBackend::Handle observed =
-            public_call();
-
-        // ================================================================
+        APCBackend::Handle observed = public_call();
 
         const AxisVersion after =
             ReadAxisVersion(
@@ -2382,50 +3235,20 @@ namespace Test03_ReaderWriterTraversal
 
         ++stats.Calls;
 
-
-        // ------------------------------------------------------------
-        // This is always a real failure.
-        //
-        // nullptr is legal.
-        // legal_attached_handle is legal.
-        // Anything else is impossible in this test topology.
-        // ------------------------------------------------------------
-
         if (
             observed != nullptr &&
-            observed != legal_attached_handle
+            observed != legal_handle_1 &&
+            observed != legal_handle_2
         )
         {
             ++stats.WrongPointerFailures;
         }
-
-
-        // ------------------------------------------------------------
-        // Graph-state read itself should remain valid.
-        // ------------------------------------------------------------
 
         if (!before.Valid || !after.Valid)
         {
             ++stats.VersionReadFailures;
             return;
         }
-
-
-        // ------------------------------------------------------------
-        // CASE 1:
-        //
-        // Entire completed mutation observed across the public call:
-        //
-        //       unlocked sequence X
-        //            CALL
-        //       unlocked sequence Y
-        //
-        // X != Y
-        //
-        // DO NOT DISCARD THIS WINDOW.
-        //
-        // This is exactly the kind of window the previous test threw away.
-        // ------------------------------------------------------------
 
         if (
             !before.Locked &&
@@ -2434,32 +3257,7 @@ namespace Test03_ReaderWriterTraversal
         )
         {
             ++stats.CompletedMutationWindows;
-
-            // Strict seqlock/snapshot contract:
-            //
-            // if the sequence crossed a complete mutation, the public
-            // reader must not silently publish a usable relationship.
-            //
-            // The safe current return representation is nullptr.
-            if (observed != nullptr)
-            {
-                ++stats.AcceptedAcrossMutation;
-            }
-
-            return;
         }
-
-
-        // ------------------------------------------------------------
-        // CASE 2:
-        //
-        // We sampled a lock boundary.
-        //
-        // This is useful race coverage, but we cannot classify the public
-        // result against one stable topology from outside the function.
-        //
-        // Record it. Do not call it correctness failure.
-        // ------------------------------------------------------------
 
         if (!SameStableVersion(before, after))
         {
@@ -2467,28 +3265,12 @@ namespace Test03_ReaderWriterTraversal
             return;
         }
 
+        uint64_t raw_relationship = FABRIC_CELL_SENTINAL;
 
-        // ------------------------------------------------------------
-        // CASE 3:
-        //
-        // Public call was surrounded by one stable source sequence.
-        //
-        // Now validate its result against the raw relationship field.
-        //
-        // We must ALSO ensure the oracle read remained in that same
-        // stable sequence.
-        // ------------------------------------------------------------
-
-        uint64_t raw_relationship =
-            FABRIC_CELL_SENTINAL;
-
-        if (
-            !backend.ReadMeta(
+        if (!backend.ReadMeta(
                 source_node,
                 relationship_field,
-                raw_relationship
-            )
-        )
+                raw_relationship))
         {
             ++stats.OracleReadFailures;
             return;
@@ -2501,572 +3283,1214 @@ namespace Test03_ReaderWriterTraversal
                 Axis::HORIZONTAL
             );
 
-
-        // A mutation began after the public call but while collecting
-        // the oracle.
-        //
-        // Do not blame the public reader for this.
         if (!SameStableVersion(after, oracle_after))
         {
             ++stats.OracleRacedWindows;
             return;
         }
 
-
-        ++stats.StableWindows;
-
-
-        // ------------------------------------------------------------
-        // Stable ATTACHED topology.
-        // ------------------------------------------------------------
-
-        if (raw_relationship == legal_attached_slot)
-        {
-            ++stats.StableAttached;
-
-            if (observed != legal_attached_handle)
-            {
-                ++stats.StableContractFailures;
-            }
-
-            return;
-        }
-
-
-        // ------------------------------------------------------------
-        // Stable DETACHED topology.
-        // ------------------------------------------------------------
+        APCBackend::Handle expected = nullptr;
 
         if (raw_relationship == FABRIC_CELL_SENTINAL)
         {
-            ++stats.StableDetached;
-
-            if (observed != nullptr)
-            {
-                ++stats.StableContractFailures;
-            }
-
+            expected = nullptr;
+        }
+        else if (raw_relationship == legal_slot_1)
+        {
+            expected = legal_handle_1;
+        }
+        else if (raw_relationship == legal_slot_2)
+        {
+            expected = legal_handle_2;
+        }
+        else
+        {
+            ++stats.OracleStructuralFailures;
             return;
         }
 
+        ++stats.StableValidated;
 
-        // ------------------------------------------------------------
-        // Stable sequence but impossible relationship value.
-        //
-        // This is a write-side / metadata structural problem, not merely
-        // a public-reader disagreement.
-        // ------------------------------------------------------------
+        if (expected)
+        {
+            ++stats.StableNonNull;
+        }
+        else
+        {
+            ++stats.StableNull;
+        }
 
-        ++stats.OracleStructuralFailures;
+        if (observed != expected)
+        {
+            ++stats.StableContractFailures;
+        }
     }
 
+    struct RunStats
+    {
+        bool Ok = false;
+        bool EnoughCalls = false;
+        bool HadMutationCoverage = false;
+        bool FinalTopologyOk = false;
+        bool LocksReleased = false;
 
-    static RunStats RunOnce(uint32_t reader_count)
+        uint32_t Readers = 0u;
+        uint64_t WriterCycles = 0u;
+        uint64_t WriterFailures = 0u;
+        uint64_t TotalPublicCalls = 0u;
+        int64_t ElapsedNs = 0;
+
+        ReaderStats ReadersTotal{};
+
+        double MillionCallsPerSecond() const noexcept
+        {
+            return ElapsedNs <= 0 ?
+                0.0 :
+                (1.0e3 * static_cast<double>(TotalPublicCalls)) /
+                    static_cast<double>(ElapsedNs);
+        }
+    };
+
+    RunStats RunVectorOnce(uint32_t reader_count)
+    {
+        RunStats out{};
+        out.Readers = reader_count;
+
+        VectorBackend backend{};
+        if (!BuildScenario(backend)) return out;
+
+        std::mutex graph_mutex{};
+        std::atomic<bool> start{false};
+        std::atomic<uint32_t> readers_done{0u};
+        std::atomic<uint64_t> writer_cycles{0u};
+        std::atomic<uint64_t> writer_failures{0u};
+        std::atomic<uint64_t> reader_failures{0u};
+
+        std::vector<std::thread> readers{};
+        readers.reserve(reader_count);
+
+        const auto begin = Clock::now();
+
+        for (uint32_t reader = 0u; reader < reader_count; ++reader)
+        {
+            readers.emplace_back([&, reader]
+            {
+                while (!start.load(std::memory_order_acquire))
+                {
+                    std::this_thread::yield();
+                }
+
+                for (uint32_t i = 0u; i < CALL_PAIRS_PER_READER; ++i)
+                {
+                    {
+                        std::lock_guard<std::mutex> lock(graph_mutex);
+
+                        auto observed = backend.FindNext(
+                            backend.HandleAt(PARENT_A),
+                            Axis::HORIZONTAL,
+                            Inheritance::FIRST_CHILD
+                        );
+
+                        if (
+                            observed != nullptr &&
+                            observed != backend.HandleAt(CHILD)
+                        )
+                        {
+                            reader_failures.fetch_add(
+                                1u,
+                                std::memory_order_relaxed
+                            );
+                        }
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lock(graph_mutex);
+
+                        auto observed = backend.FindPrevious(
+                            backend.HandleAt(CHILD),
+                            Axis::HORIZONTAL
+                        );
+
+                        if (
+                            observed != backend.HandleAt(PARENT_A) &&
+                            observed != backend.HandleAt(PARENT_B)
+                        )
+                        {
+                            reader_failures.fetch_add(
+                                1u,
+                                std::memory_order_relaxed
+                            );
+                        }
+                    }
+
+                    PerturbSchedule(
+                        static_cast<uint64_t>(i) + reader
+                    );
+                }
+
+                readers_done.fetch_add(1u, std::memory_order_release);
+            });
+        }
+
+        std::thread writer([&]
+        {
+            while (!start.load(std::memory_order_acquire))
+            {
+                std::this_thread::yield();
+            }
+
+            bool on_a = true;
+            uint64_t cycle = 0u;
+
+            while (
+                readers_done.load(std::memory_order_acquire) != reader_count
+            )
+            {
+                const size_t destination =
+                    on_a ? PARENT_B : PARENT_A;
+
+                bool ok = false;
+
+                {
+                    std::lock_guard<std::mutex> lock(graph_mutex);
+
+                    ok = backend.DetachAndReAttachToParent(
+                        CHILD,
+                        destination,
+                        Axis::HORIZONTAL
+                    );
+                }
+
+                if (!ok)
+                {
+                    writer_failures.fetch_add(
+                        1u,
+                        std::memory_order_relaxed
+                    );
+                    break;
+                }
+
+                on_a = !on_a;
+
+                writer_cycles.fetch_add(
+                    1u,
+                    std::memory_order_relaxed
+                );
+
+                PerturbSchedule(cycle++);
+            }
+        });
+
+        start.store(true, std::memory_order_release);
+
+        for (auto& reader : readers) reader.join();
+        writer.join();
+
+        const auto end = Clock::now();
+
+        out.TotalPublicCalls =
+            static_cast<uint64_t>(reader_count) *
+            MIN_PUBLIC_CALLS_PER_READER;
+
+        out.WriterCycles =
+            writer_cycles.load(std::memory_order_acquire);
+
+        out.WriterFailures =
+            writer_failures.load(std::memory_order_acquire);
+
+        out.ElapsedNs =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count();
+
+        {
+            std::lock_guard<std::mutex> lock(graph_mutex);
+            out.FinalTopologyOk = ValidateTwoParentTopology(backend);
+        }
+
+        out.EnoughCalls =
+            out.TotalPublicCalls >=
+            static_cast<uint64_t>(reader_count) *
+                MIN_PUBLIC_CALLS_PER_READER;
+
+        out.HadMutationCoverage = out.WriterCycles != 0u;
+        out.LocksReleased = true;
+
+        out.Ok =
+            out.EnoughCalls &&
+            out.HadMutationCoverage &&
+            out.WriterFailures == 0u &&
+            reader_failures.load(std::memory_order_acquire) == 0u &&
+            out.FinalTopologyOk;
+
+        return out;
+    }
+
+    RunStats RunAPCOnce(uint32_t reader_count)
     {
         RunStats out{};
         out.Readers = reader_count;
 
         APCBackend backend{};
-
-        if (
-            !backend.Initialize(MakeRootPlan()) ||
-            !backend.Attach(
-                OWNER,
-                CHILD,
-                Axis::HORIZONTAL,
-                Inheritance::FIRST_CHILD
-            )
-        )
-        {
-            return out;
-        }
-
-
-        const auto owner_handle =
-            backend.HandleAt(OWNER);
-
-        const auto child_handle =
-            backend.HandleAt(CHILD);
-
-        const uint32_t owner_slot =
-            backend.SlotOf(OWNER);
-
-        const uint32_t child_slot =
-            backend.SlotOf(CHILD);
-
-        const auto map =
-            InstallAxisToBuffer::ConstructAxisMap(
-                Axis::HORIZONTAL
-            );
-
+        if (!BuildScenario(backend)) return out;
 
         std::atomic<bool> start{false};
-
         std::atomic<uint32_t> readers_done{0u};
-
         std::atomic<uint64_t> writer_cycles{0u};
         std::atomic<uint64_t> writer_failures{0u};
 
-
-        std::vector<ReaderStats> reader_stats(
-            reader_count
-        );
-
+        std::vector<ReaderStats> reader_stats(reader_count);
         std::vector<std::thread> readers{};
         readers.reserve(reader_count);
 
+        const uint32_t child_slot = backend.SlotOf(CHILD);
+        const uint32_t parent_a_slot = backend.SlotOf(PARENT_A);
+        const uint32_t parent_b_slot = backend.SlotOf(PARENT_B);
 
-        // ================================================================
-        // READERS
-        // ================================================================
+        const auto begin = Clock::now();
 
-        for (
-            uint32_t reader = 0u;
-            reader < reader_count;
-            ++reader
-        )
+        for (uint32_t reader = 0u; reader < reader_count; ++reader)
         {
-            readers.emplace_back(
-                [&, reader]
-                {
-                    ReaderStats local{};
-
-                    while (
-                        !start.load(
-                            std::memory_order_acquire
-                        )
-                    )
-                    {
-                        std::this_thread::yield();
-                    }
-
-
-                    for (
-                        uint64_t call_pair = 0u;
-                        call_pair < CALL_PAIRS_PER_READER;
-                        ++call_pair
-                    )
-                    {
-                        // ------------------------------------------------
-                        // FindMyNext:
-                        //
-                        // source relationship belongs to OWNER.
-                        // ------------------------------------------------
-
-                        ExercisePublicRead(
-                            backend,
-                            OWNER,
-                            map.RootOwnedChild,
-                            child_handle,
-                            child_slot,
-
-                            [&]() noexcept
-                                -> APCBackend::Handle
-                            {
-                                return backend.FindNext(
-                                    owner_handle,
-                                    Axis::HORIZONTAL,
-                                    Inheritance::FIRST_CHILD
-                                );
-                            },
-
-                            local.FindNext
-                        );
-
-
-                        // ------------------------------------------------
-                        // FindPrevious:
-                        //
-                        // source relationship belongs to CHILD.
-                        // ------------------------------------------------
-
-                        ExercisePublicRead(
-                            backend,
-                            CHILD,
-                            map.PreviousSibling,
-                            owner_handle,
-                            owner_slot,
-
-                            [&]() noexcept
-                                -> APCBackend::Handle
-                            {
-                                return backend.FindPrevious(
-                                    child_handle,
-                                    Axis::HORIZONTAL
-                                );
-                            },
-
-                            local.FindPrevious
-                        );
-
-
-                        PerturbSchedule(
-                            call_pair +
-                            static_cast<uint64_t>(reader)
-                        );
-                    }
-
-
-                    reader_stats[reader] = local;
-
-                    readers_done.fetch_add(
-                        1u,
-                        std::memory_order_release
-                    );
-                }
-            );
-        }
-
-
-        // ================================================================
-        // WRITER
-        //
-        // Writer does NOT stop after some arbitrary fixed number of cycles.
-        //
-        // It keeps mutating while readers are actually executing their
-        // fixed call count. This avoids the old problem where readers could
-        // spend a large portion of the test running after mutation stopped.
-        // ================================================================
-
-        std::thread writer(
-            [&]
+            readers.emplace_back([&, reader]
             {
-                while (
-                    !start.load(
-                        std::memory_order_acquire
-                    )
-                )
+                while (!start.load(std::memory_order_acquire))
                 {
                     std::this_thread::yield();
                 }
 
+                ReaderStats local{};
 
-                uint64_t cycle = 0u;
-
-                while (
-                    readers_done.load(
-                        std::memory_order_acquire
-                    ) != reader_count
+                for (
+                    uint32_t call_pair = 0u;
+                    call_pair < CALL_PAIRS_PER_READER;
+                    ++call_pair
                 )
                 {
-                    if (
-                        !backend.Detach(
-                            CHILD,
-                            Axis::HORIZONTAL
-                        )
-                    )
-                    {
-                        writer_failures.fetch_add(
-                            1u,
-                            std::memory_order_relaxed
-                        );
-                        break;
-                    }
+                    ExerciseAPCRead(
+                        backend,
+                        PARENT_A,
+                        HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT,
+                        backend.HandleAt(CHILD),
+                        child_slot,
+                        nullptr,
+                        APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                        [&]() noexcept
+                        {
+                            return backend.FindNext(
+                                backend.HandleAt(PARENT_A),
+                                Axis::HORIZONTAL,
+                                Inheritance::FIRST_CHILD
+                            );
+                        },
+                        local.FindNextParentA
+                    );
 
+                    ExerciseAPCRead(
+                        backend,
+                        CHILD,
+                        HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
+                        backend.HandleAt(PARENT_A),
+                        parent_a_slot,
+                        backend.HandleAt(PARENT_B),
+                        parent_b_slot,
+                        [&]() noexcept
+                        {
+                            return backend.FindPrevious(
+                                backend.HandleAt(CHILD),
+                                Axis::HORIZONTAL
+                            );
+                        },
+                        local.FindPreviousChild
+                    );
 
-                    if (
-                        !backend.Attach(
-                            OWNER,
-                            CHILD,
-                            Axis::HORIZONTAL,
-                            Inheritance::FIRST_CHILD
-                        )
-                    )
-                    {
-                        writer_failures.fetch_add(
-                            1u,
-                            std::memory_order_relaxed
-                        );
-                        break;
-                    }
+                    PerturbSchedule(
+                        static_cast<uint64_t>(call_pair) + reader
+                    );
+                }
 
+                reader_stats[reader] = local;
 
-                    writer_cycles.fetch_add(
+                readers_done.fetch_add(
+                    1u,
+                    std::memory_order_release
+                );
+            });
+        }
+
+        std::thread writer([&]
+        {
+            while (!start.load(std::memory_order_acquire))
+            {
+                std::this_thread::yield();
+            }
+
+            bool on_a = true;
+            uint64_t cycle = 0u;
+
+            while (
+                readers_done.load(std::memory_order_acquire) != reader_count
+            )
+            {
+                const size_t destination =
+                    on_a ? PARENT_B : PARENT_A;
+
+                if (!backend.DetachAndReAttachToParent(
+                        CHILD,
+                        destination,
+                        Axis::HORIZONTAL))
+                {
+                    writer_failures.fetch_add(
                         1u,
                         std::memory_order_relaxed
                     );
-
-                    PerturbSchedule(cycle);
-
-                    ++cycle;
+                    break;
                 }
+
+                on_a = !on_a;
+
+                writer_cycles.fetch_add(
+                    1u,
+                    std::memory_order_relaxed
+                );
+
+                PerturbSchedule(cycle++);
             }
-        );
+        });
 
+        start.store(true, std::memory_order_release);
 
-        // ================================================================
-        // START
-        // ================================================================
-
-        start.store(
-            true,
-            std::memory_order_release
-        );
-
-
-        for (auto& reader : readers)
-        {
-            reader.join();
-        }
-
+        for (auto& reader : readers) reader.join();
         writer.join();
 
-
-        // ================================================================
-        // COLLECT
-        // ================================================================
+        const auto end = Clock::now();
 
         for (const ReaderStats& stats : reader_stats)
         {
-            Add(
-                out.ReadersTotal,
-                stats
-            );
+            Add(out.ReadersTotal, stats);
         }
 
+        out.TotalPublicCalls = TotalCalls(out.ReadersTotal);
 
         out.WriterCycles =
-            writer_cycles.load(
-                std::memory_order_acquire
-            );
+            writer_cycles.load(std::memory_order_acquire);
 
         out.WriterFailures =
-            writer_failures.load(
-                std::memory_order_acquire
-            );
+            writer_failures.load(std::memory_order_acquire);
 
-
-        const uint64_t total_calls =
-            TotalCalls(out.ReadersTotal);
-
-        const uint64_t mutation_windows =
-            TotalCompletedMutationWindows(
-                out.ReadersTotal
-            );
-
+        out.ElapsedNs =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end - begin
+            ).count();
 
         out.EnoughCalls =
-            total_calls >= MIN_PUBLIC_CALLS;
+            out.TotalPublicCalls >=
+            static_cast<uint64_t>(reader_count) *
+                MIN_PUBLIC_CALLS_PER_READER;
 
         out.HadMutationCoverage =
-            mutation_windows != 0u;
+            out.WriterCycles != 0u &&
+            RaceCoverageWindows(out.ReadersTotal) != 0u;
 
-
-        // Writer always performs a full detach + attach cycle before
-        // checking readers_done again, so successful completion should
-        // finish attached.
         out.FinalTopologyOk =
-            backend.FindNext(
-                backend.HandleAt(OWNER),
-                Axis::HORIZONTAL,
-                Inheritance::FIRST_CHILD
-            ) == backend.HandleAt(CHILD)
-            &&
-            backend.FindPrevious(
-                backend.HandleAt(CHILD),
-                Axis::HORIZONTAL
-            ) == backend.HandleAt(OWNER);
-
+            ValidateTwoParentTopology(backend);
 
         out.LocksReleased =
             backend.LocksReleased();
 
-
-        // ================================================================
-        // FINAL CONTRACT
-        // ================================================================
-
         out.Ok =
-            out.WriterFailures == 0u &&
-            out.WriterCycles != 0u &&
             out.EnoughCalls &&
             out.HadMutationCoverage &&
-            TotalHardFailures(out.ReadersTotal) == 0u &&
+            out.WriterFailures == 0u &&
+            HardFailures(out.ReadersTotal) == 0u &&
             out.FinalTopologyOk &&
             out.LocksReleased;
-
 
         return out;
     }
 
-
     static void PrintApiStats(
         const char* name,
-        const ApiStats& s
-    )
+        const ApiStats& s)
     {
         std::cout
             << "    " << name << '\n'
-
             << "      calls                       : "
             << s.Calls << '\n'
-
             << "      stable validated            : "
-            << s.StableWindows << '\n'
-
+            << s.StableValidated << '\n'
+            << "      stable null                 : "
+            << s.StableNull << '\n'
+            << "      stable non-null             : "
+            << s.StableNonNull << '\n'
             << "      completed mutation windows  : "
             << s.CompletedMutationWindows << '\n'
-
             << "      boundary unstable windows   : "
             << s.BoundaryUnstableWindows << '\n'
-
             << "      oracle raced windows        : "
             << s.OracleRacedWindows << '\n'
-
-            << "      stable attached             : "
-            << s.StableAttached << '\n'
-
-            << "      stable detached             : "
-            << s.StableDetached << '\n'
-
             << "      stable contract failures    : "
             << s.StableContractFailures << '\n'
-
-            << "      accepted across mutation    : "
-            << s.AcceptedAcrossMutation << '\n'
-
             << "      wrong pointer failures      : "
             << s.WrongPointerFailures << '\n'
-
             << "      oracle structural failures  : "
             << s.OracleStructuralFailures << '\n'
-
             << "      oracle read failures        : "
             << s.OracleReadFailures << '\n'
-
             << "      version read failures       : "
             << s.VersionReadFailures << '\n';
     }
 
-
     inline Result Run()
     {
-        Banner(
-            "TEST 3 - PUBLIC READER SNAPSHOT / WRITER RACE"
-        );
+        Banner("TEST 3 - PUBLIC READERS vs COMPOUND CROSS-PARENT WRITER");
 
         std::cout
-            << "Writer: continuously detach + reattach CHILD as OWNER's H FIRST_CHILD.\n"
-            << "Readers: FindMyNext() and FindPrevious() only.\n"
-            << "Each reader performs "
-            << CALL_PAIRS_PER_READER
-            << " call pairs = "
-            << (CALL_PAIRS_PER_READER * 2u)
-            << " public calls.\n"
-            << "Changed sequence windows are RECORDED, not discarded.\n"
-            << "A non-null result across a completed sequence change is a "
-               "strict snapshot-contract failure.\n\n";
-
+            << "Writer: CHILD alternates PARENT_A <-> PARENT_B with ONE compound call.\n"
+            << "Vector reference: each reader call and whole writer move use one "
+               "global std::mutex.\n"
+            << "APC readers: FindMyNext() / FindPrevious() only, no external lock.\n"
+            << "There is no intentional stable detached phase in the writer workload.\n"
+            << "Each reader performs " << CALL_PAIRS_PER_READER
+            << " call pairs = " << MIN_PUBLIC_CALLS_PER_READER
+            << " public calls.\n\n";
 
         bool all_ok = true;
 
-
         for (uint32_t reader_count : READER_COUNTS)
         {
-            const RunStats r =
-                RunOnce(reader_count);
+            const RunStats vector_run =
+                RunVectorOnce(reader_count);
 
-            all_ok =
-                all_ok &&
-                r.Ok;
+            const RunStats apc_run =
+                RunAPCOnce(reader_count);
 
+            const uint64_t apc_hard_failures =
+                HardFailures(apc_run.ReadersTotal);
+
+            const bool pair_ok =
+                vector_run.Ok &&
+                apc_run.Ok;
+
+            all_ok = all_ok && pair_ok;
 
             std::cout
-                << "READERS = "
-                << reader_count
-                << '\n';
-
-            std::cout
-                << "  writer cycles       : "
-                << r.WriterCycles
-                << '\n'
-
-                << "  writer failures     : "
-                << r.WriterFailures
-                << '\n'
-
-                << "  total public calls  : "
-                << TotalCalls(r.ReadersTotal)
-                << '\n'
-
-                << "  mutation crossings  : "
-                << TotalCompletedMutationWindows(
-                    r.ReadersTotal
-                )
-                << '\n'
-
-                << "  hard failures       : "
-                << TotalHardFailures(
-                    r.ReadersTotal
-                )
-                << '\n';
-
+                << "READERS = " << reader_count << '\n'
+                << "  vector writer cycles : "
+                << vector_run.WriterCycles << '\n'
+                << "  APC writer cycles    : "
+                << apc_run.WriterCycles << '\n'
+                << "  vector Mcalls/s      : "
+                << std::fixed << std::setprecision(3)
+                << vector_run.MillionCallsPerSecond() << '\n'
+                << "  APC Mcalls/s         : "
+                << apc_run.MillionCallsPerSecond() << '\n'
+                << "  APC/vector read ratio: "
+                << Ratio(
+                    apc_run.MillionCallsPerSecond(),
+                    vector_run.MillionCallsPerSecond()
+                ) << "x\n"
+                << "  APC mutation crossings: "
+                << MutationWindows(apc_run.ReadersTotal) << '\n'
+                << "  APC hard failures      : "
+                << apc_hard_failures << '\n';
 
             PrintApiStats(
-                "FindMyNext",
-                r.ReadersTotal.FindNext
+                "FindMyNext(PARENT_A, FIRST_CHILD)",
+                apc_run.ReadersTotal.FindNextParentA
             );
 
             PrintApiStats(
-                "FindPrevious",
-                r.ReadersTotal.FindPrevious
+                "FindPrevious(CHILD)",
+                apc_run.ReadersTotal.FindPreviousChild
             );
-
 
             std::cout
                 << "    enough calls       : "
-                << (r.EnoughCalls ? "PASS" : "FAIL")
+                << (apc_run.EnoughCalls ? "PASS" : "FAIL")
                 << '\n'
-
                 << "    mutation coverage  : "
-                << (r.HadMutationCoverage ? "PASS" : "FAIL")
+                << (apc_run.HadMutationCoverage ? "PASS" : "FAIL")
                 << '\n'
-
                 << "    final topology     : "
-                << (r.FinalTopologyOk ? "PASS" : "FAIL")
+                << (apc_run.FinalTopologyOk ? "PASS" : "FAIL")
                 << '\n'
-
                 << "    locks released     : "
-                << (r.LocksReleased ? "PASS" : "FAIL")
+                << (apc_run.LocksReleased ? "PASS" : "FAIL")
                 << '\n'
-
-                << "    RUN RESULT         : "
-                << (r.Ok ? "PASS" : "FAIL")
+                << "    VECTOR RESULT      : "
+                << (vector_run.Ok ? "PASS" : "FAIL")
+                << '\n'
+                << "    APC RESULT         : "
+                << (apc_run.Ok ? "PASS" : "FAIL")
                 << "\n\n";
         }
-
 
         std::cout
             << "TEST 3 OVERALL: "
             << (all_ok ? "PASS" : "FAIL")
             << '\n';
 
-
-        return
-            all_ok ?
-            Result::PASS :
-            Result::FAIL;
+        return all_ok ? Result::PASS : Result::FAIL;
     }
 
 } // namespace Test03_ReaderWriterTraversal
+
+// ============================================================================
+// TEST 4
+// Primitive public mutation pairs vs compound one-call mutation APIs.
+//
+// This test is intentionally APC-only. It answers a different question from
+// Test 2: "what do the new compound APIs buy over composing the old surface
+// APIs yourself?"
+// ============================================================================
+namespace Test04_PrimitiveVsCompoundMutation
+{
+    using namespace TestKit;
+
+    constexpr size_t PARENT_A = 0u;
+    constexpr size_t PARENT_B = 1u;
+    constexpr size_t ANCHOR_A = 2u;
+    constexpr size_t ANCHOR_B = 3u;
+    constexpr size_t CHILD = 4u;
+    constexpr size_t NODE_COUNT = 5u;
+
+    constexpr uint32_t LOGICAL_MOVES = 20'000u;
+    constexpr uint32_t COMPONENT_MOVES = 2'000u;
+    constexpr uint32_t MEASURED_RUNS = 5u;
+
+    static_assert((LOGICAL_MOVES & 1u) == 0u);
+    static_assert((COMPONENT_MOVES & 1u) == 0u);
+
+    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+
+    static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
+    {
+        RootPlan<NODE_COUNT> roots{};
+        roots.Horizontal[PARENT_A] = true;
+        roots.Horizontal[PARENT_B] = true;
+        return roots;
+    }
+
+    bool BuildParentFixture(APCBackend& backend)
+    {
+        return
+            backend.Initialize(MakeRootPlan()) &&
+            backend.Attach(
+                PARENT_A,
+                CHILD,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            );
+    }
+
+    bool ValidateParentFixture(APCBackend& backend)
+    {
+        auto parent_a = backend.HandleAt(PARENT_A);
+        auto parent_b = backend.HandleAt(PARENT_B);
+        auto child = backend.HandleAt(CHILD);
+
+        auto a_child = backend.FindNext(
+            parent_a,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+
+        auto b_child = backend.FindNext(
+            parent_b,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+
+        const bool on_a =
+            a_child == child &&
+            b_child == nullptr &&
+            backend.FindPrevious(
+                child,
+                Axis::HORIZONTAL) == parent_a;
+
+        const bool on_b =
+            b_child == child &&
+            a_child == nullptr &&
+            backend.FindPrevious(
+                child,
+                Axis::HORIZONTAL) == parent_b;
+
+        return
+            (on_a || on_b) &&
+            backend.FindNext(
+                child,
+                Axis::HORIZONTAL,
+                Inheritance::LINKED_CHILD) == nullptr &&
+            backend.LocksReleased();
+    }
+
+    bool BuildSiblingFixture(APCBackend& backend)
+    {
+        return
+            backend.Initialize(MakeRootPlan()) &&
+            backend.Attach(
+                PARENT_A,
+                ANCHOR_A,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            ) &&
+            backend.Attach(
+                ANCHOR_A,
+                CHILD,
+                Axis::HORIZONTAL,
+                Inheritance::LINKED_CHILD
+            ) &&
+            backend.Attach(
+                PARENT_B,
+                ANCHOR_B,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            );
+    }
+
+    bool ValidateSiblingFixture(APCBackend& backend)
+    {
+        auto parent_a = backend.HandleAt(PARENT_A);
+        auto parent_b = backend.HandleAt(PARENT_B);
+        auto anchor_a = backend.HandleAt(ANCHOR_A);
+        auto anchor_b = backend.HandleAt(ANCHOR_B);
+        auto child = backend.HandleAt(CHILD);
+
+        if (
+            backend.FindNext(
+                parent_a,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD) != anchor_a ||
+            backend.FindNext(
+                parent_b,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD) != anchor_b
+        )
+        {
+            return false;
+        }
+
+        auto next_a = backend.FindNext(
+            anchor_a,
+            Axis::HORIZONTAL,
+            Inheritance::LINKED_CHILD
+        );
+
+        auto next_b = backend.FindNext(
+            anchor_b,
+            Axis::HORIZONTAL,
+            Inheritance::LINKED_CHILD
+        );
+
+        const bool on_a =
+            next_a == child &&
+            next_b == nullptr &&
+            backend.FindPrevious(
+                child,
+                Axis::HORIZONTAL) == anchor_a;
+
+        const bool on_b =
+            next_b == child &&
+            next_a == nullptr &&
+            backend.FindPrevious(
+                child,
+                Axis::HORIZONTAL) == anchor_b;
+
+        return
+            (on_a || on_b) &&
+            backend.FindNext(
+                child,
+                Axis::HORIZONTAL,
+                Inheritance::LINKED_CHILD) == nullptr &&
+            backend.LocksReleased();
+    }
+
+    struct WholeTiming
+    {
+        bool Ok = false;
+        double NsPerLogicalMove = 0.0;
+    };
+
+    WholeTiming MeasureParentPrimitivePair()
+    {
+        APCBackend backend{};
+        if (!BuildParentFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        const auto begin = Clock::now();
+
+        for (uint32_t i = 0u; i < LOGICAL_MOVES; ++i)
+        {
+            auto* source =
+                backend.HandleAt(on_a ? PARENT_A : PARENT_B);
+
+            auto* destination =
+                backend.HandleAt(on_a ? PARENT_B : PARENT_A);
+
+            if (
+                !source->DetachMyChild(
+                    *child,
+                    Axis::HORIZONTAL
+                ) ||
+                !child->AttachMeToAnother(
+                    *destination,
+                    Axis::HORIZONTAL,
+                    Inheritance::FIRST_CHILD
+                )
+            )
+            {
+                return {};
+            }
+
+            on_a = !on_a;
+        }
+
+        const auto end = Clock::now();
+
+        if (!ValidateParentFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            ) / static_cast<double>(LOGICAL_MOVES)
+        };
+    }
+
+    WholeTiming MeasureParentCompound()
+    {
+        APCBackend backend{};
+        if (!BuildParentFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        const auto begin = Clock::now();
+
+        for (uint32_t i = 0u; i < LOGICAL_MOVES; ++i)
+        {
+            auto* destination =
+                backend.HandleAt(on_a ? PARENT_B : PARENT_A);
+
+            if (!child->DetachAndReAttachMeToThisParent(
+                    *destination,
+                    Axis::HORIZONTAL))
+            {
+                return {};
+            }
+
+            on_a = !on_a;
+        }
+
+        const auto end = Clock::now();
+
+        if (!ValidateParentFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            ) / static_cast<double>(LOGICAL_MOVES)
+        };
+    }
+
+    WholeTiming MeasureSiblingPrimitivePair()
+    {
+        APCBackend backend{};
+        if (!BuildSiblingFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        const auto begin = Clock::now();
+
+        for (uint32_t i = 0u; i < LOGICAL_MOVES; ++i)
+        {
+            auto* destination_anchor =
+                backend.HandleAt(on_a ? ANCHOR_B : ANCHOR_A);
+
+            if (
+                !child->DetachMeFromAnotherEdge(
+                    Axis::HORIZONTAL
+                ) ||
+                !destination_anchor->AttachSiblingOrChild(
+                    *child,
+                    Axis::HORIZONTAL,
+                    Inheritance::LINKED_CHILD
+                )
+            )
+            {
+                return {};
+            }
+
+            on_a = !on_a;
+        }
+
+        const auto end = Clock::now();
+
+        if (!ValidateSiblingFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            ) / static_cast<double>(LOGICAL_MOVES)
+        };
+    }
+
+    WholeTiming MeasureSiblingCompound()
+    {
+        APCBackend backend{};
+        if (!BuildSiblingFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        const auto begin = Clock::now();
+
+        for (uint32_t i = 0u; i < LOGICAL_MOVES; ++i)
+        {
+            auto* destination_anchor =
+                backend.HandleAt(on_a ? ANCHOR_B : ANCHOR_A);
+
+            if (!child->DetachAndReattachMeAsEquivelentSibbling(
+                    *destination_anchor,
+                    Axis::HORIZONTAL))
+            {
+                return {};
+            }
+
+            on_a = !on_a;
+        }
+
+        const auto end = Clock::now();
+
+        if (!ValidateSiblingFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - begin
+                ).count()
+            ) / static_cast<double>(LOGICAL_MOVES)
+        };
+    }
+
+    struct ComponentTiming
+    {
+        bool Ok = false;
+        double DetachNs = 0.0;
+        double AttachNs = 0.0;
+    };
+
+    ComponentTiming MeasureParentPrimitiveComponents()
+    {
+        APCBackend backend{};
+        if (!BuildParentFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        uint64_t detach_ns = 0u;
+        uint64_t attach_ns = 0u;
+
+        for (uint32_t i = 0u; i < COMPONENT_MOVES; ++i)
+        {
+            auto* source =
+                backend.HandleAt(on_a ? PARENT_A : PARENT_B);
+
+            auto* destination =
+                backend.HandleAt(on_a ? PARENT_B : PARENT_A);
+
+            const auto d0 = Clock::now();
+            const bool detached =
+                source->DetachMyChild(
+                    *child,
+                    Axis::HORIZONTAL
+                );
+            const auto d1 = Clock::now();
+
+            if (!detached) return {};
+
+            const auto a0 = Clock::now();
+            const bool attached =
+                child->AttachMeToAnother(
+                    *destination,
+                    Axis::HORIZONTAL,
+                    Inheritance::FIRST_CHILD
+                );
+            const auto a1 = Clock::now();
+
+            if (!attached) return {};
+
+            detach_ns += static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    d1 - d0
+                ).count()
+            );
+
+            attach_ns += static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    a1 - a0
+                ).count()
+            );
+
+            on_a = !on_a;
+        }
+
+        if (!ValidateParentFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(detach_ns) /
+                static_cast<double>(COMPONENT_MOVES),
+            static_cast<double>(attach_ns) /
+                static_cast<double>(COMPONENT_MOVES)
+        };
+    }
+
+    ComponentTiming MeasureSiblingPrimitiveComponents()
+    {
+        APCBackend backend{};
+        if (!BuildSiblingFixture(backend)) return {};
+
+        auto* child = backend.HandleAt(CHILD);
+        bool on_a = true;
+
+        uint64_t detach_ns = 0u;
+        uint64_t attach_ns = 0u;
+
+        for (uint32_t i = 0u; i < COMPONENT_MOVES; ++i)
+        {
+            auto* destination_anchor =
+                backend.HandleAt(on_a ? ANCHOR_B : ANCHOR_A);
+
+            const auto d0 = Clock::now();
+            const bool detached =
+                child->DetachMeFromAnotherEdge(
+                    Axis::HORIZONTAL
+                );
+            const auto d1 = Clock::now();
+
+            if (!detached) return {};
+
+            const auto a0 = Clock::now();
+            const bool attached =
+                destination_anchor->AttachSiblingOrChild(
+                    *child,
+                    Axis::HORIZONTAL,
+                    Inheritance::LINKED_CHILD
+                );
+            const auto a1 = Clock::now();
+
+            if (!attached) return {};
+
+            detach_ns += static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    d1 - d0
+                ).count()
+            );
+
+            attach_ns += static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    a1 - a0
+                ).count()
+            );
+
+            on_a = !on_a;
+        }
+
+        if (!ValidateSiblingFixture(backend)) return {};
+
+        return {
+            true,
+            static_cast<double>(detach_ns) /
+                static_cast<double>(COMPONENT_MOVES),
+            static_cast<double>(attach_ns) /
+                static_cast<double>(COMPONENT_MOVES)
+        };
+    }
+
+    inline Result Run()
+    {
+        Banner("TEST 4 - PRIMITIVE API PAIRS vs COMPOUND MUTATION APIs");
+
+        std::cout
+            << "SITUATION A - move one FIRST_CHILD between two root edges\n"
+            << "  primitive: source.DetachMyChild(child) + "
+               "child.AttachMeToAnother(destination, FIRST_CHILD)\n"
+            << "  compound : child.DetachAndReAttachMeToThisParent(destination)\n"
+            << "  semantic difference: primitive pair exposes a detached state "
+               "between calls; compound does not.\n\n"
+            << "SITUATION B - move one child between two sibling edges\n"
+            << "  primitive: child.DetachMeFromAnotherEdge() + "
+               "destinationTail.AttachSiblingOrChild(child, LINKED_CHILD)\n"
+            << "  compound : child.DetachAndReattachMeAsEquivelentSibbling("
+               "destinationSibling)\n"
+            << "  semantic difference: primitive pair exposes a detached state "
+               "between calls; compound does not.\n\n";
+
+        std::array<double, MEASURED_RUNS> parent_primitive{};
+        std::array<double, MEASURED_RUNS> parent_compound{};
+        std::array<double, MEASURED_RUNS> sibling_primitive{};
+        std::array<double, MEASURED_RUNS> sibling_compound{};
+
+        for (uint32_t run = 0u; run < MEASURED_RUNS; ++run)
+        {
+            WholeTiming pp{};
+            WholeTiming pc{};
+            WholeTiming sp{};
+            WholeTiming sc{};
+
+            if ((run & 1u) == 0u)
+            {
+                pp = MeasureParentPrimitivePair();
+                pc = MeasureParentCompound();
+                sp = MeasureSiblingPrimitivePair();
+                sc = MeasureSiblingCompound();
+            }
+            else
+            {
+                sc = MeasureSiblingCompound();
+                sp = MeasureSiblingPrimitivePair();
+                pc = MeasureParentCompound();
+                pp = MeasureParentPrimitivePair();
+            }
+
+            if (!pp.Ok || !pc.Ok || !sp.Ok || !sc.Ok)
+            {
+                std::cout
+                    << "  timing run " << (run + 1u)
+                    << " : FAIL\n";
+                return Result::FAIL;
+            }
+
+            parent_primitive[run] = pp.NsPerLogicalMove;
+            parent_compound[run] = pc.NsPerLogicalMove;
+            sibling_primitive[run] = sp.NsPerLogicalMove;
+            sibling_compound[run] = sc.NsPerLogicalMove;
+
+            std::cout
+                << "  timing run " << (run + 1u)
+                << '/' << MEASURED_RUNS
+                << " : PASS\n";
+        }
+
+        const double parent_primitive_med =
+            Median(parent_primitive);
+        const double parent_compound_med =
+            Median(parent_compound);
+        const double sibling_primitive_med =
+            Median(sibling_primitive);
+        const double sibling_compound_med =
+            Median(sibling_compound);
+
+        const ComponentTiming parent_components =
+            MeasureParentPrimitiveComponents();
+
+        const ComponentTiming sibling_components =
+            MeasureSiblingPrimitiveComponents();
+
+        if (!parent_components.Ok || !sibling_components.Ok)
+        {
+            std::cout << "Component timing pass: FAIL\n";
+            return Result::FAIL;
+        }
+
+        std::cout
+            << "\nMEDIAN WHOLE LOGICAL-MOVE COST\n"
+            << std::left << std::setw(52)
+            << "parent: DetachMyChild + AttachMeToAnother"
+            << std::right << std::setw(10)
+            << std::fixed << std::setprecision(2)
+            << parent_primitive_med << " ns/move\n"
+            << std::left << std::setw(52)
+            << "parent: DetachAndReAttachMeToThisParent"
+            << std::right << std::setw(10)
+            << parent_compound_med << " ns/move"
+            << "  compound/primitive="
+            << Ratio(parent_compound_med, parent_primitive_med)
+            << "x\n\n"
+            << std::left << std::setw(52)
+            << "sibling: DetachMeFromAnotherEdge + AttachSiblingOrChild"
+            << std::right << std::setw(10)
+            << sibling_primitive_med << " ns/move\n"
+            << std::left << std::setw(52)
+            << "sibling: DetachAndReattachMeAsEquivelentSibbling"
+            << std::right << std::setw(10)
+            << sibling_compound_med << " ns/move"
+            << "  compound/primitive="
+            << Ratio(sibling_compound_med, sibling_primitive_med)
+            << "x\n";
+
+        std::cout
+            << "\nINSTRUMENTED PRIMITIVE COMPONENT COST"
+               " (includes per-call clock overhead)\n"
+            << "  DetachMyChild             : "
+            << parent_components.DetachNs << " ns/call\n"
+            << "  AttachMeToAnother         : "
+            << parent_components.AttachNs << " ns/call\n"
+            << "  DetachMeFromAnotherEdge   : "
+            << sibling_components.DetachNs << " ns/call\n"
+            << "  AttachSiblingOrChild      : "
+            << sibling_components.AttachNs << " ns/call\n";
+
+        const bool final_ok =
+            parent_primitive_med > 0.0 &&
+            parent_compound_med > 0.0 &&
+            sibling_primitive_med > 0.0 &&
+            sibling_compound_med > 0.0;
+
+        std::cout
+            << "\nINTERPRETATION\n"
+            << "  primitive parent path API calls/logical move : 2\n"
+            << "  compound parent path API calls/logical move  : 1\n"
+            << "  primitive sibling path API calls/logical move: 2\n"
+            << "  compound sibling path API calls/logical move : 1\n"
+            << "  timing alone is NOT the whole result: the compound path also "
+               "owns the detach+relink state transition as one mutation.\n";
+
+        std::cout
+            << "\nTEST 4 OVERALL: "
+            << (final_ok ? "PASS" : "FAIL")
+            << '\n';
+
+        return final_ok ? Result::PASS : Result::FAIL;
+    }
+
+} // namespace Test04_PrimitiveVsCompoundMutation
+
 inline int RunAll()
 {
     using TestKit::Result;
 
     const std::array<std::pair<const char*, Result>, 4u> results{{
-        {"Test 1 - public traversal baseline", Test01_PublicTraversalBaseline::Run()},
-        {"Test 2 - contention sweep", Test02_ContentionSweep::Run()},
-        {"Test 3 - writer/readers", Test03_ReaderWriterTraversal::Run()}
+        {"Test 1 - traversal + compound baseline", Test01_PublicTraversalBaseline::Run()},
+        {"Test 2 - compound contention sweep", Test02_ContentionSweep::Run()},
+        {"Test 3 - compound writer/readers", Test03_ReaderWriterTraversal::Run()},
+        {"Test 4 - primitive vs compound APIs", Test04_PrimitiveVsCompoundMutation::Run()}
     }};
 
     TestKit::Banner("APC MODULAR TEST SUITE SUMMARY");
+
     uint32_t failures = 0u;
     uint32_t skips = 0u;
 
     for (const auto& [name, result] : results)
     {
-        std::cout << "  " << std::left << std::setw(40) << name
-                  << TestKit::ResultName(result) << '\n';
+        std::cout
+            << "  " << std::left << std::setw(42) << name
+            << TestKit::ResultName(result) << '\n';
+
         if (result == Result::FAIL) ++failures;
         if (result == Result::SKIP) ++skips;
     }
@@ -3082,4 +4506,3 @@ inline int RunAll()
 }
 
 } // namespace APCModularTests
-
