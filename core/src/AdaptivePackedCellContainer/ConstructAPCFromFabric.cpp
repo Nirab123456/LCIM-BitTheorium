@@ -6,6 +6,46 @@
 namespace BidirectionalInMemGraph
 {
 
+
+
+
+    // bool ConstructForestOnEachAxis::FindForestRootEdge_(
+    //     uint32_t start_edge_idx,
+    //     IAB::BidirectionalAxis axis,
+    //     uint32_t root_edge_idx,
+    //     uint32_t max_tries
+    // ) noexcept
+    // {
+    //     if (start_edge_idx >= CountOfAPC_)
+    //     {
+    //         return false;
+    //     }
+
+    //     const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+    //     uint32_t cursor_edge_idx = start_edge_idx;
+    //     for (uint32_t i = 0; i < CountOfAPC_; i++)
+    //     {
+    //         EdgeBuilder::EdgeBuffer edge_buffer{};
+    //         EdgeBuilder::EdgeData edge_data{};
+    //         if (
+    //             !ReadAnEdgeBuffer_(
+    //                 map.EdgeTable,
+    //                 cursor_edge_idx,
+    //                 edge_buffer,
+    //                 max_tries
+    //             ) ||
+    //             !EdgeBUilder
+    //         )
+    //         {
+    //             /* code */
+    //         }
+            
+    //     }
+        
+        
+    // }
+
     bool ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
         IAB::BufferOfAPCIdentity& identity,

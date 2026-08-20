@@ -86,7 +86,7 @@ namespace BidirectionalInMemGraph
         }
     }
 
-    bool EdgeTableConstructor::ReadAnEdgeBuffer_(
+    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadAnEdgeBuffer_(
         FabricSegments edge_table,
         uint32_t edge_idx,
         EdgeBuilder::EdgeBuffer& return_buffer,
@@ -97,7 +97,7 @@ namespace BidirectionalInMemGraph
 
         if (!range.IsValid)
         {
-            return false;
+            return SeqLockedOperation::NONE;
         }
         const uint8_t internal_idx_st = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
         const size_t control_idx = range.BeginIndex + internal_idx_st;
@@ -110,7 +110,7 @@ namespace BidirectionalInMemGraph
                 !AtomicallyLoadReadAUnit(control_idx, before_read)
             )
             {
-                return false;
+                return SeqLockedOperation::NONE;
             }
 
             if (
@@ -122,7 +122,7 @@ namespace BidirectionalInMemGraph
                 )
             )
             {
-                return false;
+                return SeqLockedOperation::NONE;
             }
             
             if (
@@ -133,12 +133,12 @@ namespace BidirectionalInMemGraph
                 continue;
             }
 
-            return true;
+            return SeqLockedOperation::FOUND;
         }
-        return false;
+        return SeqLockedOperation::RETRY;
     }
 
-    std::optional<EdgeBuilder::EdgeStatus> EdgeTableConstructor::ReadEdgeData_(
+    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadEdgeData_(
         FabricSegments edge_table,
         uint32_t edge_idx,
         EdgeBuilder::EdgeData& edge_data,
@@ -146,24 +146,28 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         EdgeBuilder::EdgeBuffer buffer{};
+
+        SeqLockedOperation current_operation = ReadAnEdgeBuffer_(edge_table, edge_idx, buffer);
+
         if (
-            !ReadAnEdgeBuffer_(edge_table, edge_idx, buffer)
+            current_operation != SeqLockedOperation::FOUND
         )
         {
-            return std::nullopt;
+            return current_operation;
         }
+
+        EdgeBuilder::ReadEdgeFromBufferStatically(
+            edge_table,
+            buffer,
+            edge_data
+        );
 
         if (edge_buffer_return)
         {
             *edge_buffer_return = buffer;
         }
 
-        return 
-            EdgeBuilder::ReadEdgeFromBufferStatically(
-                edge_table,
-                buffer,
-                edge_data
-            );
+        return current_operation;
     }
 
     bool EdgeTableConstructor::SwitchEdgeState__(
@@ -182,17 +186,25 @@ namespace BidirectionalInMemGraph
         
         for (size_t i = 0; i < max_tries; i++)
         {
-            std::optional<EdgeBuilder::EdgeStatus> edge_status_current = ReadEdgeData_(
+            SeqLockedOperation outcome_operation = ReadEdgeData_(
                 edge_table,
                 edge_idx,
                 pre_switch,
                 &buffer
             );
+            
+            if (outcome_operation == SeqLockedOperation::RETRY)
+            {
+                continue;
+            }
+            
+
+            const EdgeBuilder::EdgeStatus edge_status_current = pre_switch.Status;
 
             if (
-                !edge_status_current.has_value() ||
+                !pre_switch.IsValid ||
                 (
-                    edge_status_current.value() == EdgeBuilder::EdgeStatus::HAULTED &&
+                    pre_switch.Status == EdgeBuilder::EdgeStatus::HAULTED &&
                     desired_state != EdgeBuilder::EdgeStatus::LIVE
                 )
             )
@@ -215,7 +227,7 @@ namespace BidirectionalInMemGraph
             if ( 
                 false_owner_claim ||
                 non_ower_touching_reserved ||
-                !EdgeBuilder::IsTransitionStateLeagal(edge_status_current.value(), desired_state)
+                !EdgeBuilder::IsTransitionStateLeagal(edge_status_current, desired_state)
             )
             {
                 continue;
@@ -234,7 +246,7 @@ namespace BidirectionalInMemGraph
             }
 
             --pre_switch.SeqLock;
-            pre_switch.Status = edge_status_current.value();
+            pre_switch.Status = edge_status_current;
             if (                
                 CompareExchangeStrongFromFabric(
                     control_idx,

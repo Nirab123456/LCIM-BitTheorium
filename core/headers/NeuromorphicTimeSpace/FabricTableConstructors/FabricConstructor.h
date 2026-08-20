@@ -23,7 +23,7 @@ namespace BidirectionalInMemGraph
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};
         RawPackedCellAllocator AllocatorOfFabric_{};
-
+        using SeqLockedOperation = FabricToAPCLinker::SeqLockedOperation;
 
     public:
         using IAB = InstallAxisToBuffer;

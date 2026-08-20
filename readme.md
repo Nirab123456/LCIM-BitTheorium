@@ -1,4 +1,9 @@
 RELESE BUILD: 
+
+
+
+
+
 Remove-Item -Recurse -Force .\build-release -ErrorAction SilentlyContinue
 
 cmake -S .\core -B .\build-release `

@@ -57,6 +57,12 @@ namespace BidirectionalInMemGraph
         friend class AdaptivePackedCellContainer;
     private:
 
+        bool FindForestRootEdge_(
+            uint32_t start_edge_idx,
+            IAB::BidirectionalAxis axis,
+            uint32_t root_edge_idx,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
 
         void WriteAcquiredAxisDelta_(
             uint32_t apc_slot,

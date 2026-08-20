@@ -82,14 +82,14 @@ namespace BidirectionalInMemGraph
 
         void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
 
-        bool ReadAnEdgeBuffer_(
+        SeqLockedOperation ReadAnEdgeBuffer_(
             FabricSegments edge_table,
             uint32_t edge_idx,
             EdgeBuilder::EdgeBuffer& return_buffer,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        std::optional<EdgeBuilder::EdgeStatus> ReadEdgeData_(
+        SeqLockedOperation ReadEdgeData_(
             FabricSegments edge_table,
             uint32_t edge_idx,
             EdgeBuilder::EdgeData& edge_data,

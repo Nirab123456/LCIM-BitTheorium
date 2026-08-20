@@ -19,7 +19,7 @@ protected:
     
     uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
 public:
-    enum class MutationOperation : uint8_t
+    enum class SeqLockedOperation : uint8_t
     {
         FOUND = 0,
         NONE = 1,
@@ -29,7 +29,7 @@ public:
     struct RelationOparation 
     {
         AdaptivePackedCellContainer* APCPtr_ = nullptr;
-        MutationOperation MutationOP_ = MutationOperation::NONE;
+        SeqLockedOperation MutationOP_ = SeqLockedOperation::NONE;
     };
 
     void ReleseFabricBindingOnly_() noexcept;
