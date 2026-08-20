@@ -57,7 +57,7 @@ namespace BidirectionalInMemGraph
         friend class AdaptivePackedCellContainer;
     private:
 
-        bool FindForestRootEdge_(
+        SeqLockedOperation FindForestRootEdge_(
             uint32_t start_edge_idx,
             IAB::BidirectionalAxis axis,
             uint32_t root_edge_idx,
@@ -111,8 +111,7 @@ namespace BidirectionalInMemGraph
     public:
         bool ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
-            IAB::BufferOfAPCIdentity& identity,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
+            IAB::BufferOfAPCIdentity& identity
         ) noexcept;
 
         bool ReadGraphMutationFlags(

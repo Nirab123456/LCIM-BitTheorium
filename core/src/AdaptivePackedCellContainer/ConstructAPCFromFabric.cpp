@@ -5,69 +5,84 @@
 
 namespace BidirectionalInMemGraph
 {
-
-
-
-
-    // bool ConstructForestOnEachAxis::FindForestRootEdge_(
-    //     uint32_t start_edge_idx,
-    //     IAB::BidirectionalAxis axis,
-    //     uint32_t root_edge_idx,
-    //     uint32_t max_tries
-    // ) noexcept
-    // {
-    //     if (start_edge_idx >= CountOfAPC_)
-    //     {
-    //         return false;
-    //     }
-
-    //     const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-
-    //     uint32_t cursor_edge_idx = start_edge_idx;
-    //     for (uint32_t i = 0; i < CountOfAPC_; i++)
-    //     {
-    //         EdgeBuilder::EdgeBuffer edge_buffer{};
-    //         EdgeBuilder::EdgeData edge_data{};
-    //         if (
-    //             !ReadAnEdgeBuffer_(
-    //                 map.EdgeTable,
-    //                 cursor_edge_idx,
-    //                 edge_buffer,
-    //                 max_tries
-    //             ) ||
-    //             !EdgeBUilder
-    //         )
-    //         {
-    //             /* code */
-    //         }
-            
-    //     }
-        
-        
-    // }
-
-    bool ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
-        uint32_t apc_slot,
-        IAB::BufferOfAPCIdentity& identity,
+    FabricToAPCLinker::SeqLockedOperation ConstructForestOnEachAxis::FindForestRootEdge_(
+        uint32_t start_edge_idx,
+        IAB::BidirectionalAxis axis,
+        uint32_t root_edge_idx,
         uint32_t max_tries
     ) noexcept
     {
-        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        // DSA::SeqLockAndStateStruct current_apc_state = ReadAPCStateAtomically_(apc_slot);
+        if (start_edge_idx >= CountOfAPC_)
+        {
+            return SeqLockedOperation::NONE;
+        }
 
-        // if (
-        //     !range_of_apc_sagmant_pool.IsValid ||
-        //     !current_apc_state.IsValid
-        // )
-        // {
-        //     return std::nullopt;
-        // }
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+
+        uint32_t cursor_edge_idx = start_edge_idx;
+        for (uint32_t i = 0; i < CountOfAPC_; i++)
+        {
+            EdgeBuilder::EdgeBuffer edge_buffer{};
+            EdgeBuilder::EdgeData edge_data{};
+
+            SeqLockedOperation edge_buffer_found = ReadAnEdgeBuffer_(
+                map.EdgeTable,
+                cursor_edge_idx,
+                edge_buffer,
+                max_tries
+            );
+
+            if (
+                edge_buffer_found == SeqLockedOperation::NONE ||
+                edge_buffer_found == SeqLockedOperation::RETRY
+            )
+            {
+                return edge_buffer_found;
+            }
+
+            if (
+                EdgeBuilder::ReadEdgeFromBufferStatically(
+                    map.EdgeTable,
+                    edge_buffer,
+                    edge_data
+                ) != EdgeBuilder::EdgeStatus::LIVE ||
+                !edge_data.IsValid
+            )
+            {
+                return SeqLockedOperation::NONE;
+            }
+
+            if (
+                edge_data.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL
+            )
+            {
+                root_edge_idx = cursor_edge_idx;
+                return SeqLockedOperation::FOUND;
+            }
+            
+            if (
+                edge_data.ParentEdgeIndex >= CountOfAPC_ ||
+                edge_data.ParentEdgeIndex == cursor_edge_idx 
+            )
+            {
+                return SeqLockedOperation::NONE;
+            }
+            cursor_edge_idx = edge_data.ParentEdgeIndex;
+        }
+        
+        return SeqLockedOperation::NONE;
+    }
+
+    bool ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
+        uint32_t apc_slot,
+        IAB::BufferOfAPCIdentity& identity
+    ) noexcept
+    {
+        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
 
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            
+
             if (
                 !ReadBufferwithSyncAtomicIndex(
                     st_lock_idx,
@@ -79,13 +94,7 @@ namespace BidirectionalInMemGraph
             {
                 return false;
             }
-
-            if (IAB::ValidateIdentityBuffer(identity))
-            {
-                return true;
-            }
-        }
-        return false;
+            return IAB::ValidateIdentityBuffer(identity);
     }
 
     void ConstructForestOnEachAxis::WriteAcquiredAxisDelta_(
@@ -316,7 +325,7 @@ namespace BidirectionalInMemGraph
         };
 
         if (
-            !AcquireGraphMutationFlag_(apc_slot, axis).has_value()
+            !AcquireGraphMutationFlag_(apc_slot, axis, max_tries).has_value()
         )
         {
             RevertEdgeToFree____();
@@ -331,7 +340,7 @@ namespace BidirectionalInMemGraph
             {
                 return true;
             }
-            const bool relesed = ReleseGraphMutationFlag_(apc_slot, axis);
+            const bool relesed = ReleseGraphMutationFlag_(apc_slot, axis, max_tries);
             if (relesed)
             {
                 axis_locked = false;
@@ -341,7 +350,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity identity_buffer{};
         if (
-            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer, max_tries)
+            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer)
         )
         {
             ReleseAxis___();
@@ -483,8 +492,8 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity child_buffer{};
         if (
-            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer, internal_max_tries) ||
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer, internal_max_tries) ||
+            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer) ||
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer) ||
             !IAB::IsInheritedAxisDisabled(child_buffer, axis)
         )
         {
@@ -669,7 +678,7 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         IAB::BufferOfAPCIdentity child_buffer_idintity{};
         if (
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity, internal_max_tries)
+            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity)
         )
         {
             return false;
@@ -861,20 +870,17 @@ namespace BidirectionalInMemGraph
         if (
             !ReadIdentityBufferOfAPC(
                 predessor_idx,
-                predessor_buffer,
-                internal_max_tries
+                predessor_buffer
             ) ||
             !ReadIdentityBufferOfAPC(
                 child_idx,
-                child_buffer_idintity,
-                internal_max_tries
+                child_buffer_idintity
             ) ||
             (
                 has_next &&
                 !ReadIdentityBufferOfAPC(
                     static_cast<uint32_t>(next_idx_of_same_parent),
-                    next_id_buffer,
-                    internal_max_tries
+                    next_id_buffer
                 )
             )
         )
@@ -1019,7 +1025,7 @@ namespace BidirectionalInMemGraph
         IAB::BufferOfAPCIdentity child_idintity_buffer{};
 
         if (
-            !ReadIdentityBufferOfAPC(apc_slot_idx, child_idintity_buffer, internal_max_tries) ||
+            !ReadIdentityBufferOfAPC(apc_slot_idx, child_idintity_buffer) ||
             !IAB::IsInharitedChild(child_idintity_buffer, axis)
         )
         {
@@ -1306,8 +1312,7 @@ namespace BidirectionalInMemGraph
             if (
                 !ReadIdentityBufferOfAPC(
                     identity_perticipents[i].IndexSlot,
-                    identity_perticipents[i].WorkIdentity,
-                    internal_max_tries
+                    identity_perticipents[i].WorkIdentity
                 )
             )
             {
