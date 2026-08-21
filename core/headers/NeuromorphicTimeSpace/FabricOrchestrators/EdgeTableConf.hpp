@@ -4,6 +4,14 @@
 namespace BidirectionalInMemGraph
 {
 
+    enum class ParentEdgePolicy: uint8_t
+    {
+        FOLLOW_RELATION = 0u,
+        PRESERVE = 1u
+    };
+
+
+
 
 struct EdgeTableConf : public DescriptionOfAPC
 {
@@ -256,7 +264,8 @@ struct EdgeBuilder : public EdgeTableConf
         InstallAxisToBuffer::DescOfInharitance inharitance,
         uint32_t owner_edge_idx,
         EdgeData& owner_edge,
-        EdgeData* current_owned_edge = nullptr
+        EdgeData* current_owned_edge = nullptr,
+        ParentEdgePolicy parent_policy = ParentEdgePolicy::FOLLOW_RELATION
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
@@ -349,6 +358,15 @@ struct EdgeBuilder : public EdgeTableConf
             !IAB::IsOwnedAxisDisabled(current_identity, axis)
         )
         {
+            if (parent_policy == ParentEdgePolicy::PRESERVE)
+            {
+                if (current_owned_edge)
+                {
+                    return false;
+                }
+                
+            }
+            
             if (
                 !current_owned_edge ||
                 !ValidateEdgeData(*current_owned_edge) ||
@@ -379,7 +397,8 @@ struct EdgeBuilder : public EdgeTableConf
         InstallAxisToBuffer::BidirectionalAxis axis,
         uint32_t owner_edge_index,
         EdgeData& owner_edge,
-        EdgeData* current_owned_edge = nullptr
+        EdgeData* current_owned_edge = nullptr,
+        ParentEdgePolicy parent_policy = ParentEdgePolicy::FOLLOW_RELATION
     ) noexcept
     {
         using IAB = InstallAxisToBuffer;
@@ -497,6 +516,14 @@ struct EdgeBuilder : public EdgeTableConf
 
         if (!IAB::IsOwnedAxisDisabled(current_identity, axis))
         {
+            if (parent_policy == ParentEdgePolicy::PRESERVE)
+            {
+                if (current_owned_edge)
+                {
+                    return false;
+                }
+                
+            }
             if (
                 !current_owned_edge ||
                 !current_owned_edge->IsValid ||

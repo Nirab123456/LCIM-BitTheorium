@@ -8,7 +8,7 @@ namespace BidirectionalInMemGraph
     FabricToAPCLinker::SeqLockedOperation ConstructForestOnEachAxis::FindForestRootEdge_(
         uint32_t start_edge_idx,
         IAB::BidirectionalAxis axis,
-        uint32_t root_edge_idx,
+        uint32_t& root_edge_idx,
         uint32_t max_tries
     ) noexcept
     {
@@ -46,7 +46,9 @@ namespace BidirectionalInMemGraph
                     edge_buffer,
                     edge_data
                 ) != EdgeBuilder::EdgeStatus::LIVE ||
-                !edge_data.IsValid
+                !edge_data.IsValid ||
+                edge_data.EdgeTable != map.EdgeTable ||
+                edge_data.OwnerAPCSlot != cursor_edge_idx
             )
             {
                 return SeqLockedOperation::NONE;

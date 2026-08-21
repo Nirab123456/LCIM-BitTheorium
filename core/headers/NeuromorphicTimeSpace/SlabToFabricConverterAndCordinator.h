@@ -52,7 +52,59 @@ namespace BidirectionalInMemGraph
         
     };
 
-    class ConstructForestOnEachAxis : public SlabToFabricConverterAndCordinator
+    class ForestMutationConf : public SlabToFabricConverterAndCordinator
+    {
+    private:
+
+        static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
+        static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT = 4u;
+
+        struct ForestEdgePerticipent_
+        {
+            uint32_t Index = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            EdgeBuilder::EdgeData Before{};
+            EdgeBuilder::EdgeData Work{};
+            EdgeBuilder::EdgeStatus ExpectedStatus = EdgeBuilder::EdgeStatus::LIVE;
+
+            bool IsLocalParticipent = true;
+            bool IsForestGate = false;
+
+            bool Reserved = false;
+            bool Published = false;
+        };
+
+        struct ForestAPCPerticipent_
+        {
+            uint32_t slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            IAB::BufferOfAPCIdentity Before{};
+            IAB::BufferOfAPCIdentity Work{};
+            bool Locked = false;
+            bool Published = false;
+        };
+
+        struct ForestMutationTransaction_
+        {
+            IAB::BidirectionalAxis axis{};
+            std::array<ForestEdgePerticipent_, FOREST_MAX_EDGE_PERTICIPENT_> Edges{};
+            std::array<ForestAPCPerticipent_, FOREST_MAX_APC_PERTICIPENT> Identities{};
+
+            uint8_t EdgeCount = UNSIGNED_ZERO;
+            uint8_t APCCount = UNSIGNED_ZERO;
+
+            bool AllGraphRelesed = true;
+        };
+
+        bool AddForestEdgeParticipent_(
+            ForestMutationTransaction_& trasaction,
+            uint32_t edge_idx,
+            bool is_local_perticipent = true,
+            bool is_forest_gate = false,
+            EdgeBuilder::EdgeStatus expacted_state = EdgeBuilder::EdgeStatus::LIVE
+        ) noexcept;
+        
+    };
+
+    class ConstructForestOnEachAxis : public ForestMutationConf
     {
         friend class AdaptivePackedCellContainer;
     private:
@@ -60,7 +112,7 @@ namespace BidirectionalInMemGraph
         SeqLockedOperation FindForestRootEdge_(
             uint32_t start_edge_idx,
             IAB::BidirectionalAxis axis,
-            uint32_t root_edge_idx,
+            uint32_t& root_edge_idx,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
