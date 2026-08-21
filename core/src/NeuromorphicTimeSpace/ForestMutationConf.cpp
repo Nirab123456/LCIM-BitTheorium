@@ -65,4 +65,73 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+    ForestMutationConf::ForestEdgePerticipent_* ForestMutationConf::FindForestEdgeParticipent_(
+        ForestMutationTransaction_ transaction,
+        uint32_t edge_idx 
+    ) noexcept
+    {
+        for (uint8_t i = 0; i < transaction.EdgeCount; i++)
+        {
+            if (transaction.Edges[i].Index == edge_idx)
+            {
+                return &transaction.Edges[i];
+            }
+        }
+        return nullptr;
+    }
+
+    ForestMutationConf::ForestAPCPerticipent_* ForestMutationConf::FindForestAPCParticipent_(
+        ForestMutationTransaction_ transaction,
+        uint32_t apc_slot 
+    ) noexcept
+    {
+        for (uint8_t i = 0; i < transaction.APCCount; i++)
+        {
+            if (transaction.Identities[i].slot == apc_slot)
+            {
+                return &transaction.Identities[i];
+            }
+        }
+        return nullptr;
+    }
+
+    bool ForestMutationConf::ReserveLocalForestEdges_(
+        ForestMutationTransaction_ transaction,
+        uint32_t max_tries
+    ) noexcept
+    {
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(transaction.Axis);
+
+        for (uint8_t i = 0; i < transaction.EdgeCount; i++)
+        {
+            ForestEdgePerticipent_& part = transaction.Edges[i];
+            if (
+                !part.IsLocalParticipent ||
+                part.Reserved
+            )
+            {
+                continue;
+            }
+            
+            if (
+                !ReserveAnEdge_(
+                    map.EdgeTable,
+                    part.Index,
+                    &part.Before,
+                    part.ExpectedStatus,
+                    max_tries
+                )
+            )
+            {
+                RestoreForestEdges_(transaction);
+                return false;
+            }
+
+            part.Work = part.Before;
+            part.Reserved = true;
+        }
+        
+        return true;
+    }
+
 }

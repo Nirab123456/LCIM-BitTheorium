@@ -84,7 +84,7 @@ namespace BidirectionalInMemGraph
 
         struct ForestMutationTransaction_
         {
-            IAB::BidirectionalAxis axis{};
+            IAB::BidirectionalAxis Axis{};
             std::array<ForestEdgePerticipent_, FOREST_MAX_EDGE_PERTICIPENT_> Edges{};
             std::array<ForestAPCPerticipent_, FOREST_MAX_APC_PERTICIPENT> Identities{};
 
@@ -101,7 +101,25 @@ namespace BidirectionalInMemGraph
             bool is_forest_gate = false,
             EdgeBuilder::EdgeStatus expacted_state = EdgeBuilder::EdgeStatus::LIVE
         ) noexcept;
-        
+
+        ForestEdgePerticipent_* FindForestEdgeParticipent_(
+            ForestMutationTransaction_ transaction,
+            uint32_t edge_idx 
+        ) noexcept;
+
+        ForestAPCPerticipent_* FindForestAPCParticipent_(
+            ForestMutationTransaction_ transaction,
+            uint32_t apc_slot 
+        ) noexcept;
+
+        bool RestoreForestEdges_(
+            ForestMutationTransaction_ transaction
+        ) noexcept;
+
+        bool ReserveLocalForestEdges_(
+            ForestMutationTransaction_ transaction,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
     };
 
     class ConstructForestOnEachAxis : public ForestMutationConf
