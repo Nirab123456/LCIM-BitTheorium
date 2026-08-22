@@ -68,7 +68,6 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-    // private:
 
         static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
         static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT = 4u;

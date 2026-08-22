@@ -5,6 +5,75 @@
 
 namespace BidirectionalInMemGraph
 {
+
+    std::optional<uint64_t> ConstructForestOnEachAxis::AcquireGraphMutationFlag_(
+        uint32_t apc_slot_idx,
+        IAB::BidirectionalAxis axis,
+        uint32_t max_tries 
+    ) noexcept
+    {
+        const RangeOfAPC range_of_apc = GetSegmentPoolRange(apc_slot_idx);
+        if (!range_of_apc.IsValid)
+        {
+            return std::nullopt;
+        }
+
+        const IAB::MemGraphFlag desired_state = IAB::GetMemGFlagFromAxis(axis);
+
+        const size_t gmv_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
+        uint64_t gmv_raw = FABRIC_CELL_SENTINAL;
+        IAB::GraphMutationValues gmv_values{};
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !AtomicallyLoadReadAUnit(gmv_idx, gmv_raw) ||
+                !APCDataStructure::IsValidFabricUnit(gmv_raw) ||
+                !IAB::ExtractGraphMutationValues(gmv_raw, gmv_values)
+
+            )
+            {
+                return std::nullopt;
+            }
+
+            if (
+                IAB::HasThisGraphMutationFlag(gmv_values.Flags, desired_state) ||
+                IAB::HasThisGraphMutationFlag(gmv_values.Flags, IAB::MemGraphFlag::READ_ONLY) ||
+                (
+                    desired_state == IAB::MemGraphFlag::READ_ONLY &&
+                    !IAB::IsIdentityGraphUnlocked(gmv_values.Flags)
+                )
+            )
+            {
+                continue;
+            }
+            IAB::GraphMutationValues updated_gmv = IAB::UpdateSeqkBasedOnDesiredLock(gmv_values, desired_state);
+
+            const uint64_t updated_gmv_raw = IAB::MakeGraphMutationRaw(updated_gmv);
+            
+            if (
+                !IAB::IsValidGraphMutationState(updated_gmv) ||
+                !APCDataStructure::IsValidFabricUnit(updated_gmv_raw)
+            )
+            {
+                return std::nullopt;
+            }
+            
+            if (!CompareExchangeStrongFromFabric(
+                gmv_idx,
+                gmv_raw,
+                updated_gmv_raw
+            ))
+            {
+                continue;
+            }
+            
+            return gmv_raw;
+        }
+    
+        return std::nullopt;
+    }
+
     FabricToAPCLinker::SeqLockedOperation ConstructForestOnEachAxis::FindForestRootEdge_(
         uint32_t start_edge_idx,
         IAB::BidirectionalAxis axis,
@@ -100,73 +169,7 @@ namespace BidirectionalInMemGraph
     }
 
 
-    std::optional<uint64_t> ConstructForestOnEachAxis::AcquireGraphMutationFlag_(
-        uint32_t apc_slot_idx,
-        IAB::BidirectionalAxis axis,
-        uint32_t max_tries 
-    ) noexcept
-    {
-        const RangeOfAPC range_of_apc = GetSegmentPoolRange(apc_slot_idx);
-        if (!range_of_apc.IsValid)
-        {
-            return std::nullopt;
-        }
 
-        const IAB::MemGraphFlag desired_state = IAB::GetMemGFlagFromAxis(axis);
-
-        const size_t gmv_idx = range_of_apc.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-        uint64_t gmv_raw = FABRIC_CELL_SENTINAL;
-        IAB::GraphMutationValues gmv_values{};
-
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            if (
-                !AtomicallyLoadReadAUnit(gmv_idx, gmv_raw) ||
-                !APCDataStructure::IsValidFabricUnit(gmv_raw) ||
-                !IAB::ExtractGraphMutationValues(gmv_raw, gmv_values)
-
-            )
-            {
-                return std::nullopt;
-            }
-
-            if (
-                IAB::HasThisGraphMutationFlag(gmv_values.Flags, desired_state) ||
-                IAB::HasThisGraphMutationFlag(gmv_values.Flags, IAB::MemGraphFlag::READ_ONLY) ||
-                (
-                    desired_state == IAB::MemGraphFlag::READ_ONLY &&
-                    !IAB::IsIdentityGraphUnlocked(gmv_values.Flags)
-                )
-            )
-            {
-                continue;
-            }
-            IAB::GraphMutationValues updated_gmv = IAB::UpdateSeqkBasedOnDesiredLock(gmv_values, desired_state);
-
-            const uint64_t updated_gmv_raw = IAB::MakeGraphMutationRaw(updated_gmv);
-            
-            if (
-                !IAB::IsValidGraphMutationState(updated_gmv) ||
-                !APCDataStructure::IsValidFabricUnit(updated_gmv_raw)
-            )
-            {
-                return std::nullopt;
-            }
-            
-            if (!CompareExchangeStrongFromFabric(
-                gmv_idx,
-                gmv_raw,
-                updated_gmv_raw
-            ))
-            {
-                continue;
-            }
-            
-            return gmv_raw;
-        }
-    
-        return std::nullopt;
-    }
 
     bool ConstructForestOnEachAxis::OpenForestGateOnAxis(
         uint32_t apc_slot,
@@ -284,264 +287,373 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         if (
-            predessor_idx == child_idx ||
             predessor_idx >= CountOfAPC_ ||
-            child_idx >= CountOfAPC_
+            child_idx >= CountOfAPC_ ||
+            predessor_idx == child_idx ||
+            (
+                inharitance != IAB::DescOfInharitance::FIRST_CHILD &&
+                inharitance != IAB::DescOfInharitance::LINKED_CHILD
+            )
         )
         {
             return false;
         }
 
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        ForestMutationTransaction_ transaction{};
+        transaction.Axis = axis;
 
-        IAB::BufferOfAPCIdentity predessor_buffer{};
-        const RangeOfAPC range_predessor = GetSegmentPoolRange(predessor_idx);
-
-        HeaderIdentifierOfAPC edge_idintity = inharitance == IAB::DescOfInharitance::FIRST_CHILD ?
-            map.OwnedEgdeTableIdx : map.InheritedEgdeTableIdx;
-
-        uint64_t owned_edge_raw = FABRIC_CELL_SENTINAL;
-
-        if (
-            !range_predessor.IsValid ||
-            !AtomicallyLoadReadAUnit(
-                range_predessor.BeginIndex + static_cast<uint8_t>(edge_idintity),
-                owned_edge_raw
-            )
-        )
+        auto ReleseAPCs___ = [&]() noexcept -> bool
         {
-            return false;
-        }
-
-        uint32_t roots_edge_idx = static_cast<uint32_t>(owned_edge_raw);
-        EdgeBuilder::EdgeData owner_edge_before{};
-
-        if (
-            !APCDataStructure::IsValid32BitAPCUnit(owned_edge_raw) ||
-            !ReserveAnEdge_(
-                map.EdgeTable,
-                static_cast<uint32_t>(owned_edge_raw),
-                &owner_edge_before,
-                EdgeBuilder::EdgeStatus::LIVE,
-                internal_max_tries
-            )
-        )
-        {
-            return false;
-        }
-        
-        if (!owner_edge_before.IsValid)
-        {
-            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
-            return false;
-        }
-
-        const uint32_t first_lock = std::min(predessor_idx, child_idx);
-        const uint32_t second_lock = std::max(predessor_idx, child_idx);
-
-        if (
-            !AcquireGraphMutationFlag_(first_lock, axis, internal_max_tries).has_value()
-        )
-        {
-            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
-            return false;
-        }
-
-        if (
-            !AcquireGraphMutationFlag_(second_lock, axis, internal_max_tries).has_value()
-        )
-        {
-            ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
-            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
-            return false;
-        }
-        
-        auto ReleseBothAxisLocks___ = [&]() noexcept -> void
-        {
-            ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
-            ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
-        };
-
-        auto ReleseAxisLockOwnerEdge___ = [&]() noexcept -> void
-        {
-            ReleseBothAxisLocks___();
-            PublishReservedEdge_(owner_edge_before, roots_edge_idx);
-        };
-
-
-        IAB::BufferOfAPCIdentity child_buffer{};
-        if (
-            !ReadIdentityBufferOfAPC(predessor_idx, predessor_buffer) ||
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer) ||
-            !IAB::IsInheritedAxisDisabled(child_buffer, axis)
-        )
-        {
-            ReleseAxisLockOwnerEdge___();
-            return false;
-        }
-        
-        uint64_t verified_owned_edge = FABRIC_CELL_SENTINAL;
-        if (inharitance == IAB::DescOfInharitance::FIRST_CHILD)
-        {
-            verified_owned_edge = IAB::ValueOfAnIdentityFromBuffer(predessor_buffer, map.OwnedEgdeTableIdx);
-        }
-        else
-        {
-            verified_owned_edge = IAB::ValueOfAnIdentityFromBuffer(predessor_buffer, map.InheritedEgdeTableIdx);
-        }
-
-        if (verified_owned_edge != roots_edge_idx)
-        {
-            ReleseAxisLockOwnerEdge___();
-            return false;
-        }
-        
-        const IAB::BufferOfAPCIdentity predessor_before = predessor_buffer;
-        const IAB::BufferOfAPCIdentity child_before = child_buffer;
-
-        const uint64_t child_owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(child_buffer, map.OwnedEgdeTableIdx);
-        
-        bool child_owned_reserved = false;
-        bool child_owned_published = false;
-
-        uint32_t child_as_root_edge_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-
-        EdgeBuilder::EdgeData child_owned_before{};
-        EdgeBuilder::EdgeData child_owned_work{};
-
-        if (child_owned_edge_raw != FABRIC_CELL_SENTINAL)
-        {
-            if (!APCDataStructure::IsValid32BitAPCUnit(child_owned_edge_raw))
+            bool all_relesed = true;
+            for (uint8_t i = transaction.APCCount; i > 0u; --i)
             {
-                ReleseAxisLockOwnerEdge___();
-                return false;
-            }
-
-            child_as_root_edge_idx = static_cast<uint32_t>((child_owned_edge_raw));
-
-            if (
-                child_as_root_edge_idx == roots_edge_idx ||
-                !ReserveAnEdge_(
-                    map.EdgeTable,
-                    child_as_root_edge_idx,
-                    &child_owned_before,
-                    EdgeBuilder::EdgeStatus::LIVE,
-                    internal_max_tries
-                )
-            )
-            {
-                ReleseAxisLockOwnerEdge___();
-                return false;
-            }
-            
-            child_owned_reserved = true;
-            child_owned_work = child_owned_before;
-        }
-        
-        EdgeBuilder::EdgeData owner_edge_work = owner_edge_before;
-        if (!EdgeBuilder::PrepareInharitedAxis(
-            predessor_buffer,
-            child_buffer,
-            axis,
-            inharitance,
-            roots_edge_idx,
-            owner_edge_work,
-            child_owned_reserved ? &child_owned_work : nullptr
-        ))
-        {
-            if (child_owned_reserved)
-            {
-                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
-            }
-            ReleseAxisLockOwnerEdge___();
-            return false;
-        }
-        
-        WriteAcquiredAxisDelta_(
-            predessor_idx,
-            predessor_before,
-            predessor_buffer,
-            axis
-        );
-
-        WriteAcquiredAxisDelta_
-        (
-            child_idx,
-            child_before,
-            child_buffer,
-            axis
-        );
-
-        auto RestoreIdentityValues___ = [&]() noexcept -> void
-        {
-            WriteAcquiredAxisDelta_(
-                predessor_idx,
-                predessor_buffer,
-                predessor_before,
-                axis
-            );
-
-            WriteAcquiredAxisDelta_
-            (
-                child_idx,
-                child_buffer,
-                child_before,
-                axis
-            );
-
-        };
-
-        auto ReleseAll___ = [&]() noexcept -> void
-        {
-            RestoreIdentityValues___();
-            if (child_owned_reserved)
-            {
-                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
-            }
-            ReleseAxisLockOwnerEdge___();
-        };
-
-        if (child_owned_reserved)
-        {
-            if (!PublishReservedEdge_(
-                child_owned_work,
-                child_as_root_edge_idx
-            ))
-            {
-                ReleseAll___();
-                return false;
-            }
-            child_owned_published = true;
-        }
-
-        if (!PublishReservedEdge_(owner_edge_work, roots_edge_idx))
-        {
-            RestoreIdentityValues___();
-            if (child_owned_published)
-            {
-                if (
-                    ReserveAnEdge_(map.EdgeTable, child_as_root_edge_idx, nullptr, std::nullopt, internal_max_tries)
-                )
+                ForestAPCPerticipent_& part = transaction.Identities[i - 1u];
+                if (!part.Locked)
                 {
-                    PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
+                    continue;
+                }
+
+                const bool relesed = ReleseGraphMutationFlag_(
+                    part.Slot,
+                    axis,
+                    internal_max_tries
+                );
+                all_relesed = relesed && all_relesed;
+                if (relesed)
+                {
+                    part.Locked = false;
                 }
             }
-            else if (child_owned_reserved)
+            return all_relesed;
+        };
+
+        auto Abort___ = [&]() noexcept -> bool
+        {
+            RestoreForestIdentities_(transaction);
+            RestoreForestEdges_(transaction, internal_max_tries);
+            ReleseAPCs___();
+            return false;
+        };
+
+        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
+                                uint8_t slot_count) noexcept -> bool
+        {
+            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
+            std::sort(slots.begin(), end);
+            slot_count = static_cast<uint8_t>(
+                std::distance(slots.begin(), std::unique(slots.begin(), end))
+            );
+
+            transaction.APCCount = slot_count;
+            for (uint8_t i = 0u; i < slot_count; ++i)
             {
-                PublishReservedEdge_(child_owned_before, child_as_root_edge_idx);
+                transaction.Identities[i].Slot = slots[i];
             }
-            ReleseAxisLockOwnerEdge___();
+
+            for (uint8_t i = 0u; i < slot_count; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                if (
+                    !AcquireGraphMutationFlag_(
+                        part.Slot,
+                        axis,
+                        internal_max_tries
+                    ).has_value()
+                )
+                {
+                    return false;
+                }
+                part.Locked = true;
+
+                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
+                {
+                    return false;
+                }
+                part.Before = part.Work;
+            }
+            return true;
+        };
+
+        auto Commit___ = [&]() noexcept -> bool
+        {
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
+            {
+                if (!IAB::SealIdentityBuffer(transaction.Identities[i].Work))
+                {
+                    return Abort___();
+                }
+            }
+
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                WriteAcquiredAxisDelta_(part.Slot, part.Before, part.Work, axis);
+                part.Published = true;
+            }
+
+            auto PublishPass___ = [&](bool forest_gates) noexcept -> bool
+            {
+                for (uint8_t i = 0u; i < transaction.EdgeCount; ++i)
+                {
+                    ForestEdgePerticipent_& part = transaction.Edges[i];
+                    if (part.IsForestGate != forest_gates)
+                    {
+                        continue;
+                    }
+
+                    if (!PublishReservedEdge_(part.Work, part.Index))
+                    {
+                        return false;
+                    }
+                    part.Reserved = false;
+                    part.Published = true;
+                }
+                return true;
+            };
+
+            if (!PublishPass___(false) || !PublishPass___(true))
+            {
+                return Abort___();
+            }
+            return ReleseAPCs___();
+        };
+
+        auto FindRoot___ = [&](uint32_t start_edge_idx,
+                            uint32_t forbidden_edge_idx,
+                            bool reject_forbidden,
+                            uint32_t& root_edge_idx) noexcept -> SeqLockedOperation
+        {
+            uint32_t cursor = start_edge_idx;
+            for (uint32_t i = 0u; i < CountOfAPC_; ++i)
+            {
+                if (reject_forbidden && cursor == forbidden_edge_idx)
+                {
+                    return SeqLockedOperation::NONE;
+                }
+
+                EdgeBuilder::EdgeData edge{};
+                const SeqLockedOperation outcome = ReadCommittedForestEdge_(
+                    cursor,
+                    axis,
+                    edge,
+                    &transaction
+                );
+                if (outcome != SeqLockedOperation::FOUND)
+                {
+                    return outcome;
+                }
+
+                if (edge.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL)
+                {
+                    root_edge_idx = cursor;
+                    return SeqLockedOperation::FOUND;
+                }
+                if (edge.ParentEdgeIndex >= CountOfAPC_ || edge.ParentEdgeIndex == cursor)
+                {
+                    return SeqLockedOperation::NONE;
+                }
+                cursor = edge.ParentEdgeIndex;
+            }
+            return SeqLockedOperation::NONE;
+        };
+
+        IAB::BufferOfAPCIdentity predessor_snapshot{};
+        IAB::BufferOfAPCIdentity child_snapshot{};
+        if (
+            !ReadIdentityBufferOfAPC(predessor_idx, predessor_snapshot) ||
+            !ReadIdentityBufferOfAPC(child_idx, child_snapshot) ||
+            !IAB::IsInheritedAxisDisabled(child_snapshot, axis)
+        )
+        {
             return false;
         }
-        
-        bool ok_r1 = ReleseGraphMutationFlag_(first_lock, axis, internal_max_tries);
-        bool ok_r2 = ReleseGraphMutationFlag_(second_lock, axis, internal_max_tries);
-        return ok_r1 && ok_r2;
+
+        const HeaderIdentifierOfAPC destination_unit =
+            inharitance == IAB::DescOfInharitance::FIRST_CHILD
+                ? map.OwnedEgdeTableIdx
+                : map.InheritedEgdeTableIdx;
+
+        const uint64_t destination_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+            predessor_snapshot,
+            destination_unit
+        );
+        const uint64_t child_owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.OwnedEgdeTableIdx
+        );
+        const bool child_has_owned_edge = child_owned_edge_raw != FABRIC_CELL_SENTINAL;
+
+        if (
+            !APCDataStructure::IsValid32BitAPCUnit(destination_edge_raw) ||
+            (
+                child_has_owned_edge &&
+                !APCDataStructure::IsValid32BitAPCUnit(child_owned_edge_raw)
+            )
+        )
+        {
+            return false;
+        }
+
+        const uint32_t destination_edge_idx = static_cast<uint32_t>(destination_edge_raw);
+        const uint32_t child_owned_edge_idx = child_has_owned_edge
+            ? static_cast<uint32_t>(child_owned_edge_raw)
+            : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        if (
+            destination_edge_idx == child_owned_edge_idx ||
+            !AddForestEdgeParticipent_(transaction, destination_edge_idx) ||
+            (
+                child_has_owned_edge &&
+                !AddForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            ) ||
+            !ReserveLocalForestEdges_(transaction, internal_max_tries)
+        )
+        {
+            RestoreForestEdges_(transaction, internal_max_tries);
+            return false;
+        }
+
+        ForestEdgePerticipent_* destination_edge = FindForestEdgeParticipent_(
+            transaction,
+            destination_edge_idx
+        );
+        ForestEdgePerticipent_* child_owned_edge = child_has_owned_edge
+            ? FindForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            : nullptr;
+
+        if (
+            !destination_edge ||
+            !destination_edge->Before.IsValid ||
+            destination_edge->Before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+            destination_edge->Before.EdgeTable != map.EdgeTable ||
+            destination_edge->Before.OwnerAPCSlot != destination_edge_idx ||
+            (
+                child_has_owned_edge &&
+                (
+                    !child_owned_edge ||
+                    !child_owned_edge->Before.IsValid ||
+                    child_owned_edge->Before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                    child_owned_edge->Before.EdgeTable != map.EdgeTable ||
+                    child_owned_edge->Before.OwnerAPCSlot != child_idx ||
+                    child_owned_edge->Before.ParentEdgeIndex !=
+                        APCDataStructure::APC_INDEX_BOUND_SENTINAL
+                )
+            )
+        )
+        {
+            return Abort___();
+        }
+
+        const bool needs_forest_guard =
+            child_owned_edge && child_owned_edge->Before.OwnLinkCount != UNSIGNED_ZERO;
+
+        uint32_t destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t child_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        if (needs_forest_guard)
+        {
+            if (
+                FindRoot___(
+                    destination_edge_idx,
+                    child_owned_edge_idx,
+                    true,
+                    destination_root
+                ) != SeqLockedOperation::FOUND ||
+                FindRoot___(
+                    child_owned_edge_idx,
+                    APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                    false,
+                    child_root
+                ) != SeqLockedOperation::FOUND ||
+                !AddForestEdgeParticipent_(transaction, destination_root, true, true) ||
+                !AddForestEdgeParticipent_(transaction, child_root, true, true) ||
+                !ReserveLocalForestEdges_(transaction, internal_max_tries)
+            )
+            {
+                return Abort___();
+            }
+        }
+
+        destination_edge = FindForestEdgeParticipent_(transaction, destination_edge_idx);
+        child_owned_edge = child_has_owned_edge
+            ? FindForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            : nullptr;
+        if (!destination_edge || (child_has_owned_edge && !child_owned_edge))
+        {
+            return Abort___();
+        }
+
+        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        lock_slots[0u] = predessor_idx;
+        lock_slots[1u] = child_idx;
+        if (!AcquireAPCs___(lock_slots, 2u))
+        {
+            return Abort___();
+        }
+
+        ForestAPCPerticipent_* predessor = FindForestAPCParticipent_(
+            transaction,
+            predessor_idx
+        );
+        ForestAPCPerticipent_* child = FindForestAPCParticipent_(
+            transaction,
+            child_idx
+        );
+
+        if (
+            !predessor ||
+            !child ||
+            IAB::ValueOfAnIdentityFromBuffer(predessor->Work, destination_unit) !=
+                destination_edge_idx ||
+            !IAB::IsInheritedAxisDisabled(child->Work, axis) ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.OwnedEgdeTableIdx) !=
+                child_owned_edge_raw
+        )
+        {
+            return Abort___();
+        }
+
+        if (needs_forest_guard)
+        {
+            uint32_t verified_destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t verified_child_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            if (
+                FindRoot___(
+                    destination_edge_idx,
+                    child_owned_edge_idx,
+                    true,
+                    verified_destination_root
+                ) != SeqLockedOperation::FOUND ||
+                FindRoot___(
+                    child_owned_edge_idx,
+                    APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                    false,
+                    verified_child_root
+                ) != SeqLockedOperation::FOUND ||
+                verified_destination_root != destination_root ||
+                verified_child_root != child_root
+            )
+            {
+                return Abort___();
+            }
+        }
+
+        if (!EdgeBuilder::PrepareInharitedAxis(
+            predessor->Work,
+            child->Work,
+            axis,
+            inharitance,
+            destination_edge_idx,
+            destination_edge->Work,
+            child_owned_edge ? &child_owned_edge->Work : nullptr
+        ))
+        {
+            return Abort___();
+        }
+
+        return Commit___();
     }
-
-
-
-
 
     bool ConstructForestOnEachAxis::UnlinkTwoAPC(
         uint32_t child_idx,
@@ -555,333 +667,275 @@ namespace BidirectionalInMemGraph
         }
 
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-        IAB::BufferOfAPCIdentity child_buffer_idintity{};
-        if (
-            !ReadIdentityBufferOfAPC(child_idx, child_buffer_idintity)
-        )
+        ForestMutationTransaction_ transaction{};
+        transaction.Axis = axis;
+
+        auto ReleseAPCs___ = [&]() noexcept -> bool
         {
-            return false;
-        }
-
-        const uint32_t roots_edge_idx = static_cast<uint32_t>(IAB::ValueOfAnIdentityFromBuffer(
-            child_buffer_idintity,
-            map.InheritedEgdeTableIdx
-        ));
-
-        const uint32_t predessor_idx = static_cast<uint32_t>(IAB::ValueOfAnIdentityFromBuffer(
-            child_buffer_idintity,
-            map.PreviousSibling
-        ));
-
-        const uint64_t next_idx_of_same_parent = IAB::ValueOfAnIdentityFromBuffer(
-            child_buffer_idintity,
-            map.NextSibling
-        );
-
-        const uint64_t child_as_root_edge_idx = IAB::ValueOfAnIdentityFromBuffer(
-            child_buffer_idintity,
-            map.OwnedEgdeTableIdx
-        );
-
-        const bool child_has_own_root = child_as_root_edge_idx == FABRIC_CELL_SENTINAL ? false : true;
-
-        if (
-            !APCDataStructure::IsValid32BitAPCUnit(roots_edge_idx) ||
-            !APCDataStructure::IsValid32BitAPCUnit(predessor_idx) ||
-            predessor_idx >= CountOfAPC_ ||
-            predessor_idx == child_idx ||
-            (
-                next_idx_of_same_parent != FABRIC_CELL_SENTINAL &&
-                (
-                    !APCDataStructure::IsValid32BitAPCUnit(next_idx_of_same_parent) ||
-                    next_idx_of_same_parent >= CountOfAPC_ ||
-                    next_idx_of_same_parent == child_idx ||
-                    next_idx_of_same_parent == predessor_idx
-                )
-            ) ||
-            (
-                child_has_own_root && !APCDataStructure::IsValid32BitAPCUnit(child_as_root_edge_idx)
-            )
-        )
-        {
-            return false;
-        }
-
-
-        const bool has_next = next_idx_of_same_parent != FABRIC_CELL_SENTINAL;
-
-        EdgeBuilder::EdgeData before_of_roots_edge_data{};
-        EdgeBuilder::EdgeData before_childs_own_root_edge_data{};
-
-        bool child_owned_published = false;
-
-        if (
-            !ReserveAnEdge_(
-                map.EdgeTable,
-                roots_edge_idx,
-                &before_of_roots_edge_data,
-                EdgeBuilder::EdgeStatus::LIVE,
-                internal_max_tries
-            )
-        )
-        {
-            return false;
-        }
-        
-
-        if (
-            child_has_own_root &&
-            !ReserveAnEdge_(
-                map.EdgeTable,
-                static_cast<uint32_t>(child_as_root_edge_idx),
-                &before_childs_own_root_edge_data,
-                EdgeBuilder::EdgeStatus::LIVE,
-                internal_max_tries
-            )
-        )
-        {
-            PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
-            return false;
-        }
-        
-        auto RevBothEdge___ = [&]() noexcept -> void
-        {   
-            if (child_has_own_root)
+            bool all_relesed = true;
+            for (uint8_t i = transaction.APCCount; i > 0u; --i)
             {
-                if (child_owned_published)
+                ForestAPCPerticipent_& part = transaction.Identities[i - 1u];
+                if (!part.Locked)
                 {
-                    if (!ReserveAnEdge_(
-                        map.EdgeTable,
-                        static_cast<uint32_t>(child_as_root_edge_idx),
-                        nullptr,
-                        EdgeBuilder::EdgeStatus::LIVE,
-                        internal_max_tries
-                    ))
-                    {
-                        PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
-                    }
-                    else
-                    {
-                        PublishReservedEdge_(before_childs_own_root_edge_data, static_cast<uint32_t>(child_as_root_edge_idx));
-                    }
+                    continue;
                 }
-            }
-            PublishReservedEdge_(before_of_roots_edge_data, roots_edge_idx);
-        };
-
-        auto ValidEdge___ = [&](EdgeBuilder::EdgeData& edge_data___) noexcept -> bool
-        {
-            return 
-                edge_data___.IsValid &&
-                edge_data___.Status == EdgeBuilder::EdgeStatus::LIVE &&
-                edge_data___.EdgeTable == map.EdgeTable;
-        };
-
-        if (
-            !ValidEdge___(before_of_roots_edge_data) ||
-            (
-                child_has_own_root &&
-                !ValidEdge___(before_childs_own_root_edge_data)
-            ) ||
-            before_of_roots_edge_data.OwnLinkCount == UNSIGNED_ZERO
-        )
-        {
-            RevBothEdge___();
-            return false;
-        }
-        
-        if (
-            before_of_roots_edge_data.Tail == child_idx &&
-            has_next
-        )
-        {
-            RevBothEdge___();
-            return false;
-        }
-
-        std::array<uint32_t, EdgeBuilder::MUTATION_MAX_PARTICIPATE> lock_apcs_array{
-            predessor_idx,
-            child_idx,
-            has_next ? static_cast<uint32_t>(next_idx_of_same_parent) : APCDataStructure::APC_INDEX_BOUND_SENTINAL
-        };
-        // We surely know UINT32_MAX will be last if other two are valid | 3 of them is valid
-        std::sort(lock_apcs_array.begin(), lock_apcs_array.end());
-        
-        const uint8_t required_lock_count = has_next ? EdgeBuilder::MUTATION_MAX_PARTICIPATE : EdgeBuilder::MUTATION_MAX_PARTICIPATE- 1;
-        uint8_t locked_count = UNSIGNED_ZERO;
-
-        auto ReleseGraphMutation___ = [&]() noexcept -> void
-        {
-            while (locked_count != UNSIGNED_ZERO)
-            {
-                --locked_count;
-                ReleseGraphMutationFlag_(
-                    lock_apcs_array[locked_count],
+                const bool relesed = ReleseGraphMutationFlag_(
+                    part.Slot,
                     axis,
                     internal_max_tries
                 );
+                all_relesed = relesed && all_relesed;
+                if (relesed)
+                {
+                    part.Locked = false;
+                }
             }
+            return all_relesed;
         };
 
-        auto ReleseReservedGraphAndEdge___ = [&]() noexcept -> void
+        auto Abort___ = [&]() noexcept -> bool
         {
-            ReleseGraphMutation___();
-            RevBothEdge___();
+            RestoreForestIdentities_(transaction);
+            RestoreForestEdges_(transaction, internal_max_tries);
+            ReleseAPCs___();
+            return false;
         };
 
-        for (size_t i = 0; i < required_lock_count; i++)
+        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
+                                uint8_t slot_count) noexcept -> bool
         {
-            if (!AcquireGraphMutationFlag_(
-                lock_apcs_array[i],
-                axis,
-                internal_max_tries
-            ))
+            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
+            std::sort(slots.begin(), end);
+            slot_count = static_cast<uint8_t>(
+                std::distance(slots.begin(), std::unique(slots.begin(), end))
+            );
+
+            transaction.APCCount = slot_count;
+            for (uint8_t i = 0u; i < slot_count; ++i)
             {
-                ReleseReservedGraphAndEdge___();
-                return false;
+                transaction.Identities[i].Slot = slots[i];
             }
-            ++locked_count;
+
+            for (uint8_t i = 0u; i < slot_count; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                if (
+                    !AcquireGraphMutationFlag_(
+                        part.Slot,
+                        axis,
+                        internal_max_tries
+                    ).has_value()
+                )
+                {
+                    return false;
+                }
+                part.Locked = true;
+
+                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
+                {
+                    return false;
+                }
+                part.Before = part.Work;
+            }
+            return true;
+        };
+
+        auto Commit___ = [&]() noexcept -> bool
+        {
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
+            {
+                if (!IAB::SealIdentityBuffer(transaction.Identities[i].Work))
+                {
+                    return Abort___();
+                }
+            }
+
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                WriteAcquiredAxisDelta_(part.Slot, part.Before, part.Work, axis);
+                part.Published = true;
+            }
+
+            for (uint8_t i = 0u; i < transaction.EdgeCount; ++i)
+            {
+                ForestEdgePerticipent_& part = transaction.Edges[i];
+                if (!PublishReservedEdge_(part.Work, part.Index))
+                {
+                    return Abort___();
+                }
+                part.Reserved = false;
+                part.Published = true;
+            }
+            return ReleseAPCs___();
+        };
+
+        IAB::BufferOfAPCIdentity child_snapshot{};
+        if (
+            !ReadIdentityBufferOfAPC(child_idx, child_snapshot) ||
+            !IAB::IsInharitedChild(child_snapshot, axis)
+        )
+        {
+            return false;
         }
 
-        IAB::BufferOfAPCIdentity predessor_buffer{};
-        IAB::BufferOfAPCIdentity next_id_buffer{};
+        const uint64_t source_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.InheritedEgdeTableIdx
+        );
+        const uint64_t predessor_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.PreviousSibling
+        );
+        const uint64_t next_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.NextSibling
+        );
+        const uint64_t child_owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.OwnedEgdeTableIdx
+        );
+
+        const bool has_next = next_raw != FABRIC_CELL_SENTINAL;
+        const bool has_owned_edge = child_owned_edge_raw != FABRIC_CELL_SENTINAL;
 
         if (
-            !ReadIdentityBufferOfAPC(
-                predessor_idx,
-                predessor_buffer
-            ) ||
-            !ReadIdentityBufferOfAPC(
-                child_idx,
-                child_buffer_idintity
-            ) ||
+            !APCDataStructure::IsValid32BitAPCUnit(source_edge_raw) ||
+            !APCDataStructure::IsValid32BitAPCUnit(predessor_raw) ||
             (
                 has_next &&
-                !ReadIdentityBufferOfAPC(
-                    static_cast<uint32_t>(next_idx_of_same_parent),
-                    next_id_buffer
-                )
+                !APCDataStructure::IsValid32BitAPCUnit(next_raw)
+            ) ||
+            (
+                has_owned_edge &&
+                !APCDataStructure::IsValid32BitAPCUnit(child_owned_edge_raw)
             )
         )
         {
-            ReleseReservedGraphAndEdge___();
             return false;
         }
-        
 
-        const IAB::BufferOfAPCIdentity before_predessor_buffer = predessor_buffer;
-        const IAB::BufferOfAPCIdentity before_child_buffer = child_buffer_idintity;
-        const IAB::BufferOfAPCIdentity before_next_id_buffer = next_id_buffer;
-
-        EdgeBuilder::EdgeData roots_edge_data =  before_of_roots_edge_data;
-        EdgeBuilder::EdgeData childs_root_edge_data = before_childs_own_root_edge_data;
+        const uint32_t source_edge_idx = static_cast<uint32_t>(source_edge_raw);
+        const uint32_t predessor_idx = static_cast<uint32_t>(predessor_raw);
+        const uint32_t next_idx = has_next
+            ? static_cast<uint32_t>(next_raw)
+            : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        const uint32_t child_owned_edge_idx = has_owned_edge
+            ? static_cast<uint32_t>(child_owned_edge_raw)
+            : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
 
         if (
-            !EdgeBuilder::PrepareForDetachmentOfInharitedAxis(
-                predessor_buffer,
-                child_buffer_idintity,
-                has_next ? &next_id_buffer : nullptr,
-                axis,
-                roots_edge_idx,
-                roots_edge_data,
-                child_has_own_root ? &childs_root_edge_data : nullptr
+            predessor_idx >= CountOfAPC_ ||
+            predessor_idx == child_idx ||
+            (
+                has_next &&
+                (
+                    next_idx >= CountOfAPC_ ||
+                    next_idx == child_idx ||
+                    next_idx == predessor_idx
+                )
+            ) ||
+            source_edge_idx == child_owned_edge_idx ||
+            !AddForestEdgeParticipent_(transaction, source_edge_idx) ||
+            (
+                has_owned_edge &&
+                !AddForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            ) ||
+            !ReserveLocalForestEdges_(transaction, internal_max_tries)
+        )
+        {
+            RestoreForestEdges_(transaction, internal_max_tries);
+            return false;
+        }
+
+        ForestEdgePerticipent_* source_edge = FindForestEdgeParticipent_(
+            transaction,
+            source_edge_idx
+        );
+        ForestEdgePerticipent_* child_owned_edge = has_owned_edge
+            ? FindForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            : nullptr;
+
+        if (
+            !source_edge ||
+            !source_edge->Before.IsValid ||
+            source_edge->Before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+            source_edge->Before.EdgeTable != map.EdgeTable ||
+            source_edge->Before.OwnerAPCSlot != source_edge_idx ||
+            source_edge->Before.OwnLinkCount == UNSIGNED_ZERO ||
+            (
+                has_owned_edge &&
+                (
+                    !child_owned_edge ||
+                    !child_owned_edge->Before.IsValid ||
+                    child_owned_edge->Before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                    child_owned_edge->Before.EdgeTable != map.EdgeTable ||
+                    child_owned_edge->Before.OwnerAPCSlot != child_idx ||
+                    child_owned_edge->Before.ParentEdgeIndex != source_edge_idx
+                )
             )
         )
         {
-            ReleseReservedGraphAndEdge___();
-            return false;
+            return Abort___();
         }
-        
 
-
-        auto RestoreIdinties___ = [&]() noexcept -> void
-        {
-
-            WriteAcquiredAxisDelta_(
-                predessor_idx,
-                predessor_buffer,
-                before_predessor_buffer,
-                axis
-            );
-
-            if (has_next)
-            {
-                WriteAcquiredAxisDelta_(
-                    static_cast<uint32_t>(next_idx_of_same_parent),
-                    next_id_buffer,
-                    before_next_id_buffer,
-                    axis
-                );
-            }
-            WriteAcquiredAxisDelta_(
-                child_idx,
-                child_buffer_idintity,
-                before_child_buffer,
-                axis
-            );
-
-        };
-
-        auto AbortMutation___ = [&]() noexcept -> void
-        {
-            RestoreIdinties___();
-            ReleseReservedGraphAndEdge___();
-        };
-
-        WriteAcquiredAxisDelta_(
-            predessor_idx,
-            before_predessor_buffer,
-            predessor_buffer,
-            axis
-        );
-
+        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        uint8_t lock_count = 2u;
+        lock_slots[0u] = predessor_idx;
+        lock_slots[1u] = child_idx;
         if (has_next)
         {
-            WriteAcquiredAxisDelta_(
-                static_cast<uint32_t>(next_idx_of_same_parent),
-                before_next_id_buffer,
-                next_id_buffer,
-                axis
-            );
+            lock_slots[lock_count++] = next_idx;
         }
 
-        WriteAcquiredAxisDelta_(
-            child_idx,
-            before_child_buffer,
-            child_buffer_idintity,
-            axis
+        if (!AcquireAPCs___(lock_slots, lock_count))
+        {
+            return Abort___();
+        }
+
+        ForestAPCPerticipent_* predessor = FindForestAPCParticipent_(
+            transaction,
+            predessor_idx
         );
+        ForestAPCPerticipent_* child = FindForestAPCParticipent_(
+            transaction,
+            child_idx
+        );
+        ForestAPCPerticipent_* next = has_next
+            ? FindForestAPCParticipent_(transaction, next_idx)
+            : nullptr;
 
-        if (child_has_own_root)
+        if (
+            !predessor ||
+            !child ||
+            (has_next && !next) ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.InheritedEgdeTableIdx) !=
+                source_edge_idx ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.PreviousSibling) !=
+                predessor_idx ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.NextSibling) != next_raw ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.OwnedEgdeTableIdx) !=
+                child_owned_edge_raw
+        )
         {
-            if (
-                !PublishReservedEdge_(
-                    childs_root_edge_data,
-                    static_cast<uint32_t>(child_as_root_edge_idx)
-                )
-            )
-            {
-                AbortMutation___();
-                return false;
-            }
-            child_owned_published = true;
+            return Abort___();
         }
 
-        if (!PublishReservedEdge_(roots_edge_data, roots_edge_idx))
+        if (!EdgeBuilder::PrepareForDetachmentOfInharitedAxis(
+            predessor->Work,
+            child->Work,
+            has_next ? &next->Work : nullptr,
+            axis,
+            source_edge_idx,
+            source_edge->Work,
+            child_owned_edge ? &child_owned_edge->Work : nullptr
+        ))
         {
-            AbortMutation___();
-            return false;
+            return Abort___();
         }
 
-        return 
-            ReleseGraphMutationFlag_(predessor_idx, axis, internal_max_tries) &&
-            (
-                has_next ? ReleseGraphMutationFlag_(
-                    static_cast<uint32_t>(next_idx_of_same_parent), 
-                    axis, internal_max_tries
-                ) : true
-            ) && 
-            ReleseGraphMutationFlag_(child_idx, axis, internal_max_tries);
+        return Commit___();
     }
 
     bool ConstructForestOnEachAxis::UnlinkAndRelinkToTail(
@@ -893,7 +947,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         if (
-            apc_slot_idx >= CountOfAPC_ || 
+            apc_slot_idx >= CountOfAPC_ ||
             unlink_edge_idx >= CountOfAPC_ ||
             relink_edge_idx >= CountOfAPC_
         )
@@ -901,570 +955,503 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        IAB::BufferOfAPCIdentity child_idintity_buffer{};
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        const bool same_edge = unlink_edge_idx == relink_edge_idx;
 
-        if (
-            !ReadIdentityBufferOfAPC(apc_slot_idx, child_idintity_buffer) ||
-            !IAB::IsInharitedChild(child_idintity_buffer, axis)
-        )
+        ForestMutationTransaction_ transaction{};
+        transaction.Axis = axis;
+
+        auto ReleseAPCs___ = [&]() noexcept -> bool
         {
-            return false;
-        }
-
-        IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
-
-        const uint64_t Unlink_Edge_ = IAB::ValueOfAnIdentityFromBuffer(child_idintity_buffer, map.InheritedEgdeTableIdx);
-
-        const uint64_t previous_apc = IAB::ValueOfAnIdentityFromBuffer(child_idintity_buffer, map.PreviousSibling);
-        const uint64_t next_apc = IAB::ValueOfAnIdentityFromBuffer(child_idintity_buffer, map.NextSibling);
-        const uint64_t own_edge_slot_idx = IAB::ValueOfAnIdentityFromBuffer(child_idintity_buffer, map.OwnedEgdeTableIdx);
-
-        bool hash_next = next_apc != FABRIC_CELL_SENTINAL;
-        bool is_owne_axis_defined = IAB::IsDefinedRoot(child_idintity_buffer, axis);
-
-        bool same_edge = unlink_edge_idx == relink_edge_idx;
-
-        if (
-            APCDataStructure::IsValid32BitAPCUnit(own_edge_slot_idx) &&
-            !is_owne_axis_defined
-        )
-        {
-            
-            return false;
-        }
-
-        if (
-            Unlink_Edge_ != unlink_edge_idx ||
-            Unlink_Edge_ >= CountOfAPC_ ||
-            previous_apc >= CountOfAPC_ ||
-            previous_apc == apc_slot_idx ||
-            next_apc == apc_slot_idx ||
-            apc_slot_idx == unlink_edge_idx ||
-            apc_slot_idx == relink_edge_idx
-        )
-        {
-            return false;
-        }
-        
-        if (
-            is_owne_axis_defined &&
-            own_edge_slot_idx != apc_slot_idx
-        )
-        {
-            return false;
-        }
-
-        if (
-            hash_next && 
-            (
-                !APCDataStructure::IsValid32BitAPCUnit(next_apc) ||
-                next_apc >= CountOfAPC_ ||
-                next_apc == previous_apc
-            )
-        )
-        {
-            return false;
-        }
-        struct EdgeParticipiantRuntime___
-        {
-            uint32_t Index = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            EdgeBuilder::EdgeData Before{};
-            EdgeBuilder::EdgeData Work{};
-            bool published = false;
-        };
-
-        std::array<EdgeParticipiantRuntime___, EdgeBuilder::MUTATION_MAX_PARTICIPATE> edge_parts{};
-
-        std::array<uint32_t, EdgeBuilder::MUTATION_MAX_PARTICIPATE> edge_indecies{};
-        edge_indecies.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
-
-        uint8_t edge_count = same_edge ? 1u : 2u;
-
-        edge_indecies[0u] = unlink_edge_idx;
-        if (!same_edge)
-        {
-            edge_indecies[1u] = relink_edge_idx;
-        }
-        
-        if (is_owne_axis_defined && !same_edge)
-        {
-            edge_indecies[2u] = apc_slot_idx;
-            ++edge_count;
-        }
-        
-        std::sort(edge_indecies.begin(), edge_indecies.end());
-        
-        uint8_t reserved_edge_count = UNSIGNED_ZERO;
-
-        auto RestoreReservedEdge___ = [&]() noexcept -> void
-        {
-            while (reserved_edge_count != UNSIGNED_ZERO)
+            bool all_relesed = true;
+            for (uint8_t i = transaction.APCCount; i > 0u; --i)
             {
-                --reserved_edge_count;
-                EdgeParticipiantRuntime___& part = edge_parts[reserved_edge_count];
-                PublishReservedEdge_(
-                    part.Before,
-                    part.Index
-                );
-            }
-        };
-
-        for (uint8_t i = 0; i < edge_count; i++)
-        {
-            edge_parts[i].Index = edge_indecies[i];
-            if (
-                !ReserveAnEdge_(
-                    map.EdgeTable,
-                    edge_parts[i].Index,
-                    &edge_parts[i].Before,
-                    EdgeBuilder::EdgeStatus::LIVE,
-                    internal_max_tries
-                )
-            )
-            {
-                RestoreReservedEdge___();
-                return false;
-            }
-            edge_parts[i].Work = edge_parts[i].Before;
-            ++reserved_edge_count;
-        }
-
-        auto FindAssign___ = [&](uint32_t edge_idx) noexcept -> EdgeParticipiantRuntime___*
-        {
-            for (size_t i = 0; i < edge_count; i++)
-            {
-                if (edge_parts[i].Index == edge_idx)
-                {
-                    return &edge_parts[i];
-                }
-            }
-            return nullptr;
-        };
-
-        EdgeParticipiantRuntime___* unlink_edge_part = FindAssign___(unlink_edge_idx);
-        EdgeParticipiantRuntime___* relink_edge_part = FindAssign___(relink_edge_idx);
-        EdgeParticipiantRuntime___* owned_edge_part = FindAssign___(apc_slot_idx);
-
-        auto PerticipantValid___ = [&](EdgeParticipiantRuntime___* part) noexcept -> bool
-        {
-            return
-                part != nullptr &&
-                part->Before.IsValid &&
-                part->Before.Status == EdgeBuilder::EdgeStatus::LIVE &&
-                part->Before.EdgeTable == map.EdgeTable;
-        };
-
-        if (
-            !PerticipantValid___(unlink_edge_part) ||
-            unlink_edge_part->Before.OwnLinkCount == UNSIGNED_ZERO ||
-            !PerticipantValid___(relink_edge_part) ||
-            (
-                is_owne_axis_defined &&
-                !same_edge &&
-                (
-                    !PerticipantValid___(owned_edge_part) ||
-                    owned_edge_part->Before.OwnerAPCSlot != apc_slot_idx ||
-                    owned_edge_part->Before.ParentEdgeIndex != unlink_edge_idx
-                )
-            )
-        )
-        {
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-        if (
-            same_edge &&
-            unlink_edge_part->Before.Tail == apc_slot_idx &&
-            !hash_next
-        )
-        {
-            if (
-                IAB::ValueOfAnIdentityFromBuffer(child_idintity_buffer, map.InheritedEgdeTableIdx) != unlink_edge_idx ||
-                !PublishReservedEdge_(
-                    unlink_edge_part->Before,
-                    unlink_edge_idx
-                )
-            )
-            {
-                RestoreReservedEdge___();
-                return false;
-            }
-            reserved_edge_count = UNSIGNED_ZERO;
-            return true;
-        }
-        
-
-        uint32_t relinke_predessor_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-        IAB::DescOfInharitance relink_inharitance = IAB::DescOfInharitance::LINKED_CHILD;
-
-        if (same_edge)
-        {
-            relinke_predessor_idx = unlink_edge_part->Before.OwnerAPCSlot;
-        }
-        else if (relink_edge_part->Before.OwnLinkCount == UNSIGNED_ZERO)
-        {
-            relinke_predessor_idx = relink_edge_part->Before.OwnerAPCSlot;
-            relink_inharitance = IAB::DescOfInharitance::FIRST_CHILD;
-        }
-        else
-        {
-            relinke_predessor_idx = relink_edge_part->Before.Tail;
-        }
-
-        if (
-            relinke_predessor_idx >= CountOfAPC_ ||
-            relinke_predessor_idx == apc_slot_idx 
-        )
-        {
-            RestoreReservedEdge___();
-            return false;
-        }
-
-        static constexpr uint8_t MAX_IDENTITY_PERTICIPENTS___ = EdgeBuilder::MUTATION_MAX_PARTICIPATE + 1u;
-        std::array<uint32_t, MAX_IDENTITY_PERTICIPENTS___> lock_slots{};
-        lock_slots.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
-
-        uint8_t lock_count = 3u;
-
-        lock_slots[0u] = static_cast<uint32_t>(previous_apc);
-        lock_slots[1u] = apc_slot_idx;
-        lock_slots[2u] = relinke_predessor_idx;
-        if (hash_next)
-        {
-            lock_slots[3u] = static_cast<uint32_t>(next_apc);
-            ++lock_count;
-        }
-        
-        auto lock_end = lock_slots.begin() + static_cast<std::ptrdiff_t>(lock_count);
-        std::sort(lock_slots.begin(), lock_end);
-
-        lock_count = static_cast<uint8_t>(
-            std::distance(lock_slots.begin(), std::unique(lock_slots.begin(), lock_end))
-        );
-
-        size_t acquired_lock_count = UNSIGNED_ZERO;
-
-        bool all_relesed = false;
-        auto ReleseGraphLocks___ = [&]() noexcept -> void
-        {
-            while (acquired_lock_count != UNSIGNED_ZERO)
-            {
-                --acquired_lock_count;
-                all_relesed = ReleseGraphMutationFlag_(
-                    lock_slots[acquired_lock_count],
-                    axis,
-                    internal_max_tries
-                );
-            }
-        };
-
-        for (size_t i = 0; i < lock_count; i++)
-        {
-            if (!AcquireGraphMutationFlag_(
-                lock_slots[i],
-                axis,
-                internal_max_tries
-            ))
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-            ++acquired_lock_count;
-        }
-
-
-        struct IdentityParticipiantRuntime___
-        {
-            uint32_t IndexSlot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            IAB::BufferOfAPCIdentity BeforeIdentity{};
-            IAB::BufferOfAPCIdentity WorkIdentity{};
-            bool publishedIdentity = false;
-        };
-
-        std::array<IdentityParticipiantRuntime___, MAX_IDENTITY_PERTICIPENTS___> identity_perticipents{};
-
-        for (size_t i = 0; i < lock_count; i++)
-        {
-            identity_perticipents[i].IndexSlot = lock_slots[i];
-            if (
-                !ReadIdentityBufferOfAPC(
-                    identity_perticipents[i].IndexSlot,
-                    identity_perticipents[i].WorkIdentity
-                )
-            )
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-            identity_perticipents[i].BeforeIdentity = identity_perticipents[i].WorkIdentity;
-        }
-
-        auto FindAssignIdentity___ = [&](uint32_t slot) noexcept -> IdentityParticipiantRuntime___*
-        {
-            for (uint8_t i = 0; i < lock_count; i++)
-            {
-                if (identity_perticipents[i].IndexSlot == slot)
-                {
-                    return &identity_perticipents[i];
-                }
-            }
-            return nullptr;
-        };
-
-        IdentityParticipiantRuntime___* previous_slot_id_part = FindAssignIdentity___(static_cast<uint32_t>(previous_apc));
-        IdentityParticipiantRuntime___* child_slot_id_part = FindAssignIdentity___(apc_slot_idx);
-        IdentityParticipiantRuntime___* next_slot_id_part = FindAssignIdentity___(static_cast<uint32_t>(next_apc));
-        IdentityParticipiantRuntime___* relink_predessor_slot_part = FindAssignIdentity___(relinke_predessor_idx);
-
-        if (
-            !previous_slot_id_part ||
-            !child_slot_id_part ||
-            (hash_next && !next_slot_id_part) ||
-            !relink_predessor_slot_part ||
-            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx) != unlink_edge_idx ||
-            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.PreviousSibling) != previous_apc ||
-            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.NextSibling) != next_apc ||
-            IAB::ValueOfAnIdentityFromBuffer(child_slot_id_part->WorkIdentity, map.OwnedEgdeTableIdx) != own_edge_slot_idx
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-        const bool previous_is_owner = unlink_edge_part->Before.OwnerAPCSlot == previous_apc &&
-            IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.OwnedEgdeTableIdx) == unlink_edge_idx &&
-            IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.RootOwnedChild) == apc_slot_idx;
-
-        const bool previous_is_sibbling = 
-            IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx) == unlink_edge_idx &&
-            IAB::ValueOfAnIdentityFromBuffer(previous_slot_id_part->WorkIdentity, map.NextSibling) == apc_slot_idx;
-
-        if (
-            (!previous_is_owner && !previous_is_sibbling) ||
-            (
-                hash_next &&
-                (
-                    IAB::ValueOfAnIdentityFromBuffer(next_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx) != unlink_edge_idx ||
-                    IAB::ValueOfAnIdentityFromBuffer(next_slot_id_part->WorkIdentity, map.PreviousSibling) != apc_slot_idx
-                )
-            ) ||
-            (
-                hash_next &&
-                unlink_edge_part->Before.Tail == apc_slot_idx
-            ) ||
-            (
-                !hash_next &&
-                unlink_edge_part->Before.Tail != apc_slot_idx
-            )
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-        if (previous_is_owner)
-        {
-            if (!IAB::InsertAnIdentityInBuffer(
-                previous_slot_id_part->WorkIdentity,
-                map.RootOwnedChild,
-                next_apc
-            ))
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-        }
-        else if (
-            !IAB::InsertAnIdentityInBuffer(previous_slot_id_part->WorkIdentity, map.NextSibling, next_apc)
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-
-        if (
-            hash_next && 
-            !IAB::InsertAnIdentityInBuffer(next_slot_id_part->WorkIdentity, map.PreviousSibling, previous_apc)
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-        EdgeBuilder::EdgeData* source_work = &unlink_edge_part->Work;
-
-        if (source_work->Tail == apc_slot_idx)
-        {
-            source_work->Tail = (source_work->OwnLinkCount == 1u) ?
-                APCDataStructure::APC_INDEX_BOUND_SENTINAL : static_cast<uint32_t>(previous_apc);
-
-        }
-        
-        --source_work->OwnLinkCount;
-
-        EdgeBuilder::EdgeData* destination_work = same_edge ? source_work : &relink_edge_part->Work;
-
-        if (destination_work->OwnLinkCount == UNSIGNED_ZERO)
-        {
-            if (
-                relink_inharitance != IAB::DescOfInharitance::FIRST_CHILD ||
-                destination_work->OwnerAPCSlot != relinke_predessor_idx ||
-                destination_work->Tail != APCDataStructure::APC_INDEX_BOUND_SENTINAL ||
-                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.OwnedEgdeTableIdx) != relink_edge_idx ||
-                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.RootOwnedChild) != FABRIC_CELL_SENTINAL ||
-                !IAB::InsertAnIdentityInBuffer(relink_predessor_slot_part->WorkIdentity, map.RootOwnedChild, apc_slot_idx)
-            )
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-        }
-        else
-        {
-            if (
-                relink_inharitance != IAB::DescOfInharitance::LINKED_CHILD ||
-                destination_work->Tail != relinke_predessor_idx ||
-                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.InheritedEgdeTableIdx) != relink_edge_idx ||
-                IAB::ValueOfAnIdentityFromBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling) != FABRIC_CELL_SENTINAL ||
-                !IAB::InsertAnIdentityInBuffer(relink_predessor_slot_part->WorkIdentity, map.NextSibling, apc_slot_idx)
-            )
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-            
-        }
-
-        if (
-            !IAB::InsertAnIdentityInBuffer(child_slot_id_part->WorkIdentity, map.InheritedEgdeTableIdx, relink_edge_idx) ||
-            !IAB::InsertAnIdentityInBuffer(child_slot_id_part->WorkIdentity, map.PreviousSibling, relinke_predessor_idx) ||
-            !IAB::InsertAnIdentityInBuffer(child_slot_id_part->WorkIdentity, map.NextSibling, FABRIC_CELL_SENTINAL)
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-
-        destination_work->Tail = apc_slot_idx;
-        ++destination_work->OwnLinkCount;
-
-        if (!same_edge && owned_edge_part)
-        {
-            owned_edge_part->Work.ParentEdgeIndex = relink_edge_idx;
-        }
-        
-
-        if (
-            !EdgeBuilder::ValidateEdgeData(unlink_edge_part->Work) ||
-            !EdgeBuilder::ValidateEdgeData(relink_edge_part->Work) ||
-            (
-                owned_edge_part &&
-                !EdgeBuilder::ValidateEdgeData(owned_edge_part->Work)
-            )
-        )
-        {
-            ReleseGraphLocks___();
-            RestoreReservedEdge___();
-            return false;
-        }
-        
-        for (size_t i = 0; i < lock_count; i++)
-        {
-            if (!IAB::SealIdentityBuffer(identity_perticipents[i].WorkIdentity))
-            {
-                ReleseGraphLocks___();
-                RestoreReservedEdge___();
-                return false;
-            }
-        }
-
-        auto RestoreIdentities___ = [&]() noexcept -> void
-        {
-            for (size_t i = 0; i < lock_count; i++)
-            {
-                if (!identity_perticipents[i].publishedIdentity)
+                ForestAPCPerticipent_& part = transaction.Identities[i - 1u];
+                if (!part.Locked)
                 {
                     continue;
                 }
-                WriteAcquiredAxisDelta_(
-                    identity_perticipents[i].IndexSlot,
-                    identity_perticipents[i].WorkIdentity,
-                    identity_perticipents[i].BeforeIdentity,
-                    axis
+                const bool relesed = ReleseGraphMutationFlag_(
+                    part.Slot,
+                    axis,
+                    internal_max_tries
                 );
+                all_relesed = relesed && all_relesed;
+                if (relesed)
+                {
+                    part.Locked = false;
+                }
             }
+            return all_relesed;
         };
 
-        for (size_t i = 0; i < lock_count; i++)
+        auto Abort___ = [&]() noexcept -> bool
         {
-            WriteAcquiredAxisDelta_(
-                identity_perticipents[i].IndexSlot, 
-                identity_perticipents[i].BeforeIdentity,
-                identity_perticipents[i].WorkIdentity,
-                axis
+            RestoreForestIdentities_(transaction);
+            RestoreForestEdges_(transaction, internal_max_tries);
+            ReleseAPCs___();
+            return false;
+        };
+
+        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
+                                uint8_t slot_count) noexcept -> bool
+        {
+            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
+            std::sort(slots.begin(), end);
+            slot_count = static_cast<uint8_t>(
+                std::distance(slots.begin(), std::unique(slots.begin(), end))
             );
-            identity_perticipents[i].publishedIdentity = true;
-        }
-        
 
-        auto RecoverAllData___ = [&]() noexcept -> void
-        {
-            RestoreIdentities___();
-
-            for (size_t i = 0; i < edge_count; i++)
+            transaction.APCCount = slot_count;
+            for (uint8_t i = 0u; i < slot_count; ++i)
             {
-                EdgeParticipiantRuntime___& part = edge_parts[i];
-                if (part.published)
-                {
-                    if (
-                        ReserveAnEdge_(
-                            map.EdgeTable,
-                            part.Index,
-                            nullptr,
-                            EdgeBuilder::EdgeStatus::LIVE,
-                            internal_max_tries
-                        )
-                    )
-                    {
-                        PublishReservedEdge_(part.Before, part.Index);
-                    }
-                    part.published = false;
-                }
-                else
-                {
-                    PublishReservedEdge_(part.Before, part.Index);
-                }
+                transaction.Identities[i].Slot = slots[i];
             }
+
+            for (uint8_t i = 0u; i < slot_count; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                if (
+                    !AcquireGraphMutationFlag_(
+                        part.Slot,
+                        axis,
+                        internal_max_tries
+                    ).has_value()
+                )
+                {
+                    return false;
+                }
+                part.Locked = true;
+
+                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
+                {
+                    return false;
+                }
+                part.Before = part.Work;
+            }
+            return true;
         };
 
-        for (size_t i = 0; i < edge_count; i++)
+        auto Commit___ = [&]() noexcept -> bool
         {
-            EdgeParticipiantRuntime___& part = edge_parts[i];
-            if (!PublishReservedEdge_(part.Work, part.Index))
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
             {
-                RecoverAllData___();
-                ReleseGraphLocks___();
-                return false;
+                if (!IAB::SealIdentityBuffer(transaction.Identities[i].Work))
+                {
+                    return Abort___();
+                }
             }
-            part.published = true;
+
+            for (uint8_t i = 0u; i < transaction.APCCount; ++i)
+            {
+                ForestAPCPerticipent_& part = transaction.Identities[i];
+                WriteAcquiredAxisDelta_(part.Slot, part.Before, part.Work, axis);
+                part.Published = true;
+            }
+
+            auto PublishPass___ = [&](bool forest_gates) noexcept -> bool
+            {
+                for (uint8_t i = 0u; i < transaction.EdgeCount; ++i)
+                {
+                    ForestEdgePerticipent_& part = transaction.Edges[i];
+                    if (part.IsForestGate != forest_gates)
+                    {
+                        continue;
+                    }
+                    if (!PublishReservedEdge_(part.Work, part.Index))
+                    {
+                        return false;
+                    }
+                    part.Reserved = false;
+                    part.Published = true;
+                }
+                return true;
+            };
+
+            if (!PublishPass___(false) || !PublishPass___(true))
+            {
+                return Abort___();
+            }
+            return ReleseAPCs___();
+        };
+
+        auto FindRoot___ = [&](uint32_t start_edge_idx,
+                            uint32_t forbidden_edge_idx,
+                            bool reject_forbidden,
+                            uint32_t& root_edge_idx) noexcept -> SeqLockedOperation
+        {
+            uint32_t cursor = start_edge_idx;
+            for (uint32_t i = 0u; i < CountOfAPC_; ++i)
+            {
+                if (reject_forbidden && cursor == forbidden_edge_idx)
+                {
+                    return SeqLockedOperation::NONE;
+                }
+
+                EdgeBuilder::EdgeData edge{};
+                const SeqLockedOperation outcome = ReadCommittedForestEdge_(
+                    cursor,
+                    axis,
+                    edge,
+                    &transaction
+                );
+                if (outcome != SeqLockedOperation::FOUND)
+                {
+                    return outcome;
+                }
+
+                if (edge.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL)
+                {
+                    root_edge_idx = cursor;
+                    return SeqLockedOperation::FOUND;
+                }
+                if (edge.ParentEdgeIndex >= CountOfAPC_ || edge.ParentEdgeIndex == cursor)
+                {
+                    return SeqLockedOperation::NONE;
+                }
+                cursor = edge.ParentEdgeIndex;
+            }
+            return SeqLockedOperation::NONE;
+        };
+
+        IAB::BufferOfAPCIdentity child_snapshot{};
+        if (
+            !ReadIdentityBufferOfAPC(apc_slot_idx, child_snapshot) ||
+            !IAB::IsInharitedChild(child_snapshot, axis)
+        )
+        {
+            return false;
         }
-        
-        reserved_edge_count = UNSIGNED_ZERO;
-        ReleseGraphLocks___();
-        return all_relesed;
+
+        const uint64_t observed_unlink_edge = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.InheritedEgdeTableIdx
+        );
+        const uint64_t previous_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.PreviousSibling
+        );
+        const uint64_t next_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.NextSibling
+        );
+        const uint64_t child_owned_edge_raw = IAB::ValueOfAnIdentityFromBuffer(
+            child_snapshot,
+            map.OwnedEgdeTableIdx
+        );
+
+        const bool has_next = next_raw != FABRIC_CELL_SENTINAL;
+        const bool has_owned_edge = child_owned_edge_raw != FABRIC_CELL_SENTINAL;
+
+        if (
+            observed_unlink_edge != unlink_edge_idx ||
+            !APCDataStructure::IsValid32BitAPCUnit(previous_raw) ||
+            (has_next && !APCDataStructure::IsValid32BitAPCUnit(next_raw)) ||
+            (
+                has_owned_edge &&
+                !APCDataStructure::IsValid32BitAPCUnit(child_owned_edge_raw)
+            )
+        )
+        {
+            return false;
+        }
+
+        const uint32_t previous_idx = static_cast<uint32_t>(previous_raw);
+        const uint32_t next_idx = has_next
+            ? static_cast<uint32_t>(next_raw)
+            : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        const uint32_t child_owned_edge_idx = has_owned_edge
+            ? static_cast<uint32_t>(child_owned_edge_raw)
+            : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        if (
+            previous_idx >= CountOfAPC_ ||
+            previous_idx == apc_slot_idx ||
+            (
+                has_next &&
+                (
+                    next_idx >= CountOfAPC_ ||
+                    next_idx == apc_slot_idx ||
+                    next_idx == previous_idx
+                )
+            ) ||
+            (!same_edge && relink_edge_idx == child_owned_edge_idx) ||
+            !AddForestEdgeParticipent_(transaction, unlink_edge_idx) ||
+            (!same_edge && !AddForestEdgeParticipent_(transaction, relink_edge_idx)) ||
+            (
+                has_owned_edge &&
+                !same_edge &&
+                !AddForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            ) ||
+            !ReserveLocalForestEdges_(transaction, internal_max_tries)
+        )
+        {
+            RestoreForestEdges_(transaction, internal_max_tries);
+            return false;
+        }
+
+        ForestEdgePerticipent_* source_edge = FindForestEdgeParticipent_(
+            transaction,
+            unlink_edge_idx
+        );
+        ForestEdgePerticipent_* destination_edge = FindForestEdgeParticipent_(
+            transaction,
+            relink_edge_idx
+        );
+        ForestEdgePerticipent_* child_owned_edge = has_owned_edge && !same_edge
+            ? FindForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            : nullptr;
+
+        auto EdgeValid___ = [&](ForestEdgePerticipent_* part) noexcept -> bool
+        {
+            return
+                part &&
+                part->Before.IsValid &&
+                part->Before.Status == EdgeBuilder::EdgeStatus::LIVE &&
+                part->Before.EdgeTable == map.EdgeTable &&
+                part->Before.OwnerAPCSlot == part->Index;
+        };
+
+        if (
+            !EdgeValid___(source_edge) ||
+            source_edge->Before.OwnLinkCount == UNSIGNED_ZERO ||
+            !EdgeValid___(destination_edge) ||
+            (
+                has_owned_edge &&
+                !same_edge &&
+                (
+                    !EdgeValid___(child_owned_edge) ||
+                    child_owned_edge->Before.OwnerAPCSlot != apc_slot_idx ||
+                    child_owned_edge->Before.ParentEdgeIndex != unlink_edge_idx
+                )
+            )
+        )
+        {
+            return Abort___();
+        }
+
+        const bool no_op_candidate =
+            same_edge &&
+            !has_next &&
+            source_edge->Before.Tail == apc_slot_idx;
+
+        uint32_t relink_predessor_idx = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        IAB::DescOfInharitance relink_inharitance =
+            IAB::DescOfInharitance::LINKED_CHILD;
+
+        if (!no_op_candidate)
+        {
+            if (same_edge)
+            {
+                relink_predessor_idx = source_edge->Before.Tail;
+            }
+            else if (destination_edge->Before.OwnLinkCount == UNSIGNED_ZERO)
+            {
+                relink_predessor_idx = destination_edge->Before.OwnerAPCSlot;
+                relink_inharitance = IAB::DescOfInharitance::FIRST_CHILD;
+            }
+            else
+            {
+                relink_predessor_idx = destination_edge->Before.Tail;
+            }
+
+            if (
+                relink_predessor_idx >= CountOfAPC_ ||
+                relink_predessor_idx == apc_slot_idx
+            )
+            {
+                return Abort___();
+            }
+        }
+
+        const bool needs_forest_guard =
+            !same_edge &&
+            child_owned_edge &&
+            child_owned_edge->Before.OwnLinkCount != UNSIGNED_ZERO;
+
+        uint32_t source_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        uint32_t destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        if (needs_forest_guard)
+        {
+            if (
+                FindRoot___(
+                    unlink_edge_idx,
+                    APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                    false,
+                    source_root
+                ) != SeqLockedOperation::FOUND ||
+                FindRoot___(
+                    relink_edge_idx,
+                    child_owned_edge_idx,
+                    true,
+                    destination_root
+                ) != SeqLockedOperation::FOUND ||
+                !AddForestEdgeParticipent_(transaction, source_root, true, true) ||
+                !AddForestEdgeParticipent_(transaction, destination_root, true, true) ||
+                !ReserveLocalForestEdges_(transaction, internal_max_tries)
+            )
+            {
+                return Abort___();
+            }
+        }
+
+        source_edge = FindForestEdgeParticipent_(transaction, unlink_edge_idx);
+        destination_edge = FindForestEdgeParticipent_(transaction, relink_edge_idx);
+        child_owned_edge = has_owned_edge && !same_edge
+            ? FindForestEdgeParticipent_(transaction, child_owned_edge_idx)
+            : nullptr;
+        if (
+            !source_edge ||
+            !destination_edge ||
+            (has_owned_edge && !same_edge && !child_owned_edge)
+        )
+        {
+            return Abort___();
+        }
+
+        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        uint8_t lock_count = 2u;
+        lock_slots[0u] = previous_idx;
+        lock_slots[1u] = apc_slot_idx;
+        if (has_next)
+        {
+            lock_slots[lock_count++] = next_idx;
+        }
+        if (!no_op_candidate)
+        {
+            lock_slots[lock_count++] = relink_predessor_idx;
+        }
+
+        if (!AcquireAPCs___(lock_slots, lock_count))
+        {
+            return Abort___();
+        }
+
+        ForestAPCPerticipent_* previous = FindForestAPCParticipent_(
+            transaction,
+            previous_idx
+        );
+        ForestAPCPerticipent_* child = FindForestAPCParticipent_(
+            transaction,
+            apc_slot_idx
+        );
+        ForestAPCPerticipent_* next = has_next
+            ? FindForestAPCParticipent_(transaction, next_idx)
+            : nullptr;
+        ForestAPCPerticipent_* relink_predessor = !no_op_candidate
+            ? FindForestAPCParticipent_(transaction, relink_predessor_idx)
+            : nullptr;
+
+        if (
+            !previous ||
+            !child ||
+            (has_next && !next) ||
+            (!no_op_candidate && !relink_predessor) ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.InheritedEgdeTableIdx) !=
+                unlink_edge_idx ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.PreviousSibling) !=
+                previous_idx ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.NextSibling) != next_raw ||
+            IAB::ValueOfAnIdentityFromBuffer(child->Work, map.OwnedEgdeTableIdx) !=
+                child_owned_edge_raw
+        )
+        {
+            return Abort___();
+        }
+
+        if (no_op_candidate)
+        {
+            RestoreForestEdges_(transaction, internal_max_tries);
+            return ReleseAPCs___();
+        }
+
+        if (needs_forest_guard)
+        {
+            uint32_t verified_source_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t verified_destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            if (
+                FindRoot___(
+                    unlink_edge_idx,
+                    APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                    false,
+                    verified_source_root
+                ) != SeqLockedOperation::FOUND ||
+                FindRoot___(
+                    relink_edge_idx,
+                    child_owned_edge_idx,
+                    true,
+                    verified_destination_root
+                ) != SeqLockedOperation::FOUND ||
+                verified_source_root != source_root ||
+                verified_destination_root != destination_root
+            )
+            {
+                return Abort___();
+            }
+        }
+
+        EdgeBuilder::EdgeData same_edge_owned_work{};
+        EdgeBuilder::EdgeData* owned_work = nullptr;
+        if (has_owned_edge)
+        {
+            if (same_edge)
+            {
+                if (
+                    ReadCommittedForestEdge_(
+                        child_owned_edge_idx,
+                        axis,
+                        same_edge_owned_work,
+                        &transaction
+                    ) != SeqLockedOperation::FOUND ||
+                    same_edge_owned_work.OwnerAPCSlot != apc_slot_idx ||
+                    same_edge_owned_work.ParentEdgeIndex != unlink_edge_idx
+                )
+                {
+                    return Abort___();
+                }
+                owned_work = &same_edge_owned_work;
+            }
+            else
+            {
+                owned_work = &child_owned_edge->Work;
+            }
+        }
+
+        if (
+            !EdgeBuilder::PrepareForDetachmentOfInharitedAxis(
+                previous->Work,
+                child->Work,
+                has_next ? &next->Work : nullptr,
+                axis,
+                unlink_edge_idx,
+                source_edge->Work,
+                owned_work
+            ) ||
+            !EdgeBuilder::PrepareInharitedAxis(
+                relink_predessor->Work,
+                child->Work,
+                axis,
+                relink_inharitance,
+                relink_edge_idx,
+                destination_edge->Work,
+                owned_work
+            )
+        )
+        {
+            return Abort___();
+        }
+
+        if (
+            same_edge &&
+            owned_work &&
+            owned_work->ParentEdgeIndex != unlink_edge_idx
+        )
+        {
+            return Abort___();
+        }
+
+        return Commit___();
     }
-        
 
 }
