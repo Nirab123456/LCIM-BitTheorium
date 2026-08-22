@@ -485,4 +485,48 @@ namespace BidirectionalInMemGraph
                 SeqLockedOperation::FOUND : SeqLockedOperation::NONE;
     }
 
+    bool ConstructForestOnEachAxis::AcquiteAllIdentitiesForTransaction_(
+        AllRequiresApcList_& slots,
+        uint8_t slot_count,
+        IAB::BidirectionalAxis axis,
+        ForestMutationTransaction_& transaction,
+        uint32_t internal_max_tries
+    ) noexcept
+    {
+        auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
+        std::sort(slots.begin(), end);
+        slot_count = static_cast<uint8_t>(
+            std::distance(slots.begin(), std::unique(slots.begin(), end))
+        );
+
+        transaction.APCCount = slot_count;
+        for (uint8_t i = 0u; i < slot_count; ++i)
+        {
+            transaction.Identities[i].Slot = slots[i];
+        }
+
+        for (uint8_t i = 0u; i < slot_count; ++i)
+        {
+            ForestAPCPerticipent_& part = transaction.Identities[i];
+            if (
+                !AcquireGraphMutationFlag_(
+                    part.Slot,
+                    axis,
+                    internal_max_tries
+                ).has_value()
+            )
+            {
+                return false;
+            }
+            part.Locked = true;
+
+            if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
+            {
+                return false;
+            }
+            part.Before = part.Work;
+        }
+        return true;
+    }
+
 }

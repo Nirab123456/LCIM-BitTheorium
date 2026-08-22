@@ -55,6 +55,12 @@ namespace BidirectionalInMemGraph
     class ForestMutationConf : public SlabToFabricConverterAndCordinator
     {
     protected:
+
+        static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
+        static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT_ = 4u;
+
+        using AllRequiresApcList_ = std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT_>;
+
         void WriteAcquiredAxisDelta_(
             uint32_t apc_slot,
             const IAB::BufferOfAPCIdentity& before_idintity,
@@ -67,10 +73,6 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
-
-
-        static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
-        static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT = 4u;
 
         struct ForestEdgePerticipent_
         {
@@ -99,7 +101,7 @@ namespace BidirectionalInMemGraph
         {
             IAB::BidirectionalAxis Axis{};
             std::array<ForestEdgePerticipent_, FOREST_MAX_EDGE_PERTICIPENT_> Edges{};
-            std::array<ForestAPCPerticipent_, FOREST_MAX_APC_PERTICIPENT> Identities{};
+            std::array<ForestAPCPerticipent_, FOREST_MAX_APC_PERTICIPENT_> Identities{};
 
             uint8_t EdgeCount = UNSIGNED_ZERO;
             uint8_t APCCount = UNSIGNED_ZERO;
@@ -166,6 +168,14 @@ namespace BidirectionalInMemGraph
     {
         friend class AdaptivePackedCellContainer;
     private:
+
+        bool AcquiteAllIdentitiesForTransaction_(
+            AllRequiresApcList_& slots,
+            uint8_t slot_count,
+            IAB::BidirectionalAxis axis,
+            ForestMutationTransaction_& transaction,
+            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
 
         SeqLockedOperation FindForestRootEdge_(
             uint32_t start_edge_idx,

@@ -304,84 +304,6 @@ namespace BidirectionalInMemGraph
         ForestMutationTransaction_ transaction{};
         transaction.Axis = axis;
 
-        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
-                                uint8_t slot_count) noexcept -> bool
-        {
-            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
-            std::sort(slots.begin(), end);
-            slot_count = static_cast<uint8_t>(
-                std::distance(slots.begin(), std::unique(slots.begin(), end))
-            );
-
-            transaction.APCCount = slot_count;
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                transaction.Identities[i].Slot = slots[i];
-            }
-
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                ForestAPCPerticipent_& part = transaction.Identities[i];
-                if (
-                    !AcquireGraphMutationFlag_(
-                        part.Slot,
-                        axis,
-                        internal_max_tries
-                    ).has_value()
-                )
-                {
-                    return false;
-                }
-                part.Locked = true;
-
-                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
-                {
-                    return false;
-                }
-                part.Before = part.Work;
-            }
-            return true;
-        };
-
-        auto FindRoot___ = [&](uint32_t start_edge_idx,
-                            uint32_t forbidden_edge_idx,
-                            bool reject_forbidden,
-                            uint32_t& root_edge_idx) noexcept -> SeqLockedOperation
-        {
-            uint32_t cursor = start_edge_idx;
-            for (uint32_t i = 0u; i < CountOfAPC_; ++i)
-            {
-                if (reject_forbidden && cursor == forbidden_edge_idx)
-                {
-                    return SeqLockedOperation::NONE;
-                }
-
-                EdgeBuilder::EdgeData edge{};
-                const SeqLockedOperation outcome = ReadCommittedForestEdge_(
-                    cursor,
-                    axis,
-                    edge,
-                    &transaction
-                );
-                if (outcome != SeqLockedOperation::FOUND)
-                {
-                    return outcome;
-                }
-
-                if (edge.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL)
-                {
-                    root_edge_idx = cursor;
-                    return SeqLockedOperation::FOUND;
-                }
-                if (edge.ParentEdgeIndex >= CountOfAPC_ || edge.ParentEdgeIndex == cursor)
-                {
-                    return SeqLockedOperation::NONE;
-                }
-                cursor = edge.ParentEdgeIndex;
-            }
-            return SeqLockedOperation::NONE;
-        };
-
         IAB::BufferOfAPCIdentity predessor_snapshot{};
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
@@ -479,17 +401,21 @@ namespace BidirectionalInMemGraph
         if (needs_forest_guard)
         {
             if (
-                FindRoot___(
+                FindForestRootEdge_(
                     destination_edge_idx,
                     child_owned_edge_idx,
                     true,
-                    destination_root
+                    destination_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
-                FindRoot___(
+                FindForestRootEdge_(
                     child_owned_edge_idx,
                     APCDataStructure::APC_INDEX_BOUND_SENTINAL,
                     false,
-                    child_root
+                    child_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
                 !AddForestEdgeParticipent_(transaction, destination_root, true, true) ||
                 !AddForestEdgeParticipent_(transaction, child_root, true, true) ||
@@ -511,10 +437,10 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        AllRequiresApcList_ lock_slots{};
         lock_slots[0u] = predessor_idx;
         lock_slots[1u] = child_idx;
-        if (!AcquireAPCs___(lock_slots, 2u))
+        if (!AcquiteAllIdentitiesForTransaction_(lock_slots, 2u, axis, transaction, internal_max_tries))
         {
             AbroatForestMutation_(transaction);
             return false;
@@ -548,17 +474,21 @@ namespace BidirectionalInMemGraph
             uint32_t verified_destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             uint32_t verified_child_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             if (
-                FindRoot___(
+                FindForestRootEdge_(
                     destination_edge_idx,
                     child_owned_edge_idx,
                     true,
-                    verified_destination_root
+                    verified_destination_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
-                FindRoot___(
+                FindForestRootEdge_(
                     child_owned_edge_idx,
                     APCDataStructure::APC_INDEX_BOUND_SENTINAL,
                     false,
-                    verified_child_root
+                    verified_child_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
                 verified_destination_root != destination_root ||
                 verified_child_root != child_root
@@ -602,45 +532,6 @@ namespace BidirectionalInMemGraph
         const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
         ForestMutationTransaction_ transaction{};
         transaction.Axis = axis;
-
-        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
-                                uint8_t slot_count) noexcept -> bool
-        {
-            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
-            std::sort(slots.begin(), end);
-            slot_count = static_cast<uint8_t>(
-                std::distance(slots.begin(), std::unique(slots.begin(), end))
-            );
-
-            transaction.APCCount = slot_count;
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                transaction.Identities[i].Slot = slots[i];
-            }
-
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                ForestAPCPerticipent_& part = transaction.Identities[i];
-                if (
-                    !AcquireGraphMutationFlag_(
-                        part.Slot,
-                        axis,
-                        internal_max_tries
-                    ).has_value()
-                )
-                {
-                    return false;
-                }
-                part.Locked = true;
-
-                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
-                {
-                    return false;
-                }
-                part.Before = part.Work;
-            }
-            return true;
-        };
 
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
@@ -752,7 +643,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        AllRequiresApcList_ lock_slots{};
         uint8_t lock_count = 2u;
         lock_slots[0u] = predessor_idx;
         lock_slots[1u] = child_idx;
@@ -761,7 +652,7 @@ namespace BidirectionalInMemGraph
             lock_slots[lock_count++] = next_idx;
         }
 
-        if (!AcquireAPCs___(lock_slots, lock_count))
+        if (!AcquiteAllIdentitiesForTransaction_(lock_slots, lock_count, axis, transaction, internal_max_tries))
         {
             AbroatForestMutation_(transaction);
             return false;
@@ -835,84 +726,6 @@ namespace BidirectionalInMemGraph
 
         ForestMutationTransaction_ transaction{};
         transaction.Axis = axis;
-
-        auto AcquireAPCs___ = [&](std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> slots,
-                                uint8_t slot_count) noexcept -> bool
-        {
-            auto end = slots.begin() + static_cast<std::ptrdiff_t>(slot_count);
-            std::sort(slots.begin(), end);
-            slot_count = static_cast<uint8_t>(
-                std::distance(slots.begin(), std::unique(slots.begin(), end))
-            );
-
-            transaction.APCCount = slot_count;
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                transaction.Identities[i].Slot = slots[i];
-            }
-
-            for (uint8_t i = 0u; i < slot_count; ++i)
-            {
-                ForestAPCPerticipent_& part = transaction.Identities[i];
-                if (
-                    !AcquireGraphMutationFlag_(
-                        part.Slot,
-                        axis,
-                        internal_max_tries
-                    ).has_value()
-                )
-                {
-                    return false;
-                }
-                part.Locked = true;
-
-                if (!ReadIdentityBufferOfAPC(part.Slot, part.Work))
-                {
-                    return false;
-                }
-                part.Before = part.Work;
-            }
-            return true;
-        };
-
-        auto FindRoot___ = [&](uint32_t start_edge_idx,
-                            uint32_t forbidden_edge_idx,
-                            bool reject_forbidden,
-                            uint32_t& root_edge_idx) noexcept -> SeqLockedOperation
-        {
-            uint32_t cursor = start_edge_idx;
-            for (uint32_t i = 0u; i < CountOfAPC_; ++i)
-            {
-                if (reject_forbidden && cursor == forbidden_edge_idx)
-                {
-                    return SeqLockedOperation::NONE;
-                }
-
-                EdgeBuilder::EdgeData edge{};
-                const SeqLockedOperation outcome = ReadCommittedForestEdge_(
-                    cursor,
-                    axis,
-                    edge,
-                    &transaction
-                );
-                if (outcome != SeqLockedOperation::FOUND)
-                {
-                    return outcome;
-                }
-
-                if (edge.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL)
-                {
-                    root_edge_idx = cursor;
-                    return SeqLockedOperation::FOUND;
-                }
-                if (edge.ParentEdgeIndex >= CountOfAPC_ || edge.ParentEdgeIndex == cursor)
-                {
-                    return SeqLockedOperation::NONE;
-                }
-                cursor = edge.ParentEdgeIndex;
-            }
-            return SeqLockedOperation::NONE;
-        };
 
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
@@ -1077,17 +890,21 @@ namespace BidirectionalInMemGraph
         if (needs_forest_guard)
         {
             if (
-                FindRoot___(
+                FindForestRootEdge_(
                     unlink_edge_idx,
                     APCDataStructure::APC_INDEX_BOUND_SENTINAL,
                     false,
-                    source_root
+                    source_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
-                FindRoot___(
+                FindForestRootEdge_(
                     relink_edge_idx,
                     child_owned_edge_idx,
                     true,
-                    destination_root
+                    destination_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
                 !AddForestEdgeParticipent_(transaction, source_root, true, true) ||
                 !AddForestEdgeParticipent_(transaction, destination_root, true, true) ||
@@ -1114,7 +931,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT> lock_slots{};
+        AllRequiresApcList_ lock_slots{};
         uint8_t lock_count = 2u;
         lock_slots[0u] = previous_idx;
         lock_slots[1u] = apc_slot_idx;
@@ -1127,7 +944,7 @@ namespace BidirectionalInMemGraph
             lock_slots[lock_count++] = relink_predessor_idx;
         }
 
-        if (!AcquireAPCs___(lock_slots, lock_count))
+        if (!AcquiteAllIdentitiesForTransaction_(lock_slots, lock_count, axis, transaction, internal_max_tries))
         {
             AbroatForestMutation_(transaction);
             return false;
@@ -1178,17 +995,21 @@ namespace BidirectionalInMemGraph
             uint32_t verified_source_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             uint32_t verified_destination_root = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             if (
-                FindRoot___(
+                FindForestRootEdge_(
                     unlink_edge_idx,
                     APCDataStructure::APC_INDEX_BOUND_SENTINAL,
                     false,
-                    verified_source_root
+                    verified_source_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
-                FindRoot___(
+                FindForestRootEdge_(
                     relink_edge_idx,
                     child_owned_edge_idx,
                     true,
-                    verified_destination_root
+                    verified_destination_root,
+                    axis,
+                    transaction
                 ) != SeqLockedOperation::FOUND ||
                 verified_source_root != source_root ||
                 verified_destination_root != destination_root
