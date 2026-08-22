@@ -68,7 +68,7 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-    private:
+    // private:
 
         static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
         static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT = 4u;
@@ -89,7 +89,7 @@ namespace BidirectionalInMemGraph
 
         struct ForestAPCPerticipent_
         {
-            uint32_t slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t Slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             IAB::BufferOfAPCIdentity Before{};
             IAB::BufferOfAPCIdentity Work{};
             bool Locked = false;
@@ -149,6 +149,18 @@ namespace BidirectionalInMemGraph
             ForestMutationTransaction_& transaction,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        bool CommitForestMutation_(
+            ForestMutationTransaction_& transaction,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        SeqLockedOperation ReadCommittedForestEdge_(
+            uint32_t edge_idx,
+            IAB::BidirectionalAxis axis,
+            EdgeBuilder::EdgeData& edge_data,
+            ForestMutationTransaction_* transaction = nullptr
+        ) noexcept;
     };
 
     class ConstructForestOnEachAxis : public ForestMutationConf
@@ -159,8 +171,7 @@ namespace BidirectionalInMemGraph
         SeqLockedOperation FindForestRootEdge_(
             uint32_t start_edge_idx,
             IAB::BidirectionalAxis axis,
-            uint32_t& root_edge_idx,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
+            uint32_t& root_edge_idx
         ) noexcept;
 
         bool AnchorADetachedChildToParent(

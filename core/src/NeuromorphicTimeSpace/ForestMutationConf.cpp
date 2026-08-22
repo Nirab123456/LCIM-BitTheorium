@@ -189,7 +189,7 @@ namespace BidirectionalInMemGraph
     {
         for (uint8_t i = 0; i < transaction.APCCount; i++)
         {
-            if (transaction.Identities[i].slot == apc_slot)
+            if (transaction.Identities[i].Slot == apc_slot)
             {
                 return &transaction.Identities[i];
             }
@@ -320,7 +320,7 @@ namespace BidirectionalInMemGraph
                 continue;
             }
             WriteAcquiredAxisDelta_(
-                part.slot,
+                part.Slot,
                 part.Work,
                 part.Before,
                 transaction.Axis
@@ -343,7 +343,7 @@ namespace BidirectionalInMemGraph
             }
 
             const bool relesed = ReleseGraphMutationFlag_(
-                part.slot,
+                part.Slot,
                 transaction.Axis,
                 max_tries
             );
@@ -357,12 +357,132 @@ namespace BidirectionalInMemGraph
 
     void ForestMutationConf::AbroatForestMutation_(
         ForestMutationTransaction_ transaction,
-        uint32_t max_tries = DEFAULT_MAX_TRIES
+        uint32_t max_tries 
     ) noexcept
     {
         RestoreForestIdentities_(transaction);
         RestoreForestEdges_(transaction, max_tries);
         ReleseAxisReservation_(transaction, max_tries);
+    }
+
+    bool ForestMutationConf::CommitForestMutation_(
+        ForestMutationTransaction_& transaction,
+        uint32_t max_tries
+    ) noexcept
+    {
+        for (uint8_t i = 0; i < transaction.APCCount; i++)
+        {
+            if (!IAB::SealIdentityBuffer(transaction.Identities[i].Work))
+            {
+                AbroatForestMutation_(transaction, max_tries);
+                return false;
+            }
+            ForestAPCPerticipent_& part = transaction.Identities[i];
+
+            WriteAcquiredAxisDelta_(
+                part.Slot,
+                part.Before,
+                part.Work,
+                transaction.Axis
+            );
+
+            part.Published = true;
+
+        }
+
+        auto PublishPass___ = [&](bool gates) noexcept -> bool
+        {
+            for (uint8_t i = 0; i < transaction.EdgeCount; i++)
+            {
+                ForestEdgePerticipent_& part = transaction.Edges[i];
+                if (part.IsForestGate != gates)
+                {
+                    continue;
+                }
+                if (!PublishReservedEdge_(
+                    part.Work,
+                    part.Index
+                ))
+                {
+                    return false;
+                }
+                part.Reserved = false;
+                part.Published = true;
+            }
+            return true;
+        };
+
+        if (
+            !PublishPass___(false) ||
+            !PublishPass___(true)
+        )
+        {
+            AbroatForestMutation_(transaction);
+            return false;
+        }
+
+        ReleseAxisReservation_(transaction);
+        return true;
+    }
+
+
+    ForestMutationConf::SeqLockedOperation ForestMutationConf::ReadCommittedForestEdge_(
+        uint32_t edge_idx,
+        IAB::BidirectionalAxis axis,
+        EdgeBuilder::EdgeData& edge_data,
+        ForestMutationTransaction_* transaction
+    ) noexcept
+    {
+        const IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
+        if (transaction)
+        {
+            ForestEdgePerticipent_* part = FindForestEdgeParticipent_(
+                *transaction,
+                edge_idx
+            );
+
+            if (part)
+            {
+                edge_data = part->Before;
+                if (
+                    edge_data.IsValid &&
+                    edge_data.Status == EdgeBuilder::EdgeStatus::LIVE &&
+                    edge_data.EdgeTable == map.EdgeTable &&
+                    edge_data.OwnerAPCSlot == edge_idx
+                )
+                {
+                    return SeqLockedOperation::FOUND;
+                }
+                return SeqLockedOperation::NONE;
+            }
+        }
+        SeqLockedOperation outcome = ReadEdgeData_(
+            map.EdgeTable,
+            edge_idx,
+            edge_data
+        );
+
+        if (outcome != SeqLockedOperation::FOUND)
+        {
+            return outcome;
+        }
+        
+        if (
+            !edge_data.IsValid ||
+            edge_data.EdgeTable != map.EdgeTable ||
+            edge_data.OwnerAPCSlot != edge_idx
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+        if (edge_data.Status == EdgeBuilder::EdgeStatus::RESERVED)
+        {
+            return SeqLockedOperation::RETRY;
+        }
+        
+        return 
+            edge_data.Status == EdgeBuilder::EdgeStatus::LIVE ?
+                SeqLockedOperation::FOUND : SeqLockedOperation::NONE;
     }
 
 }

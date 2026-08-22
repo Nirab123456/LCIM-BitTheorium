@@ -8,8 +8,7 @@ namespace BidirectionalInMemGraph
     FabricToAPCLinker::SeqLockedOperation ConstructForestOnEachAxis::FindForestRootEdge_(
         uint32_t start_edge_idx,
         IAB::BidirectionalAxis axis,
-        uint32_t& root_edge_idx,
-        uint32_t max_tries
+        uint32_t& root_edge_idx
     ) noexcept
     {
         if (start_edge_idx >= CountOfAPC_)
@@ -22,41 +21,20 @@ namespace BidirectionalInMemGraph
         uint32_t cursor_edge_idx = start_edge_idx;
         for (uint32_t i = 0; i < CountOfAPC_; i++)
         {
-            EdgeBuilder::EdgeBuffer edge_buffer{};
             EdgeBuilder::EdgeData edge_data{};
-
-            SeqLockedOperation edge_buffer_found = ReadAnEdgeBuffer_(
-                map.EdgeTable,
+            const SeqLockedOperation outcome = ReadCommittedForestEdge_(
                 cursor_edge_idx,
-                edge_buffer,
-                max_tries
+                axis,
+                edge_data,
+                nullptr
             );
 
-            if (
-                edge_buffer_found == SeqLockedOperation::NONE ||
-                edge_buffer_found == SeqLockedOperation::RETRY
-            )
+            if (outcome != SeqLockedOperation::FOUND)
             {
-                return edge_buffer_found;
+                return outcome;
             }
 
-            if (
-                EdgeBuilder::ReadEdgeFromBufferStatically(
-                    map.EdgeTable,
-                    edge_buffer,
-                    edge_data
-                ) != EdgeBuilder::EdgeStatus::LIVE ||
-                !edge_data.IsValid ||
-                edge_data.EdgeTable != map.EdgeTable ||
-                edge_data.OwnerAPCSlot != cursor_edge_idx
-            )
-            {
-                return SeqLockedOperation::NONE;
-            }
-
-            if (
-                edge_data.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL
-            )
+            if (edge_data.ParentEdgeIndex == APCDataStructure::APC_INDEX_BOUND_SENTINAL)
             {
                 root_edge_idx = cursor_edge_idx;
                 return SeqLockedOperation::FOUND;
@@ -64,7 +42,7 @@ namespace BidirectionalInMemGraph
             
             if (
                 edge_data.ParentEdgeIndex >= CountOfAPC_ ||
-                edge_data.ParentEdgeIndex == cursor_edge_idx 
+                edge_data.ParentEdgeIndex == cursor_edge_idx
             )
             {
                 return SeqLockedOperation::NONE;
