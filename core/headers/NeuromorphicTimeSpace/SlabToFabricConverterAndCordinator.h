@@ -54,6 +54,20 @@ namespace BidirectionalInMemGraph
 
     class ForestMutationConf : public SlabToFabricConverterAndCordinator
     {
+    protected:
+        void WriteAcquiredAxisDelta_(
+            uint32_t apc_slot,
+            const IAB::BufferOfAPCIdentity& before_idintity,
+            const IAB::BufferOfAPCIdentity& desired_identity,
+            IAB::BidirectionalAxis axis
+        ) noexcept;
+
+        bool ReleseGraphMutationFlag_(
+            uint32_t apc_slot,
+            IAB::BidirectionalAxis axis,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
     private:
 
         static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
@@ -103,21 +117,36 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
         ForestEdgePerticipent_* FindForestEdgeParticipent_(
-            ForestMutationTransaction_ transaction,
+            ForestMutationTransaction_& transaction,
             uint32_t edge_idx 
         ) noexcept;
 
         ForestAPCPerticipent_* FindForestAPCParticipent_(
-            ForestMutationTransaction_ transaction,
+            ForestMutationTransaction_& transaction,
             uint32_t apc_slot 
         ) noexcept;
 
-        bool RestoreForestEdges_(
-            ForestMutationTransaction_ transaction
+        void RestoreForestEdges_(
+            ForestMutationTransaction_& transaction,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        void RestoreForestIdentities_(
+            ForestMutationTransaction_& transaction
+        ) noexcept;
+
+        void ReleseAxisReservation_(
+            ForestMutationTransaction_& transaction,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        void AbroatForestMutation_(
+            ForestMutationTransaction_ treansaction,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
         bool ReserveLocalForestEdges_(
-            ForestMutationTransaction_ transaction,
+            ForestMutationTransaction_& transaction,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
     };
@@ -132,13 +161,6 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t& root_edge_idx,
             uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        void WriteAcquiredAxisDelta_(
-            uint32_t apc_slot,
-            const IAB::BufferOfAPCIdentity& before_idintity,
-            const IAB::BufferOfAPCIdentity& desired_identity,
-            IAB::BidirectionalAxis axis
         ) noexcept;
 
         bool AnchorADetachedChildToParent(
@@ -158,12 +180,6 @@ namespace BidirectionalInMemGraph
         /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
         std::optional<uint64_t> AcquireGraphMutationFlag_(
             uint32_t apc_slot_idx,
-            IAB::BidirectionalAxis axis,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool ReleseGraphMutationFlag_(
-            uint32_t apc_slot,
             IAB::BidirectionalAxis axis,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;

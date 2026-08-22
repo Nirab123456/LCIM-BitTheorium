@@ -99,42 +99,6 @@ namespace BidirectionalInMemGraph
             return IAB::ValidateIdentityBuffer(identity);
     }
 
-    void ConstructForestOnEachAxis::WriteAcquiredAxisDelta_(
-        uint32_t apc_slot,
-        const IAB::BufferOfAPCIdentity& before_idintity,
-        const IAB::BufferOfAPCIdentity& desired_identity,
-        IAB::BidirectionalAxis axis
-    ) noexcept
-    {
-        const RangeOfAPC range = GetSegmentPoolRange(apc_slot);
-        if (
-            !range.IsValid ||
-            IAB::ValueOfAnIdentityFromBuffer(before_idintity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot ||
-            IAB::ValueOfAnIdentityFromBuffer(desired_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot 
-        )
-        {
-            return;
-        }
-
-        const IAB::EasyAxisMapArray axis_map_array = IAB::GetMutableAxisArray(axis);
-
-        for (const HeaderIdentifierOfAPC unit : axis_map_array)
-        {
-            if (
-                before_idintity[IAB::GetBufferIdxFromIdentityUnit(unit).value()] == desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()]
-            )
-            {
-                continue;
-            }
-            
-            AtomicallyStoreU64Fab(
-                range.BeginIndex + static_cast<uint8_t>(unit),
-                desired_identity[IAB::GetBufferIdxFromIdentityUnit(unit).value()],
-                std::memory_order_relaxed
-            );
-        }
-    }
-
     bool ConstructForestOnEachAxis::ReadGraphMutationFlags(
         uint32_t slot_idx,
         IAB::GraphMutationValues& values
@@ -225,71 +189,6 @@ namespace BidirectionalInMemGraph
     
         return std::nullopt;
     }
-
-    bool ConstructForestOnEachAxis::ReleseGraphMutationFlag_(
-        uint32_t apc_slot,
-        IAB::BidirectionalAxis axis,
-        uint32_t max_tries
-    ) noexcept
-    {
-        const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
-        const IAB::MemGraphFlag axis_flag = IAB::GetMemGFlagFromAxis(axis);
-
-        if (
-            !range_of_apc_sagmant_pool.IsValid
-        )
-        {
-            return false;
-        }
-
-        const size_t lock_idx = range_of_apc_sagmant_pool.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
-
-        uint64_t observed = FABRIC_CELL_SENTINAL;
-        IAB::GraphMutationValues current_values{};
-
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            if (
-                !AtomicallyLoadReadAUnit(lock_idx, observed) ||
-                !IAB::ExtractGraphMutationValues(observed, current_values) ||
-                !IAB::HasThisGraphMutationFlag(current_values.Flags, axis_flag)
-            )
-            {
-                return false;
-            }
-
-            IAB:: GraphMutationValues desired = current_values;
-            desired.Flags = IAB::ClearThisFlag(current_values.Flags, axis_flag);
-
-            IAB::UpdateCounterOnDesiredState(desired, axis_flag);
-            
-            const uint64_t desired_raw = IAB::MakeGraphMutationRaw(desired);
-            if (
-                !IAB::IsValidGraphMutationState(desired) ||
-                !APCDataStructure::IsValidFabricUnit(desired_raw)
-            )
-            {
-                return false;
-            }
-
-            uint64_t expected = observed;
-
-            if (
-                !CompareExchangeStrongFromFabric(
-                    lock_idx,
-                    expected,
-                    desired_raw
-                )
-            )
-            {
-                continue;
-            }
-            
-            return true;
-        }
-        return false;
-    }
-
 
     bool ConstructForestOnEachAxis::OpenForestGateOnAxis(
         uint32_t apc_slot,
