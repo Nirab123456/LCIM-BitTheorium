@@ -334,7 +334,7 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        for (uint8_t i = 0; i < transaction.APCCount; i++)
+        for (uint8_t i = transaction.APCCount; i > 0u; --i)
         {
             ForestAPCPerticipent_& part = transaction.Identities[i - 1u];
             if (!part.Locked)

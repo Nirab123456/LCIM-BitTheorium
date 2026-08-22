@@ -169,8 +169,11 @@ namespace BidirectionalInMemGraph
 
         SeqLockedOperation FindForestRootEdge_(
             uint32_t start_edge_idx,
+            uint32_t forbidden_edge_idx,
+            bool reject_forbidden,
+            uint32_t& root_edge_idx,
             IAB::BidirectionalAxis axis,
-            uint32_t& root_edge_idx
+            ForestMutationTransaction_& transaction
         ) noexcept;
 
         bool AnchorADetachedChildToParent(
