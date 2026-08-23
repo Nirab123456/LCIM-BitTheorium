@@ -163,7 +163,7 @@ namespace BidirectionalInMemGraph
     }
     
 
-    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindPrevious(
+    AdaptivePackedCellContainer::RelationOparation AdaptivePackedCellContainer::FindPrevious(
         IAB::BidirectionalAxis axis,
         uint32_t max_tries
     ) noexcept
@@ -172,13 +172,14 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_pre{};
         IAB::GraphMutationValues gmv_values_post{};
 
+        RelationOparation op_values{};
         if (!IsThisAPCValid())
         {
-            return nullptr;
+            return op_values;
         }
-        
-        uint64_t previous = FABRIC_CELL_SENTINAL;
 
+        uint64_t previous = FABRIC_CELL_SENTINAL;
+        bool found = false;
 
         for (size_t i = 0; i < max_tries; i++)
         {
@@ -186,45 +187,62 @@ namespace BidirectionalInMemGraph
                 !FabricOwnerPtr_->ReadGraphMutationFlags(
                     static_cast<uint32_t>(APCSlotIdx_),
                     gmv_values_pre
-                ) ||
+                ) 
+            )
+            {
+                return op_values;
+            }
+            
+            if (
                 IAB::IsDesiredAxisLocked(gmv_values_pre.Flags, axis)
             )
             {
                 continue;
             }
 
-            if (!ReadAPCMetaUnit(map.PreviousSibling, previous))
-            {
-                continue;
-            }
-
             if (
+                !ReadAPCMetaUnit(map.PreviousSibling, previous) ||
                 !FabricOwnerPtr_->ReadGraphMutationFlags(
                     static_cast<uint32_t>(APCSlotIdx_),
                     gmv_values_post
-                ) ||
-                IAB::IsDesiredAxisLocked(gmv_values_post.Flags, axis) ||
-                !IAB::CompareGmvPreVSPostSequense(gmv_values_pre, gmv_values_post, axis)
+                ) 
             )
             {
-                continue;
+                return op_values;
             }
 
             if (
-                !APCDataStructure::IsValid32BitAPCUnit(previous)
+                !IAB::IsDesiredAxisLocked(gmv_values_post.Flags, axis) &&
+                IAB::CompareGmvPreVSPostSequense(gmv_values_pre, gmv_values_post, axis)
             )
             {
-                return nullptr;
+                found = true;
+                break;
             }
 
-            return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
         }
 
-        return nullptr;
+        if (!found)
+        {
+            op_values.MutationOP_ = SeqLockedOperation::RETRY;
+            return op_values;
+        }
+
+        op_values.APCPtr_ = FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(previous);
+        if (op_values.APCPtr_)
+        {
+            op_values.MutationOP_ = SeqLockedOperation::FOUND;
+        }
+        else
+        {
+            op_values.MutationOP_ = SeqLockedOperation::NONE;
+        }
+        
+        return op_values;
     }
 
 
-    AdaptivePackedCellContainer* AdaptivePackedCellContainer::FindMyNext(
+    AdaptivePackedCellContainer::RelationOparation AdaptivePackedCellContainer::FindMyNext(
         IAB::BidirectionalAxis axis,
         IAB::DescOfInharitance inharitance,
         uint32_t max_tries
@@ -234,9 +252,10 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_pre{};
         IAB::GraphMutationValues gmv_values_post{};
 
+        RelationOparation op_values{};
         if (!IsThisAPCValid())
         {
-            return nullptr;
+            return op_values;
         }
         
         uint64_t next = FABRIC_CELL_SENTINAL;
@@ -244,47 +263,65 @@ namespace BidirectionalInMemGraph
         HeaderIdentifierOfAPC desired_next = inharitance == IAB::DescOfInharitance::FIRST_CHILD ?
             map.RootOwnedChild : map.NextSibling;
 
+        bool found = false;
+
         for (size_t i = 0; i < max_tries; i++)
         {
             if (
                 !FabricOwnerPtr_->ReadGraphMutationFlags(
                     static_cast<uint32_t>(APCSlotIdx_),
                     gmv_values_pre
-                ) ||
+                ) 
+            )
+            {
+                return op_values;
+            }
+            
+            if (
                 IAB::IsDesiredAxisLocked(gmv_values_pre.Flags, axis)
             )
             {
                 continue;
             }
 
-            if (!ReadAPCMetaUnit(desired_next, next))
-            {
-                continue;
-            }
-
             if (
+                !ReadAPCMetaUnit(desired_next, next) ||
                 !FabricOwnerPtr_->ReadGraphMutationFlags(
                     static_cast<uint32_t>(APCSlotIdx_),
                     gmv_values_post
-                ) ||
-                IAB::IsDesiredAxisLocked(gmv_values_post.Flags, axis) ||
-                !IAB::CompareGmvPreVSPostSequense(gmv_values_pre, gmv_values_post, axis)
+                ) 
             )
             {
-                continue;
+                return op_values;
             }
 
             if (
-                !APCDataStructure::IsValid32BitAPCUnit(next)
+                !IAB::IsDesiredAxisLocked(gmv_values_post.Flags, axis) &&
+                IAB::CompareGmvPreVSPostSequense(gmv_values_pre, gmv_values_post, axis)
             )
             {
-                return nullptr;
+                found = true;
+                break;
             }
-
-            return FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(next);
         }
 
-        return nullptr;
+        if (!found)
+        {
+            op_values.MutationOP_ = SeqLockedOperation::RETRY;
+            return op_values;
+        }
+
+        op_values.APCPtr_ = FabricOwnerPtr_->GetAPCRuntimePtrBySlotIndex_(next);
+        if (op_values.APCPtr_)
+        {
+            op_values.MutationOP_ = SeqLockedOperation::FOUND;
+        }
+        else
+        {
+            op_values.MutationOP_ = SeqLockedOperation::NONE;
+        }
+        
+        return op_values;
     }
 
 

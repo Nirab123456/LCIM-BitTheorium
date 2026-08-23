@@ -8,9 +8,10 @@
 //   2. Global-mutex vector compound move vs APC/Fabric compound move contention
 //   3. Public reader snapshot race against one compound cross-parent writer
 //   4. Primitive two-call mutation APIs vs compound one-call mutation APIs
+//   5. Per-axis acyclicity with a legal cyclic H-union-V projection
 //
 // Design rule:
-//   Test-specific workloads live in Test01..Test04.
+//   Test-specific workloads live in Test01..Test05.
 //   Graph storage, APC fixture construction, timing/statistics and common
 //   validation live in TestKit and are shared.
 //
@@ -48,6 +49,89 @@ namespace TestKit
     using Axis = IAB::BidirectionalAxis;
     using Inheritance = IAB::DescOfInharitance;
     using Clock = std::chrono::steady_clock;
+    using ReadOperation = FabricToAPCLinker::SeqLockedOperation;
+
+    template <typename Handle>
+    struct NavigationRead
+    {
+        Handle Ptr = nullptr;
+        ReadOperation Outcome = ReadOperation::NONE;
+
+        bool IsFound() const noexcept
+        {
+            return Outcome == ReadOperation::FOUND && Ptr != nullptr;
+        }
+
+        bool IsNone() const noexcept
+        {
+            return Outcome == ReadOperation::NONE && Ptr == nullptr;
+        }
+
+        bool IsRetry() const noexcept
+        {
+            return Outcome == ReadOperation::RETRY && Ptr == nullptr;
+        }
+
+        bool ContractValid() const noexcept
+        {
+            switch (Outcome)
+            {
+            case ReadOperation::FOUND: return Ptr != nullptr;
+            case ReadOperation::NONE:
+            case ReadOperation::RETRY: return Ptr == nullptr;
+            default: return false;
+            }
+        }
+    };
+
+    struct NavigationCounts
+    {
+        uint64_t Found = 0u;
+        uint64_t Retry = 0u;
+        uint64_t None = 0u;
+        uint64_t ContractFailures = 0u;
+
+        uint64_t Calls() const noexcept
+        {
+            return Found + Retry + None;
+        }
+
+        template <typename Handle>
+        void Observe(const NavigationRead<Handle>& read) noexcept
+        {
+            switch (read.Outcome)
+            {
+            case ReadOperation::FOUND: ++Found; break;
+            case ReadOperation::RETRY: ++Retry; break;
+            case ReadOperation::NONE: ++None; break;
+            default: ++ContractFailures; return;
+            }
+
+            if (!read.ContractValid()) ++ContractFailures;
+        }
+
+        void Add(const NavigationCounts& other) noexcept
+        {
+            Found += other.Found;
+            Retry += other.Retry;
+            None += other.None;
+            ContractFailures += other.ContractFailures;
+        }
+    };
+
+    inline void PrintNavigationCounts(
+        const char* label,
+        const NavigationCounts& counts)
+    {
+        std::cout
+            << "  " << std::left << std::setw(34) << label
+            << " calls=" << std::right << std::setw(10) << counts.Calls()
+            << "  FOUND=" << std::setw(10) << counts.Found
+            << "  RETRY=" << std::setw(10) << counts.Retry
+            << "  NONE=" << std::setw(10) << counts.None
+            << "  bad-contract=" << counts.ContractFailures
+            << '\n';
+    }
 
     enum class Result : uint8_t
     {
@@ -303,18 +387,46 @@ namespace TestKit
             );
         }
 
-        Handle FindNext(Handle from, Axis axis, Inheritance inheritance) noexcept
+        NavigationRead<Handle> FindNextRead(
+            Handle from,
+            Axis axis,
+            Inheritance inheritance) noexcept
         {
-            if (!from) return nullptr;
+            if (!from) return {};
+
             PointerAxis<PayloadWords, EnableVertical>& state = Axis_(from, axis);
-            return inheritance == Inheritance::FIRST_CHILD
+            Handle next = inheritance == Inheritance::FIRST_CHILD
                 ? state.FirstChild
                 : state.Next;
+
+            return {
+                next,
+                next ? ReadOperation::FOUND : ReadOperation::NONE
+            };
+        }
+
+        NavigationRead<Handle> FindPreviousRead(
+            Handle from,
+            Axis axis) noexcept
+        {
+            if (!from) return {};
+            Handle previous = Axis_(from, axis).Previous;
+            return {
+                previous,
+                previous ? ReadOperation::FOUND : ReadOperation::NONE
+            };
+        }
+
+        Handle FindNext(Handle from, Axis axis, Inheritance inheritance) noexcept
+        {
+            const auto read = FindNextRead(from, axis, inheritance);
+            return read.IsFound() ? read.Ptr : nullptr;
         }
 
         Handle FindPrevious(Handle from, Axis axis) noexcept
         {
-            return from ? Axis_(from, axis).Previous : nullptr;
+            const auto read = FindPreviousRead(from, axis);
+            return read.IsFound() ? read.Ptr : nullptr;
         }
 
         bool StorePayload(size_t node, uint32_t word, uint64_t value, bool atomic) noexcept
@@ -676,14 +788,39 @@ namespace TestKit
                 );
         }
 
+        NavigationRead<Handle> FindNextRead(
+            Handle from,
+            Axis axis,
+            Inheritance inheritance,
+            uint32_t max_tries = AdaptivePackedCellContainer::REALTION_FIND_TRIES) noexcept
+        {
+            if (!from) return {};
+
+            const auto read = from->FindMyNext(axis, inheritance, max_tries);
+            return {read.APCPtr_, read.MutationOP_};
+        }
+
+        NavigationRead<Handle> FindPreviousRead(
+            Handle from,
+            Axis axis,
+            uint32_t max_tries = AdaptivePackedCellContainer::REALTION_FIND_TRIES) noexcept
+        {
+            if (!from) return {};
+
+            const auto read = from->FindPrevious(axis, max_tries);
+            return {read.APCPtr_, read.MutationOP_};
+        }
+
         Handle FindNext(Handle from, Axis axis, Inheritance inheritance) noexcept
         {
-            return from ? from->FindMyNext(axis, inheritance) : nullptr;
+            const auto read = FindNextRead(from, axis, inheritance);
+            return read.IsFound() ? read.Ptr : nullptr;
         }
 
         Handle FindPrevious(Handle from, Axis axis) noexcept
         {
-            return from ? from->FindPrevious(axis) : nullptr;
+            const auto read = FindPreviousRead(from, axis);
+            return read.IsFound() ? read.Ptr : nullptr;
         }
 
         bool StorePayload(size_t node, uint32_t word, uint64_t value, bool atomic) noexcept
@@ -865,6 +1002,7 @@ namespace Test01_PublicTraversalBaseline
         uint64_t Checksum = 0u;
         uint64_t Operations = 0u;
         int64_t ElapsedNs = 0;
+        NavigationCounts Reads{};
 
         double NsPerOp() const noexcept
         {
@@ -971,107 +1109,144 @@ namespace Test01_PublicTraversalBaseline
     }
 
     template <typename Backend>
-    bool ValidateHorizontal(Backend& b)
+    bool ValidateHorizontal(
+        Backend& b,
+        NavigationCounts* reads = nullptr)
     {
         auto current = b.HandleAt(0u);
         if (!current) return false;
 
         for (size_t expected = 1u; expected < CHAIN_LENGTH; ++expected)
         {
-            current = b.FindNext(
+            const auto read = b.FindNextRead(
                 current,
                 Axis::HORIZONTAL,
                 Inheritance::FIRST_CHILD
             );
-            if (current != b.HandleAt(expected)) return false;
+            if (reads) reads->Observe(read);
+            if (!read.IsFound() || read.Ptr != b.HandleAt(expected)) return false;
+            current = read.Ptr;
         }
 
-        if (b.FindNext(
-                current,
-                Axis::HORIZONTAL,
-                Inheritance::FIRST_CHILD) != nullptr)
-        {
-            return false;
-        }
+        const auto forward_end = b.FindNextRead(
+            current,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+        if (reads) reads->Observe(forward_end);
+        if (!forward_end.IsNone()) return false;
 
         for (size_t expected = CHAIN_LENGTH - 1u; expected > 0u; --expected)
         {
-            current = b.FindPrevious(current, Axis::HORIZONTAL);
-            if (current != b.HandleAt(expected - 1u)) return false;
+            const auto read = b.FindPreviousRead(current, Axis::HORIZONTAL);
+            if (reads) reads->Observe(read);
+            if (!read.IsFound() || read.Ptr != b.HandleAt(expected - 1u)) return false;
+            current = read.Ptr;
         }
 
-        return b.FindPrevious(current, Axis::HORIZONTAL) == nullptr;
+        const auto backward_end = b.FindPreviousRead(current, Axis::HORIZONTAL);
+        if (reads) reads->Observe(backward_end);
+        return backward_end.IsNone();
     }
 
     template <typename Backend>
-    bool ValidateVertical(Backend& b)
+    bool ValidateVertical(
+        Backend& b,
+        NavigationCounts* reads = nullptr)
     {
-        auto current = b.FindNext(
+        const auto first = b.FindNextRead(
             b.HandleAt(OWNER_INDEX),
             Axis::VERTICAL,
             Inheritance::FIRST_CHILD
         );
+        if (reads) reads->Observe(first);
 
-        if (current != b.HandleAt(VERTICAL_ORDER[0])) return false;
+        if (!first.IsFound() || first.Ptr != b.HandleAt(VERTICAL_ORDER[0])) return false;
+        auto current = first.Ptr;
 
         for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
         {
-            current = b.FindNext(
+            const auto read = b.FindNextRead(
                 current,
                 Axis::VERTICAL,
                 Inheritance::LINKED_CHILD
             );
-            if (current != b.HandleAt(VERTICAL_ORDER[i])) return false;
+            if (reads) reads->Observe(read);
+            if (!read.IsFound() || read.Ptr != b.HandleAt(VERTICAL_ORDER[i])) return false;
+            current = read.Ptr;
         }
 
-        if (b.FindNext(
-                current,
-                Axis::VERTICAL,
-                Inheritance::LINKED_CHILD) != nullptr)
-        {
-            return false;
-        }
+        const auto forward_end = b.FindNextRead(
+            current,
+            Axis::VERTICAL,
+            Inheritance::LINKED_CHILD
+        );
+        if (reads) reads->Observe(forward_end);
+        if (!forward_end.IsNone()) return false;
 
         for (size_t i = CHAIN_LENGTH - 1u; i > 0u; --i)
         {
-            current = b.FindPrevious(current, Axis::VERTICAL);
-            if (current != b.HandleAt(VERTICAL_ORDER[i - 1u])) return false;
+            const auto read = b.FindPreviousRead(current, Axis::VERTICAL);
+            if (reads) reads->Observe(read);
+            if (!read.IsFound() || read.Ptr != b.HandleAt(VERTICAL_ORDER[i - 1u])) return false;
+            current = read.Ptr;
         }
 
-        current = b.FindPrevious(current, Axis::VERTICAL);
-        if (current != b.HandleAt(OWNER_INDEX)) return false;
-        if (b.FindPrevious(current, Axis::VERTICAL) != nullptr) return false;
+        const auto owner_read = b.FindPreviousRead(current, Axis::VERTICAL);
+        if (reads) reads->Observe(owner_read);
+        if (!owner_read.IsFound() || owner_read.Ptr != b.HandleAt(OWNER_INDEX)) return false;
+        current = owner_read.Ptr;
+
+        const auto backward_end = b.FindPreviousRead(current, Axis::VERTICAL);
+        if (reads) reads->Observe(backward_end);
+        if (!backward_end.IsNone()) return false;
 
         // Auxiliary V edge must return to its one permanent anchor.
-        auto aux_anchor = b.FindNext(
+        const auto aux_anchor_read = b.FindNextRead(
             b.HandleAt(V_AUX_ROOT),
             Axis::VERTICAL,
             Inheritance::FIRST_CHILD
         );
+        if (reads) reads->Observe(aux_anchor_read);
+        if (!aux_anchor_read.IsFound()) return false;
+        auto aux_anchor = aux_anchor_read.Ptr;
+
+        const auto aux_previous = b.FindPreviousRead(
+            aux_anchor,
+            Axis::VERTICAL
+        );
+        if (reads) reads->Observe(aux_previous);
+
+        const auto aux_end = b.FindNextRead(
+            aux_anchor,
+            Axis::VERTICAL,
+            Inheritance::LINKED_CHILD
+        );
+        if (reads) reads->Observe(aux_end);
 
         return
             aux_anchor == b.HandleAt(V_AUX_ANCHOR) &&
-            b.FindPrevious(
-                aux_anchor,
-                Axis::VERTICAL
-            ) == b.HandleAt(V_AUX_ROOT) &&
-            b.FindNext(
-                aux_anchor,
-                Axis::VERTICAL,
-                Inheritance::LINKED_CHILD
-            ) == nullptr;
+            aux_previous.IsFound() &&
+            aux_previous.Ptr == b.HandleAt(V_AUX_ROOT) &&
+            aux_end.IsNone();
     }
 
     template <typename Backend>
-    bool ValidateAll(Backend& b)
+    bool ValidateAll(
+        Backend& b,
+        NavigationCounts* reads = nullptr)
     {
-        return ValidateHorizontal(b) && ValidateVertical(b) && b.LocksReleased();
+        return
+            ValidateHorizontal(b, reads) &&
+            ValidateVertical(b, reads) &&
+            b.LocksReleased();
     }
 
     template <typename Backend>
     Timing TraverseHorizontalForward(Backend& b)
     {
         uint64_t checksum = 0u;
+        NavigationCounts reads{};
         const auto begin = Clock::now();
 
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
@@ -1079,12 +1254,14 @@ namespace Test01_PublicTraversalBaseline
             auto current = b.HandleAt(0u);
             for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
             {
-                current = b.FindNext(
+                const auto read = b.FindNextRead(
                     current,
                     Axis::HORIZONTAL,
                     Inheritance::FIRST_CHILD
                 );
-                if (!current) return {};
+                reads.Observe(read);
+                if (!read.IsFound()) return {};
+                current = read.Ptr;
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
@@ -1096,7 +1273,8 @@ namespace Test01_PublicTraversalBaseline
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * (CHAIN_LENGTH - 1u),
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
-            ).count()
+            ).count(),
+            reads
         };
     }
 
@@ -1104,6 +1282,7 @@ namespace Test01_PublicTraversalBaseline
     Timing TraverseHorizontalBackward(Backend& b)
     {
         uint64_t checksum = 0u;
+        NavigationCounts reads{};
         const auto begin = Clock::now();
 
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
@@ -1111,8 +1290,10 @@ namespace Test01_PublicTraversalBaseline
             auto current = b.HandleAt(CHAIN_LENGTH - 1u);
             for (size_t i = CHAIN_LENGTH - 1u; i > 0u; --i)
             {
-                current = b.FindPrevious(current, Axis::HORIZONTAL);
-                if (!current) return {};
+                const auto read = b.FindPreviousRead(current, Axis::HORIZONTAL);
+                reads.Observe(read);
+                if (!read.IsFound()) return {};
+                current = read.Ptr;
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
@@ -1124,7 +1305,8 @@ namespace Test01_PublicTraversalBaseline
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * (CHAIN_LENGTH - 1u),
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
-            ).count()
+            ).count(),
+            reads
         };
     }
 
@@ -1132,26 +1314,31 @@ namespace Test01_PublicTraversalBaseline
     Timing TraverseVerticalForward(Backend& b)
     {
         uint64_t checksum = 0u;
+        NavigationCounts reads{};
         const auto begin = Clock::now();
 
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
         {
-            auto current = b.FindNext(
+            const auto first = b.FindNextRead(
                 b.HandleAt(OWNER_INDEX),
                 Axis::VERTICAL,
                 Inheritance::FIRST_CHILD
             );
-            if (!current) return {};
+            reads.Observe(first);
+            if (!first.IsFound()) return {};
+            auto current = first.Ptr;
             checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
 
             for (size_t i = 1u; i < CHAIN_LENGTH; ++i)
             {
-                current = b.FindNext(
+                const auto read = b.FindNextRead(
                     current,
                     Axis::VERTICAL,
                     Inheritance::LINKED_CHILD
                 );
-                if (!current) return {};
+                reads.Observe(read);
+                if (!read.IsFound()) return {};
+                current = read.Ptr;
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
         }
@@ -1163,7 +1350,8 @@ namespace Test01_PublicTraversalBaseline
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * CHAIN_LENGTH,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
-            ).count()
+            ).count(),
+            reads
         };
     }
 
@@ -1171,6 +1359,7 @@ namespace Test01_PublicTraversalBaseline
     Timing TraverseVerticalBackward(Backend& b)
     {
         uint64_t checksum = 0u;
+        NavigationCounts reads{};
         const auto begin = Clock::now();
 
         for (uint32_t round = 0u; round < TRAVERSAL_ROUNDS; ++round)
@@ -1178,13 +1367,17 @@ namespace Test01_PublicTraversalBaseline
             auto current = b.HandleAt(VERTICAL_ORDER.back());
             for (size_t i = CHAIN_LENGTH - 1u; i > 0u; --i)
             {
-                current = b.FindPrevious(current, Axis::VERTICAL);
-                if (!current) return {};
+                const auto read = b.FindPreviousRead(current, Axis::VERTICAL);
+                reads.Observe(read);
+                if (!read.IsFound()) return {};
+                current = read.Ptr;
                 checksum += static_cast<uint64_t>(b.IndexOf(current) + 1u);
             }
 
-            current = b.FindPrevious(current, Axis::VERTICAL);
-            if (current != b.HandleAt(OWNER_INDEX)) return {};
+            const auto owner_read = b.FindPreviousRead(current, Axis::VERTICAL);
+            reads.Observe(owner_read);
+            if (!owner_read.IsFound() || owner_read.Ptr != b.HandleAt(OWNER_INDEX)) return {};
+            current = owner_read.Ptr;
             checksum += static_cast<uint64_t>(OWNER_INDEX + 1u);
         }
 
@@ -1195,7 +1388,8 @@ namespace Test01_PublicTraversalBaseline
             static_cast<uint64_t>(TRAVERSAL_ROUNDS) * CHAIN_LENGTH,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
-            ).count()
+            ).count(),
+            reads
         };
     }
 
@@ -1235,16 +1429,19 @@ namespace Test01_PublicTraversalBaseline
     Timing ScrambledGraphPlusPayload(Backend& b)
     {
         uint64_t checksum = 0u;
+        NavigationCounts reads{};
         const auto begin = Clock::now();
 
         for (uint32_t round = 0u; round < GRAPH_PAYLOAD_ROUNDS; ++round)
         {
-            auto current = b.FindNext(
+            const auto first = b.FindNextRead(
                 b.HandleAt(OWNER_INDEX),
                 Axis::VERTICAL,
                 Inheritance::FIRST_CHILD
             );
-            if (!current) return {};
+            reads.Observe(first);
+            if (!first.IsFound()) return {};
+            auto current = first.Ptr;
 
             for (size_t i = 0u; i < CHAIN_LENGTH; ++i)
             {
@@ -1262,12 +1459,14 @@ namespace Test01_PublicTraversalBaseline
 
                 if (i + 1u < CHAIN_LENGTH)
                 {
-                    current = b.FindNext(
+                    const auto read = b.FindNextRead(
                         current,
                         Axis::VERTICAL,
                         Inheritance::LINKED_CHILD
                     );
-                    if (!current) return {};
+                    reads.Observe(read);
+                    if (!read.IsFound()) return {};
+                    current = read.Ptr;
                 }
             }
         }
@@ -1279,7 +1478,8 @@ namespace Test01_PublicTraversalBaseline
             static_cast<uint64_t>(GRAPH_PAYLOAD_ROUNDS) * CHAIN_LENGTH,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
-            ).count()
+            ).count(),
+            reads
         };
     }
 
@@ -1482,6 +1682,11 @@ namespace Test01_PublicTraversalBaseline
             out.VerticalCycles += r.VerticalCompleted;
 
             if (r.OperationsOk) ++out.FullCompletionTrials;
+
+            // An incomplete trial is already a hard failure.  Stop here so
+            // its possibly odd-but-legal endpoint is not reused as the
+            // starting phase of another scheduled trial.
+            if (!r.OperationsOk) break;
 
             if (!r.IntegrityOk)
             {
@@ -1745,6 +1950,8 @@ namespace Test01_PublicTraversalBaseline
 
             if (r.OperationsOk) ++out.FullCompletionTrials;
 
+            if (!r.OperationsOk) break;
+
             if (!r.IntegrityOk)
             {
                 ++out.IntegrityFailures;
@@ -1795,10 +2002,31 @@ namespace Test01_PublicTraversalBaseline
         const auto apc_build_end = Clock::now();
 
         std::mutex vector_graph_mutex{};
+        NavigationCounts vector_public_reads{};
+        NavigationCounts apc_public_reads{};
 
-        if (!ValidateAll(vector_backend) || !ValidateAll(apc_backend))
+        const bool vector_initial_ok =
+            ValidateAll(vector_backend, &vector_public_reads);
+
+        const bool apc_initial_ok =
+            ValidateAll(apc_backend, &apc_public_reads);
+
+        if (!vector_initial_ok || !apc_initial_ok)
         {
-            std::cout << "Initial topology validation: FAIL\n";
+            std::cout
+                << "Initial topology validation\n"
+                << "  vector : " << (vector_initial_ok ? "PASS" : "FAIL") << '\n'
+                << "  APC    : " << (apc_initial_ok ? "PASS" : "FAIL") << '\n';
+
+            PrintNavigationCounts(
+                "vector FindMyNext/FindPrevious",
+                vector_public_reads
+            );
+            PrintNavigationCounts(
+                "APC FindMyNext/FindPrevious",
+                apc_public_reads
+            );
+
             return Result::FAIL;
         }
 
@@ -1865,9 +2093,14 @@ namespace Test01_PublicTraversalBaseline
 
                 vector_samples[mi][run] = v.NsPerOp();
                 apc_samples[mi][run] = a.NsPerOp();
+                vector_public_reads.Add(v.Reads);
+                apc_public_reads.Add(a.Reads);
             }
 
-            if (!ValidateAll(vector_backend) || !ValidateAll(apc_backend))
+            if (
+                !ValidateAll(vector_backend, &vector_public_reads) ||
+                !ValidateAll(apc_backend, &apc_public_reads)
+            )
             {
                 std::cout << "  post-run topology/lock validation: FAIL\n";
                 return Result::FAIL;
@@ -1922,6 +2155,10 @@ namespace Test01_PublicTraversalBaseline
         const bool vector_final = ValidateAll(vector_backend);
         const bool apc_final = ValidateAll(apc_backend);
 
+        std::cout << "\nPUBLIC FIND OUTCOMES (TIMED READS + QUIESCENT VALIDATION)\n";
+        PrintNavigationCounts("vector FindMyNext/FindPrevious", vector_public_reads);
+        PrintNavigationCounts("APC FindMyNext/FindPrevious", apc_public_reads);
+
         std::cout
             << "\nMEMORY FOOTPRINT SIGNAL (lower bounds, not process RSS)\n"
             << "  vector node storage                 : "
@@ -1934,8 +2171,14 @@ namespace Test01_PublicTraversalBaseline
         const bool final_ok =
             vector_final &&
             apc_final &&
+            vector_concurrent.FullCompletionTrials == vector_concurrent.Trials &&
+            apc_concurrent.FullCompletionTrials == apc_concurrent.Trials &&
             vector_concurrent.IntegrityFailures == 0u &&
-            apc_concurrent.IntegrityFailures == 0u;
+            apc_concurrent.IntegrityFailures == 0u &&
+            vector_public_reads.Retry == 0u &&
+            apc_public_reads.Retry == 0u &&
+            vector_public_reads.ContractFailures == 0u &&
+            apc_public_reads.ContractFailures == 0u;
 
         std::cout
             << "\nLACKING SIGNALS RELATIVE TO VECTOR\n"
@@ -2110,6 +2353,7 @@ namespace Test02_ContentionSweep
         uint64_t P99FailedMutationAttemptLatencyNs = 0u;
         uint64_t P99RetriedCycleLatencyNs = 0u;
         uint64_t P99RetryEventsPerCycle = 0u;
+        NavigationCounts PublicReads{};
     };
 
     struct LevelResult
@@ -2129,6 +2373,8 @@ namespace Test02_ContentionSweep
         double APCRejectsPer1000 = 0.0;
         double APCRetryEventsPerCycle = 0.0;
         double APCP99RetryEventsPerCycle = 0.0;
+        NavigationCounts VectorPublicReads{};
+        NavigationCounts APCPublicReads{};
     };
 
     inline void RetryBackoff(uint64_t retry_events) noexcept
@@ -2189,7 +2435,8 @@ namespace Test02_ContentionSweep
     template <typename Backend>
     bool ValidateContentionTopology(
         Backend& b,
-        uint32_t active_workers)
+        uint32_t active_workers,
+        NavigationCounts* reads = nullptr)
     {
         std::array<bool, NODE_COUNT> seen{};
 
@@ -2203,11 +2450,15 @@ namespace Test02_ContentionSweep
                     RootBForGroup(group);
 
                 auto previous = b.HandleAt(root);
-                auto current = b.FindNext(
+                const auto first = b.FindNextRead(
                     previous,
                     Axis::HORIZONTAL,
                     Inheritance::FIRST_CHILD
                 );
+                if (reads) reads->Observe(first);
+                if (first.IsRetry() || !first.ContractValid()) return false;
+
+                auto current = first.IsFound() ? first.Ptr : nullptr;
 
                 size_t guard = 0u;
 
@@ -2230,20 +2481,30 @@ namespace Test02_ContentionSweep
                         return false;
                     }
 
-                    if (b.FindPrevious(
-                            current,
-                            Axis::HORIZONTAL) != previous)
+                    const auto previous_read = b.FindPreviousRead(
+                        current,
+                        Axis::HORIZONTAL
+                    );
+                    if (reads) reads->Observe(previous_read);
+
+                    if (
+                        !previous_read.IsFound() ||
+                        previous_read.Ptr != previous
+                    )
                     {
                         return false;
                     }
 
                     seen[idx] = true;
                     previous = current;
-                    current = b.FindNext(
+                    const auto next_read = b.FindNextRead(
                         current,
                         Axis::HORIZONTAL,
                         Inheritance::LINKED_CHILD
                     );
+                    if (reads) reads->Observe(next_read);
+                    if (next_read.IsRetry() || !next_read.ContractValid()) return false;
+                    current = next_read.IsFound() ? next_read.Ptr : nullptr;
 
                     if (++guard > active_workers) return false;
                 }
@@ -2595,7 +2856,11 @@ namespace Test02_ContentionSweep
 
         out.P99CycleLatencyNs = P99(cycle_latencies);
         out.P99MutexWaitLatencyNs = P99(mutex_wait_latencies);
-        out.TopologyOk = ValidateContentionTopology(backend, workers);
+        out.TopologyOk = ValidateContentionTopology(
+            backend,
+            workers,
+            &out.PublicReads
+        );
         out.LocksReleased = true;
         out.Aborted = abort.load(std::memory_order_acquire);
 
@@ -2604,7 +2869,9 @@ namespace Test02_ContentionSweep
             out.CompletedCycles ==
                 static_cast<uint64_t>(workers) *
                 MEASURED_CYCLES_PER_WORKER &&
-            out.TopologyOk;
+            out.TopologyOk &&
+            out.PublicReads.Retry == 0u &&
+            out.PublicReads.ContractFailures == 0u;
 
         return out;
     }
@@ -2804,7 +3071,11 @@ namespace Test02_ContentionSweep
         out.P99RetryEventsPerCycle =
             P99(retry_events_per_cycle);
 
-        out.TopologyOk = ValidateContentionTopology(backend, workers);
+        out.TopologyOk = ValidateContentionTopology(
+            backend,
+            workers,
+            &out.PublicReads
+        );
         out.LocksReleased = backend.LocksReleased();
         out.Aborted = abort.load(std::memory_order_acquire);
 
@@ -2814,7 +3085,9 @@ namespace Test02_ContentionSweep
                 static_cast<uint64_t>(workers) *
                 MEASURED_CYCLES_PER_WORKER &&
             out.TopologyOk &&
-            out.LocksReleased;
+            out.LocksReleased &&
+            out.PublicReads.Retry == 0u &&
+            out.PublicReads.ContractFailures == 0u;
 
         return out;
     }
@@ -2866,6 +3139,9 @@ namespace Test02_ContentionSweep
                     << '\n';
                 return false;
             }
+
+            out.VectorPublicReads.Add(v.PublicReads);
+            out.APCPublicReads.Add(a.PublicReads);
 
             vector_tput[run] = v.ThroughputCyclesPerSecond;
             vector_p99_cycle[run] =
@@ -2982,6 +3258,14 @@ namespace Test02_ContentionSweep
         const LevelResult& low = levels[MIN_CONTENTION_LEVEL];
         const LevelResult& high = levels[MAX_CONTENTION_LEVEL];
 
+        NavigationCounts vector_public_reads{};
+        NavigationCounts apc_public_reads{};
+        for (const auto& level : levels)
+        {
+            vector_public_reads.Add(level.VectorPublicReads);
+            apc_public_reads.Add(level.APCPublicReads);
+        }
+
         const double low_ratio =
             Ratio(low.APCThroughput, low.VectorThroughput);
         const double high_ratio =
@@ -2993,7 +3277,11 @@ namespace Test02_ContentionSweep
             low.VectorThroughput > 0.0 &&
             high.VectorThroughput > 0.0 &&
             low.APCThroughput > 0.0 &&
-            high.APCThroughput > 0.0;
+            high.APCThroughput > 0.0 &&
+            vector_public_reads.Retry == 0u &&
+            apc_public_reads.Retry == 0u &&
+            vector_public_reads.ContractFailures == 0u &&
+            apc_public_reads.ContractFailures == 0u;
 
         std::cout
             << "\nCORE-BET SIGNAL\n"
@@ -3009,6 +3297,10 @@ namespace Test02_ContentionSweep
             << NsToUs(high.APCP99RetriedCycleNs) << " us\n"
             << "  APC max-contention rejects/1000 moves   : "
             << high.APCRejectsPer1000 << '\n';
+
+        std::cout << "\nQUIESCENT PUBLIC FIND OUTCOMES AFTER CONTENTION RUNS\n";
+        PrintNavigationCounts("vector FindMyNext/FindPrevious", vector_public_reads);
+        PrintNavigationCounts("APC FindMyNext/FindPrevious", apc_public_reads);
 
         std::cout
             << "\nTEST 2 OVERALL: "
@@ -3078,41 +3370,54 @@ namespace Test03_ReaderWriterTraversal
 
         if (!parent_a || !parent_b || !child) return false;
 
-        auto a_child = backend.FindNext(
+        const auto a_child = backend.FindNextRead(
             parent_a,
             Axis::HORIZONTAL,
             Inheritance::FIRST_CHILD
         );
 
-        auto b_child = backend.FindNext(
+        const auto b_child = backend.FindNextRead(
             parent_b,
             Axis::HORIZONTAL,
             Inheritance::FIRST_CHILD
         );
 
+        if (
+            !a_child.ContractValid() ||
+            !b_child.ContractValid() ||
+            a_child.IsRetry() ||
+            b_child.IsRetry()
+        )
+        {
+            return false;
+        }
+
         const bool on_a =
-            a_child == child &&
-            b_child == nullptr;
+            a_child.IsFound() && a_child.Ptr == child &&
+            b_child.IsNone();
 
         const bool on_b =
-            b_child == child &&
-            a_child == nullptr;
+            b_child.IsFound() && b_child.Ptr == child &&
+            a_child.IsNone();
 
         if (!on_a && !on_b) return false;
 
-        if (backend.FindNext(
-                child,
-                Axis::HORIZONTAL,
-                Inheritance::LINKED_CHILD) != nullptr)
+        const auto child_next = backend.FindNextRead(
+            child,
+            Axis::HORIZONTAL,
+            Inheritance::LINKED_CHILD
+        );
+        if (!child_next.IsNone())
         {
             return false;
         }
 
         const auto previous =
-            backend.FindPrevious(child, Axis::HORIZONTAL);
+            backend.FindPreviousRead(child, Axis::HORIZONTAL);
 
-        if (on_a && previous != parent_a) return false;
-        if (on_b && previous != parent_b) return false;
+        if (!previous.IsFound()) return false;
+        if (on_a && previous.Ptr != parent_a) return false;
+        if (on_b && previous.Ptr != parent_b) return false;
 
         return backend.LocksReleased();
     }
@@ -3120,6 +3425,9 @@ namespace Test03_ReaderWriterTraversal
     struct ApiStats
     {
         uint64_t Calls = 0u;
+        uint64_t Found = 0u;
+        uint64_t Retry = 0u;
+        uint64_t None = 0u;
         uint64_t StableValidated = 0u;
         uint64_t StableNull = 0u;
         uint64_t StableNonNull = 0u;
@@ -3132,6 +3440,8 @@ namespace Test03_ReaderWriterTraversal
         uint64_t OracleStructuralFailures = 0u;
         uint64_t OracleReadFailures = 0u;
         uint64_t VersionReadFailures = 0u;
+        uint64_t OutcomeContractFailures = 0u;
+        uint64_t UnexpectedNoneFailures = 0u;
     };
 
     struct ReaderStats
@@ -3143,6 +3453,9 @@ namespace Test03_ReaderWriterTraversal
     static void Add(ApiStats& dst, const ApiStats& src) noexcept
     {
         dst.Calls += src.Calls;
+        dst.Found += src.Found;
+        dst.Retry += src.Retry;
+        dst.None += src.None;
         dst.StableValidated += src.StableValidated;
         dst.StableNull += src.StableNull;
         dst.StableNonNull += src.StableNonNull;
@@ -3155,6 +3468,8 @@ namespace Test03_ReaderWriterTraversal
         dst.OracleStructuralFailures += src.OracleStructuralFailures;
         dst.OracleReadFailures += src.OracleReadFailures;
         dst.VersionReadFailures += src.VersionReadFailures;
+        dst.OutcomeContractFailures += src.OutcomeContractFailures;
+        dst.UnexpectedNoneFailures += src.UnexpectedNoneFailures;
     }
 
     static void Add(ReaderStats& dst, const ReaderStats& src) noexcept
@@ -3170,7 +3485,9 @@ namespace Test03_ReaderWriterTraversal
             s.StableContractFailures +
             s.OracleStructuralFailures +
             s.OracleReadFailures +
-            s.VersionReadFailures;
+            s.VersionReadFailures +
+            s.OutcomeContractFailures +
+            s.UnexpectedNoneFailures;
     }
 
     static uint64_t HardFailures(const ReaderStats& s) noexcept
@@ -3194,15 +3511,54 @@ namespace Test03_ReaderWriterTraversal
             s.FindPreviousChild.CompletedMutationWindows;
     }
 
-    static uint64_t RaceCoverageWindows(const ReaderStats& s) noexcept
+    // static uint64_t RaceCoverageWindows(const ReaderStats& s) noexcept
+    // {
+    //     return
+    //         s.FindNextParentA.CompletedMutationWindows +
+    //         s.FindNextParentA.BoundaryUnstableWindows +
+    //         s.FindNextParentA.OracleRacedWindows +
+    //         s.FindPreviousChild.CompletedMutationWindows +
+    //         s.FindPreviousChild.BoundaryUnstableWindows +
+    //         s.FindPreviousChild.OracleRacedWindows;
+    // }
+
+    template <typename Handle>
+    static void ObservePublicRead(
+        const NavigationRead<Handle>& read,
+        Handle legal_handle_1,
+        Handle legal_handle_2,
+        bool none_is_legal,
+        ApiStats& stats) noexcept
     {
-        return
-            s.FindNextParentA.CompletedMutationWindows +
-            s.FindNextParentA.BoundaryUnstableWindows +
-            s.FindNextParentA.OracleRacedWindows +
-            s.FindPreviousChild.CompletedMutationWindows +
-            s.FindPreviousChild.BoundaryUnstableWindows +
-            s.FindPreviousChild.OracleRacedWindows;
+        ++stats.Calls;
+
+        switch (read.Outcome)
+        {
+        case ReadOperation::FOUND: ++stats.Found; break;
+        case ReadOperation::RETRY: ++stats.Retry; break;
+        case ReadOperation::NONE: ++stats.None; break;
+        default: ++stats.OutcomeContractFailures; return;
+        }
+
+        if (!read.ContractValid())
+        {
+            ++stats.OutcomeContractFailures;
+            return;
+        }
+
+        if (
+            read.IsFound() &&
+            read.Ptr != legal_handle_1 &&
+            read.Ptr != legal_handle_2
+        )
+        {
+            ++stats.WrongPointerFailures;
+        }
+
+        if (read.IsNone() && !none_is_legal)
+        {
+            ++stats.UnexpectedNoneFailures;
+        }
     }
 
     template <typename PublicCall>
@@ -3214,6 +3570,7 @@ namespace Test03_ReaderWriterTraversal
         uint32_t legal_slot_1,
         APCBackend::Handle legal_handle_2,
         uint32_t legal_slot_2,
+        bool none_is_legal,
         PublicCall&& public_call,
         ApiStats& stats) noexcept
     {
@@ -3224,7 +3581,15 @@ namespace Test03_ReaderWriterTraversal
                 Axis::HORIZONTAL
             );
 
-        APCBackend::Handle observed = public_call();
+        const NavigationRead<APCBackend::Handle> public_read = public_call();
+        ObservePublicRead(
+            public_read,
+            legal_handle_1,
+            legal_handle_2,
+            none_is_legal,
+            stats
+        );
+        APCBackend::Handle observed = public_read.Ptr;
 
         const AxisVersion after =
             ReadAxisVersion(
@@ -3232,17 +3597,6 @@ namespace Test03_ReaderWriterTraversal
                 source_node,
                 Axis::HORIZONTAL
             );
-
-        ++stats.Calls;
-
-        if (
-            observed != nullptr &&
-            observed != legal_handle_1 &&
-            observed != legal_handle_2
-        )
-        {
-            ++stats.WrongPointerFailures;
-        }
 
         if (!before.Valid || !after.Valid)
         {
@@ -3258,6 +3612,11 @@ namespace Test03_ReaderWriterTraversal
         {
             ++stats.CompletedMutationWindows;
         }
+
+        // RETRY is the public API's explicit statement that this call did not
+        // observe a stable relationship.  It must never be compared with a
+        // later oracle value as if it meant NONE.
+        if (public_read.IsRetry()) return;
 
         if (!SameStableVersion(before, after))
         {
@@ -3320,7 +3679,11 @@ namespace Test03_ReaderWriterTraversal
             ++stats.StableNull;
         }
 
-        if (observed != expected)
+        const bool public_matches_expected = expected ?
+            (public_read.IsFound() && observed == expected) :
+            public_read.IsNone();
+
+        if (!public_matches_expected)
         {
             ++stats.StableContractFailures;
         }
@@ -3366,6 +3729,7 @@ namespace Test03_ReaderWriterTraversal
         std::atomic<uint64_t> writer_failures{0u};
         std::atomic<uint64_t> reader_failures{0u};
 
+        std::vector<ReaderStats> reader_stats(reader_count);
         std::vector<std::thread> readers{};
         readers.reserve(reader_count);
 
@@ -3380,20 +3744,32 @@ namespace Test03_ReaderWriterTraversal
                     std::this_thread::yield();
                 }
 
+                ReaderStats local{};
+
                 for (uint32_t i = 0u; i < CALL_PAIRS_PER_READER; ++i)
                 {
                     {
                         std::lock_guard<std::mutex> lock(graph_mutex);
 
-                        auto observed = backend.FindNext(
+                        const auto observed = backend.FindNextRead(
                             backend.HandleAt(PARENT_A),
                             Axis::HORIZONTAL,
                             Inheritance::FIRST_CHILD
                         );
 
+                        ObservePublicRead(
+                            observed,
+                            backend.HandleAt(CHILD),
+                            static_cast<VectorBackend::Handle>(nullptr),
+                            true,
+                            local.FindNextParentA
+                        );
+
                         if (
-                            observed != nullptr &&
-                            observed != backend.HandleAt(CHILD)
+                            !observed.ContractValid() ||
+                            (observed.IsFound() &&
+                             observed.Ptr != backend.HandleAt(CHILD)) ||
+                            observed.IsRetry()
                         )
                         {
                             reader_failures.fetch_add(
@@ -3406,14 +3782,23 @@ namespace Test03_ReaderWriterTraversal
                     {
                         std::lock_guard<std::mutex> lock(graph_mutex);
 
-                        auto observed = backend.FindPrevious(
+                        const auto observed = backend.FindPreviousRead(
                             backend.HandleAt(CHILD),
                             Axis::HORIZONTAL
                         );
 
+                        ObservePublicRead(
+                            observed,
+                            backend.HandleAt(PARENT_A),
+                            backend.HandleAt(PARENT_B),
+                            false,
+                            local.FindPreviousChild
+                        );
+
                         if (
-                            observed != backend.HandleAt(PARENT_A) &&
-                            observed != backend.HandleAt(PARENT_B)
+                            !observed.IsFound() ||
+                            (observed.Ptr != backend.HandleAt(PARENT_A) &&
+                             observed.Ptr != backend.HandleAt(PARENT_B))
                         )
                         {
                             reader_failures.fetch_add(
@@ -3427,6 +3812,8 @@ namespace Test03_ReaderWriterTraversal
                         static_cast<uint64_t>(i) + reader
                     );
                 }
+
+                reader_stats[reader] = local;
 
                 readers_done.fetch_add(1u, std::memory_order_release);
             });
@@ -3488,10 +3875,6 @@ namespace Test03_ReaderWriterTraversal
 
         const auto end = Clock::now();
 
-        out.TotalPublicCalls =
-            static_cast<uint64_t>(reader_count) *
-            MIN_PUBLIC_CALLS_PER_READER;
-
         out.WriterCycles =
             writer_cycles.load(std::memory_order_acquire);
 
@@ -3502,6 +3885,13 @@ namespace Test03_ReaderWriterTraversal
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 end - begin
             ).count();
+
+        for (const ReaderStats& stats : reader_stats)
+        {
+            Add(out.ReadersTotal, stats);
+        }
+
+        out.TotalPublicCalls = TotalCalls(out.ReadersTotal);
 
         {
             std::lock_guard<std::mutex> lock(graph_mutex);
@@ -3521,6 +3911,7 @@ namespace Test03_ReaderWriterTraversal
             out.HadMutationCoverage &&
             out.WriterFailures == 0u &&
             reader_failures.load(std::memory_order_acquire) == 0u &&
+            HardFailures(out.ReadersTotal) == 0u &&
             out.FinalTopologyOk;
 
         return out;
@@ -3574,9 +3965,10 @@ namespace Test03_ReaderWriterTraversal
                         child_slot,
                         nullptr,
                         APCDataStructure::APC_INDEX_BOUND_SENTINAL,
+                        true,
                         [&]() noexcept
                         {
-                            return backend.FindNext(
+                            return backend.FindNextRead(
                                 backend.HandleAt(PARENT_A),
                                 Axis::HORIZONTAL,
                                 Inheritance::FIRST_CHILD
@@ -3593,9 +3985,10 @@ namespace Test03_ReaderWriterTraversal
                         parent_a_slot,
                         backend.HandleAt(PARENT_B),
                         parent_b_slot,
+                        false,
                         [&]() noexcept
                         {
-                            return backend.FindPrevious(
+                            return backend.FindPreviousRead(
                                 backend.HandleAt(CHILD),
                                 Axis::HORIZONTAL
                             );
@@ -3687,9 +4080,10 @@ namespace Test03_ReaderWriterTraversal
             static_cast<uint64_t>(reader_count) *
                 MIN_PUBLIC_CALLS_PER_READER;
 
-        out.HadMutationCoverage =
-            out.WriterCycles != 0u &&
-            RaceCoverageWindows(out.ReadersTotal) != 0u;
+        // Scheduling coverage is telemetry, not a correctness oracle.  A run
+        // is covered when the compound writer actually completed mutations;
+        // public RETRY counts are reported independently below.
+        out.HadMutationCoverage = out.WriterCycles != 0u;
 
         out.FinalTopologyOk =
             ValidateTwoParentTopology(backend);
@@ -3716,6 +4110,12 @@ namespace Test03_ReaderWriterTraversal
             << "    " << name << '\n'
             << "      calls                       : "
             << s.Calls << '\n'
+            << "      FOUND                       : "
+            << s.Found << '\n'
+            << "      RETRY                       : "
+            << s.Retry << '\n'
+            << "      NONE                        : "
+            << s.None << '\n'
             << "      stable validated            : "
             << s.StableValidated << '\n'
             << "      stable null                 : "
@@ -3737,7 +4137,11 @@ namespace Test03_ReaderWriterTraversal
             << "      oracle read failures        : "
             << s.OracleReadFailures << '\n'
             << "      version read failures       : "
-            << s.VersionReadFailures << '\n';
+            << s.VersionReadFailures << '\n'
+            << "      outcome contract failures   : "
+            << s.OutcomeContractFailures << '\n'
+            << "      unexpected NONE failures    : "
+            << s.UnexpectedNoneFailures << '\n';
     }
 
     inline Result Run()
@@ -3749,6 +4153,9 @@ namespace Test03_ReaderWriterTraversal
             << "Vector reference: each reader call and whole writer move use one "
                "global std::mutex.\n"
             << "APC readers: FindMyNext() / FindPrevious() only, no external lock.\n"
+            << "Reader outcomes are counted directly as FOUND / RETRY / NONE.\n"
+            << "FindMyNext(PARENT_A): FOUND(child), RETRY, or NONE are legal.\n"
+            << "FindPrevious(CHILD): FOUND(parent A/B) or RETRY are legal; NONE is a failure.\n"
             << "There is no intentional stable detached phase in the writer workload.\n"
             << "Each reader performs " << CALL_PAIRS_PER_READER
             << " call pairs = " << MIN_PUBLIC_CALLS_PER_READER
@@ -3793,6 +4200,16 @@ namespace Test03_ReaderWriterTraversal
                 << MutationWindows(apc_run.ReadersTotal) << '\n'
                 << "  APC hard failures      : "
                 << apc_hard_failures << '\n';
+
+            PrintApiStats(
+                "vector FindMyNext(PARENT_A, FIRST_CHILD)",
+                vector_run.ReadersTotal.FindNextParentA
+            );
+
+            PrintApiStats(
+                "vector FindPrevious(CHILD)",
+                vector_run.ReadersTotal.FindPreviousChild
+            );
 
             PrintApiStats(
                 "FindMyNext(PARENT_A, FIRST_CHILD)",
@@ -3883,44 +4300,54 @@ namespace Test04_PrimitiveVsCompoundMutation
             );
     }
 
-    bool ValidateParentFixture(APCBackend& backend)
+    bool ValidateParentFixture(
+        APCBackend& backend,
+        NavigationCounts* reads = nullptr)
     {
         auto parent_a = backend.HandleAt(PARENT_A);
         auto parent_b = backend.HandleAt(PARENT_B);
         auto child = backend.HandleAt(CHILD);
 
-        auto a_child = backend.FindNext(
+        const auto a_child = backend.FindNextRead(
             parent_a,
             Axis::HORIZONTAL,
             Inheritance::FIRST_CHILD
         );
+        if (reads) reads->Observe(a_child);
 
-        auto b_child = backend.FindNext(
+        const auto b_child = backend.FindNextRead(
             parent_b,
             Axis::HORIZONTAL,
             Inheritance::FIRST_CHILD
         );
+        if (reads) reads->Observe(b_child);
+
+        const auto previous = backend.FindPreviousRead(
+            child,
+            Axis::HORIZONTAL
+        );
+        if (reads) reads->Observe(previous);
 
         const bool on_a =
-            a_child == child &&
-            b_child == nullptr &&
-            backend.FindPrevious(
-                child,
-                Axis::HORIZONTAL) == parent_a;
+            a_child.IsFound() && a_child.Ptr == child &&
+            b_child.IsNone() &&
+            previous.IsFound() && previous.Ptr == parent_a;
 
         const bool on_b =
-            b_child == child &&
-            a_child == nullptr &&
-            backend.FindPrevious(
-                child,
-                Axis::HORIZONTAL) == parent_b;
+            b_child.IsFound() && b_child.Ptr == child &&
+            a_child.IsNone() &&
+            previous.IsFound() && previous.Ptr == parent_b;
+
+        const auto child_end = backend.FindNextRead(
+            child,
+            Axis::HORIZONTAL,
+            Inheritance::LINKED_CHILD
+        );
+        if (reads) reads->Observe(child_end);
 
         return
             (on_a || on_b) &&
-            backend.FindNext(
-                child,
-                Axis::HORIZONTAL,
-                Inheritance::LINKED_CHILD) == nullptr &&
+            child_end.IsNone() &&
             backend.LocksReleased();
     }
 
@@ -3948,7 +4375,9 @@ namespace Test04_PrimitiveVsCompoundMutation
             );
     }
 
-    bool ValidateSiblingFixture(APCBackend& backend)
+    bool ValidateSiblingFixture(
+        APCBackend& backend,
+        NavigationCounts* reads = nullptr)
     {
         auto parent_a = backend.HandleAt(PARENT_A);
         auto parent_b = backend.HandleAt(PARENT_B);
@@ -3956,52 +4385,72 @@ namespace Test04_PrimitiveVsCompoundMutation
         auto anchor_b = backend.HandleAt(ANCHOR_B);
         auto child = backend.HandleAt(CHILD);
 
+        const auto first_a = backend.FindNextRead(
+            parent_a,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+        const auto first_b = backend.FindNextRead(
+            parent_b,
+            Axis::HORIZONTAL,
+            Inheritance::FIRST_CHILD
+        );
+        if (reads)
+        {
+            reads->Observe(first_a);
+            reads->Observe(first_b);
+        }
+
         if (
-            backend.FindNext(
-                parent_a,
-                Axis::HORIZONTAL,
-                Inheritance::FIRST_CHILD) != anchor_a ||
-            backend.FindNext(
-                parent_b,
-                Axis::HORIZONTAL,
-                Inheritance::FIRST_CHILD) != anchor_b
+            !first_a.IsFound() || first_a.Ptr != anchor_a ||
+            !first_b.IsFound() || first_b.Ptr != anchor_b
         )
         {
             return false;
         }
 
-        auto next_a = backend.FindNext(
+        const auto next_a = backend.FindNextRead(
             anchor_a,
             Axis::HORIZONTAL,
             Inheritance::LINKED_CHILD
         );
 
-        auto next_b = backend.FindNext(
+        const auto next_b = backend.FindNextRead(
             anchor_b,
             Axis::HORIZONTAL,
             Inheritance::LINKED_CHILD
         );
+        const auto previous = backend.FindPreviousRead(
+            child,
+            Axis::HORIZONTAL
+        );
+        if (reads)
+        {
+            reads->Observe(next_a);
+            reads->Observe(next_b);
+            reads->Observe(previous);
+        }
 
         const bool on_a =
-            next_a == child &&
-            next_b == nullptr &&
-            backend.FindPrevious(
-                child,
-                Axis::HORIZONTAL) == anchor_a;
+            next_a.IsFound() && next_a.Ptr == child &&
+            next_b.IsNone() &&
+            previous.IsFound() && previous.Ptr == anchor_a;
 
         const bool on_b =
-            next_b == child &&
-            next_a == nullptr &&
-            backend.FindPrevious(
-                child,
-                Axis::HORIZONTAL) == anchor_b;
+            next_b.IsFound() && next_b.Ptr == child &&
+            next_a.IsNone() &&
+            previous.IsFound() && previous.Ptr == anchor_b;
+
+        const auto child_end = backend.FindNextRead(
+            child,
+            Axis::HORIZONTAL,
+            Inheritance::LINKED_CHILD
+        );
+        if (reads) reads->Observe(child_end);
 
         return
             (on_a || on_b) &&
-            backend.FindNext(
-                child,
-                Axis::HORIZONTAL,
-                Inheritance::LINKED_CHILD) == nullptr &&
+            child_end.IsNone() &&
             backend.LocksReleased();
     }
 
@@ -4406,6 +4855,18 @@ namespace Test04_PrimitiveVsCompoundMutation
             return Result::FAIL;
         }
 
+        NavigationCounts public_reads{};
+        APCBackend parent_probe{};
+        APCBackend sibling_probe{};
+
+        const bool public_contract_ok =
+            BuildParentFixture(parent_probe) &&
+            ValidateParentFixture(parent_probe, &public_reads) &&
+            BuildSiblingFixture(sibling_probe) &&
+            ValidateSiblingFixture(sibling_probe, &public_reads) &&
+            public_reads.Retry == 0u &&
+            public_reads.ContractFailures == 0u;
+
         std::cout
             << "\nMEDIAN WHOLE LOGICAL-MOVE COST\n"
             << std::left << std::setw(52)
@@ -4444,11 +4905,15 @@ namespace Test04_PrimitiveVsCompoundMutation
             << "  AttachSiblingOrChild      : "
             << sibling_components.AttachNs << " ns/call\n";
 
+        std::cout << "\nQUIESCENT PUBLIC FIND OUTCOMES AFTER API FIXTURES\n";
+        PrintNavigationCounts("APC FindMyNext/FindPrevious", public_reads);
+
         const bool final_ok =
             parent_primitive_med > 0.0 &&
             parent_compound_med > 0.0 &&
             sibling_primitive_med > 0.0 &&
-            sibling_compound_med > 0.0;
+            sibling_compound_med > 0.0 &&
+            public_contract_ok;
 
         std::cout
             << "\nINTERPRETATION\n"
@@ -4469,15 +4934,254 @@ namespace Test04_PrimitiveVsCompoundMutation
 
 } // namespace Test04_PrimitiveVsCompoundMutation
 
+// ============================================================================
+// TEST 5
+// Each axis is independently acyclic.  The H-union-V projection may be
+// cyclic because H and V encode different relations.
+// ============================================================================
+namespace Test05_PerAxisAcyclicity
+{
+    using namespace TestKit;
+
+    constexpr size_t A = 0u;
+    constexpr size_t B = 1u;
+    constexpr size_t C = 2u;
+    constexpr size_t NODE_COUNT = 3u;
+
+    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+    using Adjacency = std::array<std::array<bool, NODE_COUNT>, NODE_COUNT>;
+
+    static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
+    {
+        RootPlan<NODE_COUNT> roots{};
+
+        // Empty C(H) and A(V) roots are intentional: they are the
+        // destinations used by the two cycle-closing rejection probes.
+        roots.Horizontal[A] = true;
+        roots.Horizontal[B] = true;
+        roots.Horizontal[C] = true;
+        roots.Vertical[A] = true;
+        roots.Vertical[C] = true;
+        return roots;
+    }
+
+    static bool HasDirectedCycle(const Adjacency& adjacency) noexcept
+    {
+        std::array<uint8_t, NODE_COUNT> colour{};
+
+        auto Visit___ = [&](auto&& self, size_t node) noexcept -> bool
+        {
+            colour[node] = 1u;
+
+            for (size_t next = 0u; next < NODE_COUNT; ++next)
+            {
+                if (!adjacency[node][next]) continue;
+                if (colour[next] == 1u) return true;
+                if (colour[next] == 0u && self(self, next)) return true;
+            }
+
+            colour[node] = 2u;
+            return false;
+        };
+
+        for (size_t node = 0u; node < NODE_COUNT; ++node)
+        {
+            if (colour[node] == 0u && Visit___(Visit___, node)) return true;
+        }
+
+        return false;
+    }
+
+    static size_t EdgeCount(const Adjacency& adjacency) noexcept
+    {
+        size_t count = 0u;
+        for (const auto& row : adjacency)
+        {
+            for (bool edge : row)
+            {
+                if (edge) ++count;
+            }
+        }
+        return count;
+    }
+
+    static bool AuditAxis(
+        APCBackend& backend,
+        Axis axis,
+        Adjacency& adjacency,
+        NavigationCounts& reads) noexcept
+    {
+        adjacency = {};
+
+        constexpr std::array<Inheritance, 2u> relationships{
+            Inheritance::FIRST_CHILD,
+            Inheritance::LINKED_CHILD
+        };
+
+        for (size_t from = 0u; from < NODE_COUNT; ++from)
+        {
+            for (Inheritance relationship : relationships)
+            {
+                const auto read = backend.FindNextRead(
+                    backend.HandleAt(from),
+                    axis,
+                    relationship
+                );
+                reads.Observe(read);
+
+                if (!read.ContractValid() || read.IsRetry()) return false;
+                if (read.IsNone()) continue;
+
+                const size_t to = backend.IndexOf(read.Ptr);
+                if (to >= NODE_COUNT || to == from) return false;
+                adjacency[from][to] = true;
+
+                const auto previous = backend.FindPreviousRead(
+                    read.Ptr,
+                    axis
+                );
+                reads.Observe(previous);
+
+                if (
+                    !previous.IsFound() ||
+                    previous.Ptr != backend.HandleAt(from)
+                )
+                {
+                    return false;
+                }
+            }
+        }
+
+        return !HasDirectedCycle(adjacency);
+    }
+
+    inline Result Run()
+    {
+        Banner("TEST 5 - PER-AXIS ACYCLICITY + LEGAL CROSS-AXIS UNION CYCLE");
+
+        std::cout
+            << "H relation: A -> B -> C.\n"
+            << "V relation: C -> A.\n"
+            << "Each axis must remain acyclic; H union V intentionally contains "
+               "A -> B -> C -> A.\n"
+            << "The union cycle is legal because H and V represent different relations.\n\n";
+
+        APCBackend backend{};
+        if (
+            !backend.Initialize(MakeRootPlan()) ||
+            !backend.Attach(A, B, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) ||
+            !backend.Attach(B, C, Axis::HORIZONTAL, Inheritance::FIRST_CHILD) ||
+            !backend.Attach(C, A, Axis::VERTICAL, Inheritance::FIRST_CHILD)
+        )
+        {
+            std::cout << "  independent-axis construction : FAIL\n";
+            return Result::FAIL;
+        }
+
+        NavigationCounts reads{};
+        Adjacency horizontal{};
+        Adjacency vertical{};
+
+        const bool horizontal_acyclic =
+            AuditAxis(backend, Axis::HORIZONTAL, horizontal, reads);
+
+        const bool vertical_acyclic =
+            AuditAxis(backend, Axis::VERTICAL, vertical, reads);
+
+        const bool expected_horizontal =
+            horizontal[A][B] &&
+            horizontal[B][C] &&
+            EdgeCount(horizontal) == 2u;
+
+        const bool expected_vertical =
+            vertical[C][A] &&
+            EdgeCount(vertical) == 1u;
+
+        Adjacency combined = horizontal;
+        for (size_t from = 0u; from < NODE_COUNT; ++from)
+        {
+            for (size_t to = 0u; to < NODE_COUNT; ++to)
+            {
+                combined[from][to] =
+                    combined[from][to] || vertical[from][to];
+            }
+        }
+
+        const bool combined_cycle_observed = HasDirectedCycle(combined);
+
+        // These operations would close a cycle inside one axis and therefore
+        // must be rejected even though a cross-axis union cycle is permitted.
+        const bool horizontal_cycle_rejected =
+            !backend.Attach(C, A, Axis::HORIZONTAL, Inheritance::FIRST_CHILD);
+
+        const bool vertical_cycle_rejected =
+            !backend.Attach(A, C, Axis::VERTICAL, Inheritance::FIRST_CHILD);
+
+        Adjacency horizontal_after{};
+        Adjacency vertical_after{};
+
+        const bool unchanged_after_rejection =
+            AuditAxis(backend, Axis::HORIZONTAL, horizontal_after, reads) &&
+            AuditAxis(backend, Axis::VERTICAL, vertical_after, reads) &&
+            horizontal_after == horizontal &&
+            vertical_after == vertical &&
+            backend.LocksReleased();
+
+        const bool read_contract_ok =
+            reads.Retry == 0u &&
+            reads.ContractFailures == 0u;
+
+        const bool final_ok =
+            horizontal_acyclic &&
+            vertical_acyclic &&
+            expected_horizontal &&
+            expected_vertical &&
+            combined_cycle_observed &&
+            horizontal_cycle_rejected &&
+            vertical_cycle_rejected &&
+            unchanged_after_rejection &&
+            read_contract_ok;
+
+        std::cout
+            << "  H audit acyclic                    : "
+            << (horizontal_acyclic ? "PASS" : "FAIL") << '\n'
+            << "  V audit acyclic                    : "
+            << (vertical_acyclic ? "PASS" : "FAIL") << '\n'
+            << "  H union V directed cycle observed  : "
+            << (combined_cycle_observed ? "PASS" : "FAIL") << '\n'
+            << "  reject same-axis H cycle C -> A    : "
+            << (horizontal_cycle_rejected ? "PASS" : "FAIL") << '\n'
+            << "  reject same-axis V cycle A -> C    : "
+            << (vertical_cycle_rejected ? "PASS" : "FAIL") << '\n'
+            << "  topology unchanged / locks released: "
+            << (unchanged_after_rejection ? "PASS" : "FAIL") << '\n';
+
+        std::cout << "\nPUBLIC FIND OUTCOMES DURING BOTH AXIS AUDITS\n";
+        PrintNavigationCounts("APC FindMyNext/FindPrevious", reads);
+
+        std::cout
+            << "\nINTERPRETATION\n"
+            << "  acyclicity is an invariant of each relation axis, not of their union.\n"
+            << "  a cycle that alternates H and V edges does not make either forest cyclic.\n"
+            << "\nTEST 5 OVERALL: "
+            << (final_ok ? "PASS" : "FAIL")
+            << '\n';
+
+        return final_ok ? Result::PASS : Result::FAIL;
+    }
+
+} // namespace Test05_PerAxisAcyclicity
+
 inline int RunAll()
 {
     using TestKit::Result;
 
-    const std::array<std::pair<const char*, Result>, 4u> results{{
+    const std::array<std::pair<const char*, Result>, 5u> results{{
         {"Test 1 - traversal + compound baseline", Test01_PublicTraversalBaseline::Run()},
         {"Test 2 - compound contention sweep", Test02_ContentionSweep::Run()},
         {"Test 3 - compound writer/readers", Test03_ReaderWriterTraversal::Run()},
-        {"Test 4 - primitive vs compound APIs", Test04_PrimitiveVsCompoundMutation::Run()}
+        {"Test 4 - primitive vs compound APIs", Test04_PrimitiveVsCompoundMutation::Run()},
+        {"Test 5 - per-axis acyclicity", Test05_PerAxisAcyclicity::Run()}
     }};
 
     TestKit::Banner("APC MODULAR TEST SUITE SUMMARY");
