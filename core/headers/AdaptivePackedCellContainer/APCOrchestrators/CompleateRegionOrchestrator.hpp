@@ -185,17 +185,6 @@ namespace BidirectionalInMemGraph
 
     struct SchemaBufferOrchestrator : public BufferConfForTracking
     {
-        static constexpr uint64_t VALIDATION_SCHEMA_MARK = 23333u;
-
-        static constexpr bool HasSchemaBufferValidationMark(const TrackingBufferOfAPC& schema_buffer) noexcept
-        {
-            if (schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_SCHEMA_MARK)
-            {
-                return true;
-            }
-            return false;
-        }
-
         static constexpr bool InsertASchemaInBuffer(
             TrackingBufferOfAPC& buffer_address,
             SchemaDefinition::RegionSchemaRecord& schema_record
@@ -230,7 +219,6 @@ namespace BidirectionalInMemGraph
             BuildNullTrackingBuffer(return_schema_buffer);
 
             if (
-                !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer) ||
                 !APCDataStructure::InLimitOfUint8(version)
             )
             {
@@ -267,7 +255,7 @@ namespace BidirectionalInMemGraph
                     return false;
                 }           
             }
-            return_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
+
             return true;     
         }
 
@@ -276,14 +264,6 @@ namespace BidirectionalInMemGraph
             const TrackingBufferOfAPC& valid_layout_buffer
         ) noexcept
         {
-            if (
-                !LayoutBoundsOrchestrator::HasLayouBufferValidationMark(valid_layout_buffer)
-            )
-            {
-                valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
-                return false;
-            }
-            
             uint8_t expected_version = UINT8_MAX;
             for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
@@ -301,19 +281,13 @@ namespace BidirectionalInMemGraph
                 
                 if (
                     !maybe_span.has_value() ||
-                    !have_schema
+                    !have_schema ||
+                    !SchemaDefinition::ValidateSchemaAgainstLayout(
+                        schema,
+                        maybe_span.value()
+                    )
                 )
                 {
-                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
-                    return false;
-                }
-
-                if (!SchemaDefinition::ValidateSchemaAgainstLayout(
-                    schema,
-                    maybe_span.value()
-                ))
-                {
-                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                     return false;
                 }
                 
@@ -330,11 +304,10 @@ namespace BidirectionalInMemGraph
                     APCDataStructure::InLimitOfUint8(expected_version)
                 )
                 {
-                    valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
                     return false;
                 }
             }
-            valid_schema_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_SCHEMA_MARK;
+
             return true;
         }
 
@@ -365,16 +338,6 @@ namespace BidirectionalInMemGraph
             TrackingBufferOfAPC Dequeue{};
         };
 
-
-        static constexpr bool HasCursorBufferValidationMark(const TrackingBufferOfAPC& cursor_buffer) noexcept
-        {
-            if (cursor_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_CURSOR_BUFFER_MARK)
-            {
-                return true;
-            }
-            return false;
-        }
-
         static constexpr bool BuildInitialCursorBuffers(
             CursorBuffers& buffers,
             const TrackingBufferOfAPC& valid_schema_buffer
@@ -382,11 +345,6 @@ namespace BidirectionalInMemGraph
         {
             BuildNullTrackingBuffer(buffers.Enqueue);
             BuildNullTrackingBuffer(buffers.Dequeue);
-
-            if (!HasSchemaBufferValidationMark(valid_schema_buffer))
-            {
-                return false;
-            }
             
             for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
             {
@@ -416,8 +374,6 @@ namespace BidirectionalInMemGraph
                 }
                 
             }
-            buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
-            buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
             return true;
         }
 
@@ -426,20 +382,6 @@ namespace BidirectionalInMemGraph
             const TrackingBufferOfAPC& schema_buffer
         ) noexcept
         {
-            auto SetZeroMark = [&]()
-            {
-                enqueue_dequeue_buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
-                enqueue_dequeue_buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = UNSIGNED_ZERO;
-            };
-
-            if (
-                !HasSchemaBufferValidationMark(schema_buffer)
-            )
-            {
-                SetZeroMark();
-                return false;
-            }
-
             for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
                 SchemaDefinition::RegionSchemaRecord schema{};
@@ -449,7 +391,6 @@ namespace BidirectionalInMemGraph
                     schema_buffer[i]
                 ))
                 {
-                    SetZeroMark();
                     return false;
                 }
 
@@ -463,7 +404,6 @@ namespace BidirectionalInMemGraph
                         enqueue_dequeue_buffers.Dequeue[i] != UNSIGNED_ZERO
                     )
                     {
-                        SetZeroMark();
                         return false;
                     }
                 }
@@ -472,12 +412,9 @@ namespace BidirectionalInMemGraph
                     enqueue_dequeue_buffers.Dequeue[i] != FABRIC_CELL_SENTINAL
                 )
                 {
-                    SetZeroMark();
                     return false;
                 }
             }
-            enqueue_dequeue_buffers.Enqueue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
-            enqueue_dequeue_buffers.Dequeue[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_CURSOR_BUFFER_MARK;
             return true;
         }
     };

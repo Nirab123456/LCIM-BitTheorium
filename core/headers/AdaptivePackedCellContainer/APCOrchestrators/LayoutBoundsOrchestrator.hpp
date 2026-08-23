@@ -249,8 +249,7 @@ inline constexpr LayoutPercentageBuilder::LayoutSpanAndPercentageCarrier LayoutP
 
 struct BufferConfForTracking : public LayoutPercentageBuilder
 {
-    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = ColumnConf::CountOfMacroColumn() + 1;
-    static constexpr uint8_t VALIDATION_IDX_OF_TRACKING_BUFFER = LEN_OF_APC_TRACKING_BUFFER - 1;
+    static constexpr uint8_t LEN_OF_APC_TRACKING_BUFFER = ColumnConf::CountOfMacroColumn();
     using TrackingBufferOfAPC = std::array<uint64_t, LEN_OF_APC_TRACKING_BUFFER>;
 
 
@@ -280,9 +279,6 @@ protected:
 
 struct LayoutBoundsOrchestrator : public BufferConfForTracking
 {
-
-    static constexpr uint64_t VALIDATION_LAYOUT_BUFFER_MARK = 11111;
-
     static constexpr std::optional<uint8_t> GetBufferIndexForALayout(LayoutCarrier& a_valid_layout) noexcept
     {
         if (!ValidateALayoutCarrier(a_valid_layout))
@@ -385,20 +381,8 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
         )
         {
             return false;
-        }
-        
-        a_layout_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] = VALIDATION_LAYOUT_BUFFER_MARK;
+        }        
         return true;
-    }
-
-
-    static constexpr bool HasLayouBufferValidationMark(const TrackingBufferOfAPC& a_layout_buffer) noexcept
-    {
-        if (a_layout_buffer[VALIDATION_IDX_OF_TRACKING_BUFFER] == VALIDATION_LAYOUT_BUFFER_MARK)
-        {
-            return true;
-        }
-        return false;
     }
 
     static constexpr bool BuildInitialLayoutBuffer(
