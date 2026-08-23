@@ -123,9 +123,10 @@ namespace BidirectionalInMemGraph
         return SeqLockedOperation::NONE;
     }
 
-    bool ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
+    ConstructForestOnEachAxis::SeqLockedOperation ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
-        IAB::BufferOfAPCIdentity& identity
+        IAB::BufferOfAPCIdentity& identity,
+        std::optional<IAB::BidirectionalAxis> axis
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
@@ -133,18 +134,76 @@ namespace BidirectionalInMemGraph
         const uint8_t internal_st_lock_idx = static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK);
         const size_t st_lock_idx = range_of_apc_sagmant_pool.BeginIndex + internal_st_lock_idx;
 
+        IAB::GraphMutationValues before_values{};
+        IAB::GraphMutationValues after_values{};
+
+        if (
+            !ReadGraphMutationFlags(apc_slot, before_values) ||
+            !ReadBufferwithSyncAtomicIndex(
+                st_lock_idx,
+                APCDataStructure::TotalIdentityUnitCount(),
+                identity.data(),
+                IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()
+            ) ||
+            !IAB::ExtractGraphMutationValues(
+                IAB::ValueOfAnIdentityFromBuffer(identity, HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK), 
+                after_values
+            )
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+
+        if (!axis.has_value())
+        {
             if (
-                !ReadBufferwithSyncAtomicIndex(
-                    st_lock_idx,
-                    APCDataStructure::TotalIdentityUnitCount(),
-                    identity.data(),
-                    IAB::GetBufferIdxFromIdentityUnit(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK).value()
-                )
+                before_values.Flags == after_values.Flags &&
+                before_values.SeqLockHorizontal == after_values.SeqLockHorizontal &&
+                before_values.SeqLockVertical == after_values.SeqLockVertical
             )
             {
-                return false;
+                return SeqLockedOperation::FOUND;
             }
-            return IAB::ValidateIdentityBuffer(identity);
+            return SeqLockedOperation::RETRY;
+        }
+
+        switch (axis.value())
+        {
+        case IAB::BidirectionalAxis::HORIZONTAL:
+            if (
+                before_values.SeqLockHorizontal != after_values.SeqLockHorizontal ||
+                IAB::HasThisGraphMutationFlag(before_values.Flags, IAB::MemGraphFlag::HORIZONTAL_LOCK) !=
+                    IAB::HasThisGraphMutationFlag(after_values.Flags, IAB::MemGraphFlag::HORIZONTAL_LOCK)
+            )
+            {
+                return SeqLockedOperation::RETRY;
+            }
+            break;
+
+        case IAB::BidirectionalAxis::VERTICAL:
+            if (
+                before_values.SeqLockVertical != after_values.SeqLockVertical ||
+                IAB::HasThisGraphMutationFlag(before_values.Flags, IAB::MemGraphFlag::VERTICAL_LOCK) !=
+                    IAB::HasThisGraphMutationFlag(after_values.Flags, IAB::MemGraphFlag::VERTICAL_LOCK)
+            )
+            {
+                return SeqLockedOperation::RETRY;
+            }
+            break;
+
+        default:
+            break;
+        }
+        
+
+        if (
+            IAB::ValidateIdentityBuffer(identity)
+        )
+        {
+            return SeqLockedOperation::FOUND;
+        }
+        
+        return SeqLockedOperation::NONE;
     }
 
     bool ConstructForestOnEachAxis::ReadGraphMutationFlags(
@@ -233,7 +292,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity identity_buffer{};
         if (
-            !ReadIdentityBufferOfAPC(apc_slot, identity_buffer)
+            ReadIdentityBufferOfAPC(apc_slot, identity_buffer, axis) != SeqLockedOperation::FOUND
         )
         {
             ReleseAxis___();
@@ -307,8 +366,8 @@ namespace BidirectionalInMemGraph
         IAB::BufferOfAPCIdentity predessor_snapshot{};
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
-            !ReadIdentityBufferOfAPC(predessor_idx, predessor_snapshot) ||
-            !ReadIdentityBufferOfAPC(child_idx, child_snapshot) ||
+            ReadIdentityBufferOfAPC(predessor_idx, predessor_snapshot, axis) != SeqLockedOperation::FOUND ||
+            ReadIdentityBufferOfAPC(child_idx, child_snapshot, axis) != SeqLockedOperation::FOUND ||
             !IAB::IsInheritedAxisDisabled(child_snapshot, axis)
         )
         {
@@ -535,7 +594,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
-            !ReadIdentityBufferOfAPC(child_idx, child_snapshot) ||
+            ReadIdentityBufferOfAPC(child_idx, child_snapshot, axis) != SeqLockedOperation::FOUND ||
             !IAB::IsInharitedChild(child_snapshot, axis)
         )
         {
@@ -729,7 +788,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity child_snapshot{};
         if (
-            !ReadIdentityBufferOfAPC(apc_slot_idx, child_snapshot) ||
+            ReadIdentityBufferOfAPC(apc_slot_idx, child_snapshot, axis) != SeqLockedOperation::FOUND ||
             !IAB::IsInharitedChild(child_snapshot, axis)
         )
         {

@@ -215,12 +215,11 @@ namespace BidirectionalInMemGraph
             uint32_t internal_max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
         
-    protected:
-
     public:
-        bool ReadIdentityBufferOfAPC(
+        SeqLockedOperation ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
-            IAB::BufferOfAPCIdentity& identity
+            IAB::BufferOfAPCIdentity& identity,
+            std::optional<IAB::BidirectionalAxis> axis = std::nullopt
         ) noexcept;
 
         bool ReadGraphMutationFlags(
