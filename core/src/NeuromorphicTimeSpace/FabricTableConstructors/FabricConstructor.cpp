@@ -162,17 +162,37 @@ namespace BidirectionalInMemGraph
         uint64_t sync_idx_of_buffer
     ) noexcept
     {
-        return 
-            ReadASnapShotFromSlab(
-                slab_starting_idx,
-                sequential_number_of_cells,
-                return_buffer
-            ) &&
-            sync_idx_of_buffer < sequential_number_of_cells &&
-            AtomicallyLoadReadAUnit(
-                slab_starting_idx + sync_idx_of_buffer,
-                return_buffer[sync_idx_of_buffer]
-            );
+        if (
+            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
+            !return_buffer ||
+            sequential_number_of_cells == UNSIGNED_ZERO ||
+            sequential_number_of_cells > SlabCellCount_ - slab_starting_idx ||
+            sync_idx_of_buffer >= sequential_number_of_cells
+        )
+        {
+            return false;
+        }
+
+        try
+        {
+            uint64_t value_of_last_idx = return_buffer[sequential_number_of_cells - 1];
+            (void) value_of_last_idx;        
+        }
+        catch(...)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < sequential_number_of_cells; i++)
+        {
+            std::atomic_ref<const uint64_t>  slab_range_ref(SlabBasePtr_[slab_starting_idx + i]);
+            return_buffer[i] = slab_range_ref.load(std::memory_order_acquire);
+        }
+        
+        std::atomic_ref<const uint64_t> sync_idx_atomic(SlabBasePtr_[slab_starting_idx + sync_idx_of_buffer]);
+
+        return_buffer[sync_idx_of_buffer] = sync_idx_atomic.load(std::memory_order_acquire);
+        return true;
     }
 
 }

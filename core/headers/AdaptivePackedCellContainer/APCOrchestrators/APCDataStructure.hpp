@@ -25,37 +25,37 @@ namespace BidirectionalInMemGraph
 
     struct ColumnConf : public LayoutHeaderIdentityOrchestrator
     {
-    protected:
-        static constexpr uint8_t RegionOrdinal(MacroColumnOfAPC macro_column) noexcept
-        {
-            return static_cast<uint8_t>(macro_column) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
-        }
     public:
 
         static constexpr HeaderIdentifierOfAPC EnqueueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + RegionOrdinal(macro_column)
+                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + static_cast<uint8_t>(macro_column)
             );
         }
 
         static constexpr HeaderIdentifierOfAPC DequeueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + RegionOrdinal(macro_column)
+                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + static_cast<uint8_t>(macro_column)
             );
         }
 
         static constexpr HeaderIdentifierOfAPC SchemaHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
         {
             return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + RegionOrdinal(macro_column)
+                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + static_cast<uint8_t>(macro_column)
             );
         }
 
         static constexpr uint8_t CountOfMacroColumn() noexcept
         {
             return static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + 1;
+        }
+
+        static constexpr uint8_t BuindesHeaderIndexForColumnName(MacroColumnOfAPC macro_column) noexcept
+        {
+            return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + static_cast<uint8_t>(macro_column);
         }
 
     };

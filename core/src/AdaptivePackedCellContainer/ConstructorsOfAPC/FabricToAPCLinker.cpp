@@ -82,7 +82,7 @@ namespace BidirectionalInMemGraph
     {
         return 
             IsThisAPCValid() &&
-            starting_idx_in_apc + sequential_number_of_cells < CapacityOfThisAPC_ &&
+            starting_idx_in_apc + sequential_number_of_cells <= CapacityOfThisAPC_ &&
             FabricOwnerPtr_->ForceNxLenMemCopy(
                 (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
                 sequential_number_of_cells, 
