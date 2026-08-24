@@ -6,7 +6,7 @@ namespace BidirectionalInMemGraph
 static_assert(__cpp_lib_atomic_wait, "C++ must suppoet atomic wait/notify");
 
 
-class AdaptivePackedCellContainer : public ReadAndWriteOfAPC
+class AdaptivePackedCellContainer : public FabricToAPCLinker
 {
 public:
     static constexpr uint8_t REALTION_FIND_TRIES = 1;

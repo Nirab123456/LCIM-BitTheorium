@@ -35,7 +35,6 @@ namespace BidirectionalInMemGraph
     class APCLifeCycle : public RecordBookConstructor
     {
         friend class FabricToAPCLinker;
-        friend class ReadAndWriteOfAPC;
     protected:
     
         std::optional<uint64_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;

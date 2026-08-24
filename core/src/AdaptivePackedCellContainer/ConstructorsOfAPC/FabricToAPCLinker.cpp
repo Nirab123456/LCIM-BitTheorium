@@ -58,7 +58,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         APCSlotIdx_ = static_cast<uint32_t>(fabric_slot_idx);
-        RawAPCBasePtr_ = words_raw;
+        RawAPCBasePtr_ = reinterpret_cast<std::byte*>(words_raw);
         CapacityOfThisAPC_ = cell_count;
         FabricOwnerPtr_ = fabric_owner;
         RangeOfThisAPCInSlab_ = range_of_this_apc;
@@ -72,6 +72,7 @@ namespace BidirectionalInMemGraph
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
         RawAPCBasePtr_ = nullptr;
+        APCSlotIdx_ = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
     }
 
     bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
@@ -105,44 +106,7 @@ namespace BidirectionalInMemGraph
             );
     }
 
-    bool FabricToAPCLinker::CompareExchangeStrongFromAPC(
-        size_t apc_idx, 
-        uint64_t& expected_unit, 
-        uint64_t desired_unit,
-        std::memory_order mem_order_success,
-        std::memory_order mem_order_failure
-    ) noexcept
-    {
-        return 
-            apc_idx < CapacityOfThisAPC_ &&
-            FabricOwnerPtr_->CompareExchangeStrongFromFabric(
-                RangeOfThisAPCInSlab_.BeginIndex + apc_idx,
-                expected_unit,
-                desired_unit,
-                mem_order_success,
-                mem_order_failure
-            );
-    }
-
-
-    bool ReadAndWriteOfAPC::ReadCompleatLayoutBuffer_(
-        LayoutBoundsOrchestrator::TrackingBufferOfAPC& layout_buffer
-    ) noexcept
-    {
-        BufferConfForTracking::BuildNullTrackingBuffer(layout_buffer);
-        if (!CopyFromAPCToBuffer(
-            APCDataStructure::LayoutBufferBegainInMetaIndecies(),
-            APCDataStructure::CountOfMacroColumn(),
-            layout_buffer.data()
-        ))
-        {
-            return false;
-        }
-        
-        return LayoutBoundsOrchestrator::ValidateALayoutBuffer(layout_buffer, CapacityOfThisAPC_);
-    }
-
-    bool ReadAndWriteOfAPC::InitiateAPCMetaHeader(
+    bool FabricToAPCLinker::InitiateAPCMetaHeader(
         const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
         const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
         const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
@@ -192,7 +156,7 @@ namespace BidirectionalInMemGraph
             );
     }
 
-    bool ReadAndWriteOfAPC::ReadAPCMetaUnit(
+    bool FabricToAPCLinker::ReadAPCMetaUnit(
         HeaderIdentifierOfAPC meta_idx,
         uint64_t& return_value,
         bool atomic_required
@@ -208,23 +172,6 @@ namespace BidirectionalInMemGraph
             FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, return_value) :
             FabricOwnerPtr_->ReadAFabricU64Directly(slab_idx, return_value);
         return read_ok;
-    }
-
-    bool ReadAndWriteOfAPC::CompareExchangeAPCMetaUinit(
-        HeaderIdentifierOfAPC meta_idx,
-        uint64_t& expected_value,
-        uint64_t desired_value
-    ) noexcept
-    {
-        const uint8_t local_idx_u = static_cast<uint8_t>(meta_idx);
-
-        return 
-            IsThisAPCValid() &&
-            FabricOwnerPtr_->CompareExchangeStrongFromFabric(
-                    RangeOfThisAPCInSlab_.BeginIndex + local_idx_u,
-                    expected_value,
-                    desired_value
-                );
     }
 
 

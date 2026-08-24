@@ -154,6 +154,12 @@ namespace BidirectionalInMemGraph
             return SeqLockedOperation::NONE;
         }
 
+        // if (axis.has_value() && IAB::IsDesiredAxisLocked(before_values.Flags, axis.value()))
+        // {
+        //     return SeqLockedOperation::RETRY;
+        // }
+        
+
         if (!axis.has_value())
         {
             if (
