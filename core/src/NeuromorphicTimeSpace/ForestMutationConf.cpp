@@ -520,7 +520,7 @@ namespace BidirectionalInMemGraph
             }
             part.Locked = true;
 
-            if (ReadIdentityBufferOfAPC(part.Slot, part.Work, axis) != SeqLockedOperation::FOUND)
+            if (ReadIdentityBufferOfAPC(part.Slot, part.Work, axis, true) != SeqLockedOperation::FOUND)
             {
                 return false;
             }

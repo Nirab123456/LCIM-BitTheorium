@@ -219,7 +219,8 @@ namespace BidirectionalInMemGraph
         SeqLockedOperation ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
             IAB::BufferOfAPCIdentity& identity,
-            std::optional<IAB::BidirectionalAxis> axis = std::nullopt
+            std::optional<IAB::BidirectionalAxis> axis = std::nullopt,
+            bool is_axis_already_reserved = false
         ) noexcept;
 
         bool ReadGraphMutationFlags(

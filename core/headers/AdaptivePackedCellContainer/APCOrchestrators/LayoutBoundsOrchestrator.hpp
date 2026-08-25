@@ -447,10 +447,4 @@ struct LayoutBoundsOrchestrator : public BufferConfForTracking
     }
 };
 
-
-struct EasyLayout : LayoutBoundsOrchestrator
-{
-
-};
-
 }

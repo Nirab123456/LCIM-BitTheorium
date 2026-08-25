@@ -199,6 +199,49 @@ namespace BidirectionalInMemGraph
             return value >= 2u && ((value & (value - 1u)) == UNSIGNED_ZERO);
         }
 
+
+        template<class DType>
+        static constexpr std::optional<DataTypeOfMacroColumn> CppTypeToRegionDType() noexcept
+        {
+            using U = std::remove_cv_t<DType>;
+
+            if constexpr (std::is_same_v<U, uint8_t>)
+                return DataTypeOfMacroColumn::UINT8_T;
+
+            else if constexpr (std::is_same_v<U, uint16_t>)
+                return DataTypeOfMacroColumn::UINT16_T;
+
+            else if constexpr (std::is_same_v<U, uint32_t>)
+                return DataTypeOfMacroColumn::UINT32_T;
+
+            else if constexpr (std::is_same_v<U, uint64_t>)
+                return DataTypeOfMacroColumn::UINT64_T;
+
+            else if constexpr (std::is_same_v<U, int8_t>)
+                return DataTypeOfMacroColumn::INT8_T;
+
+            else if constexpr (std::is_same_v<U, int16_t>)
+                return DataTypeOfMacroColumn::INT16_T;
+
+            else if constexpr (std::is_same_v<U, int32_t>)
+                return DataTypeOfMacroColumn::INT32_T;
+
+            else if constexpr (std::is_same_v<U, int64_t>)
+                return DataTypeOfMacroColumn::INT64_T;
+
+            else if constexpr (std::is_same_v<U, float>)
+                return DataTypeOfMacroColumn::FLOAT32_T;
+
+            else if constexpr (std::is_same_v<U, double>)
+                return DataTypeOfMacroColumn::FLOAT64_T;
+
+            else if constexpr (std::is_same_v<U, char>)
+                return DataTypeOfMacroColumn::CHAR;
+
+            else
+                return std::nullopt;
+        }
+
     };
 
     static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept

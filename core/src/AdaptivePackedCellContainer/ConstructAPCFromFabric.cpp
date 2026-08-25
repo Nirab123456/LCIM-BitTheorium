@@ -126,7 +126,8 @@ namespace BidirectionalInMemGraph
     ConstructForestOnEachAxis::SeqLockedOperation ConstructForestOnEachAxis::ReadIdentityBufferOfAPC(
         uint32_t apc_slot,
         IAB::BufferOfAPCIdentity& identity,
-        std::optional<IAB::BidirectionalAxis> axis
+        std::optional<IAB::BidirectionalAxis> axis,
+        bool is_axis_already_reserved
     ) noexcept
     {
         const RangeOfAPC range_of_apc_sagmant_pool = GetSegmentPoolRange(apc_slot);
@@ -137,8 +138,33 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues before_values{};
         IAB::GraphMutationValues after_values{};
 
+        if (!ReadGraphMutationFlags(apc_slot, before_values))
+        {
+            return SeqLockedOperation::NONE;
+        }
+
         if (
-            !ReadGraphMutationFlags(apc_slot, before_values) ||
+            !is_axis_already_reserved &&
+            !axis.has_value() &&
+            (
+                IAB::IsDesiredAxisLocked(before_values.Flags, IAB::BidirectionalAxis::HORIZONTAL) ||
+                IAB::IsDesiredAxisLocked(before_values.Flags, IAB::BidirectionalAxis::VERTICAL) 
+            )
+        )
+        {
+            return SeqLockedOperation::RETRY;
+        }
+
+        if (
+            !is_axis_already_reserved && 
+            axis.has_value() &&
+            IAB::IsDesiredAxisLocked(before_values.Flags, axis.value())
+        )
+        {
+            return SeqLockedOperation::RETRY;
+        }
+        
+        if (
             !ReadBufferwithSyncAtomicIndex(
                 st_lock_idx,
                 APCDataStructure::TotalIdentityUnitCount(),
@@ -153,12 +179,6 @@ namespace BidirectionalInMemGraph
         {
             return SeqLockedOperation::NONE;
         }
-
-        // if (axis.has_value() && IAB::IsDesiredAxisLocked(before_values.Flags, axis.value()))
-        // {
-        //     return SeqLockedOperation::RETRY;
-        // }
-        
 
         if (!axis.has_value())
         {
@@ -298,7 +318,7 @@ namespace BidirectionalInMemGraph
 
         IAB::BufferOfAPCIdentity identity_buffer{};
         if (
-            ReadIdentityBufferOfAPC(apc_slot, identity_buffer, axis) != SeqLockedOperation::FOUND
+            ReadIdentityBufferOfAPC(apc_slot, identity_buffer, axis, true) != SeqLockedOperation::FOUND
         )
         {
             ReleseAxis___();

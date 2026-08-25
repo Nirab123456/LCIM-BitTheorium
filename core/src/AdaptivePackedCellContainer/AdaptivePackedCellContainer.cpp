@@ -105,7 +105,7 @@ namespace BidirectionalInMemGraph
         if (
             !IsThisAPCValid() ||
             !root_parent.IsThisAPCValid() ||
-            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge, true)
+            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge)
         )
         {
             return false;
@@ -140,8 +140,8 @@ namespace BidirectionalInMemGraph
         if (
             !IsThisAPCValid() ||
             !sibbling.IsThisAPCValid() ||
-            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge, true) ||
-            !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge, true)
+            !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge) ||
+            !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge)
         )
         {
             return false;

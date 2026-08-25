@@ -94,8 +94,7 @@ namespace BidirectionalInMemGraph
 
         bool ReadAPCMetaUnit(
             HeaderIdentifierOfAPC meta_idx,
-            uint64_t& return_value,
-            bool atomic_required = true
+            uint64_t& return_value
         ) noexcept;
 
     };

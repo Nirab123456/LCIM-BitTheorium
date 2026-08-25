@@ -158,8 +158,7 @@ namespace BidirectionalInMemGraph
 
     bool FabricToAPCLinker::ReadAPCMetaUnit(
         HeaderIdentifierOfAPC meta_idx,
-        uint64_t& return_value,
-        bool atomic_required
+        uint64_t& return_value
     ) noexcept
     {
         if (!IsThisAPCValid())
@@ -168,10 +167,7 @@ namespace BidirectionalInMemGraph
         }
         const uint8_t idx_u = static_cast<uint8_t>(meta_idx);
         const size_t slab_idx = static_cast<uint64_t>(RangeOfThisAPCInSlab_.BeginIndex + idx_u);
-        bool read_ok =  atomic_required ? 
-            FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, return_value) :
-            FabricOwnerPtr_->ReadAFabricU64Directly(slab_idx, return_value);
-        return read_ok;
+        return FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, return_value);
     }
 
 

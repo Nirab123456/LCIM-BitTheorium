@@ -868,7 +868,7 @@ namespace TestKit
 
         bool ReadMeta(size_t node, HeaderIdentifierOfAPC id, uint64_t& value) noexcept
         {
-            return node < NodeCount && Nodes_[node].ReadAPCMetaUnit(id, value, true);
+            return node < NodeCount && Nodes_[node].ReadAPCMetaUnit(id, value);
         }
 
         uint32_t SlotOf(size_t node) const noexcept
@@ -915,8 +915,8 @@ namespace TestKit
             uint64_t packed = FABRIC_CELL_SENTINAL;
             if (!Nodes_[node].ReadAPCMetaUnit(
                     HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS,
-                    packed,
-                    true))
+                    packed
+                ))
             {
                 return false;
             }
