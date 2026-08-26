@@ -19,6 +19,18 @@ namespace BidirectionalInMemGraph
             RETRY = 2
         };
 
+        uint32_t GetThisSlotIdx() noexcept
+        {
+            return APCSlotIdx_;
+        }
+
+        bool IsThisAPCValid() noexcept
+        {
+            return
+                FabricOwnerPtr_ &&
+                RangeOfThisAPCInSlab_.IsValid;
+        }
+    protected:
         VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
         RangeOfAPC RangeOfThisAPCInSlab_{};
         uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
@@ -73,18 +85,6 @@ namespace BidirectionalInMemGraph
             return APCDataStructure::METACELL_COUNT;
         }
 
-        bool IsThisAPCValid() noexcept
-        {
-            return
-                FabricOwnerPtr_ &&
-                RangeOfThisAPCInSlab_.IsValid;
-        }
-
-        uint32_t GetThisSlotIdx() noexcept
-        {
-            return APCSlotIdx_;
-        }
-
         bool InitiateAPCMetaHeader(
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},
             const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
@@ -96,8 +96,6 @@ namespace BidirectionalInMemGraph
             HeaderIdentifierOfAPC meta_idx,
             uint64_t& return_value
         ) noexcept;
-
-
 
     };
         

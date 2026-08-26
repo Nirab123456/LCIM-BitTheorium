@@ -59,9 +59,6 @@ public:
         IAB::DescOfInharitance inharitance,
         uint32_t max_tries = REALTION_FIND_TRIES
     ) noexcept;
-
-
-
 };
 
 

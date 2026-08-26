@@ -137,6 +137,10 @@ namespace BidirectionalInMemGraph
             {
             case SD::SchemaProtocols::PRIVATE_REGION:
             case SD::SchemaProtocols::IMMUTABLE_SNAPSHOT:
+                if (!APCStorageGeometry::CanInstallTypedSpan<DType>(resolved))
+                {
+                    return std::nullopt;
+                }
                 break;
             
             case SD::SchemaProtocols::ATOMIC_WORD_ARRAY:
