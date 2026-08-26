@@ -10,14 +10,7 @@ namespace BidirectionalInMemGraph
 
     class FabricToAPCLinker 
     {
-
-    protected:
-        VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
-        RangeOfAPC RangeOfThisAPCInSlab_{};
-        uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
-        std::byte* RawAPCBasePtr_{nullptr};
-        
-        uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
+        friend class VagueTemoraryPremativeFabric;
     public:
         enum class SeqLockedOperation : uint8_t
         {
@@ -25,6 +18,13 @@ namespace BidirectionalInMemGraph
             NONE = 1,
             RETRY = 2
         };
+
+        VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
+        RangeOfAPC RangeOfThisAPCInSlab_{};
+        uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
+        std::byte* RawAPCBasePtr_{nullptr};
+        
+        uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
 
         struct RelationOparation 
         {

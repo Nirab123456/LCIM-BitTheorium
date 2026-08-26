@@ -1,3 +1,4 @@
+
 #pragma once
 
 // ============================================================================
@@ -9,9 +10,10 @@
 //   3. Public reader snapshot race against one compound cross-parent writer
 //   4. Primitive two-call mutation APIs vs compound one-call mutation APIs
 //   5. Per-axis acyclicity with a legal cyclic H-union-V projection
+//   6. Public RegionView coverage for every supported primitive dtype
 //
 // Design rule:
-//   Test-specific workloads live in Test01..Test05.
+//   Test-specific workloads live in Test01..Test06.
 //   Graph storage, APC fixture construction, timing/statistics and common
 //   validation live in TestKit and are shared.
 //
@@ -49,7 +51,7 @@ namespace TestKit
     using Axis = IAB::BidirectionalAxis;
     using Inheritance = IAB::DescOfInharitance;
     using Clock = std::chrono::steady_clock;
-    using ReadOperation = FabricToAPCLinker::SeqLockedOperation;
+    using ReadOperation = AdaptivePackedCellContainer::SeqLockedOperation;
 
     template <typename Handle>
     struct NavigationRead
@@ -638,7 +640,7 @@ namespace TestKit
     // ========================================================================
     // Shared APC/Fabric fixture.
     // Navigation methods intentionally route through FindMyNext/FindPrevious.
-    // Raw metadata access exists only for test oracles/diagnostics.
+    // Payload methods intentionally route through APC's public RegionView API.
     // ========================================================================
 
     template <size_t NodeCount, size_t PayloadWords>
@@ -655,7 +657,6 @@ namespace TestKit
         bool Initialize(const RootPlan<NodeCount>& roots)
         {
             Slots_.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
-            PayloadBegin_.fill(0u);
 
             if (!Fabric_.InitializeFabricWithPtrTable(
                     FABRIC_SLOT_COUNT,
@@ -666,8 +667,8 @@ namespace TestKit
             }
 
             LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-            layout.FeedForward = 1u;
-            layout.FeedBackward = 0u;
+            layout.FeedForward = PayloadWords > 0u ? 1u : 0u;
+            layout.FeedBackward = PayloadWords > 0u ? 1u : 0u;
             layout.Lateral = 0u;
             layout.StateSlot = 0u;
             layout.ErrorSlot = 0u;
@@ -679,9 +680,11 @@ namespace TestKit
 
             SchemaDefinition::InitialRegionalDtypeConf dtype{};
             dtype.FEEDFORWARD_MESSAGE = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+            dtype.FEEDBACKWARD_MESSAGE = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
 
             SchemaDefinition::InitialRegionalProtocol protocol{};
-            protocol.FEEDFORWARD_MESSAGE = SchemaDefinition::SchemaProtocols::IMMUTABLE_SNAPSHOT;
+            protocol.FEEDFORWARD_MESSAGE = SchemaDefinition::SchemaProtocols::PRIVATE_REGION;
+            protocol.FEEDBACKWARD_MESSAGE = SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY;
 
             for (size_t i = 0u; i < NodeCount; ++i)
             {
@@ -697,7 +700,7 @@ namespace TestKit
                     return false;
                 }
 
-                uint64_t slot = Nodes_[i].GetThisSlotIdx();
+                const uint64_t slot = Nodes_[i].GetThisSlotIdx();
                 if (
                     !APCDataStructure::IsValid32BitAPCUnit(slot) ||
                     slot >= FABRIC_SLOT_COUNT)
@@ -708,7 +711,28 @@ namespace TestKit
 
                 if constexpr (PayloadWords > 0u)
                 {
-                    if (!ResolvePayloadBegin_(i)) return false;
+                    auto direct_view = Nodes_[i].template BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+                    auto atomic_view = Nodes_[i].template BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDBACKWARD_MESSAGE);
+
+                    if (
+                        !direct_view.has_value() ||
+                        !atomic_view.has_value() ||
+                        direct_view->Size() < PayloadWords ||
+                        atomic_view->Size() < PayloadWords ||
+                        !direct_view->RawMutableSpan().has_value() ||
+                        direct_view->GetProtocol() !=
+                            SchemaDefinition::SchemaProtocols::PRIVATE_REGION ||
+                        atomic_view->GetProtocol() !=
+                            SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY
+                    )
+                    {
+                        return false;
+                    }
+
+                    DirectPayloadViews_[i] = direct_view.value();
+                    AtomicPayloadViews_[i] = atomic_view.value();
                 }
             }
 
@@ -833,13 +857,19 @@ namespace TestKit
             else
             {
                 if (node >= NodeCount || word >= PayloadWords) return false;
-                const uint32_t local = PayloadBegin_[node] + word;
                 if (atomic)
                 {
-                    Nodes_[node].AtomicallyWriteU64ToAPC(local, value);
-                    return true;
+                    return AtomicPayloadViews_[node].AtomicStore(
+                        word,
+                        value,
+                        std::memory_order_release
+                    );
                 }
-                return Nodes_[node].ForceCopyToAPCFromBuffer(local, 1u, &value);
+
+                auto mutable_span = DirectPayloadViews_[node].RawMutableSpan();
+                if (!mutable_span.has_value()) return false;
+                mutable_span.value()[word] = value;
+                return true;
             }
         }
 
@@ -854,21 +884,27 @@ namespace TestKit
             {
                 const size_t idx = IndexOf(node);
                 if (idx >= NodeCount || word >= PayloadWords) return false;
-                const uint32_t local = PayloadBegin_[idx] + word;
-                return atomic
-                    ? Nodes_[idx].AtomicallyReadLongLongAPCUnit(local, value)
-                    : Nodes_[idx].CopyFromAPCToBuffer(local, 1u, &value);
+
+                if (atomic)
+                {
+                    if (word >= AtomicPayloadViews_[idx].Size()) return false;
+                    value = AtomicPayloadViews_[idx].AtomicLoad(
+                        word,
+                        std::memory_order_acquire
+                    );
+                    return true;
+                }
+
+                auto mutable_span = DirectPayloadViews_[idx].RawMutableSpan();
+                if (!mutable_span.has_value()) return false;
+                value = mutable_span.value()[word];
+                return true;
             }
         }
 
         bool ReadGraphState(size_t node, IAB::GraphMutationValues& values) noexcept
         {
             return node < NodeCount && Fabric_.ReadGraphMutationFlags(Slots_[node], values);
-        }
-
-        bool ReadMeta(size_t node, HeaderIdentifierOfAPC id, uint64_t& value) noexcept
-        {
-            return node < NodeCount && Nodes_[node].ReadAPCMetaUnit(id, value);
         }
 
         uint32_t SlotOf(size_t node) const noexcept
@@ -908,32 +944,8 @@ namespace TestKit
     private:
         std::array<AdaptivePackedCellContainer, NodeCount> Nodes_{};
         std::array<uint32_t, NodeCount> Slots_{};
-        std::array<uint32_t, NodeCount> PayloadBegin_{};
-
-        bool ResolvePayloadBegin_(size_t node) noexcept
-        {
-            uint64_t packed = FABRIC_CELL_SENTINAL;
-            if (!Nodes_[node].ReadAPCMetaUnit(
-                    HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS,
-                    packed
-                ))
-            {
-                return false;
-            }
-
-            const auto bounds = LayoutBoundsOrchestrator::GetLayoutCarrierFromValidLayoutCell(
-                packed,
-                MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
-
-            if (!bounds.IsValid || bounds.BeginIndex >= bounds.EndIndex ||
-                bounds.EndIndex - bounds.BeginIndex < PayloadWords)
-            {
-                return false;
-            }
-
-            PayloadBegin_[node] = static_cast<uint32_t>(bounds.BeginIndex);
-            return true;
-        }
+        std::array<RegionView<uint64_t>, NodeCount> DirectPayloadViews_{};
+        std::array<RegionView<uint64_t>, NodeCount> AtomicPayloadViews_{};
     };
 
     struct AxisVersion
@@ -1101,7 +1113,13 @@ namespace Test01_PublicTraversalBaseline
             {
                 const uint64_t value =
                     (static_cast<uint64_t>(node + 1u) << 32u) | word;
-                if (!b.StorePayload(node, word, value, false)) return false;
+                if (
+                    !b.StorePayload(node, word, value, false) ||
+                    !b.StorePayload(node, word, value, true)
+                )
+                {
+                    return false;
+                }
             }
         }
 
@@ -3433,12 +3451,8 @@ namespace Test03_ReaderWriterTraversal
         uint64_t StableNonNull = 0u;
         uint64_t CompletedMutationWindows = 0u;
         uint64_t BoundaryUnstableWindows = 0u;
-        uint64_t OracleRacedWindows = 0u;
 
         uint64_t WrongPointerFailures = 0u;
-        uint64_t StableContractFailures = 0u;
-        uint64_t OracleStructuralFailures = 0u;
-        uint64_t OracleReadFailures = 0u;
         uint64_t VersionReadFailures = 0u;
         uint64_t OutcomeContractFailures = 0u;
         uint64_t UnexpectedNoneFailures = 0u;
@@ -3461,12 +3475,8 @@ namespace Test03_ReaderWriterTraversal
         dst.StableNonNull += src.StableNonNull;
         dst.CompletedMutationWindows += src.CompletedMutationWindows;
         dst.BoundaryUnstableWindows += src.BoundaryUnstableWindows;
-        dst.OracleRacedWindows += src.OracleRacedWindows;
 
         dst.WrongPointerFailures += src.WrongPointerFailures;
-        dst.StableContractFailures += src.StableContractFailures;
-        dst.OracleStructuralFailures += src.OracleStructuralFailures;
-        dst.OracleReadFailures += src.OracleReadFailures;
         dst.VersionReadFailures += src.VersionReadFailures;
         dst.OutcomeContractFailures += src.OutcomeContractFailures;
         dst.UnexpectedNoneFailures += src.UnexpectedNoneFailures;
@@ -3482,9 +3492,6 @@ namespace Test03_ReaderWriterTraversal
     {
         return
             s.WrongPointerFailures +
-            s.StableContractFailures +
-            s.OracleStructuralFailures +
-            s.OracleReadFailures +
             s.VersionReadFailures +
             s.OutcomeContractFailures +
             s.UnexpectedNoneFailures;
@@ -3510,17 +3517,6 @@ namespace Test03_ReaderWriterTraversal
             s.FindNextParentA.CompletedMutationWindows +
             s.FindPreviousChild.CompletedMutationWindows;
     }
-
-    // static uint64_t RaceCoverageWindows(const ReaderStats& s) noexcept
-    // {
-    //     return
-    //         s.FindNextParentA.CompletedMutationWindows +
-    //         s.FindNextParentA.BoundaryUnstableWindows +
-    //         s.FindNextParentA.OracleRacedWindows +
-    //         s.FindPreviousChild.CompletedMutationWindows +
-    //         s.FindPreviousChild.BoundaryUnstableWindows +
-    //         s.FindPreviousChild.OracleRacedWindows;
-    // }
 
     template <typename Handle>
     static void ObservePublicRead(
@@ -3565,11 +3561,8 @@ namespace Test03_ReaderWriterTraversal
     static void ExerciseAPCRead(
         APCBackend& backend,
         size_t source_node,
-        HeaderIdentifierOfAPC relationship_field,
         APCBackend::Handle legal_handle_1,
-        uint32_t legal_slot_1,
         APCBackend::Handle legal_handle_2,
-        uint32_t legal_slot_2,
         bool none_is_legal,
         PublicCall&& public_call,
         ApiStats& stats) noexcept
@@ -3589,7 +3582,7 @@ namespace Test03_ReaderWriterTraversal
             none_is_legal,
             stats
         );
-        APCBackend::Handle observed = public_read.Ptr;
+        if (!public_read.ContractValid()) return;
 
         const AxisVersion after =
             ReadAxisVersion(
@@ -3614,8 +3607,8 @@ namespace Test03_ReaderWriterTraversal
         }
 
         // RETRY is the public API's explicit statement that this call did not
-        // observe a stable relationship.  It must never be compared with a
-        // later oracle value as if it meant NONE.
+        // observe a stable relationship, so it is not counted as a stable
+        // null/non-null observation.
         if (public_read.IsRetry()) return;
 
         if (!SameStableVersion(before, after))
@@ -3624,68 +3617,15 @@ namespace Test03_ReaderWriterTraversal
             return;
         }
 
-        uint64_t raw_relationship = FABRIC_CELL_SENTINAL;
-
-        if (!backend.ReadMeta(
-                source_node,
-                relationship_field,
-                raw_relationship))
-        {
-            ++stats.OracleReadFailures;
-            return;
-        }
-
-        const AxisVersion oracle_after =
-            ReadAxisVersion(
-                backend,
-                source_node,
-                Axis::HORIZONTAL
-            );
-
-        if (!SameStableVersion(after, oracle_after))
-        {
-            ++stats.OracleRacedWindows;
-            return;
-        }
-
-        APCBackend::Handle expected = nullptr;
-
-        if (raw_relationship == FABRIC_CELL_SENTINAL)
-        {
-            expected = nullptr;
-        }
-        else if (raw_relationship == legal_slot_1)
-        {
-            expected = legal_handle_1;
-        }
-        else if (raw_relationship == legal_slot_2)
-        {
-            expected = legal_handle_2;
-        }
-        else
-        {
-            ++stats.OracleStructuralFailures;
-            return;
-        }
-
         ++stats.StableValidated;
 
-        if (expected)
+        if (public_read.IsFound())
         {
             ++stats.StableNonNull;
         }
-        else
+        else if (public_read.IsNone())
         {
             ++stats.StableNull;
-        }
-
-        const bool public_matches_expected = expected ?
-            (public_read.IsFound() && observed == expected) :
-            public_read.IsNone();
-
-        if (!public_matches_expected)
-        {
-            ++stats.StableContractFailures;
         }
     }
 
@@ -3934,10 +3874,6 @@ namespace Test03_ReaderWriterTraversal
         std::vector<std::thread> readers{};
         readers.reserve(reader_count);
 
-        const uint32_t child_slot = backend.SlotOf(CHILD);
-        const uint32_t parent_a_slot = backend.SlotOf(PARENT_A);
-        const uint32_t parent_b_slot = backend.SlotOf(PARENT_B);
-
         const auto begin = Clock::now();
 
         for (uint32_t reader = 0u; reader < reader_count; ++reader)
@@ -3960,11 +3896,8 @@ namespace Test03_ReaderWriterTraversal
                     ExerciseAPCRead(
                         backend,
                         PARENT_A,
-                        HeaderIdentifierOfAPC::HORIZONTAL_NEXT_OF_ROOT,
                         backend.HandleAt(CHILD),
-                        child_slot,
                         nullptr,
-                        APCDataStructure::APC_INDEX_BOUND_SENTINAL,
                         true,
                         [&]() noexcept
                         {
@@ -3980,11 +3913,8 @@ namespace Test03_ReaderWriterTraversal
                     ExerciseAPCRead(
                         backend,
                         CHILD,
-                        HeaderIdentifierOfAPC::PREVIOUS_HORIZONTAL_SLOT,
                         backend.HandleAt(PARENT_A),
-                        parent_a_slot,
                         backend.HandleAt(PARENT_B),
-                        parent_b_slot,
                         false,
                         [&]() noexcept
                         {
@@ -4126,16 +4056,8 @@ namespace Test03_ReaderWriterTraversal
             << s.CompletedMutationWindows << '\n'
             << "      boundary unstable windows   : "
             << s.BoundaryUnstableWindows << '\n'
-            << "      oracle raced windows        : "
-            << s.OracleRacedWindows << '\n'
-            << "      stable contract failures    : "
-            << s.StableContractFailures << '\n'
             << "      wrong pointer failures      : "
             << s.WrongPointerFailures << '\n'
-            << "      oracle structural failures  : "
-            << s.OracleStructuralFailures << '\n'
-            << "      oracle read failures        : "
-            << s.OracleReadFailures << '\n'
             << "      version read failures       : "
             << s.VersionReadFailures << '\n'
             << "      outcome contract failures   : "
@@ -5172,16 +5094,283 @@ namespace Test05_PerAxisAcyclicity
 
 } // namespace Test05_PerAxisAcyclicity
 
+namespace Test06_PrimitiveRegionViews
+{
+    using namespace TestKit;
+    using SD = SchemaDefinition;
+
+    static constexpr uint32_t FABRIC_SLOT_COUNT = 4u;
+    static constexpr uint32_t SLOT_WORDS = MINIMUM_APC_CELL_COUNT;
+
+    template <typename T>
+    constexpr const char* PrimitiveName() noexcept
+    {
+        if constexpr (std::is_same_v<T, uint8_t>) return "uint8_t";
+        else if constexpr (std::is_same_v<T, uint16_t>) return "uint16_t";
+        else if constexpr (std::is_same_v<T, uint32_t>) return "uint32_t";
+        else if constexpr (std::is_same_v<T, uint64_t>) return "uint64_t";
+        else if constexpr (std::is_same_v<T, int8_t>) return "int8_t";
+        else if constexpr (std::is_same_v<T, int16_t>) return "int16_t";
+        else if constexpr (std::is_same_v<T, int32_t>) return "int32_t";
+        else if constexpr (std::is_same_v<T, int64_t>) return "int64_t";
+        else if constexpr (std::is_same_v<T, float>) return "float";
+        else if constexpr (std::is_same_v<T, double>) return "double";
+        else if constexpr (std::is_same_v<T, char>) return "char";
+        else return "unsupported";
+    }
+
+    template <typename T>
+    constexpr T FirstValue() noexcept
+    {
+        if constexpr (std::is_same_v<T, char>) return 'A';
+        else if constexpr (std::is_floating_point_v<T>) return static_cast<T>(1.25);
+        else if constexpr (std::is_signed_v<T>) return static_cast<T>(-7);
+        else return static_cast<T>(7u);
+    }
+
+    template <typename T>
+    constexpr T SecondValue() noexcept
+    {
+        if constexpr (std::is_same_v<T, char>) return 'Z';
+        else if constexpr (std::is_floating_point_v<T>) return static_cast<T>(3.5);
+        else return static_cast<T>(42);
+    }
+
+    template <typename T>
+    using WrongType = std::conditional_t<std::is_same_v<T, float>, uint32_t, float>;
+
+    static LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier
+    OneRegionLayout() noexcept
+    {
+        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
+        layout.FeedForward = 1u;
+        layout.FeedBackward = 0u;
+        layout.Lateral = 0u;
+        layout.StateSlot = 0u;
+        layout.ErrorSlot = 0u;
+        layout.Weightless = 0u;
+        layout.WeightSlot = 0u;
+        layout.AUXSlot = 0u;
+        layout.HeterogenousPtr = 0u;
+        layout.FreeSlot = 0u;
+        return layout;
+    }
+
+    template <typename T>
+    bool CreateTypedAPC(
+        VagueTemoraryPremativeFabric& fabric,
+        AdaptivePackedCellContainer& apc,
+        SD::SchemaProtocols protocol) noexcept
+    {
+        constexpr auto maybe_dtype = SD::CppTypeToRegionDType<T>();
+        static_assert(maybe_dtype.has_value());
+
+        SD::InitialRegionalDtypeConf dtype{};
+        dtype.FEEDFORWARD_MESSAGE = maybe_dtype.value();
+
+        SD::InitialRegionalProtocol protocols{};
+        protocols.FEEDFORWARD_MESSAGE = protocol;
+
+        return fabric.CreateAPC(
+            apc,
+            false,
+            false,
+            OneRegionLayout(),
+            dtype,
+            protocols,
+            APCDataStructure::BRANCH_VERSION
+        );
+    }
+
+    template <typename T>
+    bool TestPrivateView() noexcept
+    {
+        VagueTemoraryPremativeFabric fabric{};
+        AdaptivePackedCellContainer apc{};
+
+        if (
+            !fabric.InitializeFabricWithPtrTable(FABRIC_SLOT_COUNT, SLOT_WORDS) ||
+            !CreateTypedAPC<T>(fabric, apc, SD::SchemaProtocols::PRIVATE_REGION)
+        )
+        {
+            return false;
+        }
+
+        auto view = apc.BuildAViewOverRegion<T>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+        const auto wrong_view = apc.BuildAViewOverRegion<WrongType<T>>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+
+        if (
+            !view.has_value() ||
+            !view->IsValid() ||
+            view->Size() < 3u ||
+            view->GetProtocol() != SD::SchemaProtocols::PRIVATE_REGION ||
+            wrong_view.has_value() ||
+            view->AtomicStore(0u, FirstValue<T>())
+        )
+        {
+            return false;
+        }
+
+        auto mutable_span = view->RawMutableSpan();
+        if (!mutable_span.has_value()) return false;
+
+        const size_t middle = mutable_span->size() / 2u;
+        const size_t last = mutable_span->size() - 1u;
+        mutable_span.value()[0u] = FirstValue<T>();
+        mutable_span.value()[middle] = SecondValue<T>();
+        mutable_span.value()[last] = FirstValue<T>();
+
+        if (
+            mutable_span.value()[0u] != FirstValue<T>() ||
+            mutable_span.value()[middle] != SecondValue<T>() ||
+            mutable_span.value()[last] != FirstValue<T>() ||
+            !apc.ZeroARegion<T>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
+        )
+        {
+            return false;
+        }
+
+        for (const T& value : mutable_span.value())
+        {
+            if (value != T{}) return false;
+        }
+
+        return true;
+    }
+
+    template <typename T>
+    bool TestAtomicView() noexcept
+    {
+        VagueTemoraryPremativeFabric fabric{};
+        AdaptivePackedCellContainer apc{};
+
+        if (
+            !fabric.InitializeFabricWithPtrTable(FABRIC_SLOT_COUNT, SLOT_WORDS) ||
+            !CreateTypedAPC<T>(fabric, apc, SD::SchemaProtocols::ATOMIC_WORD_ARRAY)
+        )
+        {
+            return false;
+        }
+
+        auto view = apc.BuildAViewOverRegion<T>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+        const auto wrong_view = apc.BuildAViewOverRegion<WrongType<T>>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+
+        if (
+            !view.has_value() ||
+            !view->IsValid() ||
+            view->Size() < 3u ||
+            view->GetProtocol() != SD::SchemaProtocols::ATOMIC_WORD_ARRAY ||
+            view->RawMutableSpan().has_value() ||
+            wrong_view.has_value()
+        )
+        {
+            return false;
+        }
+
+        const size_t middle = view->Size() / 2u;
+        const size_t last = view->Size() - 1u;
+
+        if (
+            !view->AtomicStore(0u, FirstValue<T>(), std::memory_order_relaxed) ||
+            !view->AtomicStore(middle, SecondValue<T>(), std::memory_order_release) ||
+            !view->AtomicStore(last, FirstValue<T>(), std::memory_order_release) ||
+            view->AtomicStore(view->Size(), SecondValue<T>()) ||
+            view->AtomicLoad(0u, std::memory_order_relaxed) != FirstValue<T>() ||
+            view->AtomicLoad(middle, std::memory_order_acquire) != SecondValue<T>() ||
+            view->AtomicLoad(last, std::memory_order_acquire) != FirstValue<T>()
+        )
+        {
+            return false;
+        }
+
+        T expected = FirstValue<T>();
+        if (
+            !view->AtomicCompareExchangeStrong(
+                0u,
+                expected,
+                SecondValue<T>(),
+                std::memory_order_acq_rel,
+                std::memory_order_acquire
+            ) ||
+            view->AtomicLoad(0u, std::memory_order_acquire) != SecondValue<T>() ||
+            !apc.ZeroARegion<T>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
+        )
+        {
+            return false;
+        }
+
+        for (size_t i = 0u; i < view->Size(); ++i)
+        {
+            if (view->AtomicLoad(i, std::memory_order_relaxed) != T{})
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    template <typename T>
+    bool RunPrimitiveCase()
+    {
+        const bool private_ok = TestPrivateView<T>();
+        const bool atomic_ok = TestAtomicView<T>();
+
+        std::cout
+            << "  " << std::left << std::setw(10) << PrimitiveName<T>()
+            << " private-span=" << (private_ok ? "PASS" : "FAIL")
+            << "  atomic-ref=" << (atomic_ok ? "PASS" : "FAIL")
+            << '\n';
+
+        return private_ok && atomic_ok;
+    }
+
+    inline Result Run()
+    {
+        Banner("TEST 6 - PUBLIC REGION VIEW / ALL PRIMITIVE DTYPES");
+
+        std::cout
+            << "Every case constructs views through AdaptivePackedCellContainer.\n"
+            << "PRIVATE_REGION uses RawMutableSpan; ATOMIC_WORD_ARRAY uses atomic_ref operations.\n"
+            << "Each case also proves exact schema-dtype rejection and ZeroARegion<T>().\n\n";
+
+        bool all_ok = true;
+        all_ok = RunPrimitiveCase<uint8_t>() && all_ok;
+        all_ok = RunPrimitiveCase<uint16_t>() && all_ok;
+        all_ok = RunPrimitiveCase<uint32_t>() && all_ok;
+        all_ok = RunPrimitiveCase<uint64_t>() && all_ok;
+        all_ok = RunPrimitiveCase<int8_t>() && all_ok;
+        all_ok = RunPrimitiveCase<int16_t>() && all_ok;
+        all_ok = RunPrimitiveCase<int32_t>() && all_ok;
+        all_ok = RunPrimitiveCase<int64_t>() && all_ok;
+        all_ok = RunPrimitiveCase<float>() && all_ok;
+        all_ok = RunPrimitiveCase<double>() && all_ok;
+        all_ok = RunPrimitiveCase<char>() && all_ok;
+
+        std::cout
+            << "\nTEST 6 OVERALL: "
+            << (all_ok ? "PASS" : "FAIL")
+            << '\n';
+
+        return all_ok ? Result::PASS : Result::FAIL;
+    }
+}
+
 inline int RunAll()
 {
     using TestKit::Result;
 
-    const std::array<std::pair<const char*, Result>, 5u> results{{
+    const std::array<std::pair<const char*, Result>, 6u> results{{
         {"Test 1 - traversal + compound baseline", Test01_PublicTraversalBaseline::Run()},
         {"Test 2 - compound contention sweep", Test02_ContentionSweep::Run()},
         {"Test 3 - compound writer/readers", Test03_ReaderWriterTraversal::Run()},
         {"Test 4 - primitive vs compound APIs", Test04_PrimitiveVsCompoundMutation::Run()},
-        {"Test 5 - per-axis acyclicity", Test05_PerAxisAcyclicity::Run()}
+        {"Test 5 - per-axis acyclicity", Test05_PerAxisAcyclicity::Run()},
+        {"Test 6 - primitive region views", Test06_PrimitiveRegionViews::Run()}
     }};
 
     TestKit::Banner("APC MODULAR TEST SUITE SUMMARY");

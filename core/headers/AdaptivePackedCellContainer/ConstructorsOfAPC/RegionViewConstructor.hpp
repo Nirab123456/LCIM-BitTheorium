@@ -120,9 +120,89 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
+        template<class DType>
+        std::optional<RegionView<DType>> BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept
+        {
+            static_assert(std::is_trivially_copyable_v<DType>);
+
+            ResolveRegionBiteView resolved{};
+            if (!ResolveRegionView_(macro_column, resolved))
+            {
+                return std::nullopt;
+            }
+
+            using SD = SchemaDefinition;
+
+            switch (resolved.Schema.Protocol)
+            {
+            case SD::SchemaProtocols::PRIVATE_REGION:
+            case SD::SchemaProtocols::IMMUTABLE_SNAPSHOT:
+                break;
+            
+            case SD::SchemaProtocols::ATOMIC_WORD_ARRAY:
+                if (!APCStorageGeometry::CanInstallAtomicSpan<DType>(resolved))
+                {
+                    return std::nullopt;
+                }
+                break;
+            
+            default:
+                return std::nullopt;
+            }
+            
+            DType* type_based = reinterpret_cast<DType*>(resolved.Bytes.data());
+            const size_t element_count = resolved.ByteCount() / sizeof(DType);
+
+            return RegionView<DType>(
+                std::span<DType>(type_based, element_count),
+                resolved.Schema.Protocol
+            );
+        }
 
         template<class DType>
-        std::optional<RegionView<DType>> BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept;
+        bool ZeroARegion(MacroColumnOfAPC macro_column) noexcept
+        {
+            std::optional<RegionView<DType>> maybe_view = BuildAViewOverRegion<DType>(macro_column);
+            if (!maybe_view.has_value())
+            {
+                return false;
+            }
+
+            RegionView<DType>& view = maybe_view.value();
+
+            using SD = SchemaDefinition;
+
+            switch (view.GetProtocol())
+            {
+            case SD::SchemaProtocols::PRIVATE_REGION:
+            {
+                std::optional<std::span<DType>> maybe_mutable_span = view.RawMutableSpan();
+                if (!maybe_mutable_span.has_value())
+                {
+                    return false;
+                }
+                
+                for (DType& value : maybe_mutable_span.value())
+                {
+                    value = DType{};
+                }
+                return true;
+            }
+            case SD::SchemaProtocols::ATOMIC_WORD_ARRAY:
+                for (size_t i = 0; i < view.Size(); i++)
+                {
+                    if (!view.AtomicStore(i, DType{}, std::memory_order_relaxed))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            
+            default:
+                return false;
+            }
+            
+        }
 
     };
     

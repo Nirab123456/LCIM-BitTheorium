@@ -52,7 +52,7 @@ namespace BidirectionalInMemGraph
             const std::optional<SchemaOrchestrator::DataTypeOfMacroColumn> expected_dtype = SchemaDefinition::CppTypeToRegionDType<DType>();
 
             if (
-                !region.IsValid ||
+                !region.IsValid() ||
                 !expected_dtype.has_value() ||
                 region.Schema.Dtype != expected_dtype.value() ||
                 region.ByteCount() < sizeof(DType) ||
@@ -62,7 +62,7 @@ namespace BidirectionalInMemGraph
                 return false;
             }
 
-            const uintptr_t address = reinterpret_cast<uintptr_t>(region.Bytes.data);
+            const uintptr_t address = reinterpret_cast<uintptr_t>(region.Bytes.data());
 
             return (address % alignof(DType)) == UNSIGNED_ZERO;
             
