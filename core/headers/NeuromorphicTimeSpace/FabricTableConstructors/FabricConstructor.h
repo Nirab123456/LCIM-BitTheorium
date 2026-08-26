@@ -25,7 +25,6 @@ namespace BidirectionalInMemGraph
         RawPackedCellAllocator AllocatorOfFabric_{};
         using SeqLockedOperation = FabricToAPCLinker::SeqLockedOperation;
 
-    public:
         using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
 

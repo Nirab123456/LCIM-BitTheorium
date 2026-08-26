@@ -642,7 +642,7 @@ namespace TestKit
     // ========================================================================
 
     template <size_t NodeCount, size_t PayloadWords>
-    class APCFabricBackend
+    class TestBackedndFabric
     {
     public:
         using Handle = AdaptivePackedCellContainer*;
@@ -994,7 +994,7 @@ namespace Test01_PublicTraversalBaseline
     constexpr uint32_t CONCURRENT_TRIALS = 20u;
 
     using VectorBackend = VectorGraphBackend<NODE_COUNT, PAYLOAD_WORDS>;
-    using APCBackend = APCFabricBackend<NODE_COUNT, PAYLOAD_WORDS>;
+    using APCBackend = TestBackedndFabric<NODE_COUNT, PAYLOAD_WORDS>;
 
     struct Timing
     {
@@ -2256,7 +2256,7 @@ namespace Test02_ContentionSweep
     constexpr size_t MAX_FAILED_ATTEMPT_SAMPLES_PER_THREAD = 100'000u;
 
     using VectorBackend = VectorGraphBackend<NODE_COUNT, 0u, false>;
-    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+    using APCBackend = TestBackedndFabric<NODE_COUNT, 1u>;
 
     static_assert(
         (LATENCY_SAMPLE_STRIDE & (LATENCY_SAMPLE_STRIDE - 1u)) == 0u
@@ -3338,7 +3338,7 @@ namespace Test03_ReaderWriterTraversal
     };
 
     using VectorBackend = VectorGraphBackend<NODE_COUNT, 0u, false>;
-    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+    using APCBackend = TestBackedndFabric<NODE_COUNT, 1u>;
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
@@ -4278,7 +4278,7 @@ namespace Test04_PrimitiveVsCompoundMutation
     static_assert((LOGICAL_MOVES & 1u) == 0u);
     static_assert((COMPONENT_MOVES & 1u) == 0u);
 
-    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+    using APCBackend = TestBackedndFabric<NODE_COUNT, 1u>;
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept
     {
@@ -4948,7 +4948,7 @@ namespace Test05_PerAxisAcyclicity
     constexpr size_t C = 2u;
     constexpr size_t NODE_COUNT = 3u;
 
-    using APCBackend = APCFabricBackend<NODE_COUNT, 1u>;
+    using APCBackend = TestBackedndFabric<NODE_COUNT, 1u>;
     using Adjacency = std::array<std::array<bool, NODE_COUNT>, NODE_COUNT>;
 
     static RootPlan<NODE_COUNT> MakeRootPlan() noexcept

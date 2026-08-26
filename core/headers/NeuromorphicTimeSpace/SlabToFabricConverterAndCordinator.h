@@ -167,6 +167,7 @@ namespace BidirectionalInMemGraph
     class ConstructForestOnEachAxis : public ForestMutationConf
     {
         friend class AdaptivePackedCellContainer;
+        friend class FabricToAPCLinker;
     private:
 
         bool AcquiteAllIdentitiesForTransaction_(
@@ -215,17 +216,12 @@ namespace BidirectionalInMemGraph
             uint32_t internal_max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
         
-    public:
+    protected:
         SeqLockedOperation ReadIdentityBufferOfAPC(
             uint32_t apc_slot,
             IAB::BufferOfAPCIdentity& identity,
             std::optional<IAB::BidirectionalAxis> axis = std::nullopt,
             bool is_axis_already_reserved = false
-        ) noexcept;
-
-        bool ReadGraphMutationFlags(
-            uint32_t slot_idx,
-            IAB::GraphMutationValues& values
         ) noexcept;
 
         bool OpenForestGateOnAxis(
@@ -234,6 +230,12 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
+    public:
+        // Just for test
+        bool ReadGraphMutationFlags(
+            uint32_t slot_idx,
+            IAB::GraphMutationValues& values
+        ) noexcept;
 
 };
 
