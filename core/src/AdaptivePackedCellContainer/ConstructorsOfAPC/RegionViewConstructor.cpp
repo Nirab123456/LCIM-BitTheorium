@@ -5,7 +5,6 @@
 
 namespace BidirectionalInMemGraph
 {
-
     bool RegionViewConstructor::ResolveRegionView_(
         MacroColumnOfAPC column_name,
         ResolveRegionBiteView& out
@@ -78,4 +77,42 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+    template<class DType>
+    std::optional<RegionView<DType>> RegionViewConstructor::BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept
+    {
+        static_assert(std::is_trivially_copyable_v<DType>);
+
+        ResolveRegionBiteView resolved{};
+        if (!ResolveRegionView_(macro_column, resolved))
+        {
+            return std::nullopt;
+        }
+
+        using SD = SchemaDefinition;
+
+        switch (resolved.Schema.Protocol)
+        {
+        case SD::SchemaProtocols::PRIVATE_REGION:
+        case SD::SchemaProtocols::IMMUTABLE_SNAPSHOT:
+            break;
+        
+        case SD::SchemaProtocols::ATOMIC_WORD_ARRAY:
+            if (!APCStorageGeometry::CanInstallAtomicSpan<DType>(resolved))
+            {
+                return std::nullopt;
+            }
+            break;
+        
+        default:
+            return std::nullopt;
+        }
+        
+        DType* type_based = reinterpret_cast<DType*>(resolved.Bytes.data());
+        const size_t element_count = resolved.ByteCount() / sizeof(DType);
+
+        return RegionView<DType>(
+            std::span<DType>(type_based, element_count),
+            resolved.Schema.Protocol
+        );
+    }
 }
