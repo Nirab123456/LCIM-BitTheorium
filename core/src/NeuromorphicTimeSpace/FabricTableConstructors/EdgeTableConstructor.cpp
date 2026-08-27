@@ -281,14 +281,26 @@ namespace BidirectionalInMemGraph
 
         desired_data.SeqLock = edge_status.SeqLock + 1u;
 
-        return 
-            EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) &&
-            EdgeBuilder::IsTransitionStateLeagal(edge_status.StateOfTheAPC, desired_data.Status) &&
-            ForceNxLenMemCopy(
-                range.BeginIndex,
-                EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                buffer.data()
-            );
+        if (
+            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) ||
+            !EdgeBuilder::IsTransitionStateLeagal(edge_status.StateOfTheAPC, desired_data.Status) 
+        )
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < EdgeBuilder::EDGE_TABLE_RECORD_WIDTH - 1; i++)
+        {
+            std::atomic_ref<uint64_t> slab_edge(SlabBasePtr_[range.BeginIndex + i]);
+            slab_edge.store(buffer[i], std::memory_order_relaxed);
+        }
+        
+        const uint8_t seq_lock_ordinal = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
+
+        std::atomic_ref<uint64_t> slab_edge(SlabBasePtr_[range.BeginIndex + seq_lock_ordinal]);
+        slab_edge.store(buffer[seq_lock_ordinal], std::memory_order_release);
+
+        return true;
     }
 
 }

@@ -67,12 +67,6 @@ namespace BidirectionalInMemGraph
             const uint64_t* desired_cells
         ) noexcept;
 
-        bool ReadASnapShotFromSlab(
-            size_t slab_starting_idx, 
-            size_t sequential_number_of_cells,
-            uint64_t* return_buffer
-        ) noexcept;
-
         /// @param sync_idx_of_buffer It is the buffer index caller dosent need to know slab index 
         bool ReadBufferwithSyncAtomicIndex(
             size_t slab_starting_idx, 

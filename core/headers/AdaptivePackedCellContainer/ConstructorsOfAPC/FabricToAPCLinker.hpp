@@ -52,12 +52,6 @@ namespace BidirectionalInMemGraph
             const uint64_t* source_cells
         ) noexcept;
 
-        bool CopyFromAPCToBuffer(
-            uint32_t starting_idx_in_apc,
-            uint32_t sequential_number_of_cells,
-            uint64_t* return_buffer
-        ) noexcept;
-
         bool BindExternalRawFabricBacking_(
             uint64_t* raw_cells_ptr,
             uint32_t cell_count,

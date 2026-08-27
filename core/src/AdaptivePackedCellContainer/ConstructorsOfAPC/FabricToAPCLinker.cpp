@@ -91,21 +91,6 @@ namespace BidirectionalInMemGraph
             );
     }
 
-    bool FabricToAPCLinker::CopyFromAPCToBuffer(
-        uint32_t starting_idx_in_apc,
-        uint32_t sequential_number_of_cells,
-        uint64_t* return_buffer
-    ) noexcept
-    {   
-        return 
-            IsThisAPCValid() &&
-            FabricOwnerPtr_->ReadASnapShotFromSlab(
-                (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
-                sequential_number_of_cells, 
-                return_buffer
-            );
-    }
-
     bool FabricToAPCLinker::InitiateAPCMetaHeader(
         const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
         const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,

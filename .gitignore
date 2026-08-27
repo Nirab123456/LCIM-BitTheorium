@@ -12,3 +12,4 @@ Dump
 /package-lock.json
 /package.json
 /build-release
+*.pdb
