@@ -1,6 +1,6 @@
 #pragma once 
 #include <span>
-#include "../FabricOrchestrators/EdgeTableConf.hpp"
+#include "../FabricOrchestrators/RetirementOfAPC.hpp"
 
 namespace BidirectionalInMemGraph
 {
