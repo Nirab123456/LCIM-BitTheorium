@@ -161,7 +161,7 @@ namespace BidirectionalInMemGraph
     {
 
         static constexpr uint8_t METACELL_COUNT = 64;
-        static constexpr uint8_t FABRIC_CELL_COUNT = 64;
+        static constexpr uint8_t FABRIC_CELL_COUNT = 16;
 
 
         static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
