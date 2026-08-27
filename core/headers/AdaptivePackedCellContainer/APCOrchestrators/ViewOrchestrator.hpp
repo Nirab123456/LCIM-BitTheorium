@@ -104,7 +104,7 @@ namespace BidirectionalInMemGraph
             
             DType* type_base = reinterpret_cast<DType*>(region.Bytes.data());
 
-            const size_t count = region.ByteCount / sizeof(DType);
+            const size_t count = region.ByteCount() / sizeof(DType);
 
             for (size_t i = 0; i < count; i++)
             {

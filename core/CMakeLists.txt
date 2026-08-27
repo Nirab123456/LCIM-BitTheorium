@@ -387,6 +387,12 @@ endif()
 # Python bindings
 # ============================================================
 
+get_filename_component(
+    ATOMICCIM_REPOSITORY_DIR
+    "${CMAKE_SOURCE_DIR}"
+    DIRECTORY
+)
+
 file(GLOB_RECURSE BINDING_SRCS CONFIGURE_DEPENDS
     "${BINDINGS_DIR}/*.cpp"
     "${BINDINGS_DIR}/*.cc"
@@ -434,23 +440,28 @@ if(BINDING_SRCS)
         FILES ${BINDING_SRCS}
     )
 
+    # Put the Python extension beside apc.py.
     set_target_properties(
         atomiccim_bind
         PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY
+                "${ATOMICCIM_REPOSITORY_DIR}"
+
+            RUNTIME_OUTPUT_DIRECTORY
+                "${ATOMICCIM_REPOSITORY_DIR}"
     )
 
-    foreach(CONFIG_TYPE Debug Release RelWithDebInfo MinSizeRel)
+    # Multi-config generators such as Visual Studio.
+    foreach(CONFIG_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
 
         set_target_properties(
             atomiccim_bind
             PROPERTIES
                 "LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE}"
-                    "${CMAKE_BINARY_DIR}/${CONFIG_TYPE}"
+                    "${ATOMICCIM_REPOSITORY_DIR}"
 
                 "RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE}"
-                    "${CMAKE_BINARY_DIR}/${CONFIG_TYPE}"
+                    "${ATOMICCIM_REPOSITORY_DIR}"
         )
 
     endforeach()

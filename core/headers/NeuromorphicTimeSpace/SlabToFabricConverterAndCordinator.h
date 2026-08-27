@@ -23,6 +23,10 @@ namespace BidirectionalInMemGraph
     protected :
         bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
+        bool InitializeFabric(
+            uint32_t slot_count,
+            uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT
+        ) noexcept;
     public:
         SlabToFabricConverterAndCordinator(/* args */) noexcept = default;
 
@@ -35,11 +39,6 @@ namespace BidirectionalInMemGraph
         SlabToFabricConverterAndCordinator& operator = (const SlabToFabricConverterAndCordinator&) = delete;
 
         void ShutDownFabric() noexcept;
-
-        bool InitializeFabric(
-            uint32_t slot_count,
-            uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT
-        ) noexcept;
 
         bool IsFabricActive() noexcept
         {
