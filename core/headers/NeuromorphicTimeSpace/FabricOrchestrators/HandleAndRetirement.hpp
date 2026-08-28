@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    struct RetirementOfAPC
+    struct HandleAndRetirement
     {
 
         enum class RetirementIndexing : uint8_t

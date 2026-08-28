@@ -13,3 +13,4 @@ Dump
 /package.json
 /build-release
 *.pdb
+*.ilk
