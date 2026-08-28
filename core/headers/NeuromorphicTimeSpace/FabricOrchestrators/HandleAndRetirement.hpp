@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-    struct HandleAndRetirement
+    struct HandleOfAPCStatic
     {
 
         enum class RetirementIndexing : uint8_t
@@ -13,7 +13,7 @@ namespace BidirectionalInMemGraph
             ACCESS_PATTERN = 1
         };
 
-        static constexpr uint8_t RETIREMENT_TABLE_WIDTH = static_cast<uint8_t>(RetirementIndexing::ACCESS_PATTERN) + 1u;
+        static constexpr uint8_t HANDLE_TABLE_WIDTH = static_cast<uint8_t>(RetirementIndexing::ACCESS_PATTERN) + 1u;
 
         struct RetirementValues
         {
@@ -48,7 +48,7 @@ namespace BidirectionalInMemGraph
 
         static constexpr size_t CellOffset(uint32_t slot, RetirementIndexing cell) noexcept
         {
-            return static_cast<size_t>(slot) * RETIREMENT_TABLE_WIDTH + static_cast<size_t>(cell);
+            return static_cast<size_t>(slot) * HANDLE_TABLE_WIDTH + static_cast<size_t>(cell);
         }
 
         static constexpr bool CanAdvanceGeneration(uint64_t generation) noexcept
@@ -58,8 +58,6 @@ namespace BidirectionalInMemGraph
 
 
     };
-    
-
 
 
 }

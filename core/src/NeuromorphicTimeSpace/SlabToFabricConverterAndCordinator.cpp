@@ -124,7 +124,7 @@ namespace BidirectionalInMemGraph
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(vertical_edge_end);
         const size_t apc_handle_table_begin = cursor;
-        const size_t apc_handle_table_end = apc_handle_table_begin + static_cast<size_t>(CountOfAPC_ * HandleAndRetirement::RETIREMENT_TABLE_WIDTH);
+        const size_t apc_handle_table_end = apc_handle_table_begin + static_cast<size_t>(CountOfAPC_ * HandleOfAPCStatic::HANDLE_TABLE_WIDTH);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_handle_table_end);
         const size_t free_list_begin = cursor;
@@ -177,7 +177,6 @@ namespace BidirectionalInMemGraph
         HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
         HandleTableBeginIndex_ = apc_handle_table_begin;
-
 
         IdleAFabricTableClassRangesMemory_(FabricSegments::APC_HANDLE_TABLE);
 

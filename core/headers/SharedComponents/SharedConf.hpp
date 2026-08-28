@@ -55,12 +55,11 @@ namespace BidirectionalInMemGraph
         HORIZONTAL_EDGE_TABLE = 1,
         VERTICAL_EDGE_TABLE = 2,
         APC_HANDLE_TABLE = 3,
-        DELAYED_RECLAIMATION_LIST = 4,
-        FREE_APC_LIST = 5,
-        READY_QUEUE = 6,
-        WORK_QUEUE = 7,
-        DEVICE_VIEW_TABLE = 8,
-        SEGMENT_POOL = 9
+        FREE_APC_LIST = 4,
+        READY_QUEUE = 5,
+        WORK_QUEUE = 6,
+        DEVICE_VIEW_TABLE = 7,
+        SEGMENT_POOL = 8
     };
 
     enum class StateOfAPC : uint8_t
