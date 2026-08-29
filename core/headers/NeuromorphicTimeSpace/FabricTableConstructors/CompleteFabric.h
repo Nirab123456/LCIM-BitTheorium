@@ -3,7 +3,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    class RecordBookConstructor : public FabricConstructor
+    class RecordBookConstructor : public APCHandleAndRetirement
     {
         
     protected:

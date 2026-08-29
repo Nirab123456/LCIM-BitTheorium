@@ -19,7 +19,6 @@ namespace BidirectionalInMemGraph
         range.IsValid = 
             CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) &&
             edge_idx < CountOfAPC_ &&
-            desired_begin > DescriptionBeginIdx_ &&
             range.BeginIndex >= desired_begin &&
             range.EndIndex < SlabCellCount_;
         return range;
