@@ -30,69 +30,12 @@ namespace BidirectionalInMemGraph
         enum class FabricMetaIndicies : uint8_t
         {
             MAGIC = 0,
-            RESERVED_1 = 1,
-
-            FLAGS = 2,
-            SLAB_ID = 3,
-            TOTAL_CELLS = 4,
-            APC_DESCRIPTION_COUNT = 6,
-            PER_APC_RUNTIME_CELL_COUNT = 7,
-            SEGMENT_POOL_BEGIN_IDX = 8,
-            SEGMENT_POOL_END_IDX = 9,
-            
-            RESERVED_10  = 10,
-            RETIRE_SLOT_HEAD = 11,
-            RELATION_FREE_HEAD = 12,
-            RESERVED_13 = 13,
-            RESERVED_14 = 14,
-            NEXT_BRANCH_ID = 15,
-            NEXT_RELATION_ID = 16,
-            NEXT_DEVICE_VIEW_ID = 17,
-
-
-            WORK_WRITE_CURSOR = 18,
-            WORK_READ_CURSOR = 19,
-            READY_WRITE_CURSOR = 20,
-            READY_READ_CURSOR = 21,
-
-            //COUNTS
-            GLOBAL_EPOCH48 = 22,
-            MIN_SAFE_EPOCH48 = 23,
-            RELATION_RECLAIM_COUNT = 24,
-            WORK_QUEUE_DROPPED_COUNT = 25,
-            THREAD_ACTIVE_COUNT = 26,
-            THREAD_REGISTRATION_FAILURE = 27,
-            RELATION_TOMBSTONE_COUNT = 28,
-            RELATION_UNLINK_FAILURES = 29,
-            WORK_QUEUE_CLAIM_FAILURES = 30,
-            CAS_FAILURE_COUNT = 31,
-            ERROR_COUNT = 32,
-            RETIRED_COUNT = 33,
-            LIVE_SLOT_COUNT = 34,
-            ///end count
-            
-            RECORD_BOOK_OF_TSC_BEGIN = 36,
-            RECORD_BOOK_OF_TSC_END = 37,
-            TABLE_DIRECTORY_VERSION = 39,
-
-
-            HASH_TOMBSTONE_COUNT = 48,
-            HASH_COMPACTION_COUNT = 49,
-            WORK_QUEUE_OCCUPANCY = 50,
-            READY_QUEUE_OCCUPANCY = 51,
-
-            BACKOFF_SPIN_LIMIT = 52,
-            BACKOFF_YIELD_LIMIT = 53,
-            RESERVED_54 = 54,
-            HAS_COMPACTION_INFLIGHT = 55,
-
-            THREAD_TABLE_CAPACITY = 56,
-
-
-            RESERVED_57_UPTO_94 = 57,
-
-            EOF_FABRIC_HEADER = 63
-
+            TOTAL_CELLS = 1,
+            PER_APC_RUNTIME_CELL_COUNT = 2,
+            RECORD_BOOK_OF_TSC_BEGIN = 3,
+            RECORD_BOOK_OF_TSC_END = 4,
+            SEGMENT_POOL_BEGIN_IDX = 5,
+            EOF_FABRIC_HEADER = 15
         };
     };
 

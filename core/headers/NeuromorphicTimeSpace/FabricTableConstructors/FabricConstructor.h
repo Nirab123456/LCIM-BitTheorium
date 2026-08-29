@@ -1,6 +1,6 @@
 #pragma once 
 #include <span>
-#include "../FabricOrchestrators/EdgeTableConf.hpp"
+#include "../FabricOrchestrators/HandleAndRetirement.hpp"
 
 namespace BidirectionalInMemGraph
 {
@@ -19,6 +19,7 @@ namespace BidirectionalInMemGraph
         uint64_t DescriptionBeginIdx_{UNSIGNED_ZERO};
         uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};
         uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
+        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
 
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};

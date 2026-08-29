@@ -56,7 +56,6 @@ namespace BidirectionalInMemGraph
 
         SlabBasePtr_[static_cast<size_t>(FMI::MAGIC)] = CoreOfFabricCoordinator::FABRIC_MAGIC;
         SlabBasePtr_[static_cast<size_t>(FMI::TOTAL_CELLS)] = SlabCellCount_;
-        SlabBasePtr_[static_cast<size_t>(FMI::APC_DESCRIPTION_COUNT)] = CountOfAPC_;
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
@@ -124,6 +123,10 @@ namespace BidirectionalInMemGraph
         const size_t vertical_edge_end = vertical_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(vertical_edge_end);
+        const size_t apc_handle_table_begin = cursor;
+        const size_t apc_handle_table_end = apc_handle_table_begin + static_cast<size_t>(CountOfAPC_ * HandleOfAPCStatic::HANDLE_TABLE_WIDTH);
+
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_handle_table_end);
         const size_t free_list_begin = cursor;
         const size_t free_list_end = free_list_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
@@ -164,6 +167,7 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::SLAB_RECORD_MAP, record_book_begin, record_book_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_EDGE_TABLE, horizontal_edge_begin, horizontal_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, vertical_edge_begin, vertical_edge_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_TABLE, apc_handle_table_begin, apc_handle_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::FREE_APC_LIST, free_list_begin, free_list_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
@@ -172,8 +176,9 @@ namespace BidirectionalInMemGraph
 
         HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
+        HandleTableBeginIndex_ = apc_handle_table_begin;
 
-        //ENTRIES:: END ::SLAB_RECORD_MAP
+        IdleAFabricTableClassRangesMemory_(FabricSegments::APC_HANDLE_TABLE);
 
         //IDLE UNUSED FabricSegments
         IdleAFabricTableClassRangesMemory_(FabricSegments::FREE_APC_LIST);
