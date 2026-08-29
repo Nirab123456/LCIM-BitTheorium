@@ -3,36 +3,6 @@
 
 namespace BidirectionalInMemGraph
 {
-    bool FabricToAPCLinker::AtomicallyReadLongLongAPCUnit(
-        uint64_t idx,
-        uint64_t& return_value
-    ) noexcept
-    {
-        return 
-            IsThisAPCValid() &&
-            FabricOwnerPtr_->AtomicallyLoadReadAUnit(
-                RangeOfThisAPCInSlab_.BeginIndex + idx,
-                return_value
-            );
-    }
-
-    void FabricToAPCLinker::AtomicallyWriteU64ToAPC(
-        uint64_t idx,
-        const uint64_t& value
-    ) noexcept
-    {
-        if (
-            !IsThisAPCValid()
-        )
-        {
-            return;
-        }
-        FabricOwnerPtr_->AtomicallyStoreU64Fab(
-            idx + RangeOfThisAPCInSlab_.BeginIndex,
-            value
-        );
-    }
-
     bool FabricToAPCLinker::BindExternalRawFabricBacking_(
         uint64_t* words_raw,
         uint32_t cell_count,
@@ -73,22 +43,6 @@ namespace BidirectionalInMemGraph
         FabricOwnerPtr_ = nullptr;
         RawAPCBasePtr_ = nullptr;
         APCSlotIdx_ = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-    }
-
-    bool FabricToAPCLinker::ForceCopyToAPCFromBuffer(
-        uint32_t starting_idx_in_apc,
-        uint32_t sequential_number_of_cells,
-        const uint64_t* source_cells
-    ) noexcept
-    {
-        return 
-            IsThisAPCValid() &&
-            starting_idx_in_apc + sequential_number_of_cells <= CapacityOfThisAPC_ &&
-            FabricOwnerPtr_->ForceNxLenMemCopy(
-                (RangeOfThisAPCInSlab_.BeginIndex + starting_idx_in_apc), 
-                sequential_number_of_cells, 
-                source_cells
-            );
     }
 
     bool FabricToAPCLinker::InitiateAPCMetaHeader(
@@ -134,9 +88,9 @@ namespace BidirectionalInMemGraph
 
         return 
             APCDataStructure::IsValidFabricUnit(raw_new_state_seq) &&
-            ForceCopyToAPCFromBuffer(
-                UNSIGNED_ZERO,
-                APCDataStructure::METACELL_COUNT,
+            FabricOwnerPtr_->ForceNxLenMemCopy(
+                (RangeOfThisAPCInSlab_.BeginIndex + UNSIGNED_ZERO), 
+                APCDataStructure::METACELL_COUNT, 
                 header_meta_buffer.data()
             );
     }

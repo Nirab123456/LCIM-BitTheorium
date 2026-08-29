@@ -41,7 +41,7 @@ namespace BidirectionalInMemGraph
 
         if (
             !bounds_values.IsValid ||
-            bounds_values.BeginIndex < PayloadBegin() ||
+            bounds_values.BeginIndex < APCDataStructure::METACELL_COUNT ||
             bounds_values.EndIndex > CapacityOfThisAPC_
         )
         {

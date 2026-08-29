@@ -98,38 +98,12 @@ namespace BidirectionalInMemGraph
 
         void ReleseFabricBindingOnly_() noexcept;
 
-        bool ForceCopyToAPCFromBuffer(
-            uint32_t tarting_idx_in_apc,
-            uint32_t sequential_number_of_cells,
-            const uint64_t* source_cells
-        ) noexcept;
-
         bool BindExternalRawFabricBacking_(
             uint64_t* raw_cells_ptr,
             uint32_t cell_count,
             VagueTemoraryPremativeFabric* fabric_owner,
             uint64_t fabric_slot_idx
         ) noexcept;
-
-        bool AtomicallyReadLongLongAPCUnit(
-            uint64_t idx,
-            uint64_t& return_value
-        ) noexcept;
-
-        void AtomicallyWriteU64ToAPC(
-            uint64_t idx,
-            const uint64_t& value
-        ) noexcept;
-
-        VagueTemoraryPremativeFabric* GetFabricOwner() noexcept
-        {
-            return FabricOwnerPtr_;
-        }
-
-        static constexpr uint32_t PayloadBegin() noexcept
-        {
-            return APCDataStructure::METACELL_COUNT;
-        }
 
         bool InitiateAPCMetaHeader(
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},
