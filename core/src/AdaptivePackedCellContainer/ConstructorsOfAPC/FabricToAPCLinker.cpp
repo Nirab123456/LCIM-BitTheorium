@@ -109,5 +109,42 @@ namespace BidirectionalInMemGraph
         return FabricOwnerPtr_->AtomicallyLoadReadAUnit(slab_idx, return_value);
     }
 
+    bool FabricToAPCLinker::IsFabricBound_() const noexcept
+    {
+        return FabricOwnerPtr_ != nullptr &&
+            RangeOfThisAPCInSlab_.IsValid &&
+            RawAPCBasePtr_ != nullptr &&
+            APCGenerationCellPtr_ != nullptr &&
+            APCDataStructure::IsValid32BitAPCUnit(APCSlotIdx_) &&
+            HandleOfAPCStatic::IsGenerationValid(ExpectedGeneration_);
+    }
+
+
+    APCUseScope FabricToAPCLinker::AcquireAPCUse_() noexcept
+    {
+        if (!IsFabricBound_())
+        {
+            return APCUseScope{};
+        }
+
+        std::atomic_ref<uint64_t> control(*APCGenerationCellPtr_);
+
+        const uint64_t before = control.fetch_add(1u, std::memory_order_acquire);
+
+        const HandleOfAPCStatic::ControlValues values = HandleOfAPCStatic::ReadControlCell(before);
+
+        if (
+            values.Closed ||
+            values.Generation != ExpectedGeneration_ ||
+            values.ActiveAccess == APCDataStructure::APC_INDEX_BOUND_SENTINAL
+        )
+        {
+            control.fetch_sub(1u, std::memory_order_release);
+            return APCUseScope{};
+        }
+        
+        return APCUseScope(APCGenerationCellPtr_);
+    }
+
 
 }

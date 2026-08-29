@@ -89,12 +89,18 @@ namespace BidirectionalInMemGraph
         std::byte* RawAPCBasePtr_{nullptr};
         
         uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
+        uint64_t* APCGenerationCellPtr_{nullptr};
+        uint32_t ExpectedGeneration_{UNSIGNED_ZERO};
 
         struct RelationOparation 
         {
             AdaptivePackedCellContainer* APCPtr_ = nullptr;
             SeqLockedOperation MutationOP_ = SeqLockedOperation::NONE;
         };
+
+        bool IsFabricBound_() const noexcept;
+
+        APCUseScope AcquireAPCUse_() noexcept;
 
         void ReleseFabricBindingOnly_() noexcept;
 
