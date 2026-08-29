@@ -12,5 +12,7 @@ Dump
 /package-lock.json
 /package.json
 /build-release
+/FUTUTE_DIRECTIONS
+/PaperWritings
 *.pdb
 *.ilk
