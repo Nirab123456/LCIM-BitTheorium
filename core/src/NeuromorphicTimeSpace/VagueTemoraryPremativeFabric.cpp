@@ -219,4 +219,68 @@ namespace BidirectionalInMemGraph
     }
 
 
+
+    std::optional<uint32_t> VagueTemoraryPremativeFabric::GetASlotForNewAPCLink() noexcept
+    {
+        if (
+            !FabricInitialized_.load(std::memory_order_acquire) ||
+            !SlabBasePtr_ || 
+            !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
+            !IAB::IsValidAPCId(CountOfAPC_)
+        )
+        {
+            return std::nullopt;
+        }
+
+        std::optional<uint32_t> maybe_First_free = ReadFirstFreeAPCIdx_();
+
+        if (maybe_First_free.has_value())
+        {
+            for (uint32_t description_idx = maybe_First_free.value(); description_idx < CountOfAPC_; description_idx++)
+            {
+                const DSA::SeqLockAndStateStruct current = ReadAPCStateAtomically_(description_idx);
+                if (
+                    !current.IsValid ||
+                    current.StateOfTheAPC != StateOfAPC::FREE
+                )
+                {
+                    continue;
+                }
+                if (!SwitchDescriptionState(
+                    description_idx,
+                    StateOfAPC::RESERVED,
+                    StateOfAPC::FREE
+                ))
+                {
+                    continue;
+                }
+                uint64_t expected = maybe_First_free.value();
+                UpdateFirstFreeIdx_(expected, description_idx);
+                return description_idx;
+            }
+        }
+
+        if (maybe_First_free.has_value())
+        {
+            uint64_t expected = maybe_First_free.value();
+            UpdateFirstFreeIdx_(expected, FABRIC_CELL_SENTINAL);
+        }
+        
+        for (uint32_t slot = 0; slot < CountOfAPC_; slot++)
+        {
+            const DSA::SeqLockAndStateStruct current = ReadAPCStateAtomically_(slot);
+
+            if (
+                current.IsValid &&
+                current.StateOfTheAPC == StateOfAPC::RETIRED &&
+                ReclaimRetiredSlot_(slot)
+            )
+            {
+                return slot;
+            }
+        }
+        return std::nullopt;
+    }
+
+
 }

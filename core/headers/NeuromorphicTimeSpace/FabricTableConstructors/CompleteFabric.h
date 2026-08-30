@@ -49,8 +49,6 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
-
         DescriptionOfAPC::SeqLockAndStateStruct ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
 
         void InitAllAPCLifeCycleState() noexcept;

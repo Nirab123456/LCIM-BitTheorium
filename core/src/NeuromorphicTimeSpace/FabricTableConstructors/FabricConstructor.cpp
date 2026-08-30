@@ -31,6 +31,10 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+
+
+
+
     void FabricConstructor::DirectlyStoreFabricUnit64(size_t slab_index, uint64_t fabric_unit) noexcept
     {
         if (!IsDesiredIndexValidInSLab(slab_index))
@@ -69,7 +73,7 @@ namespace BidirectionalInMemGraph
         return fab_u64_ref.compare_exchange_strong(expected_packed_cell, desired_packed_cell, mem_order_success, mem_order_failure);
     }
 
-    bool FabricConstructor::CompareExchangeWeakInSlab(
+    bool FabricConstructor::CompareExchangeWeakInSlab(  
         size_t slab_index, 
         uint64_t& expected_packed_cell, 
         uint64_t desired_packed_cell,
@@ -300,6 +304,37 @@ namespace BidirectionalInMemGraph
             std::memory_order_acq_rel,
             std::memory_order_acquire
         );  
+    }
+
+
+    std::optional<uint32_t> APCHandleAndRetirement::ReadFirstFreeAPCIdx_() noexcept
+    {
+        uint8_t first_free = static_cast<uint8_t>(CoreOfFabricCoordinator::FabricMetaIndicies::FIRST_FREE_IDX);
+        if (!IsDesiredIndexValidInSLab(first_free))
+        {
+            return std::nullopt;
+        }
+
+        std::atomic_ref<const uint64_t> fab_u64_ref(SlabBasePtr_[first_free]);
+        uint64_t first_free_apc = fab_u64_ref.load(std::memory_order_acquire);
+
+        if (!APCDataStructure::IsValid32BitAPCUnit(first_free_apc))
+        {
+            return std::nullopt;
+        }
+        
+        return static_cast<uint32_t>(first_free_apc);
+    }
+
+    void APCHandleAndRetirement::UpdateFirstFreeIdx_(uint64_t& expected_value, uint64_t desired_value) noexcept
+    {
+        uint8_t first_free = static_cast<uint8_t>(CoreOfFabricCoordinator::FabricMetaIndicies::FIRST_FREE_IDX);
+        if (!IsDesiredIndexValidInSLab(first_free))
+        {
+            return;
+        }
+        std::atomic_ref<uint64_t> fab_u64_ref(SlabBasePtr_[first_free]);
+        fab_u64_ref.compare_exchange_strong(expected_value, desired_value, std::memory_order_acq_rel, std::memory_order_acquire);
     }
 
 

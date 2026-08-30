@@ -84,6 +84,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
+
     };
 
     class APCHandleAndRetirement : public FabricConstructor
@@ -109,6 +110,11 @@ namespace BidirectionalInMemGraph
             bool Reserved = false;
             bool Published = false;
         };
+
+        std::optional<uint32_t> ReadFirstFreeAPCIdx_() noexcept;
+
+        void UpdateFirstFreeIdx_(uint64_t& expected_value, uint64_t desired_value) noexcept;
+
 
     };
 
