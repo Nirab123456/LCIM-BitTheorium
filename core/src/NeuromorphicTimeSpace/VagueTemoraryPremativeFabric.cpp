@@ -175,9 +175,10 @@ namespace BidirectionalInMemGraph
             !AttachValidIdentity(slot_new.value()) ||
             !desired_apc.BindExternalRawFabricBacking_(
                 &SlabBasePtr_[range.BeginIndex],
-                PerAPCRuntimeCellCount_,
                 this,
-                slot_new.value()
+                slot_new.value(),
+                generation_cell,
+                control_values.Generation
             ) ||
             !desired_apc.InitiateAPCMetaHeader(
                 layout,

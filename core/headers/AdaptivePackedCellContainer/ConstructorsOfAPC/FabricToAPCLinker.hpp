@@ -106,9 +106,10 @@ namespace BidirectionalInMemGraph
 
         bool BindExternalRawFabricBacking_(
             uint64_t* raw_cells_ptr,
-            uint32_t cell_count,
             VagueTemoraryPremativeFabric* fabric_owner,
-            uint64_t fabric_slot_idx
+            uint64_t fabric_slot_idx,
+            uint64_t* generation_cell,
+            uint32_t expected_generation
         ) noexcept;
 
         bool InitiateAPCMetaHeader(

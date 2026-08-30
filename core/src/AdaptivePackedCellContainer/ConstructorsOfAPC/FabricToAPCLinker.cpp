@@ -4,17 +4,19 @@
 namespace BidirectionalInMemGraph
 {
     bool FabricToAPCLinker::BindExternalRawFabricBacking_(
-        uint64_t* words_raw,
-        uint32_t cell_count,
+        uint64_t* raw_cells_ptr,
         VagueTemoraryPremativeFabric* fabric_owner,
-        uint64_t fabric_slot_idx
+        uint64_t fabric_slot_idx,
+        uint64_t* generation_cell,
+        uint32_t expected_generation
     ) noexcept
     {
         if (
-            !words_raw ||
+            !raw_cells_ptr ||
             !fabric_owner ||
-            !APCDataStructure::IsCapacityOfAPCValid(cell_count) ||
-            !APCDataStructure::IsValid32BitAPCUnit(fabric_slot_idx)
+            !APCDataStructure::IsCapacityOfAPCValid(fabric_owner->PerAPCRuntimeCellCount_) ||
+            !APCDataStructure::IsValid32BitAPCUnit(fabric_slot_idx) ||
+            IsFabricBound_()
         )
         {
             return false;
@@ -22,16 +24,18 @@ namespace BidirectionalInMemGraph
         const RangeOfAPC range_of_this_apc = fabric_owner->GetSegmentPoolRange(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
-            range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != cell_count
+            range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != fabric_owner->PerAPCRuntimeCellCount_
         )
         {
             return false;
         }
         APCSlotIdx_ = static_cast<uint32_t>(fabric_slot_idx);
-        RawAPCBasePtr_ = reinterpret_cast<std::byte*>(words_raw);
-        CapacityOfThisAPC_ = cell_count;
+        RawAPCBasePtr_ = reinterpret_cast<std::byte*>(raw_cells_ptr);
+        CapacityOfThisAPC_ = fabric_owner->PerAPCRuntimeCellCount_;
         FabricOwnerPtr_ = fabric_owner;
         RangeOfThisAPCInSlab_ = range_of_this_apc;
+        APCGenerationCellPtr_ = generation_cell;
+        ExpectedGeneration_ = expected_generation;
         return true;
     }
 
@@ -43,6 +47,8 @@ namespace BidirectionalInMemGraph
         FabricOwnerPtr_ = nullptr;
         RawAPCBasePtr_ = nullptr;
         APCSlotIdx_ = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+        APCGenerationCellPtr_ = nullptr;
+        ExpectedGeneration_ = UNSIGNED_ZERO;
     }
 
     bool FabricToAPCLinker::InitiateAPCMetaHeader(
