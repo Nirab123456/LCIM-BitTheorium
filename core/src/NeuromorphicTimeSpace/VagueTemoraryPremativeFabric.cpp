@@ -133,12 +133,39 @@ namespace BidirectionalInMemGraph
             );
         };
 
-        auto AbortCreation___ = [&]()
+        uint64_t* generation_cell = GetAPCGenerationPtr_(slot_new.value());
+        if (!generation_cell)
         {
+            RollabckDescriptors___();
+            return false;
+        }
+
+        const uint64_t control_raw = std::atomic_ref<const uint64_t>(*generation_cell).load(std::memory_order_acquire);
+        const HandleOfAPCStatic::ControlValues control_values = HandleOfAPCStatic::ReadControlCell(control_raw);
+
+        if (
+            !control_values.Closed ||
+            control_values.ActiveAccess != UNSIGNED_ZERO ||
+            !HandleOfAPCStatic::IsGenerationValid(control_values.Generation)
+        )
+        {
+            RollabckDescriptors___();
+            return false;
+        }
+        
+        bool generation_opened = false;
+        
+        auto AbortCreation___ = [&]() noexcept -> void
+        {
+
+            if (generation_opened)
+            {
+                CloseAPCGeneration_(slot_new.value(), control_values.Generation);
+            }
+
             StoreAPCRuntimePtr(slot_new.value(), nullptr);
             RollabckDescriptors___();
             desired_apc.ReleseFabricBindingOnly_();
-            return false;
         };
 
         RangeOfAPC range = GetSegmentPoolRange(slot_new.value());
@@ -163,6 +190,13 @@ namespace BidirectionalInMemGraph
             RollabckDescriptors___();
             return false;
         }
+
+        if (!OpenAPCGeneration_(slot_new.value(), control_values.Generation))
+        {
+            RollabckDescriptors___();
+        }
+        
+        generation_opened = true;
         
         if (
             !StoreAPCRuntimePtr(slot_new.value(), &desired_apc)
@@ -173,6 +207,7 @@ namespace BidirectionalInMemGraph
         }
 
         descriptor_live = true;
+
         
         EdgeBuilder::EdgeData berore_edge_horizontal{};
         EdgeBuilder::EdgeData berore_edge_vertical{};
