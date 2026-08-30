@@ -1171,4 +1171,253 @@ namespace BidirectionalInMemGraph
         return CommitForestMutation_(transaction, internal_max_tries);
     }
 
+
+    bool ConstructForestOnEachAxis::RetireAPC_(
+        uint32_t slot, 
+        uint32_t generation,
+        uint32_t max_tries
+    ) noexcept
+    {
+        if (
+            !IsFabricActive() ||
+            slot >= CountOfAPC_ ||
+            !HandleOfAPCStatic::IsGenerationValid(generation)
+        )
+        {
+            return false;
+        }
+        
+        bool horizontal_locked = false;
+        bool vertical_locked = false;
+
+        auto ReleseLocks___ = [&]() noexcept -> void
+        {
+            if (vertical_locked)
+            {
+                ReleseGraphMutationFlag_(slot, IAB::BidirectionalAxis::VERTICAL, max_tries);
+            }
+            if (horizontal_locked)
+            {
+                ReleseGraphMutationFlag_(slot, IAB::BidirectionalAxis::HORIZONTAL, max_tries);
+
+            }
+        };
+
+        auto ReOpenGeneration___ = [&]() noexcept -> void
+        {
+            for (uint32_t i = 0; i < max_tries; i++)
+            {
+                if (OpenAPCGeneration_(slot, generation))
+                {
+                    return;
+                }
+                
+            }  
+        };
+
+        if (!AcquireGraphMutationFlag_(slot, IAB::BidirectionalAxis::HORIZONTAL, max_tries))
+        {
+            return false;
+        }
+        horizontal_locked = true;
+
+        if (!AcquireGraphMutationFlag_(slot, IAB::BidirectionalAxis::VERTICAL, max_tries))
+        {
+            ReleseLocks___();
+            return false;
+        }
+        vertical_locked = true;
+
+        IAB::BufferOfAPCIdentity before_identity{};
+
+        if (
+            ReadIdentityBufferOfAPC(slot, before_identity, std::nullopt, true) != SeqLockedOperation::FOUND ||
+            !IAB::IsInheritedAxisDisabled(before_identity, IAB::BidirectionalAxis::HORIZONTAL) ||
+            !IAB::IsInheritedAxisDisabled(before_identity, IAB::BidirectionalAxis::VERTICAL)
+        )
+        {
+            ReleseLocks___();
+            return false;
+        }
+
+        AxisRetirement_ horizontal_r {
+            IAB::BidirectionalAxis::HORIZONTAL,
+            IAB::ConstructAxisMap(IAB::BidirectionalAxis::HORIZONTAL)
+        };
+
+        AxisRetirement_ vertical_r {
+            IAB::BidirectionalAxis::VERTICAL,
+            IAB::ConstructAxisMap(IAB::BidirectionalAxis::VERTICAL)
+        };
+
+        IAB::BufferOfAPCIdentity work_identity = before_identity;
+        auto PrepareEdge___ = [&](AxisRetirement_& part) noexcept -> bool
+        {
+            const uint64_t first_child = IAB::ValueOfAnIdentityFromBuffer(work_identity, part.Map.RootOwnedChild);
+            const uint64_t owned_edge = IAB::ValueOfAnIdentityFromBuffer(work_identity, part.Map.OwnedEgdeTableIdx);
+
+            if (owned_edge == FABRIC_CELL_SENTINAL)
+            {
+                return
+                    first_child == FABRIC_CELL_SENTINAL &&
+                    IAB::IsOwnedAxisDisabled(work_identity, part.Which);
+            }
+            
+            if (
+                first_child != FABRIC_CELL_SENTINAL ||
+                !ReserveAnEdge_(
+                part.Map.EdgeTable,
+                slot,
+                &part.Before,
+                EdgeBuilder::EdgeStatus::LIVE,
+                max_tries
+            ))
+            {
+                return false;
+            }
+            part.HasOwnedRoot = true;
+            part.Reserved = true;
+            part.Work = part.Before;
+
+            return EdgeBuilder::PreparedOwnedRootForRetirement(work_identity, part.Which, part.Work);
+        };
+
+
+        auto RestoreEdge___ = [&](AxisRetirement_& part) noexcept -> void
+        {
+            if (!part.HasOwnedRoot)
+            {
+                return;
+            }
+
+            if (part.Published)
+            {
+                if (!ReserveAnEdge_(
+                    part.Map.EdgeTable,
+                    slot,
+                    nullptr,
+                    EdgeBuilder::EdgeStatus::RETIRED,
+                    max_tries
+                ))
+                {
+                    return;
+                }
+            }
+            PublishReservedEdge_(part.Before, slot);
+        };
+
+
+        auto RestoreTopology___ = [&]() noexcept -> void
+        {
+            WriteAcquiredAxisDelta_(
+                slot,
+                work_identity,
+                before_identity,
+                IAB::BidirectionalAxis::HORIZONTAL
+            );
+            WriteAcquiredAxisDelta_(
+                slot,
+                work_identity,
+                before_identity,
+                IAB::BidirectionalAxis::VERTICAL
+            );
+        };
+
+        auto RestoreEdgesAndLocks___ = [&]() noexcept -> void
+        {
+            RestoreEdge___(horizontal_r);
+            RestoreEdge___(vertical_r);
+            ReleseLocks___();
+        };
+
+
+        if (!PrepareEdge___(horizontal_r) || !PrepareEdge___(vertical_r))
+        {
+            RestoreEdgesAndLocks___();
+        }
+
+        if (!CloseAPCGeneration_(slot, generation))
+        {
+            RestoreEdgesAndLocks___();
+        }
+
+        WriteAcquiredAxisDelta_(
+            slot,
+            before_identity,
+            work_identity,
+            IAB::BidirectionalAxis::HORIZONTAL
+        );
+
+        WriteAcquiredAxisDelta_(
+            slot,
+            before_identity,
+            work_identity,
+            IAB::BidirectionalAxis::VERTICAL
+        );
+
+        auto PublishEdges___ = [&](AxisRetirement_& part) noexcept -> bool
+        {
+            if (!part.HasOwnedRoot)
+            {
+                return true;
+            }
+
+            if (!PublishReservedEdge_(part.Work, slot))
+            {
+                return false;
+            }
+            
+            part.Reserved = false;
+            part.Published = true;
+            return true;
+        };
+
+        if (!PublishEdges___(horizontal_r) || !PublishEdges___(vertical_r))
+        {
+            RestoreTopology___();
+            ReOpenGeneration___();
+            ReleseLocks___();
+            return false;
+        }
+
+        if (!SwitchDescriptionState(
+            slot,
+            StateOfAPC::RESERVED,
+            StateOfAPC::LIVE,
+            max_tries
+        ))
+        {
+            RestoreTopology___();
+            ReOpenGeneration___();
+            ReleseLocks___();
+            return false;
+        }
+
+        if (
+            !SwitchDescriptionState(
+                slot,
+                StateOfAPC::RETIRED,
+                StateOfAPC::RESERVED,
+                max_tries
+            )
+        )
+        {
+            SwitchDescriptionState(
+                slot,
+                StateOfAPC::LIVE,
+                StateOfAPC::RESERVED,
+                max_tries
+            );
+            RestoreTopology___();
+            ReOpenGeneration___();
+            ReleseLocks___();
+            return false;
+        }
+        
+        ReleseLocks___();
+        
+        return true;
+    }
+
+
 }

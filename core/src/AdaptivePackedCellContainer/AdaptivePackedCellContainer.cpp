@@ -325,5 +325,22 @@ namespace BidirectionalInMemGraph
     }
 
 
+    bool AdaptivePackedCellContainer::Retire(uint32_t max_tries) noexcept
+    {
+        if (!IsFabricBound_())
+        {
+            return false;
+        }
+        
+        if (FabricOwnerPtr_->RetireAPC_(APCSlotIdx_, ExpectedGeneration_, max_tries))
+        {
+            return FabricOwnerPtr_->StoreAPCRuntimePtr(APCSlotIdx_, nullptr);
+        }
+        
+        return false;
+    }
+
+
+
 
 }
