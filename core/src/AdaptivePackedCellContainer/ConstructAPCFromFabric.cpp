@@ -1420,4 +1420,86 @@ namespace BidirectionalInMemGraph
     }
 
 
+    bool ConstructForestOnEachAxis::ReclaimRetiredSlot_(uint32_t slot) noexcept
+    {
+        if (slot >= CountOfAPC_)
+        {
+            return false;
+        }
+
+        if (!SwitchDescriptionState(
+            slot,
+            StateOfAPC::RESERVED,
+            StateOfAPC::RETIRED
+        ))
+        {
+            return false;
+        }
+
+        auto RestoreToRetired___ = [&]() noexcept -> void
+        {
+            SwitchDescriptionState(slot, StateOfAPC::RETIRED, StateOfAPC::RESERVED);
+        };
+        
+
+        uint32_t new_generation = UNSIGNED_ZERO;
+        if (!AdvanceClosedAPCGeneration_(slot, new_generation))
+        {
+            RestoreToRetired___();
+            return false;
+        }
+
+        auto ResetEdge___ = [&](FabricSegments edge) noexcept -> bool
+        {
+            EdgeBuilder::EdgeLockValues state{};
+            if (!ReadEdgedataAtomically(edge, slot, state))
+            {
+                return false;
+            }
+
+            if (state.StateOfTheAPC == EdgeBuilder::EdgeStatus::FREE)
+            {
+                return true;
+            }
+
+            if (
+                state.StateOfTheAPC != EdgeBuilder::EdgeStatus::RETIRED ||
+                !ReserveAnEdge_(
+                    edge,
+                    slot,
+                    nullptr,
+                    EdgeBuilder::EdgeStatus::RETIRED
+                )
+            )
+            {
+                return false;
+            }
+            
+            EdgeBuilder::EdgeData free_edge{};
+            
+            return EdgeBuilder::BuildFreeEdgeTable(edge, slot, free_edge) &&
+                PublishReservedEdge_(free_edge, slot);
+        };
+        
+        const RangeOfAPC range = GetSegmentPoolRange(slot);
+        if (!range.IsValid)
+        {
+            RestoreToRetired___();
+            return false;
+        }
+        
+        const size_t life_cycle_idx = range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE);
+
+        for (size_t i = range.BeginIndex; i < range.EndIndex; i++)
+        {
+            if (i != life_cycle_idx)
+            {
+                AtomicallyStoreU64Fab(i, UNSIGNED_ZERO, std::memory_order_relaxed);
+            }
+        }
+        
+        return HandleOfAPCStatic::IsGenerationValid(new_generation);
+    }
+
+
 }
