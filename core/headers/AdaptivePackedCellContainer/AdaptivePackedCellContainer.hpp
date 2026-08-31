@@ -8,16 +8,6 @@ static_assert(__cpp_lib_atomic_wait, "C++ must suppoet atomic wait/notify");
 
 class AdaptivePackedCellContainer : public RegionViewConstructor
 {
-private:
-    bool CheckUseOthers_(AdaptivePackedCellContainer& apc) noexcept
-    {
-        APCUseScope this_use = AcquireAPCUse_();
-        APCUseScope sibbling_use = apc.AcquireAPCUse_();
-
-        return this_use &&
-            sibbling_use &&
-            FabricOwnerPtr_ == apc.FabricOwnerPtr_;
-    }
 
 public:
     static constexpr uint8_t REALTION_FIND_TRIES = 1;

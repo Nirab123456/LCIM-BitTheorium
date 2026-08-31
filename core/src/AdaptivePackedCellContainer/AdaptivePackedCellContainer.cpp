@@ -12,9 +12,12 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        
+        APCUseScope this_use = AcquireAPCUse_();
+        APCUseScope sibbling_use = sibbling.AcquireAPCUse_();
         return 
-            CheckUseOthers_(sibbling) &&
+            this_use &&
+            sibbling_use &&
+            FabricOwnerPtr_ == sibbling.FabricOwnerPtr_ &&
             FabricOwnerPtr_->AnchorADetachedChildToParent(
                 APCSlotIdx_,
                 sibbling.APCSlotIdx_,
@@ -31,8 +34,13 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
+
+        APCUseScope this_use = AcquireAPCUse_();
+        APCUseScope sibbling_use = sibbling.AcquireAPCUse_();
         return 
-            CheckUseOthers_(sibbling) &&
+            this_use &&
+            sibbling_use &&
+            FabricOwnerPtr_ == sibbling.FabricOwnerPtr_ &&
             FabricOwnerPtr_->AnchorADetachedChildToParent(
                 sibbling.APCSlotIdx_,
                 APCSlotIdx_,
@@ -68,8 +76,14 @@ namespace BidirectionalInMemGraph
 
         uint64_t childs_current_axis_inharitance = FABRIC_CELL_SENTINAL;
 
+        APCUseScope this_use = AcquireAPCUse_();
+        APCUseScope sibbling_use = sibbling.AcquireAPCUse_();
+
+
         if (
-            !CheckUseOthers_(sibbling) ||
+            !this_use ||
+            !sibbling_use ||
+            FabricOwnerPtr_ != sibbling.FabricOwnerPtr_ ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
             APCSlotIdx_ != childs_current_axis_inharitance
         )
@@ -91,9 +105,13 @@ namespace BidirectionalInMemGraph
         IAB::AxisConstructionMap map = IAB::ConstructAxisMap(axis);
 
         uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
+        APCUseScope this_use = AcquireAPCUse_();
+        APCUseScope sibbling_use = root_parent.AcquireAPCUse_();
 
         if (
-            !CheckUseOthers_(root_parent) ||
+            !this_use ||
+            !sibbling_use ||
+            FabricOwnerPtr_ != root_parent.FabricOwnerPtr_ ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge)
         )
         {
@@ -125,9 +143,12 @@ namespace BidirectionalInMemGraph
 
         uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
         uint64_t sibbling_parent_edge = FABRIC_CELL_SENTINAL;
-
+        APCUseScope this_use = AcquireAPCUse_();
+        APCUseScope sibbling_use = sibbling.AcquireAPCUse_();
         if (
-            !CheckUseOthers_(sibbling) ||
+            !this_use ||
+            !sibbling_use ||
+            FabricOwnerPtr_ != sibbling.FabricOwnerPtr_ ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge) ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge)
         )
