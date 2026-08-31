@@ -12,22 +12,16 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-
-        if (
-            !IsActiveAPC() ||
-            !sibbling.IsActiveAPC()
-        )
-        {
-            return false;
-        }
         
-        return FabricOwnerPtr_->AnchorADetachedChildToParent(
-            APCSlotIdx_,
-            sibbling.APCSlotIdx_,
-            axis,
-            inharitance,
-            max_tries
-        );
+        return 
+            CheckUseOthers_(sibbling) &&
+            FabricOwnerPtr_->AnchorADetachedChildToParent(
+                APCSlotIdx_,
+                sibbling.APCSlotIdx_,
+                axis,
+                inharitance,
+                max_tries
+            );
     }
 
     bool AdaptivePackedCellContainer::AttachMeToAnother(
@@ -37,21 +31,15 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
-        if (
-            !IsActiveAPC() ||
-            !sibbling.IsActiveAPC()
-        )
-        {
-            return false;
-        }
-        
-        return FabricOwnerPtr_->AnchorADetachedChildToParent(
-            sibbling.APCSlotIdx_,
-            APCSlotIdx_,
-            axis,
-            inharitance,
-            max_tries
-        );
+        return 
+            CheckUseOthers_(sibbling) &&
+            FabricOwnerPtr_->AnchorADetachedChildToParent(
+                sibbling.APCSlotIdx_,
+                APCSlotIdx_,
+                axis,
+                inharitance,
+                max_tries
+            );
     }
 
     bool AdaptivePackedCellContainer::DetachMeFromAnotherEdge(
@@ -59,8 +47,10 @@ namespace BidirectionalInMemGraph
         uint32_t max_tries
     ) noexcept
     {
+        APCUseScope this_use = AcquireAPCUse_();
+
         return 
-            IsActiveAPC() &&
+            this_use &&
             FabricOwnerPtr_->UnlinkTwoAPC(
                 static_cast<uint32_t>(APCSlotIdx_),
                 axis,
@@ -79,7 +69,7 @@ namespace BidirectionalInMemGraph
         uint64_t childs_current_axis_inharitance = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsActiveAPC() ||
+            !CheckUseOthers_(sibbling) ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
             APCSlotIdx_ != childs_current_axis_inharitance
         )
@@ -103,8 +93,7 @@ namespace BidirectionalInMemGraph
         uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsActiveAPC() ||
-            !root_parent.IsActiveAPC() ||
+            !CheckUseOthers_(root_parent) ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge)
         )
         {
@@ -138,8 +127,7 @@ namespace BidirectionalInMemGraph
         uint64_t sibbling_parent_edge = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsActiveAPC() ||
-            !sibbling.IsActiveAPC() ||
+            !CheckUseOthers_(sibbling) ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge) ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge)
         )
@@ -173,7 +161,9 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_post{};
 
         RelationOparation op_values{};
-        if (!IsActiveAPC())
+
+        APCUseScope this_use = AcquireAPCUse_();
+        if (!this_use)
         {
             return op_values;
         }
@@ -253,7 +243,8 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_post{};
 
         RelationOparation op_values{};
-        if (!IsActiveAPC())
+        APCUseScope this_use = AcquireAPCUse_();
+        if (!this_use)
         {
             return op_values;
         }

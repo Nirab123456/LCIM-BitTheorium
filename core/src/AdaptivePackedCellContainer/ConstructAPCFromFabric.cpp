@@ -1374,11 +1374,16 @@ namespace BidirectionalInMemGraph
             return true;
         };
 
-        if (!PublishEdges___(horizontal_r) || !PublishEdges___(vertical_r))
+        auto AbroatReclaimation___ = [&]() noexcept -> void
         {
             RestoreTopology___();
+            RestoreEdgesAndLocks___();
             ReOpenGeneration___();
-            ReleseLocks___();
+        };
+
+        if (!PublishEdges___(horizontal_r) || !PublishEdges___(vertical_r))
+        {
+            AbroatReclaimation___();
             return false;
         }
 
@@ -1389,9 +1394,7 @@ namespace BidirectionalInMemGraph
             max_tries
         ))
         {
-            RestoreTopology___();
-            ReOpenGeneration___();
-            ReleseLocks___();
+            AbroatReclaimation___();
             return false;
         }
 
@@ -1410,9 +1413,7 @@ namespace BidirectionalInMemGraph
                 StateOfAPC::RESERVED,
                 max_tries
             );
-            RestoreTopology___();
-            ReOpenGeneration___();
-            ReleseLocks___();
+            AbroatReclaimation___();
             return false;
         }
         
