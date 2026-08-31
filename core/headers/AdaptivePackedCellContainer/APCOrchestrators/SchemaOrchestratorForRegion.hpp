@@ -377,11 +377,11 @@ namespace BidirectionalInMemGraph
                 return false;
             }
 
-            return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLeftOverBitsUntil64(WORDS_PER_RECORD_LEN));
-            return_schema.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLeftOverBitsUntil64(PROTOCOL_LEN));
-            return_schema.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLeftOverBitsUntil64(DTYPE_LEN));
-            return_schema.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLeftOverBitsUntil64(VERSION_LEN));
-            return_schema.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLeftOverBitsUntil64(FLAGS_LEN));
+            return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLowBitsForU64(WORDS_PER_RECORD_LEN));
+            return_schema.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLowBitsForU64(PROTOCOL_LEN));
+            return_schema.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLowBitsForU64(DTYPE_LEN));
+            return_schema.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLowBitsForU64(VERSION_LEN));
+            return_schema.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLowBitsForU64(FLAGS_LEN));
 
             return SchemaSelfValidation(return_schema);
         }

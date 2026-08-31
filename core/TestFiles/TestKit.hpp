@@ -731,8 +731,8 @@ namespace TestKit
                         return false;
                     }
 
-                    DirectPayloadViews_[i] = direct_view.value();
-                    AtomicPayloadViews_[i] = atomic_view.value();
+                    DirectPayloadViews_[i] = std::move(direct_view.value());
+                    AtomicPayloadViews_[i] = std::move(atomic_view.value());
                 }
             }
 
@@ -5360,17 +5360,688 @@ namespace Test06_PrimitiveRegionViews
     }
 }
 
+namespace Test07_ConcurrentRetirement
+{
+    using namespace TestKit;
+    using SD = SchemaDefinition;
+
+    static constexpr uint32_t SLOT_WORDS = MINIMUM_APC_CELL_COUNT;
+    static constexpr uint32_t OP_TRIES = DEFAULT_MAX_TRIES;
+
+    inline LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier
+    AtomicWordLayout() noexcept
+    {
+        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
+        layout.FeedForward = 1u;
+        return layout;
+    }
+
+    inline bool CreateAtomicWordAPC(
+        VagueTemoraryPremativeFabric& fabric,
+        AdaptivePackedCellContainer& apc,
+        bool horizontal_root = false,
+        bool vertical_root = false) noexcept
+    {
+        SD::InitialRegionalDtypeConf dtype{};
+        dtype.FEEDFORWARD_MESSAGE = SD::DataTypeOfMacroColumn::UINT64_T;
+
+        SD::InitialRegionalProtocol protocol{};
+        protocol.FEEDFORWARD_MESSAGE = SD::SchemaProtocols::ATOMIC_WORD_ARRAY;
+
+        return fabric.CreateAPC(
+            apc,
+            horizontal_root,
+            vertical_root,
+            AtomicWordLayout(),
+            dtype,
+            protocol,
+            APCDataStructure::BRANCH_VERSION,
+            OP_TRIES
+        );
+    }
+
+    inline bool RelationIsNone(
+        AdaptivePackedCellContainer& apc,
+        Axis axis,
+        Inheritance inheritance) noexcept
+    {
+        const auto read = apc.FindMyNext(axis, inheritance, OP_TRIES);
+        return
+            read.MutationOP_ == ReadOperation::NONE &&
+            read.APCPtr_ == nullptr;
+    }
+
+    struct ReaderRetirementStats
+    {
+        uint64_t PreRetirementSuccess = 0u;
+        uint64_t PreRetirementRejected = 0u;
+        uint64_t PostRetirementSuccess = 0u;
+        uint64_t PostRetirementRejected = 0u;
+        uint64_t RetirementAttempts = 0u;
+        uint64_t RetirementRejects = 0u;
+        uint64_t StaleWrapperSuccess = 0u;
+        uint64_t ReplacementSuccess = 0u;
+        uint32_t RetirementWinners = 0u;
+    };
+
+    struct MutationRetirementStats
+    {
+        uint64_t AttachSuccess = 0u;
+        uint64_t DetachSuccess = 0u;
+        uint64_t RetirementAttempts = 0u;
+        uint64_t RetirementRejects = 0u;
+        uint64_t ReuseCount = 0u;
+        uint64_t StaleWrapperFailures = 0u;
+        uint64_t DanglingRelationFailures = 0u;
+    };
+
+    inline bool TestRetirementPreconditions() noexcept
+    {
+        VagueTemoraryPremativeFabric fabric{};
+        AdaptivePackedCellContainer parent{};
+        AdaptivePackedCellContainer child{};
+
+        if (
+            !fabric.InitializeFabricWithPtrTable(2u, SLOT_WORDS) ||
+            !CreateAtomicWordAPC(fabric, parent, true, true) ||
+            !CreateAtomicWordAPC(fabric, child) ||
+            !child.AttachMeToAnother(
+                parent,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD,
+                OP_TRIES
+            ) ||
+            !child.AttachMeToAnother(
+                parent,
+                Axis::VERTICAL,
+                Inheritance::FIRST_CHILD,
+                OP_TRIES
+            )
+        )
+        {
+            return false;
+        }
+
+        const bool parent_with_children_rejected = !parent.Retire(OP_TRIES);
+        const bool inherited_child_rejected = !child.Retire(OP_TRIES);
+
+        if (
+            !parent_with_children_rejected ||
+            !inherited_child_rejected ||
+            !child.DetachMeFromAnotherEdge(Axis::HORIZONTAL, OP_TRIES) ||
+            child.Retire(OP_TRIES) ||
+            !child.DetachMeFromAnotherEdge(Axis::VERTICAL, OP_TRIES) ||
+            !child.Retire(OP_TRIES) ||
+            child.IsActiveAPC() ||
+            !parent.Retire(OP_TRIES) ||
+            parent.IsActiveAPC()
+        )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    inline bool TestReadersRetirementAndReuse(
+        ReaderRetirementStats& out) noexcept
+    {
+        constexpr size_t READER_COUNT = 8u;
+        constexpr size_t PREWARM_READS = 128u;
+        constexpr size_t MAX_RACE_READS = 100000u;
+        constexpr size_t POST_RETIRE_READS = 2048u;
+        constexpr size_t RETIRE_LIMIT = 500000u;
+        constexpr size_t ABA_THREAD_COUNT = 4u;
+        constexpr size_t ABA_READS_PER_THREAD = 4096u;
+        constexpr size_t RETIRE_CONTENDERS = 8u;
+
+        VagueTemoraryPremativeFabric fabric{};
+        AdaptivePackedCellContainer original{};
+        AdaptivePackedCellContainer replacement{};
+        AdaptivePackedCellContainer third_generation{};
+
+        if (
+            !fabric.InitializeFabricWithPtrTable(1u, SLOT_WORDS) ||
+            !CreateAtomicWordAPC(fabric, original)
+        )
+        {
+            return false;
+        }
+
+        const uint32_t original_slot = original.GetThisSlotIdx();
+        std::barrier pinned_gate(static_cast<std::ptrdiff_t>(READER_COUNT + 1u));
+        std::barrier traffic_gate(static_cast<std::ptrdiff_t>(READER_COUNT + 1u));
+        std::atomic<bool> release_initial_pins{false};
+        std::atomic<bool> retired{false};
+        std::atomic<bool> retire_gave_up{false};
+        std::atomic<uint32_t> pins_ready{0u};
+        std::atomic<uint64_t> pre_success{0u};
+        std::atomic<uint64_t> pre_rejected{0u};
+        std::atomic<uint64_t> post_success{0u};
+        std::atomic<uint64_t> post_rejected{0u};
+
+        std::vector<std::thread> readers;
+        readers.reserve(READER_COUNT);
+
+        for (size_t reader = 0u; reader < READER_COUNT; ++reader)
+        {
+            readers.emplace_back([&, reader]() noexcept
+            {
+                auto held_view = original.BuildAViewOverRegion<uint64_t>(
+                    MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+                );
+
+                if (held_view.has_value() && held_view->IsValid())
+                {
+                    pins_ready.fetch_add(1u, std::memory_order_relaxed);
+                }
+
+                pinned_gate.arrive_and_wait();
+
+                while (!release_initial_pins.load(std::memory_order_acquire))
+                {
+                    std::this_thread::yield();
+                }
+                held_view.reset();
+
+                for (size_t i = 0u; i < PREWARM_READS; ++i)
+                {
+                    auto view = original.BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+                    );
+                    if (view.has_value() && view->IsValid())
+                    {
+                        (void)view->AtomicLoad(0u, std::memory_order_acquire);
+                        pre_success.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        pre_rejected.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                }
+
+                traffic_gate.arrive_and_wait();
+
+                for (size_t i = 0u;
+                     i < MAX_RACE_READS &&
+                     !retired.load(std::memory_order_acquire) &&
+                     !retire_gave_up.load(std::memory_order_acquire);
+                     ++i)
+                {
+                    auto view = original.BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+                    );
+                    if (view.has_value() && view->IsValid())
+                    {
+                        (void)view->AtomicLoad(0u, std::memory_order_acquire);
+                        pre_success.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        pre_rejected.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                    PerturbSchedule(i + reader);
+                }
+
+                while (
+                    !retired.load(std::memory_order_acquire) &&
+                    !retire_gave_up.load(std::memory_order_acquire)
+                )
+                {
+                    std::this_thread::yield();
+                }
+
+                if (!retired.load(std::memory_order_acquire))
+                {
+                    return;
+                }
+
+                for (size_t i = 0u; i < POST_RETIRE_READS; ++i)
+                {
+                    auto view = original.BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+                    );
+                    if (view.has_value())
+                    {
+                        post_success.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                    else
+                    {
+                        post_rejected.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                }
+            });
+        }
+
+        pinned_gate.arrive_and_wait();
+
+        const bool all_readers_pinned =
+            pins_ready.load(std::memory_order_acquire) == READER_COUNT;
+        ++out.RetirementAttempts;
+        const bool pinned_retirement_rejected = !original.Retire(1u);
+        if (pinned_retirement_rejected)
+        {
+            ++out.RetirementRejects;
+        }
+        const bool original_still_live = original.IsActiveAPC();
+
+        release_initial_pins.store(true, std::memory_order_release);
+        traffic_gate.arrive_and_wait();
+
+        bool retirement_succeeded = false;
+        for (size_t attempt = 0u; attempt < RETIRE_LIMIT; ++attempt)
+        {
+            ++out.RetirementAttempts;
+            if (original.Retire(1u))
+            {
+                retirement_succeeded = true;
+                out.RetirementWinners = 1u;
+                retired.store(true, std::memory_order_release);
+                break;
+            }
+            ++out.RetirementRejects;
+            PerturbSchedule(attempt);
+        }
+
+        if (!retirement_succeeded)
+        {
+            retire_gave_up.store(true, std::memory_order_release);
+        }
+
+        for (std::thread& reader : readers)
+        {
+            reader.join();
+        }
+
+        out.PreRetirementSuccess = pre_success.load(std::memory_order_relaxed);
+        out.PreRetirementRejected = pre_rejected.load(std::memory_order_relaxed);
+        out.PostRetirementSuccess = post_success.load(std::memory_order_relaxed);
+        out.PostRetirementRejected = post_rejected.load(std::memory_order_relaxed);
+
+        if (
+            !all_readers_pinned ||
+            !pinned_retirement_rejected ||
+            !original_still_live ||
+            !retirement_succeeded ||
+            original.IsActiveAPC() ||
+            out.PreRetirementSuccess < READER_COUNT * PREWARM_READS ||
+            out.PostRetirementSuccess != 0u ||
+            out.PostRetirementRejected != READER_COUNT * POST_RETIRE_READS ||
+            original.BuildAViewOverRegion<uint64_t>(
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+            ).has_value()
+        )
+        {
+            return false;
+        }
+
+        if (
+            !CreateAtomicWordAPC(fabric, replacement) ||
+            replacement.GetThisSlotIdx() != original_slot ||
+            !replacement.IsActiveAPC() ||
+            original.IsActiveAPC()
+        )
+        {
+            return false;
+        }
+
+        std::barrier aba_gate(
+            static_cast<std::ptrdiff_t>((ABA_THREAD_COUNT * 2u) + 1u)
+        );
+        std::atomic<uint64_t> stale_success{0u};
+        std::atomic<uint64_t> replacement_success{0u};
+        std::vector<std::thread> aba_threads;
+        aba_threads.reserve(ABA_THREAD_COUNT * 2u);
+
+        for (size_t thread_idx = 0u; thread_idx < ABA_THREAD_COUNT; ++thread_idx)
+        {
+            aba_threads.emplace_back([&]() noexcept
+            {
+                aba_gate.arrive_and_wait();
+                for (size_t i = 0u; i < ABA_READS_PER_THREAD; ++i)
+                {
+                    if (original.BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE).has_value())
+                    {
+                        stale_success.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                }
+            });
+
+            aba_threads.emplace_back([&]() noexcept
+            {
+                aba_gate.arrive_and_wait();
+                for (size_t i = 0u; i < ABA_READS_PER_THREAD; ++i)
+                {
+                    auto view = replacement.BuildAViewOverRegion<uint64_t>(
+                        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+                    );
+                    if (view.has_value() && view->IsValid())
+                    {
+                        (void)view->AtomicLoad(0u, std::memory_order_acquire);
+                        replacement_success.fetch_add(1u, std::memory_order_relaxed);
+                    }
+                }
+            });
+        }
+
+        aba_gate.arrive_and_wait();
+        for (std::thread& thread : aba_threads)
+        {
+            thread.join();
+        }
+
+        out.StaleWrapperSuccess = stale_success.load(std::memory_order_relaxed);
+        out.ReplacementSuccess = replacement_success.load(std::memory_order_relaxed);
+
+        if (
+            out.StaleWrapperSuccess != 0u ||
+            out.ReplacementSuccess !=
+                ABA_THREAD_COUNT * ABA_READS_PER_THREAD
+        )
+        {
+            return false;
+        }
+
+        std::barrier retire_gate(
+            static_cast<std::ptrdiff_t>(RETIRE_CONTENDERS + 1u)
+        );
+        std::atomic<uint32_t> winners{0u};
+        std::vector<std::thread> contenders;
+        contenders.reserve(RETIRE_CONTENDERS);
+
+        for (size_t i = 0u; i < RETIRE_CONTENDERS; ++i)
+        {
+            contenders.emplace_back([&]() noexcept
+            {
+                retire_gate.arrive_and_wait();
+                if (replacement.Retire(OP_TRIES))
+                {
+                    winners.fetch_add(1u, std::memory_order_relaxed);
+                }
+            });
+        }
+
+        retire_gate.arrive_and_wait();
+        for (std::thread& contender : contenders)
+        {
+            contender.join();
+        }
+
+        out.RetirementWinners += winners.load(std::memory_order_relaxed);
+
+        if (
+            winners.load(std::memory_order_relaxed) != 1u ||
+            replacement.IsActiveAPC() ||
+            !CreateAtomicWordAPC(fabric, third_generation) ||
+            third_generation.GetThisSlotIdx() != original_slot ||
+            !third_generation.IsActiveAPC() ||
+            original.IsActiveAPC() ||
+            replacement.IsActiveAPC()
+        )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    inline bool TestMutationRetirementReuseRace(
+        MutationRetirementStats& out) noexcept
+    {
+        constexpr size_t RETIRED_GENERATIONS = 16u;
+        constexpr size_t MUTATOR_COUNT = 4u;
+        constexpr uint64_t PREHEAT_DETACHES = 32u;
+        constexpr uint64_t MUTATION_LIMIT = 200000u;
+        constexpr uint64_t RETIRE_LIMIT = 500000u;
+
+        VagueTemoraryPremativeFabric fabric{};
+        AdaptivePackedCellContainer parent{};
+        std::array<AdaptivePackedCellContainer, RETIRED_GENERATIONS + 1u> generations{};
+
+        if (
+            !fabric.InitializeFabricWithPtrTable(2u, SLOT_WORDS) ||
+            !CreateAtomicWordAPC(fabric, parent, true, false)
+        )
+        {
+            return false;
+        }
+
+        uint32_t reusable_slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+        for (size_t generation = 0u; generation < RETIRED_GENERATIONS; ++generation)
+        {
+            AdaptivePackedCellContainer& candidate = generations[generation];
+
+            if (!CreateAtomicWordAPC(fabric, candidate))
+            {
+                return false;
+            }
+
+            if (generation == 0u)
+            {
+                reusable_slot = candidate.GetThisSlotIdx();
+            }
+            else if (candidate.GetThisSlotIdx() != reusable_slot)
+            {
+                return false;
+            }
+
+            // The replacement pointer is now installed. A stale parent slot
+            // reference can no longer be hidden as NONE by a null pointer-table entry.
+            if (!RelationIsNone(
+                parent,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            ))
+            {
+                ++out.DanglingRelationFailures;
+                return false;
+            }
+
+            for (size_t stale = 0u; stale < generation; ++stale)
+            {
+                if (generations[stale].IsActiveAPC())
+                {
+                    ++out.StaleWrapperFailures;
+                    return false;
+                }
+            }
+
+            std::atomic<bool> preheated{false};
+            std::atomic<bool> stop{false};
+            std::atomic<uint32_t> workers_exhausted{0u};
+            std::atomic<uint64_t> local_attaches{0u};
+            std::atomic<uint64_t> local_detaches{0u};
+
+            std::vector<std::thread> mutators;
+            mutators.reserve(MUTATOR_COUNT);
+
+            for (size_t mutator_idx = 0u; mutator_idx < MUTATOR_COUNT; ++mutator_idx)
+            {
+                mutators.emplace_back([&, mutator_idx]() noexcept
+                {
+                    for (uint64_t i = 0u;
+                         i < MUTATION_LIMIT && !stop.load(std::memory_order_acquire);
+                         ++i)
+                    {
+                        if (candidate.AttachMeToAnother(
+                            parent,
+                            Axis::HORIZONTAL,
+                            Inheritance::FIRST_CHILD,
+                            1u
+                        ))
+                        {
+                            local_attaches.fetch_add(1u, std::memory_order_relaxed);
+                        }
+
+                        if (candidate.DetachMeFromAnotherEdge(
+                            Axis::HORIZONTAL,
+                            1u
+                        ))
+                        {
+                            const uint64_t detached =
+                                local_detaches.fetch_add(1u, std::memory_order_relaxed) + 1u;
+                            if (detached >= PREHEAT_DETACHES)
+                            {
+                                preheated.store(true, std::memory_order_release);
+                            }
+                        }
+                        PerturbSchedule(i + mutator_idx);
+                    }
+                    workers_exhausted.fetch_add(1u, std::memory_order_release);
+                });
+            }
+
+            while (
+                !preheated.load(std::memory_order_acquire) &&
+                workers_exhausted.load(std::memory_order_acquire) != MUTATOR_COUNT
+            )
+            {
+                std::this_thread::yield();
+            }
+
+            bool retired = false;
+            if (preheated.load(std::memory_order_acquire))
+            {
+                for (uint64_t attempt = 0u; attempt < RETIRE_LIMIT; ++attempt)
+                {
+                    ++out.RetirementAttempts;
+                    if (candidate.Retire(1u))
+                    {
+                        retired = true;
+                        stop.store(true, std::memory_order_release);
+                        break;
+                    }
+                    ++out.RetirementRejects;
+                    PerturbSchedule(attempt);
+                }
+            }
+
+            stop.store(true, std::memory_order_release);
+            for (std::thread& mutator : mutators)
+            {
+                mutator.join();
+            }
+
+            out.AttachSuccess += local_attaches.load(std::memory_order_relaxed);
+            out.DetachSuccess += local_detaches.load(std::memory_order_relaxed);
+
+            if (
+                !preheated.load(std::memory_order_acquire) ||
+                !retired ||
+                candidate.IsActiveAPC() ||
+                local_attaches.load(std::memory_order_relaxed) == 0u ||
+                local_detaches.load(std::memory_order_relaxed) < PREHEAT_DETACHES ||
+                local_attaches.load(std::memory_order_relaxed) !=
+                    local_detaches.load(std::memory_order_relaxed)
+            )
+            {
+                if (
+                    local_attaches.load(std::memory_order_relaxed) !=
+                    local_detaches.load(std::memory_order_relaxed)
+                )
+                {
+                    ++out.DanglingRelationFailures;
+                }
+                return false;
+            }
+
+            ++out.ReuseCount;
+        }
+
+        AdaptivePackedCellContainer& final_generation =
+            generations[RETIRED_GENERATIONS];
+
+        if (
+            !CreateAtomicWordAPC(fabric, final_generation) ||
+            final_generation.GetThisSlotIdx() != reusable_slot ||
+            !final_generation.IsActiveAPC() ||
+            !RelationIsNone(
+                parent,
+                Axis::HORIZONTAL,
+                Inheritance::FIRST_CHILD
+            )
+        )
+        {
+            ++out.DanglingRelationFailures;
+            return false;
+        }
+
+        for (size_t stale = 0u; stale < RETIRED_GENERATIONS; ++stale)
+        {
+            if (generations[stale].IsActiveAPC())
+            {
+                ++out.StaleWrapperFailures;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    inline Result Run()
+    {
+        Banner("TEST 7 - CONCURRENT RETIREMENT / DELAYED RECLAMATION / ABA");
+
+        std::cout
+            << "Retirement is tested only through public APC/Fabric APIs.\n"
+            << "No external mutex protects readers, mutation, retirement, or reclamation.\n"
+            << "Same-slot reuse must preserve stale-generation rejection.\n"
+            << "Repeated attach/detach races must not leave an edge that aliases a replacement APC.\n\n";
+
+        ReaderRetirementStats reader_stats{};
+        MutationRetirementStats mutation_stats{};
+
+        const bool preconditions_ok = TestRetirementPreconditions();
+        const bool readers_ok = TestReadersRetirementAndReuse(reader_stats);
+        const bool mutation_ok = TestMutationRetirementReuseRace(mutation_stats);
+        const bool all_ok = preconditions_ok && readers_ok && mutation_ok;
+
+        std::cout
+            << "CORRECTNESS\n"
+            << "  linked/owned-child retirement rejected : "
+            << (preconditions_ok ? "PASS" : "FAIL") << '\n'
+            << "  reader pin + retire + ABA reuse        : "
+            << (readers_ok ? "PASS" : "FAIL") << '\n'
+            << "  mutation/retire/reuse race             : "
+            << (mutation_ok ? "PASS" : "FAIL") << "\n\n"
+            << "READER / RETIREMENT COUNTS\n"
+            << "  pre-retirement successful views : " << reader_stats.PreRetirementSuccess << '\n'
+            << "  pre-retirement rejected views   : " << reader_stats.PreRetirementRejected << '\n'
+            << "  post-retirement successful views: " << reader_stats.PostRetirementSuccess << '\n'
+            << "  post-retirement rejected views  : " << reader_stats.PostRetirementRejected << '\n'
+            << "  retirement attempts / rejects   : "
+            << reader_stats.RetirementAttempts << " / " << reader_stats.RetirementRejects << '\n'
+            << "  retirement winners              : " << reader_stats.RetirementWinners << '\n'
+            << "  stale-wrapper successes on reuse: " << reader_stats.StaleWrapperSuccess << '\n'
+            << "  replacement successful views    : " << reader_stats.ReplacementSuccess << "\n\n"
+            << "MUTATION / RECLAMATION COUNTS\n"
+            << "  successful attach / detach      : "
+            << mutation_stats.AttachSuccess << " / " << mutation_stats.DetachSuccess << '\n'
+            << "  retirement attempts / rejects   : "
+            << mutation_stats.RetirementAttempts << " / " << mutation_stats.RetirementRejects << '\n'
+            << "  same-slot reclamations           : " << mutation_stats.ReuseCount << '\n'
+            << "  stale-wrapper failures           : " << mutation_stats.StaleWrapperFailures << '\n'
+            << "  dangling-relation failures       : " << mutation_stats.DanglingRelationFailures << "\n\n"
+            << "TEST 7 OVERALL: " << (all_ok ? "PASS" : "FAIL") << '\n';
+
+        return all_ok ? Result::PASS : Result::FAIL;
+    }
+}
+
 inline int RunAll()
 {
     using TestKit::Result;
 
-    const std::array<std::pair<const char*, Result>, 6u> results{{
+    const std::array<std::pair<const char*, Result>, 7u> results{{
         {"Test 1 - traversal + compound baseline", Test01_PublicTraversalBaseline::Run()},
         {"Test 2 - compound contention sweep", Test02_ContentionSweep::Run()},
         {"Test 3 - compound writer/readers", Test03_ReaderWriterTraversal::Run()},
         {"Test 4 - primitive vs compound APIs", Test04_PrimitiveVsCompoundMutation::Run()},
         {"Test 5 - per-axis acyclicity", Test05_PerAxisAcyclicity::Run()},
-        {"Test 6 - primitive region views", Test06_PrimitiveRegionViews::Run()}
+        {"Test 6 - primitive region views", Test06_PrimitiveRegionViews::Run()},
+        {"Test 7 - Retirement Test", Test07_ConcurrentRetirement::Run()}
     }};
 
     TestKit::Banner("APC MODULAR TEST SUITE SUMMARY");

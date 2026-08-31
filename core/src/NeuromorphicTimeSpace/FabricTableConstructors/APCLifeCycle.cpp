@@ -95,44 +95,6 @@ namespace BidirectionalInMemGraph
         return false;
     }
 
-
-    std::optional<uint32_t> APCLifeCycle::GetASlotForNewAPCLink() noexcept
-    {
-        if (
-            !FabricInitialized_.load(std::memory_order_acquire) ||
-            !SlabBasePtr_ || 
-            !APCDataStructure::IsCapacityOfAPCValid(PerAPCRuntimeCellCount_) ||
-            !IAB::IsValidAPCId(CountOfAPC_)
-        )
-        {
-            return std::nullopt;
-        }
-
-        for (uint32_t description_idx = 0; description_idx < CountOfAPC_; description_idx++)
-        {
-            const DSA::SeqLockAndStateStruct current = ReadAPCStateAtomically_(description_idx);
-            if (
-                !current.IsValid ||
-                current.StateOfTheAPC != StateOfAPC::FREE
-            )
-            {
-                continue;
-            }
-            if (!SwitchDescriptionState(
-                description_idx,
-                StateOfAPC::RESERVED,
-                StateOfAPC::FREE
-            ))
-            {
-                continue;
-            }
-            return description_idx;
-        }
-
-        return std::nullopt;
-    }
-
-
     std::optional<uint64_t> APCLifeCycle::GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept
     {
         const RangeOfAPC range_of_segmentpool = GetSegmentPoolRange(description_idx);

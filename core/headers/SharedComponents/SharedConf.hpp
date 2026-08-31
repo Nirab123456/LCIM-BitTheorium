@@ -76,7 +76,7 @@ namespace BidirectionalInMemGraph
         return state.has_value() && state.value() == StateOfAPC::LIVE;
     }
     
-    static  constexpr uint64_t MaskLeftOverBitsUntil64(unsigned n) noexcept
+    static  constexpr uint64_t MaskLowBitsForU64(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return uint64_t(0);
         if (n >= BIT_LENGTH_OF_FABRIC) return ~uint64_t(0);
@@ -92,4 +92,3 @@ namespace BidirectionalInMemGraph
         return ((uint32_t(1) << n) - 1u);                  
     }
 }
-

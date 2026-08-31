@@ -15,12 +15,12 @@ namespace BidirectionalInMemGraph
 
         static constexpr uint32_t ExtractLow32Of64(uint64_t packed_value) noexcept
         {
-            return static_cast<uint32_t>((packed_value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(BIT_LENGTH_OF_APC));
+            return static_cast<uint32_t>((packed_value >> UNSIGNED_ZERO) & MaskLowBitsForU64(BIT_LENGTH_OF_APC));
         }
 
         static constexpr uint32_t ExtractHigh32Of64(uint64_t packed_value) noexcept
         {
-            return static_cast<uint32_t>((packed_value >> BIT_LENGTH_OF_APC) & MaskLeftOverBitsUntil64(BIT_LENGTH_OF_APC));
+            return static_cast<uint32_t>((packed_value >> BIT_LENGTH_OF_APC) & MaskLowBitsForU64(BIT_LENGTH_OF_APC));
         }
     };
 
@@ -66,9 +66,9 @@ namespace BidirectionalInMemGraph
         static constexpr CarrierTwin28 UnpackUnitToCarrier(uint64_t value) noexcept
         {
             CarrierTwin28 carrier{};
-            carrier.Lowest28bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
-            carrier.Mid28Bit = static_cast<uint32_t>((value >> LEN_OF_28_BIT) & MaskLeftOverBitsUntil64(LEN_OF_28_BIT));
-            carrier.High8Bit = static_cast<uint8_t>((value >> (LEN_OF_28_BIT * 2)) & MaskLeftOverBitsUntil64(8u));
+            carrier.Lowest28bit = static_cast<uint32_t>((value >> UNSIGNED_ZERO) & MaskLowBitsForU64(LEN_OF_28_BIT));
+            carrier.Mid28Bit = static_cast<uint32_t>((value >> LEN_OF_28_BIT) & MaskLowBitsForU64(LEN_OF_28_BIT));
+            carrier.High8Bit = static_cast<uint8_t>((value >> (LEN_OF_28_BIT * 2)) & MaskLowBitsForU64(8u));
             IsCarrierValid(carrier);
             return carrier;
         }

@@ -19,6 +19,9 @@ private:
 
     AdaptivePackedCellContainer* GetAPCRuntimePtrBySlotIndex_(size_t apc_idx) noexcept;
 
+    std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
+
+
 public:
 
     bool InitializeFabricWithPtrTable(

@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <utility>
 #include "../APCOrchestrators/ViewOrchestrator.hpp"
 
 namespace BidirectionalInMemGraph
@@ -7,6 +8,57 @@ namespace BidirectionalInMemGraph
     
     class VagueTemoraryPremativeFabric;
     class AdaptivePackedCellContainer;
+
+    class APCUseScope final
+    {
+        friend class FabricToAPCLinker;
+    private:
+        uint64_t* ControlCell_{nullptr};
+        explicit APCUseScope(uint64_t* control_cell) noexcept
+            : ControlCell_(control_cell)
+        {}
+    
+    public:
+        constexpr APCUseScope() noexcept = default;
+
+        APCUseScope(const APCUseScope&) = delete;
+        APCUseScope& operator = (const APCUseScope&) = delete;
+
+        APCUseScope(APCUseScope&& other) noexcept
+            :ControlCell_(std::exchange(other.ControlCell_, nullptr))
+        {}
+
+        APCUseScope& operator = (APCUseScope&& other) noexcept
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+            Release();
+            ControlCell_ = std::exchange(other.ControlCell_, nullptr);
+            return *this;
+        }
+
+        ~APCUseScope() noexcept
+        {
+            Release();
+        }
+
+        explicit constexpr operator bool() const noexcept
+        {
+            return ControlCell_ != nullptr;
+        }
+
+        void Release() noexcept
+        {
+            if (!ControlCell_)
+            {
+                return;
+            }
+            std::atomic_ref<uint64_t>(*ControlCell_).fetch_sub(1u, std::memory_order_release);
+            ControlCell_ = nullptr;
+        }
+    };
 
     class FabricToAPCLinker 
     {
@@ -21,15 +73,12 @@ namespace BidirectionalInMemGraph
 
         uint32_t GetThisSlotIdx() noexcept
         {
-            return APCSlotIdx_;
+            return
+                IsActiveAPC() ? APCSlotIdx_ : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         }
 
-        bool IsThisAPCValid() noexcept
-        {
-            return
-                FabricOwnerPtr_ &&
-                RangeOfThisAPCInSlab_.IsValid;
-        }
+        bool IsActiveAPC() noexcept;
+
     protected:
         VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
         RangeOfAPC RangeOfThisAPCInSlab_{};
@@ -37,6 +86,8 @@ namespace BidirectionalInMemGraph
         std::byte* RawAPCBasePtr_{nullptr};
         
         uint32_t APCSlotIdx_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
+        uint64_t* APCGenerationCellPtr_{nullptr};
+        uint32_t ExpectedGeneration_{UNSIGNED_ZERO};
 
         struct RelationOparation 
         {
@@ -44,40 +95,19 @@ namespace BidirectionalInMemGraph
             SeqLockedOperation MutationOP_ = SeqLockedOperation::NONE;
         };
 
-        void ReleseFabricBindingOnly_() noexcept;
+        bool IsFabricBound_() const noexcept;
 
-        bool ForceCopyToAPCFromBuffer(
-            uint32_t tarting_idx_in_apc,
-            uint32_t sequential_number_of_cells,
-            const uint64_t* source_cells
-        ) noexcept;
+        APCUseScope AcquireAPCUse_() noexcept;
+
+        void ReleseFabricBindingOnly_() noexcept;
 
         bool BindExternalRawFabricBacking_(
             uint64_t* raw_cells_ptr,
-            uint32_t cell_count,
             VagueTemoraryPremativeFabric* fabric_owner,
-            uint64_t fabric_slot_idx
+            uint64_t fabric_slot_idx,
+            uint64_t* generation_cell,
+            uint32_t expected_generation
         ) noexcept;
-
-        bool AtomicallyReadLongLongAPCUnit(
-            uint64_t idx,
-            uint64_t& return_value
-        ) noexcept;
-
-        void AtomicallyWriteU64ToAPC(
-            uint64_t idx,
-            const uint64_t& value
-        ) noexcept;
-
-        VagueTemoraryPremativeFabric* GetFabricOwner() noexcept
-        {
-            return FabricOwnerPtr_;
-        }
-
-        static constexpr uint32_t PayloadBegin() noexcept
-        {
-            return APCDataStructure::METACELL_COUNT;
-        }
 
         bool InitiateAPCMetaHeader(
             const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},

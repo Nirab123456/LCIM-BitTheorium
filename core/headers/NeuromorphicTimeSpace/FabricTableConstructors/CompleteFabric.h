@@ -3,7 +3,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    class RecordBookConstructor : public FabricConstructor
+    class RecordBookConstructor : public APCHandleAndRetirement
     {
         
     protected:
@@ -48,8 +48,6 @@ namespace BidirectionalInMemGraph
             StateOfAPC desired_state,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
-
-        std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
 
         DescriptionOfAPC::SeqLockAndStateStruct ReadAPCStateAtomically_(uint64_t apc_description_index) noexcept;
 

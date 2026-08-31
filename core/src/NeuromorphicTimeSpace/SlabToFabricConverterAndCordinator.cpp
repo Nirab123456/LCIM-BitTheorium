@@ -59,6 +59,7 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
+        SlabBasePtr_[static_cast<size_t>(FMI::FIRST_FREE_IDX)] = UNSIGNED_ZERO;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
@@ -142,7 +143,7 @@ namespace BidirectionalInMemGraph
         const size_t device_view_table_begin = cursor;
         const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
 
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_view_table_end);
         SegmentPoolBegin_ = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
         SlabCellCount_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
 
@@ -178,8 +179,11 @@ namespace BidirectionalInMemGraph
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
         HandleTableBeginIndex_ = apc_handle_table_begin;
 
-        IdleAFabricTableClassRangesMemory_(FabricSegments::APC_HANDLE_TABLE);
-
+        if (!InitializeAPCGenerationTable_())
+        {
+            return false;
+        }
+        
         //IDLE UNUSED FabricSegments
         IdleAFabricTableClassRangesMemory_(FabricSegments::FREE_APC_LIST);
         IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);

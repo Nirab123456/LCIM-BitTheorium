@@ -35,6 +35,7 @@ namespace BidirectionalInMemGraph
             RECORD_BOOK_OF_TSC_BEGIN = 3,
             RECORD_BOOK_OF_TSC_END = 4,
             SEGMENT_POOL_BEGIN_IDX = 5,
+            FIRST_FREE_IDX = 6,
             EOF_FABRIC_HEADER = 15
         };
     };

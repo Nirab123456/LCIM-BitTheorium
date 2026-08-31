@@ -214,6 +214,12 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t internal_max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        bool RetireAPC_(
+            uint32_t slot, 
+            uint32_t generation,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
         
     protected:
         SeqLockedOperation ReadIdentityBufferOfAPC(
@@ -228,6 +234,9 @@ namespace BidirectionalInMemGraph
             IAB::BidirectionalAxis axis,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+
+        bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
 
     public:
         // Just for test
