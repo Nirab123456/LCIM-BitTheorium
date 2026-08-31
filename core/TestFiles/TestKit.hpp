@@ -731,8 +731,8 @@ namespace TestKit
                         return false;
                     }
 
-                    DirectPayloadViews_[i] = direct_view.value();
-                    AtomicPayloadViews_[i] = atomic_view.value();
+                    DirectPayloadViews_[i] = std::move(direct_view.value());
+                    AtomicPayloadViews_[i] = std::move(atomic_view.value());
                 }
             }
 

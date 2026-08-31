@@ -110,7 +110,7 @@ namespace BidirectionalInMemGraph
         uint64_t& return_value
     ) noexcept
     {
-        if (!IsThisAPCValid())
+        if (!IsActiveAPC())
         {
             return false;
         }
@@ -156,7 +156,7 @@ namespace BidirectionalInMemGraph
         return APCUseScope(APCGenerationCellPtr_);
     }
 
-    bool FabricToAPCLinker::IsThisAPCValid() noexcept
+    bool FabricToAPCLinker::IsActiveAPC() noexcept
     {
         if (!IsFabricBound_())
         {

@@ -116,7 +116,7 @@ namespace atomiccim::python
             return SlotIndex_;
         }
 
-        [[nodiscard]] bool IsThisAPCValid() const noexcept;
+        [[nodiscard]] bool IsActiveAPC() const noexcept;
 
         bool AttachSiblingOrChild(
             PythonAPC& sibling,
@@ -205,7 +205,7 @@ namespace atomiccim::python
                 snapshot.Native != nullptr &&
                 snapshot.Generation == Generation_.load(std::memory_order_acquire) &&
                 Native_.IsFabricActive() &&
-                snapshot.Native->IsThisAPCValid();
+                snapshot.Native->IsActiveAPC();
         }
 
         [[nodiscard]] std::shared_ptr<PythonAPC> ResolveLocked_(NativeAPC* native)
@@ -311,7 +311,7 @@ namespace atomiccim::python
                 desired_apc->Owner_ ||
                 !desired_apc->DetachedNative_ ||
                 desired_apc->Native_ != desired_apc->DetachedNative_.get() ||
-                desired_apc->Native_->IsThisAPCValid()
+                desired_apc->Native_->IsActiveAPC()
             )
             {
                 return false;
@@ -372,7 +372,7 @@ namespace atomiccim::python
         }
     };
 
-    inline bool PythonAPC::IsThisAPCValid() const noexcept
+    inline bool PythonAPC::IsActiveAPC() const noexcept
     {
         const APCSnapshot snapshot = Snapshot_();
         if (!snapshot.Owner)
@@ -1055,7 +1055,7 @@ namespace atomiccim::python
         apc_class
             .def(py::init<>())
             .def("GetThisSlotIdx", &PythonAPC::GetThisSlotIdx)
-            .def("IsThisAPCValid", &PythonAPC::IsThisAPCValid)
+            .def("IsActiveAPC", &PythonAPC::IsActiveAPC)
             .def(
                 "AttachSiblingOrChild",
                 &PythonAPC::AttachSiblingOrChild,
@@ -1187,7 +1187,7 @@ namespace atomiccim::python
 
         // Pythonic aliases, while preserving every requested architecture name.
         apc_class.attr("get_this_slot_idx") = apc_class.attr("GetThisSlotIdx");
-        apc_class.attr("is_valid") = apc_class.attr("IsThisAPCValid");
+        apc_class.attr("is_valid") = apc_class.attr("IsActiveAPC");
         apc_class.attr("attach_sibling_or_child") = apc_class.attr("AttachSiblingOrChild");
         apc_class.attr("attach_me_to_another") = apc_class.attr("AttachMeToAnother");
         apc_class.attr("detach_my_child") = apc_class.attr("DetachMyChild");

@@ -14,8 +14,8 @@ namespace BidirectionalInMemGraph
     {
 
         if (
-            !IsThisAPCValid() ||
-            !sibbling.IsThisAPCValid()
+            !IsActiveAPC() ||
+            !sibbling.IsActiveAPC()
         )
         {
             return false;
@@ -38,8 +38,8 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         if (
-            !IsThisAPCValid() ||
-            !sibbling.IsThisAPCValid()
+            !IsActiveAPC() ||
+            !sibbling.IsActiveAPC()
         )
         {
             return false;
@@ -60,7 +60,7 @@ namespace BidirectionalInMemGraph
     ) noexcept
     {
         return 
-            IsThisAPCValid() &&
+            IsActiveAPC() &&
             FabricOwnerPtr_->UnlinkTwoAPC(
                 static_cast<uint32_t>(APCSlotIdx_),
                 axis,
@@ -79,7 +79,7 @@ namespace BidirectionalInMemGraph
         uint64_t childs_current_axis_inharitance = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsThisAPCValid() ||
+            !IsActiveAPC() ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, childs_current_axis_inharitance) ||
             APCSlotIdx_ != childs_current_axis_inharitance
         )
@@ -103,8 +103,8 @@ namespace BidirectionalInMemGraph
         uint64_t current_parent_edge = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsThisAPCValid() ||
-            !root_parent.IsThisAPCValid() ||
+            !IsActiveAPC() ||
+            !root_parent.IsActiveAPC() ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge)
         )
         {
@@ -138,8 +138,8 @@ namespace BidirectionalInMemGraph
         uint64_t sibbling_parent_edge = FABRIC_CELL_SENTINAL;
 
         if (
-            !IsThisAPCValid() ||
-            !sibbling.IsThisAPCValid() ||
+            !IsActiveAPC() ||
+            !sibbling.IsActiveAPC() ||
             !ReadAPCMetaUnit(map.InheritedEgdeTableIdx, current_parent_edge) ||
             !sibbling.ReadAPCMetaUnit(map.InheritedEgdeTableIdx, sibbling_parent_edge)
         )
@@ -173,7 +173,7 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_post{};
 
         RelationOparation op_values{};
-        if (!IsThisAPCValid())
+        if (!IsActiveAPC())
         {
             return op_values;
         }
@@ -253,7 +253,7 @@ namespace BidirectionalInMemGraph
         IAB::GraphMutationValues gmv_values_post{};
 
         RelationOparation op_values{};
-        if (!IsThisAPCValid())
+        if (!IsActiveAPC())
         {
             return op_values;
         }

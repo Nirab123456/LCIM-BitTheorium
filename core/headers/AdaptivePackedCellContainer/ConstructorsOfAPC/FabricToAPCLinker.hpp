@@ -76,8 +76,8 @@ namespace BidirectionalInMemGraph
             return APCSlotIdx_;
         }
 
-        bool IsThisAPCValid() noexcept;
-        
+        bool IsActiveAPC() noexcept;
+
     protected:
         VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
         RangeOfAPC RangeOfThisAPCInSlab_{};

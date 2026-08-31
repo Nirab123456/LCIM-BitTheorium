@@ -14,26 +14,29 @@ namespace BidirectionalInMemGraph
     private:
         SD::SchemaProtocols Protocol_{SD::SchemaProtocols::PRIVATE_REGION};
         std::span<DType> Elements_{};
+        APCUseScope Use_{};
     
     public:
         constexpr RegionView() noexcept = default;
 
         constexpr RegionView(
             std::span<DType> elements,
-            SD::SchemaProtocols protocol
+            SD::SchemaProtocols protocol,
+            APCUseScope use
         ) noexcept:
             Elements_(elements),
-            Protocol_(protocol)
+            Protocol_(protocol),
+            Use_(std::move(use))
         {}
 
         constexpr bool IsValid() const noexcept
         {
-            return !Elements_.empty();
+            return static_cast<bool>(Use_) && !Elements_.empty();
         }
 
         constexpr size_t Size() const noexcept
         {
-            return Elements_.size();
+            return Use_ ?  Elements_.size() : UNSIGNED_ZERO;
         }
 
         constexpr SD::SchemaProtocols GetProtocol() const noexcept
@@ -43,7 +46,7 @@ namespace BidirectionalInMemGraph
 
         std::optional<std::span<DType>> RawMutableSpan() noexcept
         {
-            if (Protocol_ != SD::SchemaProtocols::PRIVATE_REGION)
+            if (!Use_ || Protocol_ != SD::SchemaProtocols::PRIVATE_REGION)
             {
                 return std::nullopt;
             }
@@ -54,6 +57,7 @@ namespace BidirectionalInMemGraph
         DType AtomicLoad(size_t idx, std::memory_order mem_order = std::memory_order_acquire) const noexcept
         {
             if (
+                !Use_ ||
                 Protocol_ != SD::SchemaProtocols::ATOMIC_WORD_ARRAY ||
                 idx >= Elements_.size()
             )
@@ -73,6 +77,7 @@ namespace BidirectionalInMemGraph
         ) noexcept
         {
             if (
+                !Use_ ||
                 Protocol_ != SD::SchemaProtocols::ATOMIC_WORD_ARRAY ||
                 idx >= Elements_.size()
             )
@@ -93,6 +98,7 @@ namespace BidirectionalInMemGraph
         ) noexcept
         {
             if (
+                !Use_ ||
                 Protocol_ != SD::SchemaProtocols::ATOMIC_WORD_ARRAY ||
                 idx >= Elements_.size()
             )
@@ -124,6 +130,12 @@ namespace BidirectionalInMemGraph
         std::optional<RegionView<DType>> BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept
         {
             static_assert(std::is_trivially_copyable_v<DType>);
+
+            APCUseScope use = AcquireAPCUse_();
+            if (!use)
+            {
+                return std::nullopt;
+            }
 
             ResolveRegionBiteView resolved{};
             if (!ResolveRegionView_(macro_column, resolved))
@@ -159,7 +171,8 @@ namespace BidirectionalInMemGraph
 
             return RegionView<DType>(
                 std::span<DType>(type_based, element_count),
-                resolved.Schema.Protocol
+                resolved.Schema.Protocol,
+                std::move(use)
             );
         }
 

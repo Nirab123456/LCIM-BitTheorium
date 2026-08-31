@@ -15,7 +15,7 @@ namespace BidirectionalInMemGraph
 
         out = ResolveRegionBiteView{};
         if (
-            !IsThisAPCValid() ||
+            !IsActiveAPC() ||
             RawAPCBasePtr_ == nullptr
         )
         {

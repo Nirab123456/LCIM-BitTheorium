@@ -99,7 +99,7 @@ namespace BidirectionalInMemGraph
     {
         if (
             !IsFabricActive() ||
-            desired_apc.IsThisAPCValid()
+            desired_apc.IsActiveAPC()
         )
         {
             return false;
@@ -188,13 +188,14 @@ namespace BidirectionalInMemGraph
             )
         )
         {
-            RollabckDescriptors___();
+            AbortCreation___();
             return false;
         }
 
         if (!OpenAPCGeneration_(slot_new.value(), control_values.Generation))
         {
-            RollabckDescriptors___();
+            AbortCreation___();
+            return false;
         }
         
         generation_opened = true;
