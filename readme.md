@@ -20,3 +20,24 @@ cmake --build .\build-release `
     
 .\build-release\AtomicCIM.exe
 ```
+
+LINUX :
+
+```cpp
+rm -rf ./build-release
+
+cmake -S ./core -B ./build-release \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DATOMICCIM_ENABLE_IPO=ON \
+    -DATOMICCIM_NATIVE_CPU=ON \
+    -DPython_EXECUTABLE="$(command -v python3)" \
+    -DATOMICCIM_FAST_FP=OFF
+
+cmake --build ./build-release \
+    --target AtomicCIM atomiccim_bind \
+    --parallel \
+    --verbose
+
+./build-release/AtomicCIM
+```
