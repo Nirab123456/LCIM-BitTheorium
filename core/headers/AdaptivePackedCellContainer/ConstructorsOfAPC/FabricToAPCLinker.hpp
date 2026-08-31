@@ -73,7 +73,8 @@ namespace BidirectionalInMemGraph
 
         uint32_t GetThisSlotIdx() noexcept
         {
-            return APCSlotIdx_;
+            return
+                IsActiveAPC() ? APCSlotIdx_ : APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         }
 
         bool IsActiveAPC() noexcept;

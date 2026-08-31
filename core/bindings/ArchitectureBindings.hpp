@@ -7,12 +7,9 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <optional>
-#include <shared_mutex>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -36,16 +33,76 @@ namespace atomiccim::python
     using RegionProtocol = SchemaDefinition::SchemaProtocols;
     using RegionDataType = SchemaDefinition::DataTypeOfMacroColumn;
 
-    class PythonFabric;
     class PythonAPC;
+    class PythonFabric;
+    struct RetainedHandleNode;
 
-    template<class Operation>
-    bool MutateTwoAPCs(PythonAPC& first, PythonAPC& second, Operation&& operation);
+    enum class BindingPhase : uint8_t
+    {
+        DETACHED = 0u,
+        CREATING = 1u,
+        BOUND = 2u,
+        RETIRED = 3u
+    };
 
-    template<class Operation>
-    bool MutateOneAPC(PythonAPC& apc, Operation&& operation);
+    struct FabricEpoch final
+    {
+        NativeFabric Native{};
+        std::atomic<bool> Accepting{false};
+        uint32_t SlotCount{0u};
+        std::unique_ptr<std::atomic<PythonAPC*>[]> CurrentHandles{};
+        std::atomic<RetainedHandleNode*> RetainedHead{nullptr};
 
-    struct NavigationResult
+        explicit FabricEpoch(uint32_t slot_count)
+            : SlotCount(slot_count),
+              CurrentHandles(
+                  slot_count == 0u
+                      ? nullptr
+                        : std::make_unique<std::atomic<PythonAPC*>[]>(slot_count)
+              )
+        {
+            for (uint32_t slot = 0u; slot < SlotCount; ++slot)
+            {
+                CurrentHandles[slot].store(nullptr, std::memory_order_relaxed);
+            }
+        }
+
+        FabricEpoch(const FabricEpoch&) = delete;
+        FabricEpoch& operator=(const FabricEpoch&) = delete;
+        ~FabricEpoch() noexcept;
+
+        void Retain(RetainedHandleNode* node) noexcept;
+
+        [[nodiscard]] std::shared_ptr<PythonAPC> Resolve(
+            NativeAPC* native
+        ) noexcept;
+    };
+
+    struct APCBinding final
+    {
+        std::weak_ptr<FabricEpoch> Epoch{};
+        uint32_t Slot{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
+        BindingPhase Phase{BindingPhase::DETACHED};
+        APCBinding* Next{nullptr};
+    };
+
+    struct APCSnapshot final
+    {
+        std::shared_ptr<FabricEpoch> Epoch{};
+        std::shared_ptr<NativeAPC> Native{};
+        const APCBinding* Binding{nullptr};
+
+        [[nodiscard]] explicit operator bool() const noexcept
+        {
+            return
+                Epoch &&
+                Native &&
+                Binding != nullptr &&
+                Binding->Phase == BindingPhase::BOUND;
+        }
+    };
+
+    struct NavigationResult final
     {
         NavigationStatus Status{NavigationStatus::NONE};
         std::shared_ptr<PythonAPC> APC{};
@@ -56,21 +113,16 @@ namespace atomiccim::python
         }
     };
 
-    struct APCSnapshot
-    {
-        std::shared_ptr<PythonFabric> Owner{};
-        NativeAPC* Native{nullptr};
-        uint64_t Generation{0u};
-    };
+    template<class Operation>
+    bool MutateTwoAPCs(PythonAPC& first, PythonAPC& second, Operation&& operation);
 
-    /*
-     * PythonAPC begins as a detached native APC, matching the C++ CreateAPC
-     * signature.  After successful creation, PythonFabric takes ownership of
-     * the native object and this class becomes a generation-checked handle.
-     */
+    template<class Operation>
+    bool MutateOneAPC(PythonAPC& apc, Operation&& operation);
+
     class PythonAPC final : public std::enable_shared_from_this<PythonAPC>
     {
         friend class PythonFabric;
+        friend struct FabricEpoch;
 
         template<class Operation>
         friend bool MutateTwoAPCs(PythonAPC&, PythonAPC&, Operation&&);
@@ -79,41 +131,97 @@ namespace atomiccim::python
         friend bool MutateOneAPC(PythonAPC&, Operation&&);
 
     private:
-        mutable std::mutex BindingMutex_{};
-        std::unique_ptr<NativeAPC> DetachedNative_{std::make_unique<NativeAPC>()};
-        NativeAPC* Native_{DetachedNative_.get()};
-        std::shared_ptr<PythonFabric> Owner_{};
-        uint64_t Generation_{0u};
-        uint32_t SlotIndex_{APCDataStructure::APC_INDEX_BOUND_SENTINAL};
+        std::shared_ptr<NativeAPC> Native_{std::make_shared<NativeAPC>()};
+        std::atomic<APCBinding*> Binding_{nullptr};
+        std::atomic<APCBinding*> BindingRecords_{nullptr};
 
-        PythonAPC(
-            std::shared_ptr<PythonFabric> owner,
-            NativeAPC* native,
-            uint64_t generation,
-            uint32_t slot_index
-        ) noexcept
-            : DetachedNative_(nullptr),
-              Native_(native),
-              Owner_(std::move(owner)),
-              Generation_(generation),
-              SlotIndex_(slot_index)
-        {}
+        void RetainBindingRecord_(APCBinding* record) noexcept
+        {
+            APCBinding* observed =
+                BindingRecords_.load(std::memory_order_acquire);
+            do
+            {
+                record->Next = observed;
+            }
+            while (!BindingRecords_.compare_exchange_weak(
+                observed,
+                record,
+                std::memory_order_release,
+                std::memory_order_acquire
+            ));
+        }
 
         [[nodiscard]] APCSnapshot Snapshot_() const noexcept
         {
-            std::scoped_lock lock(BindingMutex_);
-            return APCSnapshot{Owner_, Native_, Generation_};
+            APCBinding* binding =
+                Binding_.load(std::memory_order_acquire);
+
+            if (!binding || binding->Phase != BindingPhase::BOUND)
+            {
+                return {};
+            }
+
+            std::shared_ptr<FabricEpoch> epoch = binding->Epoch.lock();
+            if (!epoch)
+            {
+                return {};
+            }
+
+            return APCSnapshot{
+                std::move(epoch),
+                Native_,
+                binding
+            };
+        }
+
+        [[nodiscard]] static bool SnapshotUsable_(
+            const APCSnapshot& snapshot
+        ) noexcept
+        {
+            return
+                static_cast<bool>(snapshot) &&
+                snapshot.Epoch->Accepting.load(std::memory_order_acquire);
         }
 
     public:
-        PythonAPC() = default;
+        PythonAPC()
+        {
+            APCBinding* detached = new APCBinding{};
+            RetainBindingRecord_(detached);
+            Binding_.store(detached, std::memory_order_relaxed);
+        }
+
+        ~PythonAPC() noexcept
+        {
+            APCBinding* record =
+                BindingRecords_.exchange(nullptr, std::memory_order_acq_rel);
+            while (record)
+            {
+                APCBinding* next = record->Next;
+                delete record;
+                record = next;
+            }
+        }
+
         PythonAPC(const PythonAPC&) = delete;
         PythonAPC& operator=(const PythonAPC&) = delete;
 
         [[nodiscard]] uint32_t GetThisSlotIdx() const noexcept
         {
-            std::scoped_lock lock(BindingMutex_);
-            return SlotIndex_;
+            const APCBinding* binding =
+                Binding_.load(std::memory_order_acquire);
+
+            if (
+                !binding ||
+                (
+                    binding->Phase != BindingPhase::BOUND &&
+                    binding->Phase != BindingPhase::RETIRED
+                )
+            )
+            {
+                return APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            }
+            return binding->Slot;
         }
 
         [[nodiscard]] bool IsActiveAPC() const noexcept;
@@ -166,76 +274,115 @@ namespace atomiccim::python
             uint32_t max_tries = NativeAPC::REALTION_FIND_TRIES
         );
 
+        bool Retire(uint32_t max_tries = DEFAULT_MAX_TRIES);
+
         template<class DType>
         std::optional<RegionView<DType>> BuildNativeView(
             MacroColumnOfAPC column,
-            std::shared_ptr<PythonFabric>& owner,
-            uint64_t& generation
+            std::shared_ptr<FabricEpoch>& epoch
         );
 
         template<class DType>
         bool ZeroARegion(MacroColumnOfAPC column);
     };
 
-    class PythonFabric final : public std::enable_shared_from_this<PythonFabric>
+    struct RetainedHandleNode final
+    {
+        std::shared_ptr<PythonAPC> Handle{};
+        RetainedHandleNode* Next{nullptr};
+
+        explicit RetainedHandleNode(std::shared_ptr<PythonAPC> handle) noexcept
+            : Handle(std::move(handle))
+        {}
+    };
+
+    inline FabricEpoch::~FabricEpoch() noexcept
+    {
+        Accepting.store(false, std::memory_order_release);
+
+        // Native memory is released only after every operation/view that held
+        // this epoch has finished. Retained handles keep their native wrappers
+        // alive until after the raw-pointer table and slab have shut down.
+        Native.ShutDownFabricWithPtrTable();
+
+        for (uint32_t slot = 0u; slot < SlotCount; ++slot)
+        {
+            CurrentHandles[slot].store(nullptr, std::memory_order_relaxed);
+        }
+
+        RetainedHandleNode* node =
+            RetainedHead.exchange(nullptr, std::memory_order_acq_rel);
+
+        // Break the persistent list iteratively so a long-running Fabric does
+        // not recurse through thousands of generations during shutdown.
+        while (node)
+        {
+            RetainedHandleNode* next = node->Next;
+            delete node;
+            node = next;
+        }
+    }
+
+    inline void FabricEpoch::Retain(RetainedHandleNode* node) noexcept
+    {
+        RetainedHandleNode* observed =
+            RetainedHead.load(std::memory_order_acquire);
+
+        do
+        {
+            node->Next = observed;
+        }
+        while (!RetainedHead.compare_exchange_weak(
+            observed,
+            node,
+            std::memory_order_release,
+            std::memory_order_acquire
+        ));
+    }
+
+    inline std::shared_ptr<PythonAPC> FabricEpoch::Resolve(
+        NativeAPC* native
+    ) noexcept
+    {
+        if (
+            !native ||
+            !Accepting.load(std::memory_order_acquire)
+        )
+        {
+            return {};
+        }
+
+        // Every native wrapper is retained until this epoch is destroyed, so
+        // dereferencing the navigation pointer here is safe even when its slot
+        // was concurrently retired and reused.
+        const uint32_t slot = native->GetThisSlotIdx();
+        if (slot >= SlotCount)
+        {
+            return {};
+        }
+
+        PythonAPC* handle =
+            CurrentHandles[slot].load(std::memory_order_acquire);
+
+        if (!handle || handle->Native_.get() != native)
+        {
+            return {};
+        }
+
+        const APCSnapshot snapshot = handle->Snapshot_();
+        if (!snapshot || snapshot.Epoch.get() != this)
+        {
+            return {};
+        }
+        return handle->weak_from_this().lock();
+    }
+
+    class PythonFabric final
     {
         friend class PythonAPC;
 
-        template<class Operation>
-        friend bool MutateTwoAPCs(PythonAPC&, PythonAPC&, Operation&&);
-
-        template<class Operation>
-        friend bool MutateOneAPC(PythonAPC&, Operation&&);
-
-        template<class DType>
-        friend class PythonRegionView;
-
     private:
-        mutable std::shared_mutex LifecycleMutex_{};
-        mutable std::mutex NodesMutex_{};
-        NativeFabric Native_{};
-        std::atomic<uint64_t> Generation_{0u};
-        std::vector<std::unique_ptr<NativeAPC>> Nodes_{};
-        std::unordered_map<NativeAPC*, std::weak_ptr<PythonAPC>> Handles_{};
-
-        [[nodiscard]] bool ValidateLocked_(const APCSnapshot& snapshot) noexcept
-        {
-            return
-                snapshot.Owner.get() == this &&
-                snapshot.Native != nullptr &&
-                snapshot.Generation == Generation_.load(std::memory_order_acquire) &&
-                Native_.IsFabricActive() &&
-                snapshot.Native->IsActiveAPC();
-        }
-
-        [[nodiscard]] std::shared_ptr<PythonAPC> ResolveLocked_(NativeAPC* native)
-        {
-            if (!native)
-            {
-                return {};
-            }
-
-            std::scoped_lock nodes_lock(NodesMutex_);
-            const auto found = Handles_.find(native);
-            if (found != Handles_.end())
-            {
-                if (std::shared_ptr<PythonAPC> existing = found->second.lock())
-                {
-                    return existing;
-                }
-            }
-
-            auto handle = std::shared_ptr<PythonAPC>(
-                new PythonAPC(
-                    shared_from_this(),
-                    native,
-                    Generation_.load(std::memory_order_acquire),
-                    native->GetThisSlotIdx()
-                )
-            );
-            Handles_[native] = handle;
-            return handle;
-        }
+        std::atomic<std::shared_ptr<FabricEpoch>> Current_{};
 
     public:
         PythonFabric() = default;
@@ -244,7 +391,7 @@ namespace atomiccim::python
 
         ~PythonFabric() noexcept
         {
-            Native_.ShutDownFabricWithPtrTable();
+            ShutDownFabric();
         }
 
         bool InitializeFabricWithPtrTable(
@@ -252,36 +399,61 @@ namespace atomiccim::python
             uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT
         )
         {
-            std::unique_lock lifecycle_lock(LifecycleMutex_);
-            if (Native_.IsFabricActive())
+            if (
+                slot_count == 0u ||
+                Current_.load(std::memory_order_acquire)
+            )
             {
                 return false;
             }
 
-            Generation_.fetch_add(1u, std::memory_order_acq_rel);
+            auto candidate = std::make_shared<FabricEpoch>(slot_count);
+            if (!candidate->Native.InitializeFabricWithPtrTable(
+                    slot_count,
+                    slot_cell_count
+                ))
             {
-                std::scoped_lock nodes_lock(NodesMutex_);
-                Handles_.clear();
-                Nodes_.clear();
+                return false;
             }
-            return Native_.InitializeFabricWithPtrTable(slot_count, slot_cell_count);
+
+            candidate->Accepting.store(true, std::memory_order_release);
+
+            std::shared_ptr<FabricEpoch> expected{};
+            if (!Current_.compare_exchange_strong(
+                    expected,
+                    candidate,
+                    std::memory_order_release,
+                    std::memory_order_acquire
+                ))
+            {
+                candidate->Accepting.store(false, std::memory_order_release);
+                return false;
+            }
+            return true;
         }
 
         void ShutDownFabric() noexcept
         {
-            std::unique_lock lifecycle_lock(LifecycleMutex_);
-            Native_.ShutDownFabricWithPtrTable();
-            Generation_.fetch_add(1u, std::memory_order_acq_rel);
+            std::shared_ptr<FabricEpoch> epoch =
+                Current_.exchange({}, std::memory_order_acq_rel);
 
-            std::scoped_lock nodes_lock(NodesMutex_);
-            Handles_.clear();
-            Nodes_.clear();
+            if (epoch)
+            {
+                // This is logical shutdown. Physical slab destruction is
+                // deferred until already-started operations/views drop epoch.
+                epoch->Accepting.store(false, std::memory_order_release);
+            }
         }
 
         [[nodiscard]] bool IsFabricActive() noexcept
         {
-            std::shared_lock lifecycle_lock(LifecycleMutex_);
-            return Native_.IsFabricActive();
+            const std::shared_ptr<FabricEpoch> epoch =
+                Current_.load(std::memory_order_acquire);
+
+            return
+                epoch &&
+                epoch->Accepting.load(std::memory_order_acquire) &&
+                epoch->Native.IsFabricActive();
         }
 
         bool CreateAPC(
@@ -300,24 +472,74 @@ namespace atomiccim::python
                 return false;
             }
 
-            std::unique_lock lifecycle_lock(LifecycleMutex_);
-            if (!Native_.IsFabricActive())
-            {
-                return false;
-            }
+            std::shared_ptr<FabricEpoch> epoch =
+                Current_.load(std::memory_order_acquire);
 
-            std::scoped_lock binding_lock(desired_apc->BindingMutex_);
             if (
-                desired_apc->Owner_ ||
-                !desired_apc->DetachedNative_ ||
-                desired_apc->Native_ != desired_apc->DetachedNative_.get() ||
-                desired_apc->Native_->IsActiveAPC()
+                !epoch ||
+                !epoch->Accepting.load(std::memory_order_acquire) ||
+                !epoch->Native.IsFabricActive()
             )
             {
                 return false;
             }
 
-            if (!Native_.CreateAPC(
+            // Allocate every publication record before claiming or mutating
+            // the native APC, so allocation failure cannot strand CREATING.
+            auto claiming_owner = std::make_unique<APCBinding>();
+            claiming_owner->Epoch = epoch;
+            claiming_owner->Phase = BindingPhase::CREATING;
+
+            auto detached_owner = std::make_unique<APCBinding>();
+
+            auto bound_owner = std::make_unique<APCBinding>();
+            bound_owner->Epoch = epoch;
+            bound_owner->Phase = BindingPhase::BOUND;
+
+            auto retired_owner = std::make_unique<APCBinding>();
+            retired_owner->Epoch = epoch;
+            retired_owner->Phase = BindingPhase::RETIRED;
+
+            auto retained_node =
+                std::make_unique<RetainedHandleNode>(desired_apc);
+
+            APCBinding* claiming = claiming_owner.get();
+            APCBinding* detached = detached_owner.get();
+            APCBinding* bound = bound_owner.get();
+            APCBinding* retired = retired_owner.get();
+
+            desired_apc->RetainBindingRecord_(claiming_owner.release());
+            desired_apc->RetainBindingRecord_(detached_owner.release());
+            desired_apc->RetainBindingRecord_(bound_owner.release());
+            desired_apc->RetainBindingRecord_(retired_owner.release());
+
+            APCBinding* observed =
+                desired_apc->Binding_.load(std::memory_order_acquire);
+
+            if (
+                !observed ||
+                observed->Phase != BindingPhase::DETACHED ||
+                !desired_apc->Binding_.compare_exchange_strong(
+                    observed,
+                    claiming,
+                    std::memory_order_acq_rel,
+                    std::memory_order_acquire
+                )
+            )
+            {
+                return false;
+            }
+
+            if (
+                !epoch->Accepting.load(std::memory_order_acquire) ||
+                desired_apc->Native_->IsActiveAPC()
+            )
+            {
+                desired_apc->Binding_.store(detached, std::memory_order_release);
+                return false;
+            }
+
+            if (!epoch->Native.CreateAPC(
                     *desired_apc->Native_,
                     wants_horizontal_root,
                     wants_vertical_root,
@@ -328,19 +550,54 @@ namespace atomiccim::python
                     internal_max_tries
                 ))
             {
+                desired_apc->Binding_.store(detached, std::memory_order_release);
                 return false;
             }
 
-            NativeAPC* native = desired_apc->Native_;
-            desired_apc->Owner_ = shared_from_this();
-            desired_apc->Generation_ = Generation_.load(std::memory_order_acquire);
-            desired_apc->SlotIndex_ = native->GetThisSlotIdx();
+            const uint32_t slot = desired_apc->Native_->GetThisSlotIdx();
+            bound->Slot = slot;
+            retired->Slot = slot;
 
+            // The native table returns raw NativeAPC pointers. Retaining every
+            // wrapper for the epoch is the lock-free reclamation boundary that
+            // makes a pointer returned immediately before retirement safe to
+            // resolve without a mutable registry or a use-after-free.
+            epoch->Retain(retained_node.release());
+
+            if (slot >= epoch->SlotCount)
             {
-                std::scoped_lock nodes_lock(NodesMutex_);
-                Nodes_.push_back(std::move(desired_apc->DetachedNative_));
-                Handles_[native] = desired_apc;
+                (void)desired_apc->Native_->Retire(internal_max_tries);
+                desired_apc->Binding_.store(retired, std::memory_order_release);
+                return false;
             }
+
+            epoch->CurrentHandles[slot].exchange(
+                desired_apc.get(),
+                std::memory_order_acq_rel
+            );
+            desired_apc->Binding_.store(bound, std::memory_order_release);
+
+            if (!epoch->Accepting.load(std::memory_order_acquire))
+            {
+                (void)desired_apc->Native_->Retire(internal_max_tries);
+                desired_apc->Binding_.store(retired, std::memory_order_release);
+
+                PythonAPC* current =
+                    epoch->CurrentHandles[slot].load(std::memory_order_acquire);
+                while (
+                    current &&
+                    current == desired_apc.get() &&
+                    !epoch->CurrentHandles[slot].compare_exchange_weak(
+                        current,
+                        nullptr,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire
+                    )
+                )
+                {}
+                return false;
+            }
+
             return true;
         }
 
@@ -375,37 +632,32 @@ namespace atomiccim::python
     inline bool PythonAPC::IsActiveAPC() const noexcept
     {
         const APCSnapshot snapshot = Snapshot_();
-        if (!snapshot.Owner)
-        {
-            return false;
-        }
-
-        std::shared_lock lifecycle_lock(snapshot.Owner->LifecycleMutex_);
-        return snapshot.Owner->ValidateLocked_(snapshot);
+        return
+            SnapshotUsable_(snapshot) &&
+            snapshot.Native->IsActiveAPC();
     }
 
     template<class Operation>
-    bool MutateTwoAPCs(PythonAPC& first, PythonAPC& second, Operation&& operation)
+    bool MutateTwoAPCs(
+        PythonAPC& first,
+        PythonAPC& second,
+        Operation&& operation
+    )
     {
         const APCSnapshot first_snapshot = first.Snapshot_();
         const APCSnapshot second_snapshot = second.Snapshot_();
+
         if (
-            !first_snapshot.Owner ||
-            first_snapshot.Owner.get() != second_snapshot.Owner.get()
+            !PythonAPC::SnapshotUsable_(first_snapshot) ||
+            !PythonAPC::SnapshotUsable_(second_snapshot) ||
+            first_snapshot.Epoch.get() != second_snapshot.Epoch.get()
         )
         {
             return false;
         }
 
-        std::shared_lock lifecycle_lock(first_snapshot.Owner->LifecycleMutex_);
-        if (
-            !first_snapshot.Owner->ValidateLocked_(first_snapshot) ||
-            !first_snapshot.Owner->ValidateLocked_(second_snapshot)
-        )
-        {
-            return false;
-        }
-
+        // The strong epoch snapshots keep the slab alive. Native APC methods
+        // acquire their own generation/access scopes exactly once.
         return std::forward<Operation>(operation)(
             *first_snapshot.Native,
             *second_snapshot.Native
@@ -416,13 +668,7 @@ namespace atomiccim::python
     bool MutateOneAPC(PythonAPC& apc, Operation&& operation)
     {
         const APCSnapshot snapshot = apc.Snapshot_();
-        if (!snapshot.Owner)
-        {
-            return false;
-        }
-
-        std::shared_lock lifecycle_lock(snapshot.Owner->LifecycleMutex_);
-        if (!snapshot.Owner->ValidateLocked_(snapshot))
+        if (!PythonAPC::SnapshotUsable_(snapshot))
         {
             return false;
         }
@@ -467,7 +713,10 @@ namespace atomiccim::python
         });
     }
 
-    inline bool PythonAPC::DetachMeFromAnotherEdge(Axis axis, uint32_t max_tries)
+    inline bool PythonAPC::DetachMeFromAnotherEdge(
+        Axis axis,
+        uint32_t max_tries
+    )
     {
         return MutateOneAPC(*this, [&](NativeAPC& self)
         {
@@ -495,31 +744,37 @@ namespace atomiccim::python
     {
         return MutateTwoAPCs(*this, sibling, [&](NativeAPC& self, NativeAPC& other)
         {
-            return self.DetachAndReattachMeAsEquivelentSibbling(other, axis, max_tries);
+            return self.DetachAndReattachMeAsEquivelentSibbling(
+                other,
+                axis,
+                max_tries
+            );
         });
     }
 
-    inline NavigationResult PythonAPC::FindPrevious(Axis axis, uint32_t max_tries)
+    inline NavigationResult PythonAPC::FindPrevious(
+        Axis axis,
+        uint32_t max_tries
+    )
     {
         const APCSnapshot snapshot = Snapshot_();
-        if (!snapshot.Owner)
-        {
-            return {};
-        }
-
-        std::shared_lock lifecycle_lock(snapshot.Owner->LifecycleMutex_);
-        if (!snapshot.Owner->ValidateLocked_(snapshot))
+        if (!SnapshotUsable_(snapshot))
         {
             return {};
         }
 
         const auto result = snapshot.Native->FindPrevious(axis, max_tries);
-        return NavigationResult{
-            result.MutationOP_,
-            result.MutationOP_ == NavigationStatus::FOUND
-                ? snapshot.Owner->ResolveLocked_(result.APCPtr_)
-                : std::shared_ptr<PythonAPC>{}
-        };
+        if (result.MutationOP_ != NavigationStatus::FOUND)
+        {
+            return NavigationResult{result.MutationOP_, {}};
+        }
+
+        std::shared_ptr<PythonAPC> resolved =
+            snapshot.Epoch->Resolve(result.APCPtr_);
+
+        return resolved
+            ? NavigationResult{NavigationStatus::FOUND, std::move(resolved)}
+            : NavigationResult{NavigationStatus::RETRY, {}};
     }
 
     inline NavigationResult PythonAPC::FindMyNext(
@@ -529,51 +784,94 @@ namespace atomiccim::python
     )
     {
         const APCSnapshot snapshot = Snapshot_();
-        if (!snapshot.Owner)
+        if (!SnapshotUsable_(snapshot))
         {
             return {};
         }
 
-        std::shared_lock lifecycle_lock(snapshot.Owner->LifecycleMutex_);
-        if (!snapshot.Owner->ValidateLocked_(snapshot))
+        const auto result = snapshot.Native->FindMyNext(
+            axis,
+            inheritance,
+            max_tries
+        );
+        if (result.MutationOP_ != NavigationStatus::FOUND)
         {
-            return {};
+            return NavigationResult{result.MutationOP_, {}};
         }
 
-        const auto result = snapshot.Native->FindMyNext(axis, inheritance, max_tries);
-        return NavigationResult{
-            result.MutationOP_,
-            result.MutationOP_ == NavigationStatus::FOUND
-                ? snapshot.Owner->ResolveLocked_(result.APCPtr_)
-                : std::shared_ptr<PythonAPC>{}
-        };
+        std::shared_ptr<PythonAPC> resolved =
+            snapshot.Epoch->Resolve(result.APCPtr_);
+
+        return resolved
+            ? NavigationResult{NavigationStatus::FOUND, std::move(resolved)}
+            : NavigationResult{NavigationStatus::RETRY, {}};
+    }
+
+    inline bool PythonAPC::Retire(uint32_t max_tries)
+    {
+        const APCSnapshot snapshot = Snapshot_();
+        if (!SnapshotUsable_(snapshot))
+        {
+            return false;
+        }
+
+        // Preallocate publication state before the native operation commits.
+        auto retired_owner = std::make_unique<APCBinding>();
+        retired_owner->Epoch = snapshot.Epoch;
+        retired_owner->Slot = snapshot.Binding->Slot;
+        retired_owner->Phase = BindingPhase::RETIRED;
+        APCBinding* retired = retired_owner.get();
+        RetainBindingRecord_(retired_owner.release());
+
+        if (!snapshot.Native->Retire(max_tries))
+        {
+            return false;
+        }
+
+        Binding_.store(retired, std::memory_order_release);
+
+        const uint32_t slot = snapshot.Binding->Slot;
+        if (slot < snapshot.Epoch->SlotCount)
+        {
+            PythonAPC* current =
+                snapshot.Epoch->CurrentHandles[slot].load(
+                    std::memory_order_acquire
+                );
+
+            while (
+                current &&
+                current == this &&
+                !snapshot.Epoch->CurrentHandles[slot].compare_exchange_weak(
+                    current,
+                    nullptr,
+                    std::memory_order_acq_rel,
+                    std::memory_order_acquire
+                )
+            )
+            {}
+        }
+        return true;
     }
 
     template<class DType>
     std::optional<RegionView<DType>> PythonAPC::BuildNativeView(
         MacroColumnOfAPC column,
-        std::shared_ptr<PythonFabric>& owner,
-        uint64_t& generation
+        std::shared_ptr<FabricEpoch>& epoch
     )
     {
+        epoch.reset();
         const APCSnapshot snapshot = Snapshot_();
-        if (!snapshot.Owner)
-        {
-            return std::nullopt;
-        }
-
-        std::shared_lock lifecycle_lock(snapshot.Owner->LifecycleMutex_);
-        if (!snapshot.Owner->ValidateLocked_(snapshot))
+        if (!SnapshotUsable_(snapshot))
         {
             return std::nullopt;
         }
 
         std::optional<RegionView<DType>> view =
             snapshot.Native->template BuildAViewOverRegion<DType>(column);
+
         if (view)
         {
-            owner = snapshot.Owner;
-            generation = snapshot.Generation;
+            epoch = snapshot.Epoch;
         }
         return view;
     }
@@ -591,29 +889,23 @@ namespace atomiccim::python
     class PythonRegionView final
     {
     private:
-        std::shared_ptr<PythonFabric> Owner_{};
-        uint64_t Generation_{0u};
+        // Member order is intentional: NativeView_ releases its APC use scope
+        // before Epoch_ can destroy the slab.
+        std::shared_ptr<FabricEpoch> Epoch_{};
         RegionView<DType> NativeView_{};
 
-        [[nodiscard]] std::shared_lock<std::shared_mutex> LockAndValidate_() const
+        void Validate_() const
         {
-            if (!Owner_)
-            {
-                throw std::runtime_error("The region view has no owning Fabric");
-            }
-
-            std::shared_lock lifecycle_lock(Owner_->LifecycleMutex_);
             if (
-                Generation_ != Owner_->Generation_.load(std::memory_order_acquire) ||
-                !Owner_->Native_.IsFabricActive() ||
+                !Epoch_ ||
+                !Epoch_->Accepting.load(std::memory_order_acquire) ||
                 !NativeView_.IsValid()
             )
             {
                 throw std::runtime_error(
-                    "The region view was invalidated by Fabric shutdown or reinitialization"
+                    "The region view was invalidated by Fabric shutdown"
                 );
             }
-            return lifecycle_lock;
         }
 
         void CheckIndex_(size_t index) const
@@ -626,25 +918,18 @@ namespace atomiccim::python
 
     public:
         PythonRegionView(
-            std::shared_ptr<PythonFabric> owner,
-            uint64_t generation,
+            std::shared_ptr<FabricEpoch> epoch,
             RegionView<DType> native_view
         ) noexcept
-            : Owner_(std::move(owner)),
-              Generation_(generation),
+            : Epoch_(std::move(epoch)),
               NativeView_(std::move(native_view))
         {}
 
         [[nodiscard]] bool IsValid() const noexcept
         {
-            if (!Owner_)
-            {
-                return false;
-            }
-            std::shared_lock lifecycle_lock(Owner_->LifecycleMutex_);
             return
-                Generation_ == Owner_->Generation_.load(std::memory_order_acquire) &&
-                Owner_->Native_.IsFabricActive() &&
+                Epoch_ &&
+                Epoch_->Accepting.load(std::memory_order_acquire) &&
                 NativeView_.IsValid();
         }
 
@@ -660,7 +945,7 @@ namespace atomiccim::python
 
         DType Load(size_t index)
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             CheckIndex_(index);
 
             if (NativeView_.GetProtocol() == RegionProtocol::PRIVATE_REGION)
@@ -668,7 +953,9 @@ namespace atomiccim::python
                 auto span = NativeView_.RawMutableSpan();
                 if (!span)
                 {
-                    throw std::runtime_error("PRIVATE_REGION did not provide its mutable span");
+                    throw std::runtime_error(
+                        "PRIVATE_REGION did not provide its mutable span"
+                    );
                 }
                 return span.value()[index];
             }
@@ -685,7 +972,7 @@ namespace atomiccim::python
 
         bool Store(size_t index, DType value)
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             CheckIndex_(index);
 
             if (NativeView_.GetProtocol() == RegionProtocol::PRIVATE_REGION)
@@ -701,14 +988,18 @@ namespace atomiccim::python
 
             if (NativeView_.GetProtocol() == RegionProtocol::ATOMIC_WORD_ARRAY)
             {
-                return NativeView_.AtomicStore(index, value, std::memory_order_release);
+                return NativeView_.AtomicStore(
+                    index,
+                    value,
+                    std::memory_order_release
+                );
             }
             return false;
         }
 
         DType AtomicLoad(size_t index)
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             CheckIndex_(index);
             if (NativeView_.GetProtocol() != RegionProtocol::ATOMIC_WORD_ARRAY)
             {
@@ -719,9 +1010,13 @@ namespace atomiccim::python
 
         bool AtomicStore(size_t index, DType value)
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             CheckIndex_(index);
-            return NativeView_.AtomicStore(index, value, std::memory_order_release);
+            return NativeView_.AtomicStore(
+                index,
+                value,
+                std::memory_order_release
+            );
         }
 
         std::pair<bool, DType> AtomicCompareExchangeStrong(
@@ -730,7 +1025,7 @@ namespace atomiccim::python
             DType desired
         )
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             CheckIndex_(index);
             const bool exchanged = NativeView_.AtomicCompareExchangeStrong(
                 index,
@@ -744,7 +1039,7 @@ namespace atomiccim::python
 
         bool FillZero()
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             if (NativeView_.GetProtocol() == RegionProtocol::PRIVATE_REGION)
             {
                 auto span = NativeView_.RawMutableSpan();
@@ -763,7 +1058,11 @@ namespace atomiccim::python
             {
                 for (size_t i = 0u; i < NativeView_.Size(); ++i)
                 {
-                    if (!NativeView_.AtomicStore(i, DType{}, std::memory_order_relaxed))
+                    if (!NativeView_.AtomicStore(
+                            i,
+                            DType{},
+                            std::memory_order_relaxed
+                        ))
                     {
                         return false;
                     }
@@ -775,7 +1074,7 @@ namespace atomiccim::python
 
         py::array_t<DType> ToNumpyCopy()
         {
-            const auto lifecycle_lock = LockAndValidate_();
+            Validate_();
             py::array_t<DType> output(NativeView_.Size());
             auto output_view = output.template mutable_unchecked<1>();
 
@@ -784,7 +1083,9 @@ namespace atomiccim::python
                 auto span = NativeView_.RawMutableSpan();
                 if (!span)
                 {
-                    throw std::runtime_error("PRIVATE_REGION did not provide its mutable span");
+                    throw std::runtime_error(
+                        "PRIVATE_REGION did not provide its mutable span"
+                    );
                 }
                 for (py::ssize_t i = 0; i < output_view.shape(0); ++i)
                 {
@@ -817,17 +1118,17 @@ namespace atomiccim::python
         MacroColumnOfAPC column
     )
     {
-        std::shared_ptr<PythonFabric> owner{};
-        uint64_t generation = 0u;
+        std::shared_ptr<FabricEpoch> epoch{};
         std::optional<RegionView<DType>> native_view =
-            apc.template BuildNativeView<DType>(column, owner, generation);
-        if (!native_view)
+            apc.template BuildNativeView<DType>(column, epoch);
+
+        if (!native_view || !epoch)
         {
             return {};
         }
+
         return std::make_shared<PythonRegionView<DType>>(
-            std::move(owner),
-            generation,
+            std::move(epoch),
             std::move(native_view.value())
         );
     }
@@ -840,21 +1141,32 @@ namespace atomiccim::python
     {
         switch (dtype)
         {
-        case RegionDataType::UINT8_T:  return py::cast(MakeRegionView<uint8_t>(apc, column));
-        case RegionDataType::UINT16_T: return py::cast(MakeRegionView<uint16_t>(apc, column));
-        case RegionDataType::UINT32_T: return py::cast(MakeRegionView<uint32_t>(apc, column));
-        case RegionDataType::UINT64_T: return py::cast(MakeRegionView<uint64_t>(apc, column));
-        case RegionDataType::INT8_T:   return py::cast(MakeRegionView<int8_t>(apc, column));
-        case RegionDataType::INT16_T:  return py::cast(MakeRegionView<int16_t>(apc, column));
-        case RegionDataType::INT32_T:  return py::cast(MakeRegionView<int32_t>(apc, column));
-        case RegionDataType::INT64_T:  return py::cast(MakeRegionView<int64_t>(apc, column));
-        case RegionDataType::FLOAT32_T:return py::cast(MakeRegionView<float>(apc, column));
-        case RegionDataType::FLOAT64_T:return py::cast(MakeRegionView<double>(apc, column));
-        case RegionDataType::CHAR:     return py::cast(MakeRegionView<char>(apc, column));
+        case RegionDataType::UINT8_T:
+            return py::cast(MakeRegionView<uint8_t>(apc, column));
+        case RegionDataType::UINT16_T:
+            return py::cast(MakeRegionView<uint16_t>(apc, column));
+        case RegionDataType::UINT32_T:
+            return py::cast(MakeRegionView<uint32_t>(apc, column));
+        case RegionDataType::UINT64_T:
+            return py::cast(MakeRegionView<uint64_t>(apc, column));
+        case RegionDataType::INT8_T:
+            return py::cast(MakeRegionView<int8_t>(apc, column));
+        case RegionDataType::INT16_T:
+            return py::cast(MakeRegionView<int16_t>(apc, column));
+        case RegionDataType::INT32_T:
+            return py::cast(MakeRegionView<int32_t>(apc, column));
+        case RegionDataType::INT64_T:
+            return py::cast(MakeRegionView<int64_t>(apc, column));
+        case RegionDataType::FLOAT32_T:
+            return py::cast(MakeRegionView<float>(apc, column));
+        case RegionDataType::FLOAT64_T:
+            return py::cast(MakeRegionView<double>(apc, column));
+        case RegionDataType::CHAR:
+            return py::cast(MakeRegionView<char>(apc, column));
         case RegionDataType::FLOAT16_T:
             throw py::value_error(
-                "FLOAT16_T is present in the schema enum, but CppTypeToRegionDType "
-                "does not currently define a C++ half type"
+                "FLOAT16_T is present in the schema enum, but "
+                "CppTypeToRegionDType does not currently define a C++ half type"
             );
         }
         throw py::value_error("Unknown RegionDataType");
@@ -868,17 +1180,28 @@ namespace atomiccim::python
     {
         switch (dtype)
         {
-        case RegionDataType::UINT8_T:   return apc.ZeroARegion<uint8_t>(column);
-        case RegionDataType::UINT16_T:  return apc.ZeroARegion<uint16_t>(column);
-        case RegionDataType::UINT32_T:  return apc.ZeroARegion<uint32_t>(column);
-        case RegionDataType::UINT64_T:  return apc.ZeroARegion<uint64_t>(column);
-        case RegionDataType::INT8_T:    return apc.ZeroARegion<int8_t>(column);
-        case RegionDataType::INT16_T:   return apc.ZeroARegion<int16_t>(column);
-        case RegionDataType::INT32_T:   return apc.ZeroARegion<int32_t>(column);
-        case RegionDataType::INT64_T:   return apc.ZeroARegion<int64_t>(column);
-        case RegionDataType::FLOAT32_T: return apc.ZeroARegion<float>(column);
-        case RegionDataType::FLOAT64_T: return apc.ZeroARegion<double>(column);
-        case RegionDataType::CHAR:      return apc.ZeroARegion<char>(column);
+        case RegionDataType::UINT8_T:
+            return apc.ZeroARegion<uint8_t>(column);
+        case RegionDataType::UINT16_T:
+            return apc.ZeroARegion<uint16_t>(column);
+        case RegionDataType::UINT32_T:
+            return apc.ZeroARegion<uint32_t>(column);
+        case RegionDataType::UINT64_T:
+            return apc.ZeroARegion<uint64_t>(column);
+        case RegionDataType::INT8_T:
+            return apc.ZeroARegion<int8_t>(column);
+        case RegionDataType::INT16_T:
+            return apc.ZeroARegion<int16_t>(column);
+        case RegionDataType::INT32_T:
+            return apc.ZeroARegion<int32_t>(column);
+        case RegionDataType::INT64_T:
+            return apc.ZeroARegion<int64_t>(column);
+        case RegionDataType::FLOAT32_T:
+            return apc.ZeroARegion<float>(column);
+        case RegionDataType::FLOAT64_T:
+            return apc.ZeroARegion<double>(column);
+        case RegionDataType::CHAR:
+            return apc.ZeroARegion<char>(column);
         case RegionDataType::FLOAT16_T:
             throw py::value_error("FLOAT16_T has no corresponding C++ half type");
         }
@@ -889,6 +1212,7 @@ namespace atomiccim::python
     void BindRegionView(py::module_& module, const char* python_name)
     {
         using View = PythonRegionView<DType>;
+
         py::class_<View, std::shared_ptr<View>>(module, python_name)
             .def_property_readonly("is_valid", &View::IsValid)
             .def_property_readonly("size", &View::Size)
@@ -899,32 +1223,44 @@ namespace atomiccim::python
             .def("load", &View::Load, py::arg("index"))
             .def("store", &View::Store, py::arg("index"), py::arg("value"))
             .def("AtomicLoad", &View::AtomicLoad, py::arg("index"))
-            .def("AtomicStore", &View::AtomicStore, py::arg("index"), py::arg("value"))
+            .def(
+                "AtomicStore",
+                &View::AtomicStore,
+                py::arg("index"),
+                py::arg("value")
+            )
             .def(
                 "AtomicCompareExchangeStrong",
                 &View::AtomicCompareExchangeStrong,
                 py::arg("index"),
                 py::arg("expected"),
                 py::arg("desired"),
-                "Return (exchanged, observed).  observed is the updated C++ expected value."
+                "Return (exchanged, observed). observed is the updated C++ expected value."
             )
             .def("fill_zero", &View::FillZero)
-            .def("to_numpy", &View::ToNumpyCopy,
-                 "Return a safe copy. Direct NumPy exposure is intentionally not provided for atomic storage.")
+            .def(
+                "to_numpy",
+                &View::ToNumpyCopy,
+                "Return a safe copy. Direct NumPy exposure is intentionally "
+                "not provided for atomic storage."
+            )
             .def("__len__", &View::Size)
             .def("__getitem__", &View::Load, py::arg("index"))
             .def("__setitem__", [](View& self, size_t index, DType value)
             {
                 if (!self.Store(index, value))
                 {
-                    throw std::runtime_error("The region protocol rejected the store");
+                    throw std::runtime_error(
+                        "The region protocol rejected the store"
+                    );
                 }
             });
     }
 
     inline void BindArchitecture(py::module_& module)
     {
-        module.doc() = "Safe pybind11 bindings for AtomicCIM APC/Fabric architecture";
+        module.doc() =
+            "Lock-free pybind11 adapter for AtomicCIM APC/Fabric architecture";
 
         py::enum_<Axis>(module, "BidirectionalAxis")
             .value("HORIZONTAL", Axis::HORIZONTAL)
@@ -943,8 +1279,14 @@ namespace atomiccim::python
             .export_values();
 
         py::enum_<MacroColumnOfAPC>(module, "MacroColumnOfAPC")
-            .value("FEEDFORWARD_MESSAGE", MacroColumnOfAPC::FEEDFORWARD_MESSAGE)
-            .value("FEEDBACKWARD_MESSAGE", MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)
+            .value(
+                "FEEDFORWARD_MESSAGE",
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+            )
+            .value(
+                "FEEDBACKWARD_MESSAGE",
+                MacroColumnOfAPC::FEEDBACKWARD_MESSAGE
+            )
             .value("LATERAL_MESAGE", MacroColumnOfAPC::LATERAL_MESAGE)
             .value("STATE_SLOT", MacroColumnOfAPC::STATE_SLOT)
             .value("ERROR_SLOT", MacroColumnOfAPC::ERROR_SLOT)
@@ -959,7 +1301,10 @@ namespace atomiccim::python
             .value("PRIVATE_REGION", RegionProtocol::PRIVATE_REGION)
             .value("IMMUTABLE_SNAPSHOT", RegionProtocol::IMMUTABLE_SNAPSHOT)
             .value("ATOMIC_WORD_ARRAY", RegionProtocol::ATOMIC_WORD_ARRAY)
-            .value("MPMC_FIXED_RECORD_QUEUE", RegionProtocol::MPMC_FIXED_RECORD_QUEUE)
+            .value(
+                "MPMC_FIXED_RECORD_QUEUE",
+                RegionProtocol::MPMC_FIXED_RECORD_QUEUE
+            )
             .value("DOUBLE_BUFFERED", RegionProtocol::DOUBLE_BUFFERED)
             .export_values();
 
@@ -993,12 +1338,21 @@ namespace atomiccim::python
 
         py::class_<DataTypes>(module, "InitialRegionalDtypeConf")
             .def(py::init<>())
-            .def_readwrite("FEEDFORWARD_MESSAGE", &DataTypes::FEEDFORWARD_MESSAGE)
-            .def_readwrite("FEEDBACKWARD_MESSAGE", &DataTypes::FEEDBACKWARD_MESSAGE)
+            .def_readwrite(
+                "FEEDFORWARD_MESSAGE",
+                &DataTypes::FEEDFORWARD_MESSAGE
+            )
+            .def_readwrite(
+                "FEEDBACKWARD_MESSAGE",
+                &DataTypes::FEEDBACKWARD_MESSAGE
+            )
             .def_readwrite("LATERAL_MESAGE", &DataTypes::LATERAL_MESAGE)
             .def_readwrite("STATE_SLOT", &DataTypes::STATE_SLOT)
             .def_readwrite("ERROR_SLOT", &DataTypes::ERROR_SLOT)
-            .def_readwrite("WEIGHTLESS_LOOKUP", &DataTypes::WEIGHTLESS_LOOKUP)
+            .def_readwrite(
+                "WEIGHTLESS_LOOKUP",
+                &DataTypes::WEIGHTLESS_LOOKUP
+            )
             .def_readwrite("WEIGHT_SLOT", &DataTypes::WEIGHT_SLOT)
             .def_readwrite("AUX_SLOT", &DataTypes::AUX_SLOT)
             .def_readwrite("HETEROGENOUS_PTR", &DataTypes::HETEROGENOUS_PTR)
@@ -1006,12 +1360,21 @@ namespace atomiccim::python
 
         py::class_<Protocols>(module, "InitialRegionalProtocol")
             .def(py::init<>())
-            .def_readwrite("FEEDFORWARD_MESSAGE", &Protocols::FEEDFORWARD_MESSAGE)
-            .def_readwrite("FEEDBACKWARD_MESSAGE", &Protocols::FEEDBACKWARD_MESSAGE)
+            .def_readwrite(
+                "FEEDFORWARD_MESSAGE",
+                &Protocols::FEEDFORWARD_MESSAGE
+            )
+            .def_readwrite(
+                "FEEDBACKWARD_MESSAGE",
+                &Protocols::FEEDBACKWARD_MESSAGE
+            )
             .def_readwrite("LATERAL_MESAGE", &Protocols::LATERAL_MESAGE)
             .def_readwrite("STATE_SLOT", &Protocols::STATE_SLOT)
             .def_readwrite("ERROR_SLOT", &Protocols::ERROR_SLOT)
-            .def_readwrite("WEIGHTLESS_LOOKUP", &Protocols::WEIGHTLESS_LOOKUP)
+            .def_readwrite(
+                "WEIGHTLESS_LOOKUP",
+                &Protocols::WEIGHTLESS_LOOKUP
+            )
             .def_readwrite("WEIGHT_SLOT", &Protocols::WEIGHT_SLOT)
             .def_readwrite("AUX_SLOT", &Protocols::AUX_SLOT)
             .def_readwrite("HETEROGENOUS_PTR", &Protocols::HETEROGENOUS_PTR)
@@ -1121,11 +1484,18 @@ namespace atomiccim::python
                 py::call_guard<py::gil_scoped_release>()
             )
             .def(
+                "Retire",
+                &PythonAPC::Retire,
+                py::arg("max_tries") = DEFAULT_MAX_TRIES,
+                py::call_guard<py::gil_scoped_release>()
+            )
+            .def(
                 "BuildAViewOverRegion",
                 &BuildRegionView,
                 py::arg("macro_column"),
                 py::arg("dtype"),
-                "Build the schema-exact typed view; return None when schema and dtype do not match."
+                "Build the schema-exact typed view; return None when schema "
+                "and dtype do not match."
             )
             .def(
                 "ZeroARegion",
@@ -1185,23 +1555,29 @@ namespace atomiccim::python
                 py::call_guard<py::gil_scoped_release>()
             );
 
-        // Pythonic aliases, while preserving every requested architecture name.
+        // Pythonic aliases while preserving the architecture's original names.
         apc_class.attr("get_this_slot_idx") = apc_class.attr("GetThisSlotIdx");
         apc_class.attr("is_valid") = apc_class.attr("IsActiveAPC");
-        apc_class.attr("attach_sibling_or_child") = apc_class.attr("AttachSiblingOrChild");
-        apc_class.attr("attach_me_to_another") = apc_class.attr("AttachMeToAnother");
+        apc_class.attr("attach_sibling_or_child") =
+            apc_class.attr("AttachSiblingOrChild");
+        apc_class.attr("attach_me_to_another") =
+            apc_class.attr("AttachMeToAnother");
         apc_class.attr("detach_my_child") = apc_class.attr("DetachMyChild");
-        apc_class.attr("detach_me_from_another_edge") = apc_class.attr("DetachMeFromAnotherEdge");
+        apc_class.attr("detach_me_from_another_edge") =
+            apc_class.attr("DetachMeFromAnotherEdge");
         apc_class.attr("detach_and_reattach_to_parent") =
             apc_class.attr("DetachAndReAttachMeToThisParent");
         apc_class.attr("detach_and_reattach_as_sibling") =
             apc_class.attr("DetachAndReattachMeAsEquivelentSibbling");
         apc_class.attr("find_previous") = apc_class.attr("FindPrevious");
         apc_class.attr("find_my_next") = apc_class.attr("FindMyNext");
-        apc_class.attr("build_region_view") = apc_class.attr("BuildAViewOverRegion");
+        apc_class.attr("retire") = apc_class.attr("Retire");
+        apc_class.attr("build_region_view") =
+            apc_class.attr("BuildAViewOverRegion");
         apc_class.attr("zero_region") = apc_class.attr("ZeroARegion");
 
-        fabric_class.attr("initialize") = fabric_class.attr("InitializeFabricWithPtrTable");
+        fabric_class.attr("initialize") =
+            fabric_class.attr("InitializeFabricWithPtrTable");
         fabric_class.attr("shutdown") = fabric_class.attr("ShutDownFabric");
         fabric_class.attr("is_active") = fabric_class.attr("IsFabricActive");
 
@@ -1213,7 +1589,9 @@ namespace atomiccim::python
         module.attr("RegionProtocol") = module.attr("SchemaProtocols");
         module.attr("RegionDataType") = module.attr("DataTypeOfMacroColumn");
         module.attr("DEFAULT_MAX_TRIES") = py::int_(DEFAULT_MAX_TRIES);
-        module.attr("BRANCH_VERSION") = py::int_(APCDataStructure::BRANCH_VERSION);
-        module.attr("MINIMUM_APC_CELL_COUNT") = py::int_(MINIMUM_APC_CELL_COUNT);
+        module.attr("BRANCH_VERSION") =
+            py::int_(APCDataStructure::BRANCH_VERSION);
+        module.attr("MINIMUM_APC_CELL_COUNT") =
+            py::int_(MINIMUM_APC_CELL_COUNT);
     }
 }
