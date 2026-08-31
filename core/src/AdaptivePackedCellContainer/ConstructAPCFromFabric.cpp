@@ -1334,11 +1334,13 @@ namespace BidirectionalInMemGraph
         if (!PrepareEdge___(horizontal_r) || !PrepareEdge___(vertical_r))
         {
             RestoreEdgesAndLocks___();
+            return false;
         }
 
         if (!CloseAPCGeneration_(slot, generation))
         {
             RestoreEdgesAndLocks___();
+            return false;
         }
 
         WriteAcquiredAxisDelta_(
@@ -1480,6 +1482,16 @@ namespace BidirectionalInMemGraph
             return EdgeBuilder::BuildFreeEdgeTable(edge, slot, free_edge) &&
                 PublishReservedEdge_(free_edge, slot);
         };
+
+        if (
+            !ResetEdge___(FabricSegments::HORIZONTAL_EDGE_TABLE) ||
+            !ResetEdge___(FabricSegments::VERTICAL_EDGE_TABLE)
+        )
+        {
+            RestoreToRetired___();
+            return false;
+        }
+        
         
         const RangeOfAPC range = GetSegmentPoolRange(slot);
         if (!range.IsValid)

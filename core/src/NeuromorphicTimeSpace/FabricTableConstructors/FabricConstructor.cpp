@@ -216,11 +216,11 @@ namespace BidirectionalInMemGraph
         HandleOfAPCStatic::ControlValues values{};
         values.Generation = generation;
         values.ActiveAccess = UNSIGNED_ZERO;
-        values.Closed = false;
+        values.Closed = true;
         
         uint64_t expected = HandleOfAPCStatic::MakeControlCell(values);
         //desired
-        values.Closed = true;
+        values.Closed = false;
 
         return std::atomic_ref<uint64_t>(*cell).compare_exchange_strong(
             expected,
