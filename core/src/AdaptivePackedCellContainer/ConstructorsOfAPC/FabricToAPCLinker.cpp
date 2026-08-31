@@ -64,11 +64,15 @@ namespace BidirectionalInMemGraph
         HeaderOrchestrator::APCMetaBuffer header_meta_buffer{};
         IAB::BufferOfAPCIdentity idintity_buffer{};
 
+        if (!IsFabricBound_())
+        {
+            return false;
+        }
+        
         const SeqLockedOperation read_identity_buffer_ok = FabricOwnerPtr_->ReadIdentityBufferOfAPC(static_cast<uint32_t>(APCSlotIdx_), idintity_buffer);
         DSA::SeqLockAndStateStruct current_state = FabricOwnerPtr_->ReadAPCStateAtomically_(APCSlotIdx_);
 
         if (
-            !IsThisAPCValid() ||
             read_identity_buffer_ok != SeqLockedOperation::FOUND ||
             !current_state.IsValid ||
             current_state.StateOfTheAPC != StateOfAPC::RESERVED ||
@@ -151,5 +155,18 @@ namespace BidirectionalInMemGraph
         
         return APCUseScope(APCGenerationCellPtr_);
     }
+
+    bool FabricToAPCLinker::IsThisAPCValid() noexcept
+    {
+        if (!IsFabricBound_())
+        {
+            return false;
+        }
+
+        const uint64_t raw = std::atomic_ref<const uint64_t>(*APCGenerationCellPtr_).load(std::memory_order_acquire);
+
+        return HandleOfAPCStatic::IsOpenGeneration(raw, ExpectedGeneration_);
+    }
+
 
 }
