@@ -1,7 +1,7 @@
 RELESE BUILD: 
 
-
-
+WINDOWS :
+```cpp
 
 Remove-Item -Recurse -Force .\build-release -ErrorAction SilentlyContinue
 
@@ -19,3 +19,4 @@ cmake --build .\build-release `
     --verbose
     
 .\build-release\AtomicCIM.exe
+```
