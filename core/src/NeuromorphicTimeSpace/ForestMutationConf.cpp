@@ -372,11 +372,7 @@ namespace BidirectionalInMemGraph
     {
         for (uint8_t i = 0; i < transaction.APCCount; i++)
         {
-            if (!IAB::SealIdentityBuffer(transaction.Identities[i].Work))
-            {
-                AbroatForestMutation_(transaction, max_tries);
-                return false;
-            }
+
             ForestAPCPerticipent_& part = transaction.Identities[i];
 
             WriteAcquiredAxisDelta_(
@@ -417,11 +413,11 @@ namespace BidirectionalInMemGraph
             !PublishPass___(true)
         )
         {
-            AbroatForestMutation_(transaction);
+            AbroatForestMutation_(transaction, max_tries);
             return false;
         }
 
-        ReleseAxisReservation_(transaction);
+        ReleseAxisReservation_(transaction, max_tries);
         return true;
     }
 

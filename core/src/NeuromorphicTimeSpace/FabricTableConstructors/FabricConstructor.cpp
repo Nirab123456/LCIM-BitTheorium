@@ -141,16 +141,6 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        try
-        {
-            uint64_t value_of_last_idx = return_buffer[sequential_number_of_cells - 1];
-            (void) value_of_last_idx;        
-        }
-        catch(...)
-        {
-            return false;
-        }
-
         for (size_t i = 0; i < sequential_number_of_cells; i++)
         {
             std::atomic_ref<const uint64_t>  slab_range_ref(SlabBasePtr_[slab_starting_idx + i]);

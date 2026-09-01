@@ -125,7 +125,6 @@ namespace BidirectionalInMemGraph
             }
             
             if (
-                !EdgeBuilder::ValidateEdgeBuffer(edge_table, return_buffer) ||
                 before_read != return_buffer[internal_idx_st]
             )
             {
