@@ -17,8 +17,7 @@ namespace BidirectionalInMemGraph
         const RangeOfAPC range = GetSegmentPoolRange(apc_slot);
         if (
             !range.IsValid ||
-            IAB::ValueOfAnIdentityFromBuffer(before_idintity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot ||
-            IAB::ValueOfAnIdentityFromBuffer(desired_identity, HeaderIdentifierOfAPC::APC_SLOT_IDX) != apc_slot 
+            apc_slot >= CountOfAPC_
         )
         {
             return;
