@@ -28,7 +28,7 @@ namespace BidirectionalInMemGraph
     struct Twin28Plus8
     {
         static constexpr uint8_t LEN_OF_28_BIT = 28u;
-        static constexpr uint32_t UINT28_MAX = UINT32_MAX & LeftOverBitMaskUntil32(LEN_OF_28_BIT);
+        static constexpr uint32_t UINT28_MAX = UINT32_MAX & MaskLowBitsForU32(LEN_OF_28_BIT);
 
         struct CarrierTwin28
         {

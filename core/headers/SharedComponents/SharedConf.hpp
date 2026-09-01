@@ -84,7 +84,7 @@ namespace BidirectionalInMemGraph
         return ((uint64_t(1) << n) - 1u);                  
     }
 
-    static  constexpr uint32_t LeftOverBitMaskUntil32(unsigned n) noexcept
+    static  constexpr uint32_t MaskLowBitsForU32(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return uint32_t(0);
         if (n >= BIT_LENGTH_OF_APC) return ~uint32_t(0);
