@@ -356,7 +356,7 @@ namespace BidirectionalInMemGraph
     }
 
     void ForestMutationConf::AbroatForestMutation_(
-        ForestMutationTransaction_ transaction,
+        ForestMutationTransaction_& transaction,
         uint32_t max_tries 
     ) noexcept
     {

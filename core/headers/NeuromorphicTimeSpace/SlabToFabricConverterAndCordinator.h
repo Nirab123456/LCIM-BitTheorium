@@ -141,7 +141,7 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
         void AbroatForestMutation_(
-            ForestMutationTransaction_ treansaction,
+            ForestMutationTransaction_& treansaction,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
