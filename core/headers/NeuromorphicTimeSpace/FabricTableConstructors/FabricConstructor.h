@@ -20,6 +20,9 @@ namespace BidirectionalInMemGraph
         uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
         uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
 
+        uint8_t MaxDirectParentsPerAxis_{UNSIGNED_ZERO};
+        uint16_t EdgeTableRecordWidth_{UNSIGNED_ZERO};
+
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};
         RawPackedCellAllocator AllocatorOfFabric_{};

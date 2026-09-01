@@ -26,7 +26,8 @@ public:
 
     bool InitializeFabricWithPtrTable(
         uint32_t slot_count,
-        uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT
+        uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
+        uint8_t max_direct_parents_per_axis = DEFAULT_DIRECTED_PARENT_PER_AXIS
     ) noexcept;
 
     void ShutDownFabricWithPtrTable() noexcept

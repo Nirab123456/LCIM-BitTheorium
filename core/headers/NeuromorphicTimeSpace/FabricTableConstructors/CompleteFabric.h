@@ -1,5 +1,6 @@
 #pragma once 
 #include "FabricConstructor.h"
+#include <new>
 
 namespace BidirectionalInMemGraph
 {
@@ -59,18 +60,19 @@ namespace BidirectionalInMemGraph
     {
     public:
         using EdgeTableRange = RangeOfAPC;
-
-    private :
-        bool SwitchEdgeState__(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeData& pre_switch,
-            EdgeBuilder::EdgeStatus desired_state,
-            std::optional<EdgeBuilder::EdgeStatus> required_st = std::nullopt,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
+        static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
     protected:
+
+        std::span<EdgeTableConf::ParentRelation> ParentRelation_(
+            FabricSegments edge_table,
+            uint32_t edge_idx
+        ) noexcept;
+
+        bool ConstructParentRelationObject_(
+            FabricSegments edge_table,
+            uint32_t edge_idx
+        ) noexcept;
 
         EdgeTableRange ReadAnEdgeTableRange_(
             FabricSegments edge_table,
@@ -79,51 +81,6 @@ namespace BidirectionalInMemGraph
 
         void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
 
-        SeqLockedOperation ReadAnEdgeBuffer_(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeBuffer& return_buffer,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        SeqLockedOperation ReadEdgeData_(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeData& edge_data,
-            EdgeBuilder::EdgeBuffer* edge_buffer_return = nullptr
-        ) noexcept;
-
-        bool ReadEdgedataAtomically(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeLockValues& values
-        ) noexcept;
-
-        bool ReserveAnEdge_(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeData* pre_reserve_data = nullptr,
-            std::optional<EdgeBuilder::EdgeStatus> expected_state = std::nullopt,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept
-        {
-            EdgeBuilder::EdgeData local_before{};
-            EdgeBuilder::EdgeData* before = pre_reserve_data ? pre_reserve_data : &local_before;
-            return
-                SwitchEdgeState__(
-                    edge_table,
-                    edge_idx,
-                    *before,
-                    EdgeBuilder::EdgeStatus::RESERVED,
-                    expected_state,
-                    max_tries
-                );
-        }
-
-        bool PublishReservedEdge_(
-            EdgeBuilder::EdgeData& desired_data,
-            uint32_t edge_idx
-        ) noexcept;
 
     };
 

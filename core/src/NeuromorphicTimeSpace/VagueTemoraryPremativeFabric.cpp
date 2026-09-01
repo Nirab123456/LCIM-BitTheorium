@@ -63,13 +63,15 @@ namespace BidirectionalInMemGraph
 
     bool VagueTemoraryPremativeFabric::InitializeFabricWithPtrTable(
         uint32_t slot_count,
-        uint32_t slot_cell_count
+        uint32_t slot_cell_count,
+        uint8_t max_direct_parents_per_axis
     ) noexcept
     {
         APCRuntimePtrTable_.reset();
         const bool base_ok = InitializeFabric(
             slot_count,
-            slot_cell_count
+            slot_cell_count,
+            max_direct_parents_per_axis
         );
 
         if (!base_ok)

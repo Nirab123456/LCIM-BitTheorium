@@ -38,6 +38,8 @@ namespace BidirectionalInMemGraph
         SlabCellCount_ = UNSIGNED_ZERO;
         PerAPCRuntimeCellCount_ = UNSIGNED_ZERO;
         CountOfAPC_ = UNSIGNED_ZERO;
+        MaxDirectParentsPerAxis_ = UNSIGNED_ZERO;
+        EdgeTableRecordWidth_ = UNSIGNED_ZERO;
         SegmentPoolBegin_ = CoreOfFabricCoordinator::FABRIC_UNIT_COUNT;
         FabricInitialized_.store(false, std::memory_order_release);
         InitializationInProgress_.store(false, std::memory_order_release);
@@ -57,6 +59,7 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::MAGIC)] = CoreOfFabricCoordinator::FABRIC_MAGIC;
         SlabBasePtr_[static_cast<size_t>(FMI::TOTAL_CELLS)] = SlabCellCount_;
         SlabBasePtr_[static_cast<size_t>(FMI::SEGMENT_POOL_BEGIN_IDX)] = SegmentPoolBegin_;
+        SlabBasePtr_[static_cast<size_t>(FMI::PER_APC_RUNTIME_CELL_COUNT)] = PerAPCRuntimeCellCount_;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
         SlabBasePtr_[static_cast<size_t>(FMI::FIRST_FREE_IDX)] = UNSIGNED_ZERO;
@@ -66,7 +69,8 @@ namespace BidirectionalInMemGraph
 
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
         uint32_t slot_count,
-        uint32_t slot_cell_count
+        uint32_t slot_cell_count,
+        uint8_t max_direct_parent_per_axis
     ) noexcept
     {
         bool expected = false;
@@ -108,6 +112,17 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+
+        if (
+            !EdgeBuilder::IsValidConfigurableParentCapacity(max_direct_parent_per_axis) ||
+            slot_count > (uint32_t{1u} << EdgeBuilder::RELATION_SLOT_BITS)
+        )
+        {
+            return false;
+        }
+        MaxDirectParentsPerAxis_ = max_direct_parent_per_axis;
+        EdgeTableRecordWidth_ = static_cast<uint16_t>(EdgeBuilder::EdgeTableRecordWidth(MaxDirectParentsPerAxis_));
+        
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
         PerAPCRuntimeCellCount_ = static_cast<uint32_t>(slot_cell_count);
 
@@ -117,11 +132,13 @@ namespace BidirectionalInMemGraph
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(record_book_end);
         const size_t horizontal_edge_begin = cursor;
-        const size_t horizontal_edge_end = horizontal_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
+        const size_t horizontal_edge_end = horizontal_edge_begin + 
+                static_cast<size_t>(CountOfAPC_) * EdgeTableRecordWidth_;
         
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(horizontal_edge_end);
         const size_t vertical_edge_begin = cursor;
-        const size_t vertical_edge_end = vertical_edge_begin + static_cast<size_t>(CountOfAPC_ * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH);
+        const size_t vertical_edge_end = vertical_edge_begin + 
+                static_cast<size_t>(CountOfAPC_) * EdgeTableRecordWidth_;
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(vertical_edge_end);
         const size_t apc_handle_table_begin = cursor;

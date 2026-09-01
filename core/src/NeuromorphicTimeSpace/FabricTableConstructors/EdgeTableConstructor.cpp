@@ -4,301 +4,72 @@ namespace BidirectionalInMemGraph
 {
     using EdgeTableRange = RangeOfAPC;
 
+    std::span<EdgeTableConf::ParentRelation> EdgeTableConstructor::ParentRelation_(
+        FabricSegments edge_table,
+        uint32_t edge_idx
+    ) noexcept
+    {
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        if (!range.IsValid)
+        {
+            return {};
+        }
+
+        auto* first = std::launder(reinterpret_cast<EdgeBuilder::ParentRelation*>(
+            SlabBasePtr_ + range.BeginIndex + 1u
+        ));
+
+        return {
+            first,
+            static_cast<size_t>(MaxDirectParentsPerAxis_)
+        };
+    }
+
+    bool EdgeTableConstructor::ConstructParentRelationObject_(
+        FabricSegments edge_table,
+        uint32_t edge_idx
+    ) noexcept
+    {
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        if (!range.IsValid)
+        {
+            return false;
+        }
+
+        auto* first = reinterpret_cast<EdgeBuilder::ParentRelation*>(SlabBasePtr_ + range.BeginIndex + 1u);
+
+        for (uint8_t i = 0; i < MaxDirectParentsPerAxis_; i++)
+        {
+            std::construct_at(first + i);
+        }
+        
+        return true;
+    }
+
     EdgeTableRange EdgeTableConstructor::ReadAnEdgeTableRange_(
         FabricSegments edge_table,
         uint32_t edge_idx
     ) noexcept
     {
         EdgeTableRange range{};
+        if (
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            edge_idx >= CountOfAPC_ ||
+            EdgeTableRecordWidth_ != EdgeBuilder::EdgeTableRecordWidth(MaxDirectParentsPerAxis_)
+        )
+        {
+            return range;
+        }
         
-        uint64_t& desired_begin = edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE ? 
+        const uint64_t range_begin = edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE ?
             HorizontalEdgeBeginIdx_ : VerticalEdgeBeginIdx_;
 
-        range.BeginIndex = desired_begin + static_cast<uint64_t>(edge_idx) * EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
-        range.EndIndex = range.BeginIndex + EdgeBuilder::EDGE_TABLE_RECORD_WIDTH;
-        range.IsValid = 
-            CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) &&
-            edge_idx < CountOfAPC_ &&
-            range.BeginIndex >= desired_begin &&
-            range.EndIndex < SlabCellCount_;
+        range.BeginIndex = range_begin + static_cast<uint64_t>(edge_idx) * EdgeTableRecordWidth_;
+        range.EndIndex = range.BeginIndex + EdgeTableRecordWidth_;
+        range.IsValid = range.BeginIndex >= range_begin &&
+            range.EndIndex <= SlabCellCount_;
+
         return range;
-    }
-
-    bool EdgeTableConstructor::ReadEdgedataAtomically(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeLockValues& values
-    ) noexcept
-    {
-        uint64_t raw_st_lock = FABRIC_CELL_SENTINAL;
-        EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-
-        if (
-            !range.IsValid ||
-            !AtomicallyLoadReadAUnit(
-                range.BeginIndex + static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE),
-                raw_st_lock
-            ) 
-        )
-        {
-            return false;
-        }
-        return DSA::GetSeqLockAndLifeCycle(raw_st_lock, values);
-    }
-
-    void EdgeTableConstructor::InitializeEdgeTable_(FabricSegments edge_table) noexcept
-    {
-        if (!CoreOfFabricCoordinator::IsValidEdgeTable(edge_table))
-        {
-            return;
-        }
-
-        EdgeBuilder::EdgeData free_edge{};
-        EdgeBuilder::EdgeBuffer buffer{};
-
-        for (uint32_t i = 0; i < CountOfAPC_; i++)
-        {
-            const EdgeTableRange range_edge_i = ReadAnEdgeTableRange_(edge_table, i);
-            if (!range_edge_i.IsValid)
-            {
-                return;
-            }
-            if (
-                !EdgeBuilder::BuildFreeEdgeTable(
-                    edge_table,
-                    i,
-                    free_edge
-                ) ||
-                !EdgeBuilder::BuildEdgeBuffer(
-                    buffer,
-                    free_edge
-                )
-            )
-            {
-                return;
-            }
-            ForceNxLenMemCopy(
-                range_edge_i.BeginIndex,
-                EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                buffer.data()
-            );
-        }
-    }
-
-    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadAnEdgeBuffer_(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeBuffer& return_buffer,
-        uint32_t max_tries
-    ) noexcept
-    {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-
-        if (!range.IsValid)
-        {
-            return SeqLockedOperation::NONE;
-        }
-        const uint8_t internal_idx_st = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
-        const size_t control_idx = range.BeginIndex + internal_idx_st;
-        uint64_t before_read = FABRIC_CELL_SENTINAL;
-
-        for (size_t i = 0; i < max_tries; i++)
-        {
-
-            if (
-                !AtomicallyLoadReadAUnit(control_idx, before_read)
-            )
-            {
-                return SeqLockedOperation::NONE;
-            }
-
-            if (
-                !ReadBufferwithSyncAtomicIndex(
-                    range.BeginIndex,
-                    EdgeBuilder::EDGE_TABLE_RECORD_WIDTH,
-                    return_buffer.data(),
-                    static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)
-                )
-            )
-            {
-                return SeqLockedOperation::NONE;
-            }
-            
-            if (
-                before_read != return_buffer[internal_idx_st]
-            )
-            {
-                continue;
-            }
-
-            return SeqLockedOperation::FOUND;
-        }
-        return SeqLockedOperation::RETRY;
-    }
-
-    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadEdgeData_(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeData& edge_data,
-        EdgeBuilder::EdgeBuffer* edge_buffer_return
-    ) noexcept
-    {
-        EdgeBuilder::EdgeBuffer buffer{};
-
-        SeqLockedOperation current_operation = ReadAnEdgeBuffer_(edge_table, edge_idx, buffer);
-
-        if (
-            current_operation != SeqLockedOperation::FOUND
-        )
-        {
-            return current_operation;
-        }
-
-        EdgeBuilder::ReadEdgeFromBufferStatically(
-            edge_table,
-            buffer,
-            edge_data
-        );
-
-        if (edge_buffer_return)
-        {
-            *edge_buffer_return = buffer;
-        }
-
-        return current_operation;
-    }
-
-    bool EdgeTableConstructor::SwitchEdgeState__(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeData& pre_switch,
-        EdgeBuilder::EdgeStatus desired_state,
-        std::optional<EdgeBuilder::EdgeStatus> required_st,
-        uint32_t max_tries
-    ) noexcept
-    {
-        EdgeBuilder::EdgeBuffer buffer{};
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-        const size_t control_idx = range.BeginIndex + static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
-
-        
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            SeqLockedOperation outcome_operation = ReadEdgeData_(
-                edge_table,
-                edge_idx,
-                pre_switch,
-                &buffer
-            );
-            
-            if (outcome_operation == SeqLockedOperation::RETRY)
-            {
-                continue;
-            }
-            
-
-            const EdgeBuilder::EdgeStatus edge_status_current = pre_switch.Status;
-
-            if (
-                !pre_switch.IsValid ||
-                (
-                    pre_switch.Status == EdgeBuilder::EdgeStatus::HAULTED &&
-                    desired_state != EdgeBuilder::EdgeStatus::LIVE
-                )
-            )
-            {
-                return false;
-            }
-
-            if (
-                required_st.has_value() &&
-                required_st != edge_status_current
-            )
-            {
-                continue;
-            }
-            
-            const bool caller_holds_reservation = edge_status_current == EdgeBuilder::EdgeStatus::RESERVED;
-            const bool false_owner_claim = !caller_holds_reservation && desired_state != EdgeBuilder::EdgeStatus::RESERVED;
-            const bool non_ower_touching_reserved = caller_holds_reservation && desired_state == EdgeBuilder::EdgeStatus::RESERVED;
-
-            if ( 
-                false_owner_claim ||
-                non_ower_touching_reserved ||
-                !EdgeBuilder::IsTransitionStateLeagal(edge_status_current, desired_state)
-            )
-            {
-                continue;
-            }
-
-            uint64_t expected_st_lock = buffer[static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)];
-
-            ++pre_switch.SeqLock;
-            pre_switch.Status = desired_state;
-
-            if (
-                !EdgeBuilder::BuildEdgeBuffer(buffer, pre_switch)
-            )
-            {
-                return false;
-            }
-
-            --pre_switch.SeqLock;
-            pre_switch.Status = edge_status_current;
-            if (                
-                CompareExchangeStrongFromFabric(
-                    control_idx,
-                    expected_st_lock,
-                    buffer[static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE)]
-                )
-            )
-            {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    bool EdgeTableConstructor::PublishReservedEdge_(
-        EdgeBuilder::EdgeData& desired_data,
-        uint32_t edge_idx
-    ) noexcept
-    {
-        EdgeBuilder::EdgeBuffer buffer{};
-        const EdgeTableRange range = ReadAnEdgeTableRange_(desired_data.EdgeTable, edge_idx);
-
-        EdgeBuilder::EdgeLockValues edge_status{};
-        if (
-            !ReadEdgedataAtomically(desired_data.EdgeTable, edge_idx, edge_status) ||
-            edge_status.StateOfTheAPC != EdgeBuilder::EdgeStatus::RESERVED
-        )
-        {
-            return false;
-        }
-
-        desired_data.SeqLock = edge_status.SeqLock + 1u;
-
-        if (
-            !EdgeBuilder::BuildEdgeBuffer(buffer, desired_data) ||
-            !EdgeBuilder::IsTransitionStateLeagal(edge_status.StateOfTheAPC, desired_data.Status) 
-        )
-        {
-            return false;
-        }
-
-        for (size_t i = 0; i < EdgeBuilder::EDGE_TABLE_RECORD_WIDTH - 1; i++)
-        {
-            std::atomic_ref<uint64_t> slab_edge(SlabBasePtr_[range.BeginIndex + i]);
-            slab_edge.store(buffer[i], std::memory_order_relaxed);
-        }
-        
-        const uint8_t seq_lock_ordinal = static_cast<uint8_t>(EdgeBuilder::EdgeTableIndexing::SEQLOCK_STATE);
-
-        std::atomic_ref<uint64_t> slab_edge(SlabBasePtr_[range.BeginIndex + seq_lock_ordinal]);
-        slab_edge.store(buffer[seq_lock_ordinal], std::memory_order_release);
-
-        return true;
     }
 
 }
