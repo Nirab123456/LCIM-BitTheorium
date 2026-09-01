@@ -72,4 +72,91 @@ namespace BidirectionalInMemGraph
         return range;
     }
 
+    void EdgeTableConstructor::InitializeEdgeTable_(FabricSegments edge_table) noexcept
+    {
+        if (!CoreOfFabricCoordinator::IsValidEdgeTable(edge_table))
+        {
+            return;
+        }
+        
+        for (uint32_t edge_idx = 0; edge_idx < CountOfAPC_; edge_idx++)
+        {
+            const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+
+            if (
+                !range.IsValid || 
+                !ConstructParentRelationObject_(edge_table, edge_idx)
+            )
+            {
+                return;
+            }
+
+            SlabBasePtr_[range.BeginIndex] = EdgeBuilder::PackEdgeHandler(
+                EdgeBuilder::RELATION_NULL,
+                UNSIGNED_ZERO,
+                EdgeBuilder::EdgeStatus::FREE
+            );
+        }
+    }
+
+    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadEdgeData_(
+        FabricSegments edge_table,
+        uint32_t edge_idx,
+        uint8_t relation_ordinal,
+        EdgeBuilder::ParentRelation& relation,
+        uint32_t max_tries
+    ) noexcept
+    {
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+
+        std::span<EdgeBuilder::ParentRelation> stored = ParentRelation_(edge_table, edge_idx);
+
+        if (
+            !range.IsValid ||
+            stored.size() != MaxDirectParentsPerAxis_
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+
+        for (uint32_t i = 0; i < max_tries; i++)
+        {
+            std::atomic_ref<uint64_t>sequense_lock(SlabBasePtr_[range.BeginIndex]);
+            const uint64_t before = sequense_lock.load(std::memory_order_acquire);
+
+            EdgeBuilder::EdgeData header{};
+            EdgeBuilder::UnpackEdgeHader(before, header);
+
+            if (
+                header.Status == EdgeBuilder::EdgeStatus::RESERVED ||
+                !IAB::IsValidEven64(header.SeqLock)
+            )
+            {
+                continue;
+            }
+            
+            if (header.Status != EdgeBuilder::EdgeStatus::LIVE)
+            {
+                return SeqLockedOperation::NONE;
+            }
+
+            EdgeBuilder::ParentRelation observed{};
+
+            observed.ParentHandle = std::atomic_ref<uint64_t>(stored[relation_ordinal].ParentHandle).load(std::memory_order_relaxed);
+            observed.SiblingLocators = std::atomic_ref<uint64_t>(stored[relation_ordinal].SiblingLocators).load(std::memory_order_relaxed);
+
+            const uint64_t after = std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
+
+            if (before != after)
+            {
+                relation = observed;
+                return EdgeBuilder::IsEmpty(relation) ?
+                    SeqLockedOperation::NONE : SeqLockedOperation::FOUND;
+
+            }
+        }
+        
+        return SeqLockedOperation::RETRY;
+    }
+
 }
