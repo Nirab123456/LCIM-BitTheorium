@@ -6,66 +6,73 @@
 
 namespace BidirectionalInMemGraph
 {
+
     enum class HeaderIdentifierOfAPC : uint8_t
     {
-        // identity
+        // Identity
         MAGIC_ID = 0,
 
-        // payload bounds versions
-        FEEDFORWARD_BOUNDS = 15,
-        FEEDBACKWARD_BOUNDS = 16,
-        LATERAL_BOUNDS = 17,
-        STATE_BOUNDS = 18,
-        ERROR_BOUNDS = 19,
-        WEIGHTLESS_BOUNDS = 20,
-        WEIGHT_BOUNDS= 21,
-        AUX_BOUNDS = 22,
-        HETEROGENOUS_PTR_BOUNDS = 23,
-        FREE_BOUNDS = 24,
+        // Payload bounds versions
+        FEEDFORWARD_BOUNDS       = 1,
+        FEEDBACKWARD_BOUNDS      = 2,
+        LATERAL_BOUNDS           = 3,
+        STATE_BOUNDS             = 4,
+        ERROR_BOUNDS             = 5,
+        WEIGHTLESS_BOUNDS        = 6,
+        WEIGHT_BOUNDS            = 7,
+        AUX_BOUNDS               = 8,
+        HETEROGENOUS_PTR_BOUNDS  = 9,
+        FREE_BOUNDS              = 10,
+
         // Self Record
-        BRANCH_PRIORITY = 25,
-        LAYOUT_VERSION = 26,
-        LOCAL_FULL_CLOCK = 27,
-        //ENQUEUE
-        FEEDFORWARD_ENQUEUE_POSITION = 28,
-        FEEDBACKWARD_ENQUEUE_POSITION = 29,
-        LATERAL_ENQUEUE_POSITION = 30,
-        STATE_ENQUEUE_POSITION = 31,
-        ERROR_ENQUEUE_POSITION = 32,
-        WEIGHTLESS_ENQUEUE_POSITION = 33,
-        WEIGHT_ENQUEUE_POSITION = 34,
-        AUX_ENQUEUE_POSITION = 35,
-        HETEROGENOUS_ENQUEUE_POSITION = 36,
-        FREE_ENQUEUE_POSITION = 37,
-        //DEQUEUE
-        FEEDFORWARD_DEQUEUE_POSITION = 38,
-        FEEDBACKWARD_DEQUEUE_POSITION = 39,
-        LATERAL_DEQUEUE_POSITION = 40,
-        STATE_DEQUEUE_POSITION = 41,
-        ERROR_DEQUEUE_POSITION = 42,
-        WEIGHTLESS_DEQUEUE_POSITION = 43,
-        WEIGHT_DEQUEUE_POSITION = 44,
-        AUX_DEQUEUE_POSITION = 45,
-        HETEROGENOUS_DEQUEUE_POSITION = 46,
-        FREE_DEQUEUE_POSITION = 47,
+        RESERVED          = 11,
+        RESERVED_1           = 12,
+        RESERVED_2         = 13,
+
+        // ENQUEUE
+        FEEDFORWARD_ENQUEUE_POSITION      = 14,
+        FEEDBACKWARD_ENQUEUE_POSITION      = 15,
+        LATERAL_ENQUEUE_POSITION           = 16,
+        STATE_ENQUEUE_POSITION             = 17,
+        ERROR_ENQUEUE_POSITION             = 18,
+        WEIGHTLESS_ENQUEUE_POSITION        = 19,
+        WEIGHT_ENQUEUE_POSITION            = 20,
+        AUX_ENQUEUE_POSITION               = 21,
+        HETEROGENOUS_ENQUEUE_POSITION      = 22,
+        FREE_ENQUEUE_POSITION              = 23,
+
+        // DEQUEUE
+        FEEDFORWARD_DEQUEUE_POSITION       = 24,
+        FEEDBACKWARD_DEQUEUE_POSITION      = 25,
+        LATERAL_DEQUEUE_POSITION           = 26,
+        STATE_DEQUEUE_POSITION             = 27,
+        ERROR_DEQUEUE_POSITION             = 28,
+        WEIGHTLESS_DEQUEUE_POSITION        = 29,
+        WEIGHT_DEQUEUE_POSITION            = 30,
+        AUX_DEQUEUE_POSITION               = 31,
+        HETEROGENOUS_DEQUEUE_POSITION      = 32,
+        FREE_DEQUEUE_POSITION              = 33,
 
         // Region schema: record width + protocol + format/version.
-        FEEDFORWARD_REGION_SCHEMA = 48,
-        FEEDBACKWARD_REGION_SCHEMA = 49,
-        LATERAL_REGION_SCHEMA = 50,
-        STATE_REGION_SCHEMA = 51,
-        ERROR_REGION_SCHEMA = 52,
-        WEIGHTLESS_REGION_SCHEMA = 53,
-        WEIGHT_REGION_SCHEMA = 54,
-        AUX_REGION_SCHEMA = 55,
-        HETEROGENOUS_REGION_SCHEMA = 56,
-        FREE_REGION_SCHEMA = 57,
-        CURRENT_ACTIVE_THREADS = 58,
-        APC_SCHEMA_ID = 59,
+        FEEDFORWARD_REGION_SCHEMA          = 34,
+        FEEDBACKWARD_REGION_SCHEMA          = 35,
+        LATERAL_REGION_SCHEMA              = 36,
+        STATE_REGION_SCHEMA                = 37,
+        ERROR_REGION_SCHEMA                = 38,
+        WEIGHTLESS_REGION_SCHEMA            = 39,
+        WEIGHT_REGION_SCHEMA                = 40,
+        AUX_REGION_SCHEMA                   = 41,
+        HETEROGENOUS_REGION_SCHEMA          = 42,
+        FREE_REGION_SCHEMA                  = 43,
 
-        APC_LIFE_CYCLE = 62,
-        EOF_APC_HEADER = 63
+        RESERVED_4             = 44,
+        APC_SCHEMA_ID                       = 45,
+
+        APC_LIFE_CYCLE                      = 46,
+        EOF_APC_HEADER                      = 47
     };
+
+
 
     static_assert(
         (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_BOUNDS) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS)) ==
@@ -145,7 +152,7 @@ namespace BidirectionalInMemGraph
     struct APCDataStructure : public ColumnConf
     {
 
-        static constexpr uint8_t METACELL_COUNT = 64;
+        static constexpr uint8_t METACELL_COUNT = static_cast<uint8_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER) + 1u;
         static constexpr uint8_t FABRIC_CELL_COUNT = 16;
 
 
