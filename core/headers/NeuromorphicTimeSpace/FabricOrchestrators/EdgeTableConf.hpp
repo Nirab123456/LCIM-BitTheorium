@@ -69,19 +69,6 @@ struct EdgeTableConf : public DescriptionOfAPC
         return static_cast<uint8_t>(locator >> RELATION_SLOT_BITS);
     }
 
-    static constexpr bool IsValidRelationLocator(
-        uint32_t locator,
-        uint64_t apc_count,
-        uint8_t maxc_direct_parents
-    ) noexcept
-    {
-        return locator == RELATION_NULL ||
-            (
-                RelationSlot(locator) < apc_count &&
-                RelationOrdinal(locator) < maxc_direct_parents
-            );
-    }
-
     static constexpr uint64_t FirstChildCellFromLocator(uint32_t locator) noexcept
     {
         return locator == RELATION_NULL ?

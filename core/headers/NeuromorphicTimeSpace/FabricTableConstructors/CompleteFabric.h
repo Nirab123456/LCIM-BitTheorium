@@ -89,7 +89,7 @@ namespace BidirectionalInMemGraph
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        bool ReadEdgeHeader_(
+        bool ReadEdgeSeqLock_(
             FabricSegments edge_table,
             uint32_t edge_idx,
             EdgeBuilder::EdgeLockValues& values
@@ -103,6 +103,22 @@ namespace BidirectionalInMemGraph
             std::optional<EdgeBuilder::EdgeStatus> required_st = std::nullopt,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        SeqLockedOperation ReadEdgeData_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeData& edge_data,
+            bool caller_holds_reservation = false,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool PublishReservedEdge_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            const EdgeBuilder::EdgeData& desired_data,
+            EdgeBuilder::DirtyRelationMask dirty_relation
+        ) noexcept;
+
 
 
     };
