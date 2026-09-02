@@ -273,7 +273,7 @@ namespace BidirectionalInMemGraph
         EdgeBuilder::EdgeLockValues edge_status{};
 
         if (
-            !ReadEdgedataAtomically(map.EdgeTable, apc_slot, edge_status) ||
+            !ReadEdgeHeader_(map.EdgeTable, apc_slot, edge_status) ||
             edge_status.StateOfTheAPC != EdgeBuilder::EdgeStatus::RESERVED
         )
         {
@@ -1455,7 +1455,7 @@ namespace BidirectionalInMemGraph
         auto ResetEdge___ = [&](FabricSegments edge) noexcept -> bool
         {
             EdgeBuilder::EdgeLockValues state{};
-            if (!ReadEdgedataAtomically(edge, slot, state))
+            if (!ReadEdgeHeader_(edge, slot, state))
             {
                 return false;
             }

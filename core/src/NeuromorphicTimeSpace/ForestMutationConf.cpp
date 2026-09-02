@@ -451,7 +451,7 @@ namespace BidirectionalInMemGraph
                 return SeqLockedOperation::NONE;
             }
         }
-        SeqLockedOperation outcome = ReadEdgeData_(
+        SeqLockedOperation outcome = ReadParentRelation_(
             map.EdgeTable,
             edge_idx,
             edge_data

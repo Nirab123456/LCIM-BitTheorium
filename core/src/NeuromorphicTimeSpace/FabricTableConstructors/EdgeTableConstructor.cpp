@@ -91,15 +91,14 @@ namespace BidirectionalInMemGraph
                 return;
             }
 
-            SlabBasePtr_[range.BeginIndex] = EdgeBuilder::PackEdgeHandler(
-                EdgeBuilder::RELATION_NULL,
+            SlabBasePtr_[range.BeginIndex] = EdgeBuilder::PackEdgeHeader(
                 UNSIGNED_ZERO,
                 EdgeBuilder::EdgeStatus::FREE
             );
         }
     }
 
-    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadEdgeData_(
+    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadParentRelation_(
         FabricSegments edge_table,
         uint32_t edge_idx,
         uint8_t relation_ordinal,
@@ -153,6 +152,94 @@ namespace BidirectionalInMemGraph
                 return EdgeBuilder::IsEmpty(relation) ?
                     SeqLockedOperation::NONE : SeqLockedOperation::FOUND;
 
+            }
+        }
+        
+        return SeqLockedOperation::RETRY;
+    }
+
+
+    bool EdgeTableConstructor::ReadEdgeHeader_(
+        FabricSegments edge_table,
+        uint32_t edge_idx,
+        EdgeBuilder::EdgeLockValues& values
+    ) noexcept
+    {
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        if (!range.IsValid)
+        {
+            return false;
+        }
+        const uint64_t raw =  std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
+        EdgeBuilder::UnpackEdgeLock(raw, values);
+        return DescriptionOfAPC::ValidateStateAgainstSeqLock(values);
+    }
+
+
+    EdgeTableConstructor::SeqLockedOperation EdgeTableConstructor::SwitchEdgeState__(
+        FabricSegments edge_table,
+        uint32_t edge_idx,
+        EdgeBuilder::EdgeLockValues& before,
+        EdgeBuilder::EdgeStatus desired_state,
+        std::optional<EdgeBuilder::EdgeStatus> required_st,
+        uint32_t max_tries
+    ) noexcept
+    {
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+
+        std::span<EdgeBuilder::ParentRelation> stored = ParentRelation_(edge_table, edge_idx);
+        if (
+            !range.IsValid ||
+            stored.size() != MaxDirectParentsPerAxis_
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+        
+        before = EdgeBuilder::EdgeLockValues{};
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            if (
+                !ReadEdgeHeader_(edge_table, edge_idx, before) ||
+                !before.IsValid ||
+                (
+                    before.StateOfTheAPC == EdgeBuilder::EdgeStatus::HAULTED &&
+                    desired_state != EdgeBuilder::EdgeStatus::LIVE
+                )
+            )
+            {
+                return SeqLockedOperation::NONE;
+            }
+            
+            if (
+                required_st.has_value() &&
+                required_st != before.StateOfTheAPC
+            )
+            {
+                continue;
+            }
+            
+            const bool caller_holds_reservation = before.StateOfTheAPC == EdgeBuilder::EdgeStatus::RESERVED;
+            const bool false_owner_claim = !caller_holds_reservation && desired_state != EdgeBuilder::EdgeStatus::RESERVED;
+            const bool non_ower_touching_reserved = caller_holds_reservation && desired_state == EdgeBuilder::EdgeStatus::RESERVED;
+
+            if ( 
+                false_owner_claim ||
+                non_ower_touching_reserved ||
+                !EdgeBuilder::IsTransitionStateLeagal(before.StateOfTheAPC, desired_state)
+            )
+            {
+                continue;
+            }
+
+            uint64_t observed = EdgeBuilder::PackEdgeHeader(before.SeqLock , before.StateOfTheAPC);
+
+            const uint64_t desired = EdgeBuilder::PackEdgeHeader(before.SeqLock + 1u, desired_state);
+
+            if (CompareExchangeStrongFromFabric(range.BeginIndex, observed, desired))
+            {
+                return SeqLockedOperation::FOUND;
             }
         }
         

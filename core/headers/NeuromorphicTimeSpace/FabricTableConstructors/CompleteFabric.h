@@ -81,13 +81,30 @@ namespace BidirectionalInMemGraph
 
         void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
 
-        SeqLockedOperation ReadEdgeData_(
+        SeqLockedOperation ReadParentRelation_(
             FabricSegments edge_table,
             uint32_t edge_idx,
             uint8_t relation_ordinal,
             EdgeBuilder::ParentRelation& relation,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        bool ReadEdgeHeader_(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeLockValues& values
+        ) noexcept;
+
+        SeqLockedOperation SwitchEdgeState__(
+            FabricSegments edge_table,
+            uint32_t edge_idx,
+            EdgeBuilder::EdgeLockValues& pre_switch,
+            EdgeBuilder::EdgeStatus desired_state,
+            std::optional<EdgeBuilder::EdgeStatus> required_st = std::nullopt,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+
     };
 
 
