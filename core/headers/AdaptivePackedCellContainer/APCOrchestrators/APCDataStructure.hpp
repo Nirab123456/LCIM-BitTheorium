@@ -25,9 +25,9 @@ namespace BidirectionalInMemGraph
         FREE_BOUNDS              = 10,
 
         // Self Record
-        RESERVED          = 11,
-        RESERVED_1           = 12,
-        RESERVED_2         = 13,
+        LAYOUT_VERSION           = 11,
+        RESERVED          = 12,
+        RESERVED_1         = 13,
 
         // ENQUEUE
         FEEDFORWARD_ENQUEUE_POSITION      = 14,
@@ -65,7 +65,7 @@ namespace BidirectionalInMemGraph
         HETEROGENOUS_REGION_SCHEMA          = 42,
         FREE_REGION_SCHEMA                  = 43,
 
-        RESERVED_4             = 44,
+        CURRENT_ACTIVE_THREADS              = 44,
         APC_SCHEMA_ID                       = 45,
 
         APC_LIFE_CYCLE                      = 46,

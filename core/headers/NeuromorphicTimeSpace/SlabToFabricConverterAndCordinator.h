@@ -4,7 +4,6 @@
 namespace BidirectionalInMemGraph
 {
     
-    
     class SlabToFabricConverterAndCordinator : public EdgeTableConstructor
     {
     private:
@@ -79,7 +78,7 @@ namespace BidirectionalInMemGraph
 
         struct DAGMutationTransaction
         {
-            FabricSegments edge_table{};
+            FabricSegments EdgeTable{};
             std::array<DAGRowParticipant, DAG_MAX_ROW_PARTICIPANTS> Rows{};
             std::array<DAGRelationDelta, DAG_MAX_RELATION_DELTAS> Relations{};
             uint8_t RowCount = 0u;
@@ -113,7 +112,7 @@ namespace BidirectionalInMemGraph
             DAGMutationTransaction& transaction
         ) noexcept;
 
-        bool CommitRowTransaction_(
+        void CommitRowTransaction_(
             DAGMutationTransaction& transaction,
             EdgeBuilder::EdgeStatus final_status =
                 EdgeBuilder::EdgeStatus::LIVE
@@ -126,7 +125,49 @@ namespace BidirectionalInMemGraph
         friend class AdaptivePackedCellContainer;
         friend class FabricToAPCLinker;
 
+    protected:
+        static constexpr bool SameHeader_(
+            const EdgeBuilder::EdgeData& left,
+            const EdgeBuilder::EdgeData& right
+        ) noexcept
+        {
+            return
+                left.IsValid &&
+                right.IsValid &&
+                left.TailLocator == right.TailLocator &&
+                left.SeqLock == right.SeqLock &&
+                left.Status == right.Status;
+        }
+
     private:
+        struct ParentRowScan
+        {
+            EdgeBuilder::EdgeData Header{};
+            uint8_t MatchOrdinal = UINT8_MAX;
+            uint8_t OtherOrdinal = UINT8_MAX;
+            uint8_t EmptyOrdinal = UINT8_MAX;
+            EdgeBuilder::ParentRelation Match{};
+        };
+
+        static constexpr bool SameRelation_(
+            const EdgeBuilder::ParentRelation& left,
+            const EdgeBuilder::ParentRelation& right
+        ) noexcept
+        {
+            return
+                left.ParentHandle == right.ParentHandle &&
+                left.SiblingLocators == right.SiblingLocators;
+        }
+
+        SeqLockedOperation ScanParentRow_(
+            FabricSegments edge_table,
+            uint32_t child_slot,
+            uint64_t wanted_parent_handle,
+            uint64_t other_parent_handle,
+            ParentRowScan& scan,
+            uint32_t max_tries
+        ) noexcept;
+
         bool AddParentRelation_(
             uint32_t parent_slot,
             uint32_t parent_generation,
@@ -155,23 +196,6 @@ namespace BidirectionalInMemGraph
             FabricSegments edge_table,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
-
-        SeqLockedOperation ResolveChildLocator_(
-            uint32_t parent_slot,
-            uint32_t parent_generation,
-            FabricSegments edge_table,
-            uint32_t locator,
-            AdaptivePackedCellContainer*& child
-        ) noexcept;
-
-        bool RetireAPC_(
-            uint32_t slot,
-            uint32_t generation,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-    protected:
-        bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
     };
 
 }
