@@ -1,7 +1,7 @@
 #pragma once 
 #include <array>
 #include <utility>
-#include "IdentityOrchestrator.hpp"
+#include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
 namespace BidirectionalInMemGraph
 {

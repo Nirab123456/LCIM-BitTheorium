@@ -21,7 +21,6 @@ namespace BidirectionalInMemGraph
         void InitializeCompleateFabricMetaIndices_(size_t record_book_begin, size_t record_book_end) noexcept;
 
     protected :
-        bool AttachValidIdentity(uint32_t apc_idx) noexcept;
 
         bool InitializeFabric(
             uint32_t slot_count,
@@ -53,200 +52,126 @@ namespace BidirectionalInMemGraph
         
     };
 
-    class ForestMutationConf : public SlabToFabricConverterAndCordinator
+
+    class DAGMutationConf : public SlabToFabricConverterAndCordinator
     {
     protected:
+        static constexpr uint8_t DAG_MAX_ROW_PARTICIPANTS = 7u;
+        static constexpr uint8_t DAG_MAX_RELATION_DELTAS = 5u;
+        static constexpr uint8_t INVALID_RELATION_ORDINAL = UINT8_MAX;
 
-        static constexpr uint8_t FOREST_MAX_EDGE_PERTICIPENT_ = 5u;
-        static constexpr uint8_t FOREST_MAX_APC_PERTICIPENT_ = 4u;
-
-        using AllRequiresApcList_ = std::array<uint32_t, FOREST_MAX_APC_PERTICIPENT_>;
-
-        void WriteAcquiredAxisDelta_(
-            uint32_t apc_slot,
-            const IAB::BufferOfAPCIdentity& before_idintity,
-            const IAB::BufferOfAPCIdentity& desired_identity,
-            IAB::BidirectionalAxis axis
-        ) noexcept;
-
-        bool ReleseGraphMutationFlag_(
-            uint32_t apc_slot,
-            IAB::BidirectionalAxis axis,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        struct ForestEdgePerticipent_
-        {
-            uint32_t Index = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            EdgeBuilder::EdgeData Before{};
-            EdgeBuilder::EdgeData Work{};
-            EdgeBuilder::EdgeStatus ExpectedStatus = EdgeBuilder::EdgeStatus::LIVE;
-
-            bool IsLocalParticipent = true;
-            bool IsForestGate = false;
-
-            bool Reserved = false;
-            bool Published = false;
-        };
-
-        struct ForestAPCPerticipent_
+        struct DAGRowParticipant
         {
             uint32_t Slot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            IAB::BufferOfAPCIdentity Before{};
-            IAB::BufferOfAPCIdentity Work{};
-            bool Locked = false;
-            bool Published = false;
+            EdgeBuilder::EdgeData Before{};
+            uint32_t WorkTail = EdgeBuilder::RELATION_NULL;
+            bool IsParentAnchor = false;
+            bool Reserved = false;
         };
 
-        struct ForestMutationTransaction_
+        struct DAGRelationDelta
         {
-            IAB::BidirectionalAxis Axis{};
-            std::array<ForestEdgePerticipent_, FOREST_MAX_EDGE_PERTICIPENT_> Edges{};
-            std::array<ForestAPCPerticipent_, FOREST_MAX_APC_PERTICIPENT_> Identities{};
-
-            uint8_t EdgeCount = UNSIGNED_ZERO;
-            uint8_t APCCount = UNSIGNED_ZERO;
-
-            bool AllGraphRelesed = true;
+            uint32_t ChildSlot = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint8_t Ordinal = INVALID_RELATION_ORDINAL;
+            EdgeBuilder::ParentRelation Before{};
+            EdgeBuilder::ParentRelation Work{};
         };
 
-        bool AddForestEdgeParticipent_(
-            ForestMutationTransaction_& trasaction,
-            uint32_t edge_idx,
-            bool is_local_perticipent = true,
-            bool is_forest_gate = false,
-            EdgeBuilder::EdgeStatus expacted_state = EdgeBuilder::EdgeStatus::LIVE
+        struct DAGMutationTransaction
+        {
+            FabricSegments edge_table{};
+            std::array<DAGRowParticipant, DAG_MAX_ROW_PARTICIPANTS> Rows{};
+            std::array<DAGRelationDelta, DAG_MAX_RELATION_DELTAS> Relations{};
+            uint8_t RowCount = 0u;
+            uint8_t RelationCount = 0u;
+        };
+
+        bool AddRowParticipant_(
+            DAGMutationTransaction& transaction,
+            uint32_t slot,
+            bool is_parent_anchor = false
         ) noexcept;
 
-        ForestEdgePerticipent_* FindForestEdgeParticipent_(
-            ForestMutationTransaction_& transaction,
-            uint32_t edge_idx 
+        DAGRowParticipant* FindRowParticipant_(
+            DAGMutationTransaction& transaction,
+            uint32_t slot
         ) noexcept;
 
-        ForestAPCPerticipent_* FindForestAPCParticipent_(
-            ForestMutationTransaction_& transaction,
-            uint32_t apc_slot 
+        DAGRelationDelta* EditReservedRelation_(
+            DAGMutationTransaction& transaction,
+            uint32_t child_slot,
+            uint8_t ordinal
         ) noexcept;
 
-        void RestoreForestEdges_(
-            ForestMutationTransaction_& transaction,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
+        bool ReserveAllRows_(
+            DAGMutationTransaction& transaction,
+            EdgeBuilder::EdgeStatus required_status,
+            uint32_t max_tries
         ) noexcept;
 
-        void RestoreForestIdentities_(
-            ForestMutationTransaction_& transaction
+        void AbortRowTransaction_(
+            DAGMutationTransaction& transaction
         ) noexcept;
 
-        void ReleseAxisReservation_(
-            ForestMutationTransaction_& transaction,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        void AbroatForestMutation_(
-            ForestMutationTransaction_& treansaction,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool ReserveLocalForestEdges_(
-            ForestMutationTransaction_& transaction,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool CommitForestMutation_(
-            ForestMutationTransaction_& transaction,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        SeqLockedOperation ReadCommittedForestEdge_(
-            uint32_t edge_idx,
-            IAB::BidirectionalAxis axis,
-            EdgeBuilder::EdgeData& edge_data,
-            ForestMutationTransaction_* transaction = nullptr
+        bool CommitRowTransaction_(
+            DAGMutationTransaction& transaction,
+            EdgeBuilder::EdgeStatus final_status =
+                EdgeBuilder::EdgeStatus::LIVE
         ) noexcept;
     };
 
-    class ConstructForestOnEachAxis : public ForestMutationConf
+
+    class ConstructDAGOnEachAxis : public DAGMutationConf
     {
         friend class AdaptivePackedCellContainer;
         friend class FabricToAPCLinker;
+
     private:
-
-        bool AcquiteAllIdentitiesForTransaction_(
-            AllRequiresApcList_& slots,
-            uint8_t slot_count,
-            IAB::BidirectionalAxis axis,
-            ForestMutationTransaction_& transaction,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        SeqLockedOperation FindForestRootEdge_(
-            uint32_t start_edge_idx,
-            uint32_t forbidden_edge_idx,
-            bool reject_forbidden,
-            uint32_t& root_edge_idx,
-            IAB::BidirectionalAxis axis,
-            ForestMutationTransaction_& transaction
-        ) noexcept;
-
-        bool AnchorADetachedChildToParent(
-            uint32_t predessor_idx,
-            uint32_t child_idx,
-            IAB::BidirectionalAxis axis,
-            IAB::DescOfInharitance inharitance,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        bool UnlinkTwoAPC(
-            uint32_t child_idx,
-            IAB::BidirectionalAxis axis,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-        /// @return PREVIOUS GRAPH MUTATION VALUE RAW: MEANS: Value before change
-        std::optional<uint64_t> AcquireGraphMutationFlag_(
-            uint32_t apc_slot_idx,
-            IAB::BidirectionalAxis axis,
+        bool AddParentRelation_(
+            uint32_t parent_slot,
+            uint32_t parent_generation,
+            uint32_t child_slot,
+            uint32_t child_generation,
+            FabricSegments edge_table,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        bool UnlinkAndRelinkToTail(
-            uint32_t apc_slot_idx,
-            uint32_t unlink_edge_idx,
-            uint32_t relink_edge_idx,
-            IAB::BidirectionalAxis axis,
-            uint32_t internal_max_tries = DEFAULT_MAX_TRIES
+        bool RemoveParentRelation_(
+            uint32_t parent_slot,
+            uint32_t parent_generation,
+            uint32_t child_slot,
+            uint32_t child_generation,
+            FabricSegments edge_table,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool ReplaceParentRelation_(
+            uint32_t old_parent_slot,
+            uint32_t old_parent_generation,
+            uint32_t new_parent_slot,
+            uint32_t new_parent_generation,
+            uint32_t child_slot,
+            uint32_t child_generation,
+            FabricSegments edge_table,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        SeqLockedOperation ResolveChildLocator_(
+            uint32_t parent_slot,
+            uint32_t parent_generation,
+            FabricSegments edge_table,
+            uint32_t locator,
+            AdaptivePackedCellContainer*& child
         ) noexcept;
 
         bool RetireAPC_(
-            uint32_t slot, 
+            uint32_t slot,
             uint32_t generation,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
-        
+
     protected:
-        SeqLockedOperation ReadIdentityBufferOfAPC(
-            uint32_t apc_slot,
-            IAB::BufferOfAPCIdentity& identity,
-            std::optional<IAB::BidirectionalAxis> axis = std::nullopt,
-            bool is_axis_already_reserved = false
-        ) noexcept;
-
-        bool OpenForestGateOnAxis(
-            uint32_t apc_slot,
-            IAB::BidirectionalAxis axis,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
-        ) noexcept;
-
-
         bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
-
-    public:
-        // Just for test
-        bool ReadGraphMutationFlags(
-            uint32_t slot_idx,
-            IAB::GraphMutationValues& values
-        ) noexcept;
-
-};
+    };
 
 }

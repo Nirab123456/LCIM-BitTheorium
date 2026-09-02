@@ -174,7 +174,6 @@ namespace BidirectionalInMemGraph
 
         if (
             !range.IsValid ||
-            !AttachValidIdentity(slot_new.value()) ||
             !desired_apc.BindExternalRawFabricBacking_(
                 &SlabBasePtr_[range.BeginIndex],
                 this,

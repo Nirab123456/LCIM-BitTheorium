@@ -4,20 +4,63 @@ namespace BidirectionalInMemGraph
 {
     using EdgeTableRange = RangeOfAPC;
 
-    std::span<EdgeTableConf::ParentRelation> EdgeTableConstructor::ParentRelation_(
+    EdgeTableConstructor::EdgeTableRange
+    EdgeTableConstructor::ReadAnEdgeTableRange_(
         FabricSegments edge_table,
-        uint32_t edge_idx
+        uint32_t row_slot
     ) noexcept
     {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        EdgeTableRange range{};
+
+        if (
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            row_slot >= CountOfAPC_ ||
+            !EdgeBuilder::IsValidConfigurableParentCapacity(
+                MaxDirectParentsPerAxis_
+            ) ||
+            EdgeTableRecordWidth_ !=
+                EdgeBuilder::EdgeTableRecordWidth(
+                    MaxDirectParentsPerAxis_
+                )
+        )
+        {
+            return range;
+        }
+
+        const uint64_t table_begin =
+            edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE
+                ? HorizontalEdgeBeginIdx_
+                : VerticalEdgeBeginIdx_;
+
+        range.BeginIndex = table_begin +
+            static_cast<uint64_t>(row_slot) * EdgeTableRecordWidth_;
+        range.EndIndex = range.BeginIndex + EdgeTableRecordWidth_;
+        range.IsValid =
+            range.BeginIndex >= table_begin &&
+            range.BeginIndex < range.EndIndex &&
+            range.EndIndex <= SlabCellCount_;
+        return range;
+    }
+
+    std::span<EdgeBuilder::ParentRelation>
+    EdgeTableConstructor::ParentRelations_(
+        FabricSegments edge_table,
+        uint32_t row_slot
+    ) noexcept
+    {
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, row_slot);
+
         if (!range.IsValid)
         {
             return {};
         }
 
-        auto* first = std::launder(reinterpret_cast<EdgeBuilder::ParentRelation*>(
-            SlabBasePtr_ + range.BeginIndex + 1u
-        ));
+        auto* first = std::launder(
+            reinterpret_cast<EdgeBuilder::ParentRelation*>(
+                SlabBasePtr_ + range.BeginIndex + 1u
+            )
+        );
 
         return {
             first,
@@ -25,351 +68,278 @@ namespace BidirectionalInMemGraph
         };
     }
 
-    bool EdgeTableConstructor::ConstructParentRelationObject_(
+    bool EdgeTableConstructor::ConstructParentRelationObjects_(
         FabricSegments edge_table,
-        uint32_t edge_idx
+        uint32_t row_slot
     ) noexcept
     {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, row_slot);
+
         if (!range.IsValid)
         {
             return false;
         }
 
-        auto* first = reinterpret_cast<EdgeBuilder::ParentRelation*>(SlabBasePtr_ + range.BeginIndex + 1u);
+        auto* first = reinterpret_cast<EdgeBuilder::ParentRelation*>(
+            SlabBasePtr_ + range.BeginIndex + 1u
+        );
 
-        for (uint8_t i = 0; i < MaxDirectParentsPerAxis_; i++)
+        for (uint8_t ordinal = 0u;
+            ordinal < MaxDirectParentsPerAxis_;
+            ++ordinal)
         {
-            std::construct_at(first + i);
+            std::construct_at(first + ordinal);
         }
-        
+
         return true;
     }
 
-    EdgeTableRange EdgeTableConstructor::ReadAnEdgeTableRange_(
-        FabricSegments edge_table,
-        uint32_t edge_idx
+    bool EdgeTableConstructor::InitializeEdgeTable_(
+        FabricSegments edge_table
     ) noexcept
-    {
-        EdgeTableRange range{};
-        if (
-            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
-            edge_idx >= CountOfAPC_ ||
-            EdgeTableRecordWidth_ != EdgeBuilder::EdgeTableRecordWidth(MaxDirectParentsPerAxis_)
-        )
-        {
-            return range;
-        }
-        
-        const uint64_t range_begin = edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE ?
-            HorizontalEdgeBeginIdx_ : VerticalEdgeBeginIdx_;
-
-        range.BeginIndex = range_begin + static_cast<uint64_t>(edge_idx) * EdgeTableRecordWidth_;
-        range.EndIndex = range.BeginIndex + EdgeTableRecordWidth_;
-        range.IsValid = range.BeginIndex >= range_begin &&
-            range.EndIndex <= SlabCellCount_;
-
-        return range;
-    }
-
-    void EdgeTableConstructor::InitializeEdgeTable_(FabricSegments edge_table) noexcept
     {
         if (!CoreOfFabricCoordinator::IsValidEdgeTable(edge_table))
         {
-            return;
+            return false;
         }
-        
-        for (uint32_t edge_idx = 0; edge_idx < CountOfAPC_; edge_idx++)
+
+        for (uint32_t row_slot = 0u;
+            row_slot < CountOfAPC_;
+            ++row_slot)
         {
-            const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+            const EdgeTableRange range =
+                ReadAnEdgeTableRange_(edge_table, row_slot);
 
             if (
-                !range.IsValid || 
-                !ConstructParentRelationObject_(edge_table, edge_idx)
+                !range.IsValid ||
+                !ConstructParentRelationObjects_(edge_table, row_slot)
             )
             {
-                return;
+                return false;
             }
 
-            SlabBasePtr_[range.BeginIndex] = EdgeBuilder::PackEdgeHeader(
-                UNSIGNED_ZERO,
-                EdgeBuilder::EdgeStatus::FREE
-            );
+            EdgeBuilder::EdgeData empty{};
+            empty.TailLocator = EdgeBuilder::RELATION_NULL;
+            empty.SeqLock = 0u;
+            empty.Status = EdgeBuilder::EdgeStatus::FREE;
+            empty.IsValid = true;
+
+            SlabBasePtr_[range.BeginIndex] =
+                EdgeBuilder::PackEdgeHeader(empty);
         }
+
+        return true;
     }
 
-    FabricToAPCLinker::SeqLockedOperation EdgeTableConstructor::ReadParentRelation_(
+    bool EdgeTableConstructor::ReadEdgeHeader_(
         FabricSegments edge_table,
-        uint32_t edge_idx,
+        uint32_t row_slot,
+        EdgeBuilder::EdgeData& edge
+    ) noexcept
+    {
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, row_slot);
+
+        if (!range.IsValid)
+        {
+            edge = {};
+            return false;
+        }
+
+        const uint64_t raw = std::atomic_ref<uint64_t>(
+            SlabBasePtr_[range.BeginIndex]
+        ).load(std::memory_order_acquire);
+
+        edge = EdgeBuilder::UnpackEdgeHeader(raw);
+        return edge.IsValid;
+    }
+
+    EdgeTableConstructor::SeqLockedOperation
+    EdgeTableConstructor::ReadParentRelation_(
+        FabricSegments edge_table,
+        uint32_t child_slot,
         uint8_t relation_ordinal,
         EdgeBuilder::ParentRelation& relation,
         uint32_t max_tries
     ) noexcept
     {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-
-        std::span<EdgeBuilder::ParentRelation> stored = ParentRelation_(edge_table, edge_idx);
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, child_slot);
+        std::span<EdgeBuilder::ParentRelation> stored =
+            ParentRelations_(edge_table, child_slot);
 
         if (
             !range.IsValid ||
-            stored.size() != MaxDirectParentsPerAxis_
+            stored.size() != MaxDirectParentsPerAxis_ ||
+            !EdgeBuilder::IsValidRelationOrdinal(
+                relation_ordinal,
+                MaxDirectParentsPerAxis_
+            )
         )
         {
             return SeqLockedOperation::NONE;
         }
 
-        for (uint32_t i = 0; i < max_tries; i++)
+        for (uint32_t attempt = 0u; attempt < max_tries; ++attempt)
         {
-            std::atomic_ref<uint64_t>sequense_lock(SlabBasePtr_[range.BeginIndex]);
-            const uint64_t before = sequense_lock.load(std::memory_order_acquire);
+            const uint64_t before_raw = std::atomic_ref<uint64_t>(
+                SlabBasePtr_[range.BeginIndex]
+            ).load(std::memory_order_acquire);
 
-            EdgeBuilder::EdgeData header{};
-            EdgeBuilder::UnpackEdgeHader(before, header);
+            const EdgeBuilder::EdgeData before =
+                EdgeBuilder::UnpackEdgeHeader(before_raw);
 
-            if (
-                header.Status == EdgeBuilder::EdgeStatus::RESERVED ||
-                !IAB::IsValidEven64(header.SeqLock)
-            )
+            if (!before.IsValid)
+            {
+                return SeqLockedOperation::NONE;
+            }
+            if (before.Status == EdgeBuilder::EdgeStatus::RESERVED)
             {
                 continue;
             }
-            
-            if (header.Status != EdgeBuilder::EdgeStatus::LIVE)
+            if (before.Status != EdgeBuilder::EdgeStatus::LIVE)
             {
                 return SeqLockedOperation::NONE;
             }
 
             EdgeBuilder::ParentRelation observed{};
+            observed.ParentHandle = std::atomic_ref<uint64_t>(
+                stored[relation_ordinal].ParentHandle
+            ).load(std::memory_order_relaxed);
+            observed.SiblingLocators = std::atomic_ref<uint64_t>(
+                stored[relation_ordinal].SiblingLocators
+            ).load(std::memory_order_relaxed);
 
-            observed.ParentHandle = std::atomic_ref<uint64_t>(stored[relation_ordinal].ParentHandle).load(std::memory_order_relaxed);
-            observed.SiblingLocators = std::atomic_ref<uint64_t>(stored[relation_ordinal].SiblingLocators).load(std::memory_order_relaxed);
+            const uint64_t after_raw = std::atomic_ref<uint64_t>(
+                SlabBasePtr_[range.BeginIndex]
+            ).load(std::memory_order_acquire);
 
-            const uint64_t after = std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
-
-            if (before != after)
+            if (before_raw != after_raw)
             {
-                relation = observed;
-                return EdgeBuilder::IsEmpty(relation) ?
-                    SeqLockedOperation::NONE : SeqLockedOperation::FOUND;
-
+                continue;
             }
+
+            relation = observed;
+            if (EdgeBuilder::IsPartiallyEmpty(relation))
+            {
+                return SeqLockedOperation::NONE;
+            }
+            return EdgeBuilder::IsEmpty(relation)
+                ? SeqLockedOperation::NONE
+                : SeqLockedOperation::FOUND;
         }
-        
+
         return SeqLockedOperation::RETRY;
     }
 
-
-    bool EdgeTableConstructor::ReadEdgeSeqLock_(
+        
+    EdgeTableConstructor::SeqLockedOperation
+    EdgeTableConstructor::ReserveEdgeRow_(
         FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeLockValues& values
-    ) noexcept
-    {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-        if (!range.IsValid)
-        {
-            return false;
-        }
-        const uint64_t raw =  std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
-        EdgeBuilder::UnpackEdgeLock(raw, values);
-        return DescriptionOfAPC::ValidateStateAgainstSeqLock(values);
-    }
-
-
-    EdgeTableConstructor::SeqLockedOperation EdgeTableConstructor::SwitchEdgeState__(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeLockValues& before,
-        EdgeBuilder::EdgeStatus desired_state,
-        std::optional<EdgeBuilder::EdgeStatus> required_st,
+        uint32_t row_slot,
+        EdgeBuilder::EdgeStatus required_status,
+        EdgeBuilder::EdgeData& before,
         uint32_t max_tries
     ) noexcept
     {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, row_slot);
 
         if (!range.IsValid)
         {
             return SeqLockedOperation::NONE;
         }
-        
-        before = EdgeBuilder::EdgeLockValues{};
 
-        for (size_t i = 0; i < max_tries; i++)
+        for (uint32_t attempt = 0u; attempt < max_tries; ++attempt)
         {
-            if (
-                !ReadEdgeSeqLock_(edge_table, edge_idx, before) ||
-                !before.IsValid ||
-                (
-                    before.StateOfTheAPC == EdgeBuilder::EdgeStatus::HAULTED &&
-                    desired_state != EdgeBuilder::EdgeStatus::LIVE
-                )
-            )
+            uint64_t observed_raw = std::atomic_ref<uint64_t>(
+                SlabBasePtr_[range.BeginIndex]
+            ).load(std::memory_order_acquire);
+
+            EdgeBuilder::EdgeData observed =
+                EdgeBuilder::UnpackEdgeHeader(observed_raw);
+
+            if (!observed.IsValid)
             {
                 return SeqLockedOperation::NONE;
             }
-            
-            if (
-                required_st.has_value() &&
-                required_st != before.StateOfTheAPC
-            )
+            if (observed.Status == EdgeBuilder::EdgeStatus::RESERVED)
             {
                 continue;
             }
-            
-            const bool caller_holds_reservation = before.StateOfTheAPC == EdgeBuilder::EdgeStatus::RESERVED;
-            const bool false_owner_claim = !caller_holds_reservation && desired_state != EdgeBuilder::EdgeStatus::RESERVED;
-            const bool non_ower_touching_reserved = caller_holds_reservation && desired_state == EdgeBuilder::EdgeStatus::RESERVED;
-
-            if ( 
-                false_owner_claim ||
-                non_ower_touching_reserved ||
-                !EdgeBuilder::IsTransitionStateLeagal(before.StateOfTheAPC, desired_state)
-            )
+            if (observed.Status != required_status)
             {
-                continue;
+                return SeqLockedOperation::NONE;
             }
 
-            uint64_t observed = EdgeBuilder::PackEdgeHeader(before.SeqLock , before.StateOfTheAPC);
+            EdgeBuilder::EdgeData reserved = observed;
+            reserved.SeqLock = EdgeBuilder::NextSequence(
+                observed.SeqLock
+            );
+            reserved.Status = EdgeBuilder::EdgeStatus::RESERVED;
+            reserved.IsValid = true;
 
-            const uint64_t desired = EdgeBuilder::PackEdgeHeader(before.SeqLock + 1u, desired_state);
+            const uint64_t desired_raw =
+                EdgeBuilder::PackEdgeHeader(reserved);
 
-            if (CompareExchangeStrongFromFabric(range.BeginIndex, observed, desired))
+            if (CompareExchangeWeakInSlab(
+                range.BeginIndex,
+                observed_raw,
+                desired_raw
+            ))
             {
+                before = observed;
                 return SeqLockedOperation::FOUND;
             }
         }
-        
-        return SeqLockedOperation::RETRY;
-    }
-
-    EdgeTableConstructor::SeqLockedOperation EdgeTableConstructor::ReadEdgeData_(
-        FabricSegments edge_table,
-        uint32_t edge_idx,
-        EdgeBuilder::EdgeData& edge_data,
-        bool caller_holds_reservation,
-        uint32_t max_tries 
-    ) noexcept
-    {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
-
-        std::span<EdgeBuilder::ParentRelation> stored = ParentRelation_(edge_table, edge_idx);
-        if (
-            !range.IsValid ||
-            stored.size() != MaxDirectParentsPerAxis_
-        )
-        {
-            return SeqLockedOperation::NONE;
-        }
-
-        EdgeBuilder::EdgeLockValues before{};
-        EdgeBuilder::EdgeLockValues after{};
-
-        for (size_t i = 0; i < max_tries; i++)
-        {
-            if (
-                !ReadEdgeSeqLock_(edge_table, edge_idx, before) ||
-                !before.IsValid
-            )
-            {
-                return SeqLockedOperation::NONE;
-            }
-
-            if (caller_holds_reservation && before.StateOfTheAPC != StateOfAPC::RESERVED)
-            {
-                return SeqLockedOperation::NONE;
-            }
-
-            if (
-                !caller_holds_reservation &&
-                before.StateOfTheAPC != EdgeBuilder::EdgeStatus::LIVE
-            )
-            {
-                continue;
-            }
-            
-            if (!ReadEdgeSeqLock_(edge_table, edge_idx, after) || !after.IsValid)
-            {
-                return SeqLockedOperation::NONE;
-            }
-
-            if (
-                before.SeqLock != after.SeqLock ||
-                before.StateOfTheAPC != after.StateOfTheAPC
-            )
-            {
-                continue;
-            }
-
-            edge_data.SeqLock = before.SeqLock;
-            edge_data.Status = before.StateOfTheAPC;
-
-            for (uint8_t j = 0; j < MaxDirectParentsPerAxis_; j++)
-            {
-                edge_data.Parents[j].ParentHandle = std::atomic_ref<uint64_t>(stored[j].ParentHandle).load(std::memory_order_acquire);
-                edge_data.Parents[j].SiblingLocators = std::atomic_ref<uint64_t>(stored[j].SiblingLocators).load(std::memory_order_acquire);
-            }
-            
-            
-            return SeqLockedOperation::FOUND;
-        }
 
         return SeqLockedOperation::RETRY;
     }
 
-    bool EdgeTableConstructor::PublishReservedEdge_(
+    void EdgeTableConstructor::StoreReservedParentRelation_(
         FabricSegments edge_table,
-        uint32_t edge_idx,
-        const EdgeBuilder::EdgeData& desired_data,
-        EdgeBuilder::DirtyRelationMask dirty_relation
+        uint32_t child_slot,
+        uint8_t relation_ordinal,
+        const EdgeBuilder::ParentRelation& relation
     ) noexcept
     {
-        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, edge_idx);
+        std::span<EdgeBuilder::ParentRelation> stored =
+            ParentRelations_(edge_table, child_slot);
 
-        std::span<EdgeBuilder::ParentRelation> stored = ParentRelation_(edge_table, edge_idx);
-        EdgeBuilder::EdgeLockValues seq_lock{};
+        std::atomic_ref<uint64_t>(
+            stored[relation_ordinal].ParentHandle
+        ).store(relation.ParentHandle, std::memory_order_relaxed);
 
-        if (
-            !range.IsValid ||
-            stored.size() != MaxDirectParentsPerAxis_ ||
-            desired_data.Status == EdgeBuilder::EdgeStatus::RESERVED  ||
-            !ReadEdgeSeqLock_(edge_table, edge_idx, seq_lock) ||
-            !IAB::IsValidEven64(seq_lock.SeqLock) ||
-            !EdgeBuilder::IsTransitionStateLeagal(seq_lock.StateOfTheAPC, desired_data.Status)
-        )
-        {
-            return false;
-        }
+        std::atomic_ref<uint64_t>(
+            stored[relation_ordinal].SiblingLocators
+        ).store(relation.SiblingLocators, std::memory_order_relaxed);
+    }
 
-        for (uint8_t i = 0; i < MaxDirectParentsPerAxis_; i++)
-        {
-            if ((dirty_relation & EdgeBuilder::DirtyBit(i)) == UNSIGNED_ZERO)
-            {
-                continue;
-            }
+    void EdgeTableConstructor::PublishReservedEdgeRow_(
+        FabricSegments edge_table,
+        uint32_t row_slot,
+        const EdgeBuilder::EdgeData& before,
+        uint32_t desired_tail,
+        EdgeBuilder::EdgeStatus desired_status
+    ) noexcept
+    {
+        const EdgeTableRange range =
+            ReadAnEdgeTableRange_(edge_table, row_slot);
 
-            std::atomic_ref<uint64_t>(stored[i].ParentHandle).store(
-                desired_data.Parents[i].ParentHandle,
-                std::memory_order_relaxed
-            );
-
-            std::atomic_ref<uint64_t>(stored[i].SiblingLocators).store(
-                desired_data.Parents[i].SiblingLocators,
-                std::memory_order_relaxed
-            );
-        }
-        
-        const uint64_t published = EdgeBuilder::PackEdgeHeader(
-            seq_lock.SeqLock + 1u,
-            desired_data.Status
+        EdgeBuilder::EdgeData published{};
+        published.TailLocator = desired_tail;
+        published.SeqLock = EdgeBuilder::NextSequence(
+            EdgeBuilder::NextSequence(before.SeqLock)
         );
+        published.Status = desired_status;
+        published.IsValid = true;
 
-        std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).store(
-            published,
+        std::atomic_ref<uint64_t>(
+            SlabBasePtr_[range.BeginIndex]
+        ).store(
+            EdgeBuilder::PackEdgeHeader(published),
             std::memory_order_release
         );
-
-        return true;
     }
-        
-
 }

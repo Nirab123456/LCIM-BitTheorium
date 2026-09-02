@@ -63,6 +63,8 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_BEGIN)] = record_book_begin;
         SlabBasePtr_[static_cast<size_t>(FMI::RECORD_BOOK_OF_TSC_END)] = record_book_end;
         SlabBasePtr_[static_cast<size_t>(FMI::FIRST_FREE_IDX)] = UNSIGNED_ZERO;
+        SlabBasePtr_[static_cast<size_t>(FMI::EDGE_TABLE_RECORD_WIDTH)] = EdgeTableRecordWidth_;
+        SlabBasePtr_[static_cast<size_t>(FMI::MAX_DIRECT_PARENTS_PER_AXIS)] = MaxDirectParentsPerAxis_;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
@@ -209,8 +211,13 @@ namespace BidirectionalInMemGraph
         //END:: IDELING
 
         //INIT: EDGE TABLES
-        InitializeEdgeTable_(FabricSegments::HORIZONTAL_EDGE_TABLE);
-        InitializeEdgeTable_(FabricSegments::VERTICAL_EDGE_TABLE);
+        if (
+            !InitializeEdgeTable_(FabricSegments::HORIZONTAL_EDGE_TABLE) ||
+            !InitializeEdgeTable_(FabricSegments::VERTICAL_EDGE_TABLE)
+        )
+        {
+            return false;
+        }
         //END::: 
         //INIT:Life Cycle
         InitAllAPCLifeCycleState();
@@ -235,35 +242,6 @@ namespace BidirectionalInMemGraph
             FreeRawPackedCells_(old_ptr, old_count);
         }
         ResetScalarsofTheFabric_();
-    }
-
-
-    bool SlabToFabricConverterAndCordinator::AttachValidIdentity(uint32_t apc_idx) noexcept
-    {
-
-        IAB::BufferOfAPCIdentity identity_buffer{};
-
-        const RangeOfAPC range = GetSegmentPoolRange(apc_idx);
-
-        if (
-            apc_idx >= CountOfAPC_  ||
-            !range.IsValid
-        )
-        {
-            return false;
-        }
-
-        const DSA::SeqLockAndStateStruct dsc_lock_files = ReadAPCStateAtomically_(apc_idx);
-
-        return
-            dsc_lock_files.IsValid &&
-            dsc_lock_files.StateOfTheAPC == StateOfAPC::RESERVED &&
-            IAB::IdentityBufferFromSegmentPoolRange(apc_idx, range, identity_buffer) &&    
-            ForceNxLenMemCopy(
-                range.BeginIndex + static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK),
-                APCDataStructure::TotalIdentityUnitCount(),
-                identity_buffer.data()
-            );
     }
 
 

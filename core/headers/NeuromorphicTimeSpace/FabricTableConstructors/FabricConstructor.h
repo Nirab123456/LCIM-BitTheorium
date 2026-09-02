@@ -28,7 +28,6 @@ namespace BidirectionalInMemGraph
         RawPackedCellAllocator AllocatorOfFabric_{};
         using SeqLockedOperation = FabricToAPCLinker::SeqLockedOperation;
 
-        using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
 
         bool ReadAFabricU64Directly(
@@ -102,17 +101,6 @@ namespace BidirectionalInMemGraph
         bool CloseAPCGeneration_(uint32_t slot, uint32_t generation) noexcept;
 
         bool AdvanceClosedAPCGeneration_(uint32_t slot, uint32_t& generation_new) noexcept;
-
-        struct AxisRetirement_
-        {
-            IAB::BidirectionalAxis Which{};
-            IAB::AxisConstructionMap Map{};
-            EdgeBuilder::EdgeData Before{};
-            EdgeBuilder::EdgeData Work{};
-            bool HasOwnedRoot = false;
-            bool Reserved = false;
-            bool Published = false;
-        };
 
         std::optional<uint32_t> ReadFirstFreeAPCIdx_() noexcept;
 

@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-class VagueTemoraryPremativeFabric : public ConstructForestOnEachAxis
+class VagueTemoraryPremativeFabric : public SlabToFabricConverterAndCordinator
 {
     friend class AdaptivePackedCellContainer;
 private:

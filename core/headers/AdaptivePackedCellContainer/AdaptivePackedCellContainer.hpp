@@ -11,53 +11,49 @@ class AdaptivePackedCellContainer : public RegionViewConstructor
 
 public:
     static constexpr uint8_t REALTION_FIND_TRIES = 1;
-    using IAB = InstallAxisToBuffer;
 
     bool AttachSiblingOrChild(
         AdaptivePackedCellContainer& sibbling,
-        IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool AttachMeToAnother(
         AdaptivePackedCellContainer& sibbling,
-        IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool DetachMyChild(
         AdaptivePackedCellContainer& sibbling,
-        IAB::BidirectionalAxis axis,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool DetachMeFromAnotherEdge(
-        IAB::BidirectionalAxis axis,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool DetachAndReAttachMeToThisParent(
         AdaptivePackedCellContainer& root_parent,
-        IAB::BidirectionalAxis axis,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     bool DetachAndReattachMeAsEquivelentSibbling(
         AdaptivePackedCellContainer& sibbling,
-        IAB::BidirectionalAxis axis,
+        FabricSegments edge_table,
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     RelationOparation FindPrevious(
-        IAB::BidirectionalAxis axis,
+        FabricSegments edge_table,
         uint32_t max_tries = REALTION_FIND_TRIES
     ) noexcept;
 
     RelationOparation FindMyNext(
-        IAB::BidirectionalAxis axis,
-        IAB::DescOfInharitance inharitance,
+        FabricSegments edge_table,
         uint32_t max_tries = REALTION_FIND_TRIES
     ) noexcept;
 

@@ -10,7 +10,6 @@ namespace BidirectionalInMemGraph
     protected:
         using LBO = LayoutBoundsOrchestrator;
         using SD = SchemaDefinition;
-        using IAB = InstallAxisToBuffer;
         using DSA = DescriptionOfAPC;
         using RBC = RecordBookConf;
 
@@ -63,64 +62,59 @@ namespace BidirectionalInMemGraph
         static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
     protected:
-
-        std::span<EdgeTableConf::ParentRelation> ParentRelation_(
-            FabricSegments edge_table,
-            uint32_t edge_idx
-        ) noexcept;
-
-        bool ConstructParentRelationObject_(
-            FabricSegments edge_table,
-            uint32_t edge_idx
-        ) noexcept;
-
         EdgeTableRange ReadAnEdgeTableRange_(
             FabricSegments edge_table,
-            uint32_t edge_idx
+            uint32_t row_slot
         ) noexcept;
 
-        void InitializeEdgeTable_(FabricSegments edge_table) noexcept;
+        std::span<EdgeBuilder::ParentRelation> ParentRelations_(
+            FabricSegments edge_table,
+            uint32_t row_slot
+        ) noexcept;
+
+        bool ConstructParentRelationObjects_(
+            FabricSegments edge_table,
+            uint32_t row_slot
+        ) noexcept;
+
+        bool InitializeEdgeTable_(FabricSegments edge_table) noexcept;
+
+        bool ReadEdgeHeader_(
+            FabricSegments edge_table,
+            uint32_t row_slot,
+            EdgeBuilder::EdgeData& edge
+        ) noexcept;
 
         SeqLockedOperation ReadParentRelation_(
             FabricSegments edge_table,
-            uint32_t edge_idx,
+            uint32_t child_slot,
             uint8_t relation_ordinal,
             EdgeBuilder::ParentRelation& relation,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        bool ReadEdgeSeqLock_(
+        SeqLockedOperation ReserveEdgeRow_(
             FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeLockValues& values
-        ) noexcept;
-
-        SeqLockedOperation SwitchEdgeState__(
-            FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeLockValues& pre_switch,
-            EdgeBuilder::EdgeStatus desired_state,
-            std::optional<EdgeBuilder::EdgeStatus> required_st = std::nullopt,
+            uint32_t row_slot,
+            EdgeBuilder::EdgeStatus required_status,
+            EdgeBuilder::EdgeData& before,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
 
-        SeqLockedOperation ReadEdgeData_(
+        void StoreReservedParentRelation_(
             FabricSegments edge_table,
-            uint32_t edge_idx,
-            EdgeBuilder::EdgeData& edge_data,
-            bool caller_holds_reservation = false,
-            uint32_t max_tries = DEFAULT_MAX_TRIES
+            uint32_t child_slot,
+            uint8_t relation_ordinal,
+            const EdgeBuilder::ParentRelation& relation
         ) noexcept;
 
-        bool PublishReservedEdge_(
+        void PublishReservedEdgeRow_(
             FabricSegments edge_table,
-            uint32_t edge_idx,
-            const EdgeBuilder::EdgeData& desired_data,
-            EdgeBuilder::DirtyRelationMask dirty_relation
+            uint32_t row_slot,
+            const EdgeBuilder::EdgeData& before,
+            uint32_t desired_tail,
+            EdgeBuilder::EdgeStatus desired_status
         ) noexcept;
-
-
-
     };
 
 

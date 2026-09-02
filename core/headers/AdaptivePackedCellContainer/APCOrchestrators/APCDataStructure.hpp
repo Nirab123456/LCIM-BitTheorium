@@ -11,21 +11,6 @@ namespace BidirectionalInMemGraph
         // identity
         MAGIC_ID = 0,
 
-        GRAPH_MUTATION_AND_LOCK = 1,
-        APC_SLOT_IDX = 2,
-        BOUNDS_BEGIN = 3,
-        BOUNDS_END = 4,
-        HORIZONTAL_SHARED_IDX = 5,
-        VERTICAL_SHARED_IDX = 6,
-        HORIZONTAL_ROOT_IDX = 7,
-        VERTICAL_ROOT_IDX = 8,
-        HORIZONTAL_NEXT_OF_ROOT = 9,
-        VERTICAL_NEXT_OF_ROOT = 10,
-        NEXT_HORIZONTAL_SLOT = 11,
-        NEXT_VERTICAL_SLOT = 12,
-        PREVIOUS_HORIZONTAL_SLOT = 13,
-        PREVIOUS_VERTICAL_SLOT = 14,
-
         // payload bounds versions
         FEEDFORWARD_BOUNDS = 15,
         FEEDBACKWARD_BOUNDS = 16,
@@ -203,10 +188,10 @@ namespace BidirectionalInMemGraph
             return value != UNSIGNED_ZERO && (value & (value - 1u)) == UNSIGNED_ZERO;
         }
 
-        static constexpr uint8_t TotalIdentityUnitCount() noexcept
+        static constexpr bool IsValidEven64(uint64_t value) noexcept
         {
-            return static_cast<uint8_t>(HeaderIdentifierOfAPC::PREVIOUS_VERTICAL_SLOT) - 
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::GRAPH_MUTATION_AND_LOCK) + 1;
+            return 
+                (value & 1u) == UNSIGNED_ZERO;
         }
 
         static uint64_t MakeARandomFabricValid64() noexcept
