@@ -92,6 +92,7 @@ namespace BidirectionalInMemGraph
         struct RelationOparation 
         {
             AdaptivePackedCellContainer* APCPtr_ = nullptr;
+            uint32_t RelationLocator = UINT32_MAX;
             SeqLockedOperation MutationOP_ = SeqLockedOperation::NONE;
         };
 

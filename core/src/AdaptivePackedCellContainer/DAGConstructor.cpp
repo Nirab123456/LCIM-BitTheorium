@@ -221,4 +221,118 @@ namespace BidirectionalInMemGraph
         }
     }
 
+    ConstructDAGOnEachAxis::SeqLockedOperation ConstructDAGOnEachAxis::ScanParentRow_(
+        FabricSegments edge_table,
+        uint32_t child_slot,
+        uint64_t wanted_parent_handle,
+        uint64_t other_parent_handle,
+        ParentRowScan& scan,
+        uint32_t max_tries 
+    ) noexcept
+    {
+        scan = ParentRowScan{};
+        const EdgeTableRange range = ReadAnEdgeTableRange_(edge_table, child_slot);
+        std::span<EdgeBuilder::ParentRelation> stored = ParentRelations_(edge_table, child_slot);
+
+        if (
+            !range.IsValid ||
+            stored.size() != MaxDirectParentsPerAxis_
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            const uint64_t before_raw = std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
+
+            const EdgeBuilder::EdgeData before = EdgeBuilder::UnpackEdgeHeader(before_raw);
+
+            if (!before.IsValid)
+            {
+                return SeqLockedOperation::NONE;
+            }
+
+            if (before.Status == EdgeBuilder::EdgeStatus::RESERVED)
+            {
+                continue;
+            }
+            
+            if (before.Status != EdgeBuilder::EdgeStatus::LIVE)
+            {
+                return SeqLockedOperation::NONE;
+            }
+            
+            ParentRowScan observed{};
+            observed.Header = before;
+            bool malformed = false;
+
+            for (uint8_t ordinal = 0; ordinal < MaxDirectParentsPerAxis_; ordinal++)
+            {
+                EdgeBuilder::ParentRelation relation{};
+                relation.ParentHandle = std::atomic_ref<uint64_t>(stored[ordinal].ParentHandle).load(std::memory_order_acquire);
+                relation.SiblingLocators = std::atomic_ref<uint64_t>(stored[ordinal].SiblingLocators).load(std::memory_order_relaxed);  
+
+                if (EdgeBuilder::IsPartiallyEmpty(relation))
+                {
+                    malformed = true;
+                    continue;
+                }
+
+                if (EdgeBuilder::IsEmpty(relation))
+                {
+                    if (observed.EmptyOrdinal == UINT8_MAX)
+                    {
+                        observed.EmptyOrdinal = ordinal;
+                    }
+                    continue;
+                }
+                
+                if (relation.ParentHandle == wanted_parent_handle)
+                {
+                    if (observed.MatchOrdinal != UINT8_MAX)
+                    {
+                        malformed = true;
+                    }
+                    else
+                    {
+                        observed.MatchOrdinal = ordinal;
+                        observed.Match = relation;
+                    }
+                }
+
+                if (
+                    other_parent_handle != FABRIC_CELL_SENTINAL &&
+                    relation.ParentHandle == other_parent_handle
+                )
+                {
+                    if (observed.OtherOrdinal != UINT8_MAX)
+                    {
+                        malformed = true;
+                    }
+                    else
+                    {
+                        observed.OtherOrdinal = ordinal;
+                    }
+                }
+            }
+            
+            const uint64_t after_raw = std::atomic_ref<uint64_t>(SlabBasePtr_[range.BeginIndex]).load(std::memory_order_acquire);
+            if (before_raw != after_raw)
+            {
+                continue;
+            }
+            
+            if (malformed)
+            {
+                return SeqLockedOperation::NONE;
+            }
+
+            scan = observed;
+            return SeqLockedOperation::FOUND;
+        }
+        
+        return SeqLockedOperation::RETRY;
+    }
+
 }
