@@ -1260,7 +1260,7 @@
 //     inline void BindArchitecture(py::module_& module)
 //     {
 //         module.doc() =
-//             "Lock-free pybind11 adapter for AtomicCIM APC/Fabric architecture";
+//             "Lock-free pybind11 adapter for SuperNova APC/Fabric architecture";
 
 //         py::enum_<Axis>(module, "BidirectionalAxis")
 //             .value("HORIZONTAL", Axis::HORIZONTAL)

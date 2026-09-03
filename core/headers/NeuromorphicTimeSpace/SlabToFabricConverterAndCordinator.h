@@ -138,9 +138,8 @@ namespace BidirectionalInMemGraph
                 left.SeqLock == right.SeqLock &&
                 left.Status == right.Status;
         }
-
-    private:
         static constexpr uint8_t DEFAULT_INTERNAL_TRIES__ = 1u;
+    private:
 
         struct ParentRowScan
         {

@@ -88,6 +88,77 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+    VagueTemoraryPremativeFabric::SeqLockedOperation VagueTemoraryPremativeFabric::ResolveChildLocator_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t locator,
+        AdaptivePackedCellContainer*& child
+    ) noexcept
+    {
+        child = nullptr;
+        if (
+            parent_slot >= CountOfAPC_ ||
+            !HandleOfAPCStatic::IsGenerationValid(parent_generation) ||
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            !EdgeBuilder::IsValidRelationLocator(
+                locator,
+                static_cast<uint32_t>(CountOfAPC_),
+                MaxDirectParentsPerAxis_
+            )
+        )
+        {
+            return SeqLockedOperation::NONE;
+        }
+
+        EdgeBuilder::ParentRelation relation{};
+        const SeqLockedOperation read = ReadParentRelation_(
+            edge_table,
+            EdgeBuilder::RelationSlot(locator),
+            EdgeBuilder::RelationOrdinal(locator),
+            relation,
+            DEFAULT_INTERNAL_TRIES__
+        ); 
+
+        if (read != SeqLockedOperation::FOUND)
+        {
+            return read;
+        }
+
+        if (
+            relation.ParentHandle != EdgeBuilder::MakeParentHandle(parent_slot, parent_generation)
+        )
+        {
+            return SeqLockedOperation::RETRY;
+        }
+
+        AdaptivePackedCellContainer* candidate = GetAPCRuntimePtrBySlotIndex_(EdgeBuilder::RelationSlot(locator));
+
+        if (!candidate)
+        {
+            return SeqLockedOperation::RETRY;
+        }
+        
+        APCUseScope child_use = candidate->AcquireAPCUse_();
+        if (
+            !child_use ||
+            candidate->FabricOwnerPtr_ != this ||
+            candidate->APCSlotIdx_ != EdgeBuilder::RelationSlot(locator)
+        )
+        {
+            return SeqLockedOperation::RETRY;
+        }
+        
+        child = candidate;
+
+        return SeqLockedOperation::FOUND;
+    }
+
+    
+
+
+
+
     bool VagueTemoraryPremativeFabric::CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
         bool wants_horizontal_root,

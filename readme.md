@@ -8,17 +8,17 @@ Remove-Item -Recurse -Force .\build-release -ErrorAction SilentlyContinue
 cmake -S .\core -B .\build-release `
     -G Ninja `
     -DCMAKE_BUILD_TYPE=Release `
-    -DATOMICCIM_ENABLE_IPO=ON `
-    -DATOMICCIM_NATIVE_CPU=OFF `
+    -DSUPERNOVA_ENABLE_IPO=ON `
+    -DSUPERNOVA_NATIVE_CPU=OFF `
     -DPython_EXECUTABLE="$((Get-Command python).Source)" `
-    -DATOMICCIM_FAST_FP=OFF 
+    -DSUPERNOVA_FAST_FP=OFF 
     
 cmake --build .\build-release `
-    --target AtomicCIM atomiccim_bind `
+    --target SuperNova atomiccim_bind `
     --parallel `
     --verbose
     
-.\build-release\AtomicCIM.exe
+.\build-release\SuperNova.exe
 ```
 
 LINUX :
@@ -29,15 +29,15 @@ rm -rf ./build-release
 cmake -S ./core -B ./build-release \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DATOMICCIM_ENABLE_IPO=ON \
-    -DATOMICCIM_NATIVE_CPU=ON \
+    -DSUPERNOVA_ENABLE_IPO=ON \
+    -DSUPERNOVA_NATIVE_CPU=ON \
     -DPython_EXECUTABLE="$(command -v python3)" \
-    -DATOMICCIM_FAST_FP=OFF
+    -DSUPERNOVA_FAST_FP=OFF
 
 cmake --build ./build-release \
-    --target AtomicCIM atomiccim_bind \
+    --target SuperNova atomiccim_bind \
     --parallel \
     --verbose
 
-./build-release/AtomicCIM
+./build-release/SuperNova
 ```

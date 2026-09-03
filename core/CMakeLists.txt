@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(AtomicCIM LANGUAGES CXX)
+project(SuperNova LANGUAGES CXX)
 
 # ============================================================
 # Global configuration
@@ -36,19 +36,19 @@ endif()
 # ============================================================
 
 option(
-    ATOMICCIM_ENABLE_IPO
+    SUPERNOVA_ENABLE_IPO
     "Enable interprocedural/link-time optimization in Release"
     ON
 )
 
 option(
-    ATOMICCIM_NATIVE_CPU
+    SUPERNOVA_NATIVE_CPU
     "Generate CPU-specific instructions for this machine"
     OFF
 )
 
 option(
-    ATOMICCIM_FAST_FP
+    SUPERNOVA_FAST_FP
     "Allow relaxed floating-point semantics for speed"
     OFF
 )
@@ -59,21 +59,21 @@ option(
 
 include(CheckIPOSupported)
 
-set(ATOMICCIM_IPO_SUPPORTED OFF)
+set(SUPERNOVA_IPO_SUPPORTED OFF)
 
-if(ATOMICCIM_ENABLE_IPO)
+if(SUPERNOVA_ENABLE_IPO)
     check_ipo_supported(
-        RESULT ATOMICCIM_IPO_SUPPORTED
-        OUTPUT ATOMICCIM_IPO_ERROR
+        RESULT SUPERNOVA_IPO_SUPPORTED
+        OUTPUT SUPERNOVA_IPO_ERROR
         LANGUAGES CXX
     )
 
-    if(ATOMICCIM_IPO_SUPPORTED)
-        message(STATUS "AtomicCIM: IPO/LTO supported and enabled for Release")
+    if(SUPERNOVA_IPO_SUPPORTED)
+        message(STATUS "SuperNova: IPO/LTO supported and enabled for Release")
     else()
         message(WARNING
-            "AtomicCIM: IPO/LTO requested but unavailable:\n"
-            "${ATOMICCIM_IPO_ERROR}"
+            "SuperNova: IPO/LTO requested but unavailable:\n"
+            "${SUPERNOVA_IPO_ERROR}"
         )
     endif()
 endif()
@@ -204,8 +204,8 @@ function(atomiccim_optimize_compile TARGET_NAME)
         # CPU-specific build.
         #
         # Only turn this ON if the machine that will execute
-        # AtomicCIM supports AVX2.
-        if(ATOMICCIM_NATIVE_CPU)
+        # SuperNova supports AVX2.
+        if(SUPERNOVA_NATIVE_CPU)
             target_compile_options(
                 ${TARGET_NAME}
                 PRIVATE
@@ -217,7 +217,7 @@ function(atomiccim_optimize_compile TARGET_NAME)
         #
         # /fp:fast allows transformations that can alter
         # floating-point numerical semantics.
-        if(ATOMICCIM_FAST_FP)
+        if(SUPERNOVA_FAST_FP)
             target_compile_options(
                 ${TARGET_NAME}
                 PRIVATE
@@ -242,7 +242,7 @@ function(atomiccim_optimize_compile TARGET_NAME)
             $<$<CONFIG:Release>:-O3>
         )
 
-        if(ATOMICCIM_NATIVE_CPU)
+        if(SUPERNOVA_NATIVE_CPU)
             target_compile_options(
                 ${TARGET_NAME}
                 PRIVATE
@@ -251,7 +251,7 @@ function(atomiccim_optimize_compile TARGET_NAME)
             )
         endif()
 
-        if(ATOMICCIM_FAST_FP)
+        if(SUPERNOVA_FAST_FP)
             target_compile_options(
                 ${TARGET_NAME}
                 PRIVATE
@@ -269,7 +269,7 @@ function(atomiccim_optimize_compile TARGET_NAME)
     )
 
     # Enable cross-translation-unit optimization.
-    if(ATOMICCIM_IPO_SUPPORTED)
+    if(SUPERNOVA_IPO_SUPPORTED)
         set_property(
             TARGET ${TARGET_NAME}
             PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
@@ -362,24 +362,24 @@ set(MAIN_SRC "${CMAKE_SOURCE_DIR}/main.cpp")
 if(EXISTS "${MAIN_SRC}")
 
     add_executable(
-        AtomicCIM
+        SuperNova
         "${MAIN_SRC}"
     )
 
     target_link_libraries(
-        AtomicCIM
+        SuperNova
         PRIVATE
         atomiccim_core
     )
 
     target_include_directories(
-        AtomicCIM
+        SuperNova
         PRIVATE
         ${HEADERS_DIR}
     )
 
-    atomiccim_optimize_compile(AtomicCIM)
-    atomiccim_optimize_link(AtomicCIM)
+    atomiccim_optimize_compile(SuperNova)
+    atomiccim_optimize_link(SuperNova)
 
 endif()
 
@@ -388,7 +388,7 @@ endif()
 # ============================================================
 
 get_filename_component(
-    ATOMICCIM_REPOSITORY_DIR
+    SUPERNOVA_REPOSITORY_DIR
     "${CMAKE_SOURCE_DIR}"
     DIRECTORY
 )
@@ -445,10 +445,10 @@ if(BINDING_SRCS)
         atomiccim_bind
         PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY
-                "${ATOMICCIM_REPOSITORY_DIR}"
+                "${SUPERNOVA_REPOSITORY_DIR}"
 
             RUNTIME_OUTPUT_DIRECTORY
-                "${ATOMICCIM_REPOSITORY_DIR}"
+                "${SUPERNOVA_REPOSITORY_DIR}"
     )
 
     # Multi-config generators such as Visual Studio.
@@ -458,10 +458,10 @@ if(BINDING_SRCS)
             atomiccim_bind
             PROPERTIES
                 "LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE}"
-                    "${ATOMICCIM_REPOSITORY_DIR}"
+                    "${SUPERNOVA_REPOSITORY_DIR}"
 
                 "RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE}"
-                    "${ATOMICCIM_REPOSITORY_DIR}"
+                    "${SUPERNOVA_REPOSITORY_DIR}"
         )
 
     endforeach()
