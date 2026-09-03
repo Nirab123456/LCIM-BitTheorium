@@ -590,4 +590,254 @@ namespace BidirectionalInMemGraph
     }
 
 
+    bool ConstructDAGOnEachAxis::RemoveParentRelation_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        uint32_t child_slot,
+        uint32_t child_generation,
+        FabricSegments edge_table,
+        uint32_t max_tries
+    ) noexcept
+    {
+        if (
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            parent_slot >= CountOfAPC_ ||
+            child_slot >= CountOfAPC_ ||
+            parent_slot == child_slot ||
+            !HandleOfAPCStatic::IsGenerationValid(parent_generation) ||
+            !HandleOfAPCStatic::IsGenerationValid(child_generation)
+        )
+        {
+            return false;
+        }
+
+        const uint64_t parent_handle = EdgeBuilder::MakeParentHandle(
+            parent_slot,
+            parent_generation
+        );
+
+        for (size_t i = 0; i < max_tries; i++)
+        {
+            ParentRowScan child_scan{};
+            const SeqLockedOperation child_read = ScanParentRow_(
+                edge_table,
+                child_slot,
+                parent_handle,
+                FABRIC_CELL_SENTINAL,
+                child_scan,
+                1u
+            );
+
+            if (child_read == SeqLockedOperation::RETRY)
+            {
+                continue;
+            }
+
+            if (
+                child_read != SeqLockedOperation::FOUND ||
+                child_scan.MatchOrdinal == UINT8_MAX
+            )
+            {
+                return false;
+            }
+            
+            const uint32_t self = EdgeBuilder::PackRelationLocator(child_slot, child_scan.MatchOrdinal);
+            const uint32_t previous = EdgeBuilder::PreviousLocator(child_scan.Match);
+            const uint32_t next = EdgeBuilder::NextLocator(child_scan.Match);
+            if (
+                !EdgeBuilder::IsValidRelationLocator(
+                    previous,
+                    static_cast<uint32_t>(CountOfAPC_),
+                    MaxDirectParentsPerAxis_
+                ) ||
+                !EdgeBuilder::IsValidRelationLocator(
+                    next,
+                    static_cast<uint32_t>(CountOfAPC_),
+                    MaxDirectParentsPerAxis_
+                )
+            )
+            {
+                return false;
+            }
+
+            EdgeBuilder::EdgeData parent_header{};
+            if (
+                !ReadEdgeHeader_(edge_table, parent_slot, parent_header)
+            )
+            {
+                return false;
+            }
+            
+            if (parent_header.Status == EdgeBuilder::EdgeStatus::RESERVED)
+            {
+                continue;
+            }
+
+            if (
+                parent_header.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                parent_header.TailLocator == EdgeBuilder::RELATION_NULL
+            )
+            {
+                return false;
+            }
+
+            const bool singleton = previous == self && next == self;
+
+            if (
+                singleton &&
+                parent_header.TailLocator != self
+            )
+            {
+                continue;
+            }
+            
+            if (
+                !singleton &&
+                (previous == self || next == self)
+            )
+            {
+                return false;
+            }
+            
+            EdgeBuilder::ParentRelation previous_relation{};
+            EdgeBuilder::ParentRelation next_relation{};
+            if (!singleton)
+            {
+                const SeqLockedOperation previous_read = ReadParentRelation_(
+                    edge_table,
+                    EdgeBuilder::RelationSlot(previous),
+                    EdgeBuilder::RelationOrdinal(previous),
+                    previous_relation,
+                    1u
+                );
+                const SeqLockedOperation next_read = ReadParentRelation_(
+                    edge_table,
+                    EdgeBuilder::RelationSlot(next),
+                    EdgeBuilder::RelationOrdinal(next),
+                    next_relation,
+                    1u
+                );
+
+                if (
+                    previous_read != SeqLockedOperation::FOUND ||
+                    next_read != SeqLockedOperation::FOUND ||
+                    previous_relation.ParentHandle != parent_handle ||
+                    next_relation.ParentHandle != parent_handle ||
+                    EdgeBuilder::NextLocator(previous_relation) != self ||
+                    EdgeBuilder::PreviousLocator(next_relation) != self
+                )
+                {
+                    continue;
+                }
+            }
+            
+            DAGMutationTransaction transaction{};
+            transaction.EdgeTable = edge_table;
+            if (
+                !AddRowParticipant_(transaction, child_slot) ||
+                !AddRowParticipant_(transaction, parent_slot, true) ||
+                (
+                    !singleton &&
+                    (
+                        !AddRowParticipant_(transaction, EdgeBuilder::RelationSlot(previous)) ||
+                        !AddRowParticipant_(transaction, EdgeBuilder::RelationSlot(next))
+                    )
+                ) ||
+                !ReserveAllRows_(
+                    transaction,
+                    EdgeBuilder::EdgeStatus::LIVE,
+                    1u
+                )
+            )
+            {
+                continue;
+            }
+
+            DAGRowParticipant* child_row = FindRowParticipant_(transaction, child_slot);
+            DAGRowParticipant* parent_row = FindRowParticipant_(transaction, parent_slot);
+
+            if (
+                !child_row ||
+                !parent_row ||
+                !SameHeader_(child_row->Before, child_scan.Header) ||
+                !SameHeader_(parent_row->Before, parent_header)
+            )
+            {
+                AbortRowTransaction_(transaction);
+                continue;
+            }
+
+            DAGRelationDelta* moving = EditReservedRelation_(
+                transaction,
+                child_slot,
+                child_scan.MatchOrdinal
+            );
+
+            if (
+                !moving ||
+                !SameRelation_(moving->Before, child_scan.Match)
+            )
+            {
+                AbortRowTransaction_(transaction);
+                continue;
+            }
+
+            if (singleton)
+            {
+                EdgeBuilder::Clear(moving->Work);
+                parent_row->WorkTail = EdgeBuilder::RELATION_NULL;
+                CommitRowTransaction_(transaction);
+                return true;
+            }
+            
+            DAGRelationDelta* previous_delta = EditReservedRelation_(
+                transaction,
+                EdgeBuilder::RelationSlot(previous),
+                EdgeBuilder::RelationOrdinal(previous)
+            );
+
+            DAGRelationDelta* next_delta = EditReservedRelation_(
+                transaction,
+                EdgeBuilder::RelationSlot(next),
+                EdgeBuilder::RelationOrdinal(next)
+            );
+
+            if (
+                !previous_delta ||
+                !next_delta ||
+                !SameRelation_(previous_delta->Before, previous_relation) ||
+                !SameRelation_(next_delta->Before, next_relation) ||
+                previous_delta->Before.ParentHandle != parent_handle ||
+                next_delta->Before.ParentHandle != parent_handle ||
+                EdgeBuilder::NextLocator(previous_delta->Before) != self ||
+                EdgeBuilder::NextLocator(next_delta->Before) != self
+            )
+            {
+                AbortRowTransaction_(transaction);
+                continue;
+            }
+            
+            EdgeBuilder::SetSiblingLocators(
+                previous_delta->Work,
+                EdgeBuilder::PreviousLocator(previous_delta->Work),
+                next
+            );
+
+            EdgeBuilder::SetSiblingLocators(
+                next_delta->Work,
+                previous,
+                EdgeBuilder::NextLocator(next_delta->Work)
+            );
+            EdgeBuilder::Clear(moving->Work);
+
+            if (parent_row->Before.TailLocator == self)
+            {
+                parent_row->WorkTail = previous;
+            }
+            CommitRowTransaction_(transaction);
+            return true;
+        }
+        return false;
+    }
+
 }
