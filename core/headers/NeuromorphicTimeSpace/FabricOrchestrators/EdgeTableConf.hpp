@@ -3,7 +3,7 @@
 
 namespace BidirectionalInMemGraph
 {
-    struct EdgeTableConf : public DescriptionOfAPC
+    struct EdgeBuilder : public DescriptionOfAPC
     {
         enum class EdgeStatus : uint8_t
         {
@@ -279,10 +279,5 @@ namespace BidirectionalInMemGraph
         }
     };
 
-
-struct EdgeBuilder : public EdgeTableConf
-{
-
-};
 
 }

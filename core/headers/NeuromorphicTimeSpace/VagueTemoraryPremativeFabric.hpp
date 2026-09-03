@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-class VagueTemoraryPremativeFabric : public SlabToFabricConverterAndCordinator
+class VagueTemoraryPremativeFabric : public ConstructDAGOnEachAxis
 {
     friend class AdaptivePackedCellContainer;
 private:
@@ -21,6 +21,51 @@ private:
 
     std::optional<uint32_t> GetASlotForNewAPCLink() noexcept;        
 
+    SeqLockedOperation ResolveChildLocator_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t locator,
+        AdaptivePackedCellContainer*& child
+    ) noexcept;
+
+    FabricToAPCLinker::RelationOparation FindParent_(
+        uint32_t child_slot,
+        uint32_t child_generation,
+        FabricSegments edge_table,
+        uint8_t relation_ordinal,
+        uint32_t max_tries
+    ) noexcept;
+
+    FabricToAPCLinker::RelationOparation FindFirstChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t max_tries
+    ) noexcept;
+
+    FabricToAPCLinker::RelationOparation FindLastChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t max_tries
+    ) noexcept;
+
+    FabricToAPCLinker::RelationOparation FindNextChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t current_relation_locator,
+        uint32_t max_tries
+    ) noexcept;
+
+    FabricToAPCLinker::RelationOparation FindPreviousChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t current_relation_locator,
+        uint32_t max_tries
+    ) noexcept;
 
 public:
 

@@ -140,6 +140,8 @@ namespace BidirectionalInMemGraph
         }
 
     private:
+        static constexpr uint8_t DEFAULT_INTERNAL_TRIES__ = 1u;
+
         struct ParentRowScan
         {
             EdgeBuilder::EdgeData Header{};
@@ -196,6 +198,14 @@ namespace BidirectionalInMemGraph
             FabricSegments edge_table,
             uint32_t max_tries = DEFAULT_MAX_TRIES
         ) noexcept;
+
+        bool RetireAPC_(
+            uint32_t slot,
+            uint32_t generation,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+        bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
     };
 
 }
