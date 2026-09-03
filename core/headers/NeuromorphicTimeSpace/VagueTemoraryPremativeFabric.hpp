@@ -56,7 +56,7 @@ private:
         uint32_t parent_generation,
         FabricSegments edge_table,
         uint32_t current_relation_locator,
-        uint32_t max_tries
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     FabricToAPCLinker::RelationOparation FindPreviousChild_(
@@ -64,7 +64,7 @@ private:
         uint32_t parent_generation,
         FabricSegments edge_table,
         uint32_t current_relation_locator,
-        uint32_t max_tries
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
 public:

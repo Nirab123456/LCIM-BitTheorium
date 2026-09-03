@@ -406,6 +406,265 @@ namespace BidirectionalInMemGraph
     }
 
 
+    FabricToAPCLinker::RelationOparation VagueTemoraryPremativeFabric::FindNextChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t current_relation_locator,
+        uint32_t max_tries
+    ) noexcept
+    {
+        FabricToAPCLinker::RelationOparation result{};
+        if (
+            parent_slot >= CountOfAPC_  ||
+            !HandleOfAPCStatic::IsGenerationValid(parent_generation) ||
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            !EdgeBuilder::IsValidRelationLocator(
+                current_relation_locator,
+                static_cast<uint32_t>(CountOfAPC_),
+                MaxDirectParentsPerAxis_
+            )
+        )
+        {
+            return result;
+        }
+        
+
+        const uint64_t parent_handle = EdgeBuilder::MakeParentHandle(parent_slot, parent_generation);
+
+        for (uint32_t i = 0; i < max_tries; i++)
+        {
+            EdgeBuilder::EdgeData before{};
+            if (!ReadEdgeHeader_(edge_table, parent_slot, before))
+            {
+                return result;
+            }
+            
+            if (
+                before.Status == EdgeBuilder::EdgeStatus::RESERVED
+            )
+            {
+                continue;
+            }
+
+            if (
+                before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                before.TailLocator == EdgeBuilder::RELATION_NULL
+            )
+            {
+                return result;
+            }
+
+            EdgeBuilder::ParentRelation current{};
+            const SeqLockedOperation current_read = ReadParentRelation_(
+                edge_table,
+                EdgeBuilder::RelationSlot(current_relation_locator),
+                EdgeBuilder::RelationOrdinal(current_relation_locator),
+                current,
+                DEFAULT_INTERNAL_TRIES__
+            );
+
+            if (current_read == SeqLockedOperation::RETRY)
+            {
+                continue;
+            }
+
+            if (
+                current_read != SeqLockedOperation::FOUND ||
+                current.ParentHandle != parent_handle
+            )
+            {
+                return result;
+            }
+            
+            if (current_relation_locator == before.TailLocator)
+            {
+                EdgeBuilder::EdgeData after{};
+                if (
+                    ReadEdgeHeader_(edge_table, parent_slot, after) &&
+                    SameHeader_(before, after) 
+                )
+                {
+                    return result;
+                }
+                continue;
+            }
+            
+            const uint32_t next = EdgeBuilder::NextLocator(current);
+            AdaptivePackedCellContainer* child = nullptr;
+
+            const SeqLockedOperation resolved = ResolveChildLocator_(
+                parent_slot,
+                parent_generation,
+                edge_table,
+                next,
+                child
+            );
+
+            if (resolved == SeqLockedOperation::RETRY)
+            {
+                continue;
+            }
+
+            if (resolved != SeqLockedOperation::FOUND)
+            {
+                return result;
+            }
+
+            EdgeBuilder::EdgeData after{};
+
+            if (
+                !ReadEdgeHeader_(edge_table, parent_slot, after) ||
+                !SameHeader_(before, after)
+            )
+            {
+                continue;
+            }
+
+            result.APCPtr_ = child;
+            result.RelationLocator_ = next;
+            result.MutationOP_ = SeqLockedOperation::FOUND;
+            return result;
+        }
+        
+    }
+
+    FabricToAPCLinker::RelationOparation VagueTemoraryPremativeFabric::FindPreviousChild_(
+        uint32_t parent_slot,
+        uint32_t parent_generation,
+        FabricSegments edge_table,
+        uint32_t current_relation_locator,
+        uint32_t max_tries
+    ) noexcept
+    {
+        FabricToAPCLinker::RelationOparation result{};
+
+        if (
+            parent_slot >= CountOfAPC_ ||
+            !HandleOfAPCStatic::IsGenerationValid(parent_generation) ||
+            !CoreOfFabricCoordinator::IsValidEdgeTable(edge_table) ||
+            !EdgeBuilder::IsValidRelationLocator(
+                current_relation_locator,
+                static_cast<uint32_t>(CountOfAPC_),
+                MaxDirectParentsPerAxis_
+            )
+        )
+        {
+            return result;
+        }
+
+        const uint64_t parent_handle = EdgeBuilder::MakeParentHandle(
+            parent_slot,
+            parent_generation
+        );
+
+        for (uint32_t attempt = 0u; attempt < max_tries; ++attempt)
+        {
+            EdgeBuilder::EdgeData before{};
+            if (!ReadEdgeHeader_(edge_table, parent_slot, before))
+            {
+                return result;
+            }
+            if (before.Status == EdgeBuilder::EdgeStatus::RESERVED)
+            {
+                continue;
+            }
+            if (
+                before.Status != EdgeBuilder::EdgeStatus::LIVE ||
+                before.TailLocator == EdgeBuilder::RELATION_NULL
+            )
+            {
+                return result;
+            }
+
+            EdgeBuilder::ParentRelation tail{};
+            EdgeBuilder::ParentRelation current{};
+
+            const SeqLockedOperation tail_read = ReadParentRelation_(
+                edge_table,
+                EdgeBuilder::RelationSlot(before.TailLocator),
+                EdgeBuilder::RelationOrdinal(before.TailLocator),
+                tail,
+                1u
+            );
+            const SeqLockedOperation current_read = ReadParentRelation_(
+                edge_table,
+                EdgeBuilder::RelationSlot(current_relation_locator),
+                EdgeBuilder::RelationOrdinal(current_relation_locator),
+                current,
+                1u
+            );
+
+            if (
+                tail_read == SeqLockedOperation::RETRY ||
+                current_read == SeqLockedOperation::RETRY
+            )
+            {
+                continue;
+            }
+            if (
+                tail_read != SeqLockedOperation::FOUND ||
+                current_read != SeqLockedOperation::FOUND ||
+                tail.ParentHandle != parent_handle ||
+                current.ParentHandle != parent_handle
+            )
+            {
+                return result;
+            }
+
+            const uint32_t first = EdgeBuilder::NextLocator(tail);
+            if (current_relation_locator == first)
+            {
+                EdgeBuilder::EdgeData after{};
+                if (
+                    ReadEdgeHeader_(edge_table, parent_slot, after) &&
+                    ConstructDAGOnEachAxis::SameHeader_(before, after)
+                )
+                {
+                    return result;
+                }
+                continue;
+            }
+
+            const uint32_t previous = EdgeBuilder::PreviousLocator(current);
+            AdaptivePackedCellContainer* child = nullptr;
+            const SeqLockedOperation resolved = ResolveChildLocator_(
+                parent_slot,
+                parent_generation,
+                edge_table,
+                previous,
+                child
+            );
+
+            if (resolved == SeqLockedOperation::RETRY)
+            {
+                continue;
+            }
+            if (resolved != SeqLockedOperation::FOUND)
+            {
+                return result;
+            }
+
+            EdgeBuilder::EdgeData after{};
+            if (
+                !ReadEdgeHeader_(edge_table, parent_slot, after) ||
+                !ConstructDAGOnEachAxis::SameHeader_(before, after)
+            )
+            {
+                continue;
+            }
+
+            result.APCPtr_ = child;
+            result.RelationLocator_ = previous;
+            result.MutationOP_ = SeqLockedOperation::FOUND;
+            return result;
+        }
+
+        result.MutationOP_ = SeqLockedOperation::RETRY;
+        return result;
+    }
+
+
     bool VagueTemoraryPremativeFabric::CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
         bool wants_horizontal_root,
