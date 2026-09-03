@@ -34,21 +34,21 @@ private:
         uint32_t child_generation,
         FabricSegments edge_table,
         uint8_t relation_ordinal,
-        uint32_t max_tries
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     FabricToAPCLinker::RelationOparation FindFirstChild_(
         uint32_t parent_slot,
         uint32_t parent_generation,
         FabricSegments edge_table,
-        uint32_t max_tries
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     FabricToAPCLinker::RelationOparation FindLastChild_(
         uint32_t parent_slot,
         uint32_t parent_generation,
         FabricSegments edge_table,
-        uint32_t max_tries
+        uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
     FabricToAPCLinker::RelationOparation FindNextChild_(
