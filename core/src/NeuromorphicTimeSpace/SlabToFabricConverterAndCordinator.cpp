@@ -147,10 +147,10 @@ namespace BidirectionalInMemGraph
         const size_t apc_handle_table_end = apc_handle_table_begin + static_cast<size_t>(CountOfAPC_ * HandleOfAPCStatic::HANDLE_TABLE_WIDTH);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(apc_handle_table_end);
-        const size_t free_list_begin = cursor;
-        const size_t free_list_end = free_list_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
+        const size_t compiled_dag_begin = cursor;
+        const size_t compiled_dag_end = compiled_dag_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::COMPILED_DAG_LEN);
 
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(free_list_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(compiled_dag_end);
         const size_t ready_queue_begin = cursor;
         const size_t ready_queue_end = ready_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
 
@@ -188,7 +188,7 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_EDGE_TABLE, horizontal_edge_begin, horizontal_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, vertical_edge_begin, vertical_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_TABLE, apc_handle_table_begin, apc_handle_table_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::FREE_APC_LIST, free_list_begin, free_list_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::COMPILED_DAG_TABLE, compiled_dag_begin, compiled_dag_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
@@ -204,7 +204,7 @@ namespace BidirectionalInMemGraph
         }
         
         //IDLE UNUSED FabricSegments
-        IdleAFabricTableClassRangesMemory_(FabricSegments::FREE_APC_LIST);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::COMPILED_DAG_TABLE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::WORK_QUEUE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::DEVICE_VIEW_TABLE);

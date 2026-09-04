@@ -8,6 +8,7 @@ namespace BidirectionalInMemGraph
     {
         /// UNCHECKED
         static constexpr size_t RELATION_WIDTH_OF_FABRIC = 0u;
+        static constexpr size_t COMPILED_DAG_LEN = 0u;
         static constexpr size_t QUEUE_RECORD_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t DEVICE_VIEW_WIDTH_OF_APC_FABRIC = 0u;

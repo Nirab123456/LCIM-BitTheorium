@@ -55,7 +55,7 @@ namespace BidirectionalInMemGraph
         HORIZONTAL_EDGE_TABLE = 1,
         VERTICAL_EDGE_TABLE = 2,
         APC_HANDLE_TABLE = 3,
-        FREE_APC_LIST = 4,
+        COMPILED_DAG_TABLE = 4,
         READY_QUEUE = 5,
         WORK_QUEUE = 6,
         DEVICE_VIEW_TABLE = 7,
