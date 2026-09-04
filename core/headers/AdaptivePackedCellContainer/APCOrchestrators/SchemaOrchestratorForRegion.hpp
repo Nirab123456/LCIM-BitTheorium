@@ -47,27 +47,12 @@ namespace BidirectionalInMemGraph
             UNASSIGNED_UNUSED_NANNULL = UINT8_MAX
         };
 
-        //LEN
-        static constexpr uint8_t WORDS_PER_RECORD_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint32_t);
-        static constexpr uint8_t PROTOCOL_LEN = LEN_OF_BYTE_IN_BITS * sizeof(SchemaProtocols);
-        static constexpr uint8_t DTYPE_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint8_t);
-        static constexpr uint8_t VERSION_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint8_t);
-        static constexpr uint8_t FLAGS_LEN = LEN_OF_BYTE_IN_BITS * sizeof(uint8_t);
-
-        //SHIFT
-        static constexpr uint8_t FLAGS_SHIFT = (LEN_OF_BYTE_IN_BITS * sizeof(uint64_t)) - FLAGS_LEN;
-        static constexpr uint8_t VERSION_SHIFT = FLAGS_SHIFT - VERSION_LEN;
-        static constexpr uint8_t DTYPE_SHIFT = VERSION_SHIFT - DTYPE_LEN;
-        static constexpr uint8_t PROTOCOL_SHIFT = DTYPE_SHIFT - PROTOCOL_LEN;
-        static constexpr uint8_t WORDS_PER_RECORD_SHIFT = PROTOCOL_SHIFT - WORDS_PER_RECORD_LEN;
-
-
         struct alignas(uint64_t) RegionSchemaRecord final
         {
             uint32_t CellOffset = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             uint32_t CellCount = UNSIGNED_ZERO;
-            uint32_t MaxHight = UNSIGNED_ZERO;
-            uint32_t MaxWidth = UNSIGNED_ZERO;
+            uint32_t MatrixHeight = UNSIGNED_ZERO;
+            uint32_t MatrixWidth = UNSIGNED_ZERO;
 
             uint32_t EnqueuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             uint32_t DequeuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
@@ -83,8 +68,6 @@ namespace BidirectionalInMemGraph
         static_assert(alignof(RegionSchemaRecord) == alignof(std::uint64_t));
         static_assert(std::is_trivially_copyable_v<RegionSchemaRecord>);
         static_assert(std::is_trivially_destructible_v<RegionSchemaRecord>);
-
-        using RegionSchemaTable = std::array<RegionSchemaRecord, ColumnConf::CountOfMacroColumn()>;
         
         struct FabricRegionConfig final
         {
@@ -242,15 +225,15 @@ namespace BidirectionalInMemGraph
             const std::optional<uint8_t> dtype_bytes = DTypeByteCount(schema.Dtype);
             if (
                 !dtype_bytes.has_value() ||
-                schema.MaxHight == UNSIGNED_ZERO ||
-                schema.MaxWidth == UNSIGNED_ZERO ||
-                schema.MaxHight > UINT64_MAX / schema.MaxWidth
+                schema.MatrixHeight == UNSIGNED_ZERO ||
+                schema.MatrixWidth == UNSIGNED_ZERO ||
+                schema.MatrixHeight > UINT64_MAX / schema.MatrixWidth
             )
             {
                 return std::nullopt;
             }
 
-            const uint64_t elements = schema.MaxHight * schema.MaxWidth;
+            const uint64_t elements = schema.MatrixHeight * schema.MatrixWidth;
 
             if (elements > UINT64_MAX / dtype_bytes.value())
             {
@@ -260,6 +243,63 @@ namespace BidirectionalInMemGraph
             return elements * dtype_bytes.value();
         }
 
+        static constexpr std::optional<uint32_t> MatrixCellCount(const RegionSchemaRecord& schema) noexcept
+        {
+            const std::optional<uint64_t> bytes = MatrixByteCount(schema);
+            if (!bytes.has_value())
+            {
+                return std::nullopt;
+            }
+
+            const uint64_t cells = bytes.value() / sizeof(uint64_t) + 
+                static_cast<uint64_t>(bytes.value() % sizeof(uint64_t) != UNSIGNED_ZERO);
+
+            return cells <= UINT32_MAX ?
+                std::optional<uint32_t>(cells) : std::nullopt;
+            
+        }
+
+        static constexpr std::optional<std::uint32_t> RecordStrideCells(const RegionSchemaRecord& schema) noexcept
+        {
+            const std::optional<uint64_t> matrix_cell = MatrixCellCount(schema);
+            if (!matrix_cell.has_value())
+            {
+                return std::nullopt;
+            }
+
+            const uint64_t raw = static_cast<uint64_t>(matrix_cell.value()) + 
+                static_cast<uint64_t>(schema.Protocol == SchemaProtocols::MPMC_FIXED_RECORD_QUEUE);
+            
+            const uint64_t aligned = ((raw + REGION_ALIGNMENT_CELLS - 1u) / REGION_ALIGNMENT_CELLS) * REGION_ALIGNMENT_CELLS;
+
+            return aligned <= UINT16_MAX ? 
+                std::optional<uint32_t>(static_cast<uint32_t>(aligned)) : std::nullopt;
+            
+        }
+
+
+        static constexpr std::optional<uint32_t> LogicalRecordCount(const RegionSchemaRecord& schema) noexcept
+        {
+            const std::optional<uint64_t> stride = RecordStrideCells(schema);
+            if (
+                !stride.has_value() ||
+                stride.value() == UNSIGNED_ZERO ||
+                schema.CellCount == UNSIGNED_ZERO ||
+                schema.CellCount % stride.value() != UNSIGNED_ZERO
+            )
+            {
+                return std::nullopt;
+            }
+
+            return schema.CellCount / stride.value();
+        }
+
+        static constexpr uint32_t AlignRegionCells(uint32_t cell) noexcept
+        {
+            return static_cast<uint32_t>(
+                ((static_cast<uint64_t>(cell) + REGION_ALIGNMENT_CELLS - 1u) / REGION_ALIGNMENT_CELLS) * REGION_ALIGNMENT_CELLS
+            );
+        }
     };
 
     static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept
@@ -309,47 +349,128 @@ namespace BidirectionalInMemGraph
 
     struct SchemDefinition : public MPMCQOrchestrator
     {
+    private:
 
-
-        static constexpr SchemaProtocols GetProtocolForColumn(
-            const InitialRegionalProtocol& conc_conf,
-            MacroColumnOfAPC column
+        static constexpr std::optional<uint32_t> SetRecords_(
+            RegionSchemaRecord& schema,
+            uint32_t protocol_record_count
         ) noexcept
         {
-            switch (column)
+            uint32_t record_count = 1u;
+            switch (schema.Protocol)
             {
-            case MacroColumnOfAPC::FEEDFORWARD_MESSAGE: return conc_conf.FEEDFORWARD_MESSAGE;
-            case MacroColumnOfAPC::FEEDBACKWARD_MESSAGE: return conc_conf.FEEDBACKWARD_MESSAGE;
-            case MacroColumnOfAPC::LATERAL_MESAGE: return conc_conf.LATERAL_MESAGE;
-            case MacroColumnOfAPC::STATE_SLOT: return conc_conf.STATE_SLOT;
-            case MacroColumnOfAPC::ERROR_SLOT: return conc_conf.ERROR_SLOT;
-            case MacroColumnOfAPC::WEIGHTLESS_LOOKUP: return conc_conf.WEIGHTLESS_LOOKUP;
-            case MacroColumnOfAPC::WEIGHT_SLOT: return conc_conf.WEIGHT_SLOT;
-            case MacroColumnOfAPC::AUX_SLOT: return conc_conf.AUX_SLOT;
-            case MacroColumnOfAPC::HETEROGENOUS_PTR: return conc_conf.HETEROGENOUS_PTR;
-            case MacroColumnOfAPC::FREE_SLOT: return conc_conf.FREE_SLOT;
-            default: return SchemaProtocols::PRIVATE_REGION;
+            case SchemaProtocols::PRIVATE_REGION:
+            case SchemaProtocols::IMMUTABLE_SNAPSHOT:
+            case SchemaProtocols::ATOMIC_WORD_ARRAY:
+                if (protocol_record_count != 0u && protocol_record_count != 1u)
+                {
+                    return std::nullopt;
+                }
+                schema.EnqueuePosition = NO_POSITION;
+                schema.DequeuePosition = NO_POSITION;
+                break;
+
+            case SchemaProtocols::DOUBLE_BUFFERED:
+                if (protocol_record_count != 0u && protocol_record_count != 2u)
+                {
+                    return std::nullopt;
+                }
+                record_count = 2u;
+                schema.EnqueuePosition = 1u; // write bank ordinal
+                schema.DequeuePosition = 0u; // published/read bank ordinal
+                break;
+
+            case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
+                if (
+                    protocol_record_count < 2u ||
+                    (protocol_record_count & (protocol_record_count - 1u)) != 0u
+                )
+                {
+                    return std::nullopt;
+                }
+                record_count = protocol_record_count;
+                schema.Flags = schema.Flags |
+                    SchemaFlags::REQUIRED_POW_OF_TWO |
+                    SchemaFlags::HAS_PER_SLOT_SEQUENSE;
+                schema.EnqueuePosition = 0u;
+                schema.DequeuePosition = 0u;
+                break;
+
+            default:
+                return std::nullopt;
             }
+
+            return record_count;
         }
 
-        static constexpr DataTypeOfMacroColumn GetDataTypeForColumn(
-            const InitialRegionalDtypeConf& conc_conf,
-            MacroColumnOfAPC column
+        
+    public:
+        using RegionSchemaTable = std::array<RegionSchemaRecord, ColumnConf::CountOfMacroColumn()>;
+
+        static constexpr bool MakeRegionSchema(
+            MacroColumnOfAPC region,
+            DataTypeOfMacroColumn dtype,
+            SchemaProtocols protocol,
+            uint32_t matrix_height,
+            uint32_t matrix_width,
+            RegionSchemaRecord& schema,
+            uint32_t protocol_record_count = UNSIGNED_ZERO,
+            SchemaFlags extra_flags = SchemaFlags::NONE
         ) noexcept
         {
-            switch (column)
+            schema = RegionSchemaRecord{};
+            schema.Region = region;
+            schema.Dtype = dtype;
+            schema.Protocol = protocol;
+            schema.MatrixHeight = matrix_height;
+            schema.MatrixWidth = matrix_width;
+            schema.Flags = extra_flags;
+
+            if (
+                !IsKnownSchemaFlags(extra_flags) ||
+                HasSchemaFlag(extra_flags, SchemaFlags::REGION_DISABLED)
+            )
             {
-            case MacroColumnOfAPC::FEEDFORWARD_MESSAGE: return conc_conf.FEEDFORWARD_MESSAGE;
-            case MacroColumnOfAPC::FEEDBACKWARD_MESSAGE: return conc_conf.FEEDBACKWARD_MESSAGE;
-            case MacroColumnOfAPC::LATERAL_MESAGE: return conc_conf.LATERAL_MESAGE;
-            case MacroColumnOfAPC::STATE_SLOT: return conc_conf.STATE_SLOT;
-            case MacroColumnOfAPC::ERROR_SLOT: return conc_conf.ERROR_SLOT;
-            case MacroColumnOfAPC::WEIGHTLESS_LOOKUP: return conc_conf.WEIGHTLESS_LOOKUP;
-            case MacroColumnOfAPC::WEIGHT_SLOT: return conc_conf.WEIGHT_SLOT;
-            case MacroColumnOfAPC::AUX_SLOT: return conc_conf.AUX_SLOT;
-            case MacroColumnOfAPC::HETEROGENOUS_PTR: return conc_conf.HETEROGENOUS_PTR;
-            case MacroColumnOfAPC::FREE_SLOT: return conc_conf.FREE_SLOT;
-            default: return DataTypeOfMacroColumn::UINT64_T;
+                schema = RegionSchemaRecord{};
+                return false;
+            }
+
+            const std::optional<uint32_t> stride = RecordStrideCells(schema);
+            if (!stride.has_value())
+            {
+                schema = RegionSchemaRecord{};
+                return false;
+            }
+
+            std::optional<uint32_t> record_count = SetRecords_(schema, protocol_record_count);
+
+            if (!record_count.has_value())
+            {
+                schema = RegionSchemaRecord{};
+                return false;
+            }
+            
+            const uint64_t total_cells = static_cast<uint64_t>(stride.value()) * record_count.value();
+
+            if (total_cells == UNSIGNED_ZERO || total_cells > UINT32_MAX)
+            {
+                schema = RegionSchemaRecord{};
+                return false;
+            }
+
+            schema.CellCount = static_cast<uint32_t>(total_cells);
+            return true;
+        }
+
+
+        static constexpr void MakeDisabledSchemaTable(RegionSchemaTable& schema_table) noexcept
+        {
+            schema_table = RegionSchemaTable{};
+            for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
+            {
+                RegionSchemaRecord& schema = schema_table[i];
+                schema.Region = static_cast<MacroColumnOfAPC>(i);
+                schema.Flags = SchemaFlags::REGION_DISABLED;
             }
         }
 
