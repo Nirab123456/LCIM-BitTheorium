@@ -162,7 +162,7 @@ namespace BidirectionalInMemGraph
         EdgeBuilder::EdgeStatus final_status
     ) noexcept
     {
-        for (uint8_t i =  transaction.RowCount; i > UNSIGNED_ZERO; i--)
+        for (uint8_t i =  transaction.RelationCount; i > UNSIGNED_ZERO; i--)
         {
             const DAGRelationDelta& delta = transaction.Relations[i - 1];
             StoreReservedParentRelation_(
@@ -810,7 +810,7 @@ namespace BidirectionalInMemGraph
                 previous_delta->Before.ParentHandle != parent_handle ||
                 next_delta->Before.ParentHandle != parent_handle ||
                 EdgeBuilder::NextLocator(previous_delta->Before) != self ||
-                EdgeBuilder::NextLocator(next_delta->Before) != self
+                EdgeBuilder::PreviousLocator(next_delta->Before) != self
             )
             {
                 AbortRowTransaction_(transaction);
@@ -1179,7 +1179,7 @@ namespace BidirectionalInMemGraph
                 EdgeBuilder::SetSiblingLocators(
                     next_delta->Work,
                     old_previous,
-                    old_next
+                    EdgeBuilder::NextLocator(next_delta->Work)
                 );
 
                 if (old_parent_row->Before.TailLocator == self)
