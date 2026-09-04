@@ -11,78 +11,10 @@ namespace BidirectionalInMemGraph
     {
         // Identity
         MAGIC_ID = 0,
-
-        // Payload bounds versions
-        FEEDFORWARD_BOUNDS       = 1,
-        FEEDBACKWARD_BOUNDS      = 2,
-        LATERAL_BOUNDS           = 3,
-        STATE_BOUNDS             = 4,
-        ERROR_BOUNDS             = 5,
-        WEIGHTLESS_BOUNDS        = 6,
-        WEIGHT_BOUNDS            = 7,
-        AUX_BOUNDS               = 8,
-        HETEROGENOUS_PTR_BOUNDS  = 9,
-        FREE_BOUNDS              = 10,
-
-        // Self Record
-        LAYOUT_VERSION           = 11,
-        RESERVED          = 12,
-        RESERVED_1         = 13,
-
-        // ENQUEUE
-        FEEDFORWARD_ENQUEUE_POSITION      = 14,
-        FEEDBACKWARD_ENQUEUE_POSITION      = 15,
-        LATERAL_ENQUEUE_POSITION           = 16,
-        STATE_ENQUEUE_POSITION             = 17,
-        ERROR_ENQUEUE_POSITION             = 18,
-        WEIGHTLESS_ENQUEUE_POSITION        = 19,
-        WEIGHT_ENQUEUE_POSITION            = 20,
-        AUX_ENQUEUE_POSITION               = 21,
-        HETEROGENOUS_ENQUEUE_POSITION      = 22,
-        FREE_ENQUEUE_POSITION              = 23,
-
-        // DEQUEUE
-        FEEDFORWARD_DEQUEUE_POSITION       = 24,
-        FEEDBACKWARD_DEQUEUE_POSITION      = 25,
-        LATERAL_DEQUEUE_POSITION           = 26,
-        STATE_DEQUEUE_POSITION             = 27,
-        ERROR_DEQUEUE_POSITION             = 28,
-        WEIGHTLESS_DEQUEUE_POSITION        = 29,
-        WEIGHT_DEQUEUE_POSITION            = 30,
-        AUX_DEQUEUE_POSITION               = 31,
-        HETEROGENOUS_DEQUEUE_POSITION      = 32,
-        FREE_DEQUEUE_POSITION              = 33,
-
-        // Region schema: record width + protocol + format/version.
-        FEEDFORWARD_REGION_SCHEMA          = 34,
-        FEEDBACKWARD_REGION_SCHEMA          = 35,
-        LATERAL_REGION_SCHEMA              = 36,
-        STATE_REGION_SCHEMA                = 37,
-        ERROR_REGION_SCHEMA                = 38,
-        WEIGHTLESS_REGION_SCHEMA            = 39,
-        WEIGHT_REGION_SCHEMA                = 40,
-        AUX_REGION_SCHEMA                   = 41,
-        HETEROGENOUS_REGION_SCHEMA          = 42,
-        FREE_REGION_SCHEMA                  = 43,
-
-        CURRENT_ACTIVE_THREADS              = 44,
-        APC_SCHEMA_ID                       = 45,
-
-        APC_LIFE_CYCLE                      = 46,
-        EOF_APC_HEADER                      = 47
+        APC_LIFE_CYCLE                      = 1,
+        EOF_APC_HEADER                      = 7
     };
 
-
-
-    static_assert(
-        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_BOUNDS) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS)) ==
-        (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
-    );
-
-    static_assert(
-        (static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_ENQUEUE_POSITION) - static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION)) ==
-        (static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE))
-    );
 
     struct RangeOfAPC
     {
@@ -91,61 +23,39 @@ namespace BidirectionalInMemGraph
         bool IsValid = false;
     };
 
-    struct LayoutHeaderIdentityOrchestrator
+
+    struct ColumnConf 
     {
-
-        static constexpr uint8_t LayoutBufferBegainInMetaIndecies() noexcept
-        {
-            return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS);
-        }
-
-        static constexpr uint8_t LayoutBufferEndInMetaIndecies() noexcept
-        {
-            return static_cast<uint8_t>(HeaderIdentifierOfAPC::FREE_BOUNDS);
-        }
-
-    };
-
-    struct ColumnConf : public LayoutHeaderIdentityOrchestrator
-    {
-    public:
-
-        static constexpr HeaderIdentifierOfAPC EnqueueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
-        {
-            return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + static_cast<uint8_t>(macro_column)
-            );
-        }
-
-        static constexpr HeaderIdentifierOfAPC DequeueHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
-        {
-            return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + static_cast<uint8_t>(macro_column)
-            );
-        }
-
-        static constexpr HeaderIdentifierOfAPC SchemaHeaderIndexFromColumnName(MacroColumnOfAPC macro_column) noexcept
-        {
-            return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + static_cast<uint8_t>(macro_column)
-            );
-        }
-
         static constexpr uint8_t CountOfMacroColumn() noexcept
         {
             return static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + 1;
         }
 
-        static constexpr uint8_t BoundsIdxInHeader(MacroColumnOfAPC macro_column) noexcept
+        static constexpr uint16_t RegionBit(MacroColumnOfAPC column) noexcept
         {
-            return static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + static_cast<uint8_t>(macro_column);
+            return static_cast<uint16_t>(uint16_t{1u} << static_cast<uint16_t>(column));
         }
 
-        static constexpr HeaderIdentifierOfAPC BoundsMetaIdxInHeader(MacroColumnOfAPC macro_column) noexcept
+        static constexpr uint16_t ValidRegionMask() noexcept
         {
-            return static_cast<HeaderIdentifierOfAPC>(
-                static_cast<uint8_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + static_cast<uint8_t>(macro_column)
-            );
+            return static_cast<uint16_t>((uint16_t{1u} << CountOfMacroColumn()) - 1u);
+        }
+
+        static constexpr std::optional<uint8_t> CompactRegionIndex(
+            uint16_t active_mask,
+            MacroColumnOfAPC column
+        ) noexcept
+        {
+            if (
+                (active_mask & RegionBit(column)) == UNSIGNED_ZERO ||
+                (active_mask & static_cast<uint16_t>(~ValidRegionMask())) != UNSIGNED_ZERO
+            )
+            {
+                return std::nullopt;
+            }
+
+            const uint16_t lower = static_cast<uint16_t>((uint16_t{1u} << CountOfMacroColumn()) - 1u);
+            return static_cast<uint8_t>(std::popcount(lower));
         }
     };
 

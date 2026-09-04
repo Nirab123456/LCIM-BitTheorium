@@ -25,7 +25,7 @@ namespace BidirectionalInMemGraph
             return_schema.Flags = SchemaFlags::NONE;
             return_schema.RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
             
-            std::optional<uint8_t> equivelent_typed_count_of_64bit = CountOfTypedWordIn64Bit(return_schema.Dtype);
+            std::optional<uint8_t> equivelent_typed_count_of_64bit = DTypeByteCount(return_schema.Dtype);
 
             if (
                 !equivelent_typed_count_of_64bit.has_value()

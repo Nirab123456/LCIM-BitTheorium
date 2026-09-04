@@ -6,6 +6,10 @@ namespace BidirectionalInMemGraph
 
     struct SchemaOrchestrator 
     {
+
+        static constexpr uint32_t REGION_ALIGNMENT_CELLS = static_cast<uint32_t>(APCDataStructure::APC_CACHELINE_SIZE / sizeof(std::uint64_t));
+        static constexpr uint64_t NO_POSITION = UINT64_MAX;
+
         enum class SchemaProtocols : uint8_t
         {
             PRIVATE_REGION = 0,
@@ -39,6 +43,7 @@ namespace BidirectionalInMemGraph
             ALLOW_TRAILING_PADDING = 1u << 2u,
             HAS_PER_SLOT_SEQUENSE = 1u << 3u,
             REGION_DISABLED = 1u << 4u,
+            BATCHED_LAST_DIM = 1u << 5u,
             UNASSIGNED_UNUSED_NANNULL = UINT8_MAX
         };
 
@@ -56,15 +61,36 @@ namespace BidirectionalInMemGraph
         static constexpr uint8_t PROTOCOL_SHIFT = DTYPE_SHIFT - PROTOCOL_LEN;
         static constexpr uint8_t WORDS_PER_RECORD_SHIFT = PROTOCOL_SHIFT - WORDS_PER_RECORD_LEN;
 
-        struct RegionSchemaRecord
+
+        struct alignas(uint64_t) RegionSchemaRecord final
         {
-            uint32_t RequiredTypedElementsPerRecord = UNSIGNED_ZERO;
-            SchemaProtocols Protocol{};
-            DataTypeOfMacroColumn Dtype{};
-            uint8_t Version = UNSIGNED_ZERO;
-            SchemaFlags Flags = SchemaFlags::UNASSIGNED_UNUSED_NANNULL;
-            MacroColumnOfAPC ParentColumn{};
-            bool IsValidSchema = false;
+            uint32_t CellOffset = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t CellCount = UNSIGNED_ZERO;
+            uint32_t MaxHight = UNSIGNED_ZERO;
+            uint32_t MaxWidth = UNSIGNED_ZERO;
+
+            uint32_t EnqueuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint32_t DequeuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            
+            MacroColumnOfAPC Region = MacroColumnOfAPC::FREE_SLOT;
+            SchemaProtocols Protocol = SchemaProtocols::PRIVATE_REGION;
+            DataTypeOfMacroColumn Dtype = DataTypeOfMacroColumn::UINT64_T;
+            SchemaFlags Flags = SchemaFlags::REGION_DISABLED;   
+            uint32_t SeqLockCounter = UNSIGNED_ZERO;
+        };
+        
+        static_assert(sizeof(RegionSchemaRecord) == 4u * sizeof(std::uint64_t));
+        static_assert(alignof(RegionSchemaRecord) == alignof(std::uint64_t));
+        static_assert(std::is_trivially_copyable_v<RegionSchemaRecord>);
+        static_assert(std::is_trivially_destructible_v<RegionSchemaRecord>);
+
+        using RegionSchemaTable = std::array<RegionSchemaRecord, ColumnConf::CountOfMacroColumn()>;
+        
+        struct FabricRegionConfig final
+        {
+            uint8_t ActiveRegionCount = UNSIGNED_ZERO;
+            uint8_t Reserved = UNSIGNED_ZERO;
+            uint32_t BatchCapacity = UNSIGNED_ZERO;
         };
 
         struct InitialRegionalDtypeConf 
@@ -99,70 +125,10 @@ namespace BidirectionalInMemGraph
     
     struct SchemaValidator : public SchemaOrchestrator
     {
-        static constexpr bool HasEnoughForInitialSchema(const RegionSchemaRecord& schema) noexcept
+
+        static constexpr size_t RegionSchemaCellCount() noexcept
         {
-            if (
-                !APCDataStructure::InLimitOfUint8(schema.Version)
-            )
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        static constexpr bool SchemaSelfValidation(RegionSchemaRecord& desired_scheme) noexcept
-        {
-            if (
-                !APCDataStructure::InLimitOfUint8(desired_scheme.Version)
-            )
-            {
-                desired_scheme.IsValidSchema = false;
-                return false;
-            }
-            if (HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REGION_DISABLED))
-            {
-                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO;
-                return desired_scheme.IsValidSchema;
-            }
-
-            if ( desired_scheme.RequiredTypedElementsPerRecord == UNSIGNED_ZERO)
-            {
-                desired_scheme.IsValidSchema = false;
-                return false;
-            }
-
-            switch (desired_scheme.Protocol)
-            {
-            case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
-                desired_scheme.IsValidSchema = 
-                    HasSchemaFlag(desired_scheme.Flags, SchemaFlags::REQUIRED_POW_OF_TWO) &&
-                    HasSchemaFlag(desired_scheme.Flags, SchemaFlags::HAS_PER_SLOT_SEQUENSE);
-                return desired_scheme.IsValidSchema;
-            
-            case SchemaProtocols::ATOMIC_WORD_ARRAY:
-                desired_scheme.IsValidSchema = desired_scheme.RequiredTypedElementsPerRecord != UNSIGNED_ZERO;
-                return desired_scheme.IsValidSchema;
-
-            case SchemaProtocols::PRIVATE_REGION:
-            case SchemaProtocols::IMMUTABLE_SNAPSHOT:
-            case SchemaProtocols::DOUBLE_BUFFERED:
-                desired_scheme.IsValidSchema = true;
-                return true;
-            
-            default:
-                desired_scheme.IsValidSchema = false;
-                return false;
-            }                                                                                                                                                                                                                                                                                                                                                                           
-        }
-
-        static constexpr bool IsSchemaValidated(const RegionSchemaRecord& schema) noexcept
-        {
-            if (schema.IsValidSchema)
-            {
-                return true;
-            }
-            return false;
+            return sizeof(RegionSchemaRecord) / sizeof(uint64_t);
         }
 
         static constexpr bool IsMPMCQueue(const RegionSchemaRecord& provided_schema) noexcept
@@ -242,20 +208,7 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
         }
 
-    };
-
-    static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept
-    {
-        return static_cast<SchemaOrchestrator::SchemaFlags>(
-            static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
-        );
-    }
-
-    struct MPMCQOrchestrator : public SchemaValidator
-    {
-        static constexpr uint8_t FIXED_ADDITIONAL_UIT_FRO_MPMCQ = 1;
-
-        static constexpr std::optional<uint8_t> CountOfTypedWordIn64Bit(DataTypeOfMacroColumn data_type) noexcept
+        static constexpr std::optional<uint8_t> DTypeByteCount(DataTypeOfMacroColumn data_type) noexcept
         {
             switch (data_type)
             {
@@ -284,35 +237,42 @@ namespace BidirectionalInMemGraph
             }
         }
 
-        static constexpr std::optional<uint32_t> RequiredFbUnitForDesiredPayload(const RegionSchemaRecord& schema) noexcept
+        static constexpr std::optional<uint64_t> MatrixByteCount(const RegionSchemaRecord& schema) noexcept
         {
-            std::optional<uint8_t> count_of_typed_word_in64bit = CountOfTypedWordIn64Bit(schema.Dtype);
+            const std::optional<uint8_t> dtype_bytes = DTypeByteCount(schema.Dtype);
             if (
-                !schema.IsValidSchema ||
-                !count_of_typed_word_in64bit.has_value() ||
-                schema.RequiredTypedElementsPerRecord == UNSIGNED_ZERO
+                !dtype_bytes.has_value() ||
+                schema.MaxHight == UNSIGNED_ZERO ||
+                schema.MaxWidth == UNSIGNED_ZERO ||
+                schema.MaxHight > UINT64_MAX / schema.MaxWidth
             )
             {
                 return std::nullopt;
             }
 
-            return UpwordRoundingDivision_(
-                schema.RequiredTypedElementsPerRecord,
-                count_of_typed_word_in64bit.value()
-            );
-            
-        }
+            const uint64_t elements = schema.MaxHight * schema.MaxWidth;
 
-        static constexpr std::optional<uint32_t>CountOf64BitBasedOnTypedProtocol(const RegionSchemaRecord& schema) noexcept
-        {
-            const std::optional<uint32_t> payload_words = RequiredFbUnitForDesiredPayload(schema);
-            if (!payload_words.has_value())
+            if (elements > UINT64_MAX / dtype_bytes.value())
             {
                 return std::nullopt;
             }
-            return payload_words.value() +
-                (schema.Protocol == SchemaProtocols::MPMC_FIXED_RECORD_QUEUE ? FIXED_ADDITIONAL_UIT_FRO_MPMCQ : UNSIGNED_ZERO);
+            
+            return elements * dtype_bytes.value();
         }
+
+    };
+
+    static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept
+    {
+        return static_cast<SchemaOrchestrator::SchemaFlags>(
+            static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
+        );
+    }
+
+    struct MPMCQOrchestrator : public SchemaValidator
+    {
+        static constexpr uint8_t FIXED_ADDITIONAL_UIT_FRO_MPMCQ = 1;
+
 
         static constexpr uint32_t FloorPoweOfTwoUnsigned32(uint32_t value) noexcept
         {
@@ -349,42 +309,7 @@ namespace BidirectionalInMemGraph
 
     struct SchemDefinition : public MPMCQOrchestrator
     {
-        static constexpr uint64_t PackRegionScheme(RegionSchemaRecord& desired_scheme)
-        {
-            if (!SchemaSelfValidation(desired_scheme))
-            {
-                return FABRIC_CELL_SENTINAL;
-            }
 
-            return(
-                static_cast<uint64_t>(desired_scheme.RequiredTypedElementsPerRecord) << WORDS_PER_RECORD_SHIFT |
-                static_cast<uint64_t>(desired_scheme.Protocol) << PROTOCOL_SHIFT |
-                static_cast<uint64_t>(desired_scheme.Dtype) << DTYPE_SHIFT |
-                static_cast<uint64_t>(desired_scheme.Version) << VERSION_SHIFT |
-                static_cast<uint64_t>(desired_scheme.Flags) << FLAGS_SHIFT
-            );       
-        }
-
-
-        static constexpr bool LayoutSchemaFromPackedCell(
-            RegionSchemaRecord& return_schema,
-            uint64_t packed_scheme
-        ) noexcept
-        {
-            if (!APCDataStructure::IsValidFabricUnit(packed_scheme))
-            {
-                return_schema = RegionSchemaRecord{};
-                return false;
-            }
-
-            return_schema.RequiredTypedElementsPerRecord = static_cast<uint32_t>((packed_scheme >> WORDS_PER_RECORD_SHIFT) & MaskLowBitsForU64(WORDS_PER_RECORD_LEN));
-            return_schema.Protocol = static_cast<SchemaProtocols>((packed_scheme >> PROTOCOL_SHIFT) & MaskLowBitsForU64(PROTOCOL_LEN));
-            return_schema.Dtype = static_cast<DataTypeOfMacroColumn>((packed_scheme >> DTYPE_SHIFT) & MaskLowBitsForU64(DTYPE_LEN));
-            return_schema.Version = static_cast<uint8_t>((packed_scheme >> VERSION_SHIFT) & MaskLowBitsForU64(VERSION_LEN));
-            return_schema.Flags = static_cast<SchemaFlags>((packed_scheme >> FLAGS_SHIFT) & MaskLowBitsForU64(FLAGS_LEN));
-
-            return SchemaSelfValidation(return_schema);
-        }
 
         static constexpr SchemaProtocols GetProtocolForColumn(
             const InitialRegionalProtocol& conc_conf,
