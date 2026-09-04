@@ -160,12 +160,7 @@ namespace BidirectionalInMemGraph
         static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
         static constexpr uint8_t BRANCH_VERSION = 1u;
         static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
-        // static constexpr uint32_t APC_ALL_INDEX_LIMIT = APC_INDEX_BOUND_SENTINAL - 1;
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
-
-        static constexpr uint64_t HASH_64BIT_GRATIO_1 = 0x9E3779B97F4A7C15ull;
-        static constexpr uint64_t HASH_64BIT_GRATIO_2 = 0xD6E8FEB86659FD93ull;
-
 
 
         static constexpr bool IsValid32BitAPCUnit(uint64_t index) noexcept
@@ -201,66 +196,5 @@ namespace BidirectionalInMemGraph
                 (value & 1u) == UNSIGNED_ZERO;
         }
 
-        static uint64_t MakeARandomFabricValid64() noexcept
-        {
-            static std::atomic<uint64_t> global_counter{1u};
-
-            auto SplitMix64 = [](uint64_t x) noexcept -> uint64_t
-            {
-                x += HASH_64BIT_GRATIO_1;
-                x = (x ^ (x >> 30u)) * 0xBF58476D1CE4E5B9ull;
-                x = (x ^ (x >> 27u)) * 0x94D049BB133111EBull;
-                x = x ^ (x >> 31u);
-                return x;
-            };
-
-            uint64_t random_seed = global_counter.fetch_add(1, std::memory_order_acq_rel);
-
-            random_seed ^= static_cast<uint64_t>(
-                std::chrono::high_resolution_clock::now().time_since_epoch().count()
-            );
-
-            random_seed ^= reinterpret_cast<uint64_t>(&random_seed);
-
-            try
-            {
-                std::random_device random_device;
-                random_seed ^= static_cast<uint64_t>(random_device());
-            }
-            catch(...)
-            {
-                random_seed ^= HASH_64BIT_GRATIO_2;
-            }
-
-            for (uint32_t attempt = 0; attempt < 8u; attempt++)
-            {
-                random_seed = SplitMix64(random_seed);
-
-                if (
-                    IsValidFabricUnit(random_seed) &&
-                    random_seed > UNSIGNED_ZERO
-                )
-                {
-                    return random_seed;
-                }
-            }
-            
-            const uint64_t fallback = SplitMix64(global_counter.fetch_add(1u, std::memory_order_acq_rel));
-
-            return (IsValidFabricUnit(fallback) && fallback > UNSIGNED_ZERO) ? 
-                fallback : FABRIC_CELL_SENTINAL;
-
-        }
-
-
-    protected:
-            static constexpr void FreeAlignedRawPackedCells_(uint64_t* backing_ptr) noexcept
-            {
-                if (!backing_ptr)
-                {
-                    return;
-                }
-                ::operator delete[](static_cast<void*>(backing_ptr), std::align_val_t{APC_CACHELINE_SIZE});
-            }
     };
 }

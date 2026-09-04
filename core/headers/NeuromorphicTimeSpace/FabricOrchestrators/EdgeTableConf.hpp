@@ -1,5 +1,5 @@
 #pragma once 
-#include "FabricTableOrchestrator.hpp"
+#include "CoreOfFabricCoordinator.hpp"
 
 namespace BidirectionalInMemGraph
 {

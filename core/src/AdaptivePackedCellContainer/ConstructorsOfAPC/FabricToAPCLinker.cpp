@@ -89,9 +89,6 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        current_state.StateOfTheAPC = StateOfAPC::LIVE;
-        ++current_state.SeqLock;
-
         const uint64_t raw_new_state_seq =
             DSA::ComposeSeqLockAndState(current_state);
 

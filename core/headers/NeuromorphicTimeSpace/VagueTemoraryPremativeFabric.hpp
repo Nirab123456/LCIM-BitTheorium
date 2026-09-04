@@ -67,6 +67,14 @@ private:
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
+    bool RetireAPC_(
+        uint32_t slot,
+        uint32_t generation,
+        uint32_t max_tries = DEFAULT_MAX_TRIES
+    ) noexcept;
+
+    bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
+
 public:
 
     bool InitializeFabricWithPtrTable(
@@ -84,8 +92,6 @@ public:
 
     bool CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
-        bool wants_horizontal_root,
-        bool wants_vertical_root,
         const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
         const SchemaDefinition::InitialRegionalDtypeConf& dtype,
         const SchemaDefinition::InitialRegionalProtocol& protocol,
