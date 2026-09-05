@@ -362,6 +362,15 @@ namespace BidirectionalInMemGraph
                 return false;
             }
         }
+
+
+        static constexpr bool FreshProtocolState(const RegionSchemaRecord& record) noexcept
+        {
+            return 
+                (record.Protocol == SchemaProtocols::DOUBLE_BUFFERED) ? 
+                    (record.EnqueuePosition == 1u && record.DequeuePosition == 0u) : (record.Protocol == SchemaProtocols::MPMC_FIXED_RECORD_QUEUE) ? 
+                        (record.EnqueuePosition == 0u && record.DequeuePosition == 0u) : (record.EnqueuePosition == NO_POSITION && record.DequeuePosition == NO_POSITION);
+        }
     };
 
     static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept

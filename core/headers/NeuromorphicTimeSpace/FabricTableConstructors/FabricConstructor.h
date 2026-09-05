@@ -18,6 +18,9 @@ namespace BidirectionalInMemGraph
 
         uint8_t MaxDirectParentsPerAxis_{UNSIGNED_ZERO};
         uint16_t EdgeTableRecordWidth_{UNSIGNED_ZERO};
+    
+        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
+
 
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};
@@ -80,10 +83,25 @@ namespace BidirectionalInMemGraph
     class MatrixViewConstructor : public FabricConstructor
     {
     protected:
+        using SD = SchemaDefinition;
         uint64_t MatrixViewTableBeginIndex_{UNSIGNED_ZERO};
         uint16_t ActiveRegionMask_{UNSIGNED_ZERO};
         uint8_t ActiveRegionCount_{UNSIGNED_ZERO};
         uint16_t MatrixViewRowCellCount_{UNSIGNED_ZERO};
+        uint32_t MatrixBatchCapacity_{UNSIGNED_ZERO};
+
+        std::span<SD::RegionSchemaRecord> MetrixViewRow_(uint32_t apc_slot) noexcept;
+
+        bool ConstructMatrixViewRecords_(size_t table_begin, size_t table_end) noexcept;
+
+        bool PrepareMatrixViewRow_(
+            uint32_t apc_slot,
+            const SD::RegionSchemaTable& requested
+        ) noexcept;
+
+        void ClearMatrixViewRow_(uint32_t apc_slot) noexcept;
+
+        bool InitializeRegionProtocolStorage_(uint32_t apc_slot) noexcept;
 
     };
 

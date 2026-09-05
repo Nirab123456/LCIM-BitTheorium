@@ -63,7 +63,6 @@ namespace BidirectionalInMemGraph
     protected:
         uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};
         uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
-        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
 
         EdgeTableRange ReadAnEdgeTableRange_(
             FabricSegments edge_table,
