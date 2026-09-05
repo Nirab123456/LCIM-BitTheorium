@@ -11,7 +11,8 @@ namespace BidirectionalInMemGraph
     {
         // Identity
         MAGIC_ID = 0,
-        APC_LIFE_CYCLE                      = 1,
+        APC_SLOT_IDX = 1,
+        APC_LIFE_CYCLE                      = 6,
         EOF_APC_HEADER                      = 7
     };
 

@@ -8,7 +8,6 @@ namespace BidirectionalInMemGraph
     {
         
     protected:
-        using LBO = LayoutBoundsOrchestrator;
         using SD = SchemaDefinition;
         using DSA = DescriptionOfAPC;
         using RBC = RecordBookConf;
@@ -62,6 +61,10 @@ namespace BidirectionalInMemGraph
         static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
     protected:
+        uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};
+        uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
+        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
+
         EdgeTableRange ReadAnEdgeTableRange_(
             FabricSegments edge_table,
             uint32_t row_slot

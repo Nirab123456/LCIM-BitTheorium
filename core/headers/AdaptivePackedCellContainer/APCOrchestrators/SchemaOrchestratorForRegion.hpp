@@ -1,5 +1,5 @@
 #pragma once
-#include "LayoutBoundsOrchestrator.hpp"
+#include "../../SharedComponents/BitPackers/ConAndCaDependentPacker.hpp"
 
 namespace BidirectionalInMemGraph
 {
@@ -8,7 +8,7 @@ namespace BidirectionalInMemGraph
     {
 
         static constexpr uint32_t REGION_ALIGNMENT_CELLS = static_cast<uint32_t>(APCDataStructure::APC_CACHELINE_SIZE / sizeof(std::uint64_t));
-        static constexpr uint64_t NO_POSITION = UINT64_MAX;
+        static constexpr uint64_t NO_POSITION = UINT32_MAX;
 
         enum class SchemaProtocols : uint8_t
         {
@@ -361,9 +361,6 @@ namespace BidirectionalInMemGraph
             default:
                 return false;
             }
-
-
-
         }
     };
 
@@ -412,7 +409,7 @@ namespace BidirectionalInMemGraph
     };
 
 
-    struct SchemDefinition : public MPMCQOrchestrator
+    struct SchemaDefinition : public MPMCQOrchestrator
     {
     private:
 

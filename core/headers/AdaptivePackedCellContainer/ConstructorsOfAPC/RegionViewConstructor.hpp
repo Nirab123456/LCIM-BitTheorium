@@ -118,10 +118,11 @@ namespace BidirectionalInMemGraph
 
 
     class RegionViewConstructor : public FabricToAPCLinker
-    {
+    {   
     private:
         bool ResolveRegionView_(
             MacroColumnOfAPC column_name,
+            uint32_t record_ordinal,
             ResolveRegionBiteView& out
         ) noexcept;
 
@@ -145,7 +146,7 @@ namespace BidirectionalInMemGraph
 
             using SD = SchemaDefinition;
 
-            switch (resolved.Schema.Protocol)
+            switch (resolved.Schema->Protocol)
             {
             case SD::SchemaProtocols::PRIVATE_REGION:
             case SD::SchemaProtocols::IMMUTABLE_SNAPSHOT:
@@ -171,7 +172,7 @@ namespace BidirectionalInMemGraph
 
             return RegionView<DType>(
                 std::span<DType>(type_based, element_count),
-                resolved.Schema.Protocol,
+                resolved.Schema->Protocol,
                 std::move(use)
             );
         }

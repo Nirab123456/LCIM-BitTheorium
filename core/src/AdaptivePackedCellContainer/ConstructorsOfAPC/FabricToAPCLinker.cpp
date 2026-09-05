@@ -51,12 +51,7 @@ namespace BidirectionalInMemGraph
         ExpectedGeneration_ = UNSIGNED_ZERO;
     }
 
-    bool FabricToAPCLinker::InitiateAPCMetaHeader(
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
-        const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
-        uint8_t version
-    ) noexcept
+    bool FabricToAPCLinker::InitiateAPCMetaHeader() noexcept
     {
         using DSA = DescriptionOfAPC;
 
@@ -75,26 +70,17 @@ namespace BidirectionalInMemGraph
             current_state.StateOfTheAPC != StateOfAPC::RESERVED ||
             !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
                 header_meta_buffer,
-                CapacityOfThisAPC_,
-                layout_weight,
-                dtype_conf,
-                protocol_conf,
-                version
-            ) ||
-            !HeaderOrchestrator::IsHeaderBufferValidationMarked(
-                header_meta_buffer
+                APCSlotIdx_,
+                CapacityOfThisAPC_
             )
         )
         {
             return false;
         }
 
-        const uint64_t raw_new_state_seq =
-            DSA::ComposeSeqLockAndState(current_state);
+        const uint64_t raw_new_state_seq = DSA::ComposeSeqLockAndState(current_state);
 
-        header_meta_buffer[
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)
-        ] = raw_new_state_seq;
+        header_meta_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
 
         return
             APCDataStructure::IsValidFabricUnit(raw_new_state_seq) &&

@@ -1,6 +1,6 @@
 #pragma once
 #include <functional>
-#include "CompleateRegionOrchestrator.hpp"
+#include "SchemaOrchestratorForRegion.hpp"
 
 namespace BidirectionalInMemGraph
 {
@@ -90,7 +90,6 @@ namespace BidirectionalInMemGraph
 
     struct HeaderOrchestrator : DescriptionOfAPC
     {
-        static constexpr uint64_t COMPLETE_HEADER_VALIDATION_MARK = 3333;
         static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT + 1;
         static constexpr uint8_t VALIDATION_INDEX_OF_HEADER_BUFFER = LEN_OF_APC_META_BUFFER_OR_COUNT - 1;
 
@@ -116,201 +115,30 @@ namespace BidirectionalInMemGraph
             }
         }
 
-
         static constexpr bool InitializeDefaultHeaderBuffer(
-            APCMetaBuffer& header_buffer,
-            uint32_t capacity_of_apc,
-            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight = {},
-            const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = {},
-            const SchemaDefinition::InitialRegionalProtocol& protocol_conf = {},
-            uint8_t version = APCDataStructure::BRANCH_VERSION
-        ) noexcept
-        {
-            for (uint64_t& word : header_buffer)
-            {
-                word = UNSIGNED_ZERO;
-            }
-
-            if (
-                !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
-                !APCDataStructure::InLimitOfUint8(version)
-            )
-            {
-                return false;
-            }
-
-            BufferConfForTracking::TrackingBufferOfAPC layout_buffer{};
-            BufferConfForTracking::TrackingBufferOfAPC schema_buffer{};
-            CompleateRegionOrchestrator::CursorBuffers cursor_buffers{};
-
-            if (
-                !LayoutBoundsOrchestrator::BuildInitialLayoutBuffer(
-                    layout_buffer,
-                    capacity_of_apc,
-                    layout_weight
-                ) ||
-                !CompleateRegionOrchestrator::BuildInitialSchemaBuffer(
-                    schema_buffer,
-                    layout_buffer,
-                    version,
-                    dtype_conf,
-                    protocol_conf
-                ) ||
-                !CompleateRegionOrchestrator::BuildInitialCursorBuffers(
-                    cursor_buffers,
-                    schema_buffer
-                ) ||
-                !CompleateRegionOrchestrator::ValidateSchemaBufferAgainstLayoutBuffer(
-                    schema_buffer,
-                    layout_buffer
-                ) ||
-                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(
-                    cursor_buffers,
-                    schema_buffer
-                )
-            )
-            {
-                return false;
-            }
-
-            CopyAllBuffersToHeaderBuffer_(
-                header_buffer,
-                layout_buffer,
-                schema_buffer,
-                cursor_buffers
-            );
-
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] =
-                APCDataStructure::BRANCH_MAGIC;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] =
-                CompleateRegionOrchestrator::ComputeAPCSchemaId(
-                    layout_buffer,
-                    schema_buffer
-                );
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::LAYOUT_VERSION)] =
-                version;
-            header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] =
-                APCDataStructure::EOF_HEADER;
-
-            return ValidateHeaderBuffer(header_buffer, capacity_of_apc);
-        }
-
-        static constexpr bool ValidateHeaderBuffer(
             APCMetaBuffer& header,
+            uint32_t apc_slot_idx,
             uint32_t capacity_of_apc
         ) noexcept
         {
-            if (
-                !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
-                header[static_cast<size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] !=
-                    APCDataStructure::BRANCH_MAGIC ||
-                header[static_cast<size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] !=
-                    APCDataStructure::EOF_HEADER
-            )
+            for (uint64_t& word : header)
             {
-                header[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;
-                return false;
-            }
-
-            BufferConfForTracking::TrackingBufferOfAPC layout_buffer{};
-            BufferConfForTracking::TrackingBufferOfAPC schema_buffer{};
-            CompleateRegionOrchestrator::CursorBuffers cursor_buffers{};
-
-            BufferConfForTracking::BuildNullTrackingBuffer(layout_buffer);
-            BufferConfForTracking::BuildNullTrackingBuffer(schema_buffer);
-            BufferConfForTracking::BuildNullTrackingBuffer(cursor_buffers.Enqueue);
-            BufferConfForTracking::BuildNullTrackingBuffer(cursor_buffers.Dequeue);
-
-            GetAllBuffersFromHeaderBuffer_(
-                header,
-                layout_buffer,
-                schema_buffer,
-                cursor_buffers
-            );
-
-            if (
-                !LayoutBoundsOrchestrator::ValidateALayoutBuffer(
-                    layout_buffer,
-                    capacity_of_apc
-                ) ||
-                !CompleateRegionOrchestrator::ValidateSchemaBufferAgainstLayoutBuffer(
-                    schema_buffer,
-                    layout_buffer
-                ) ||
-                !CompleateRegionOrchestrator::ValidateInitialCursorBuffers(
-                    cursor_buffers,
-                    schema_buffer
-                ) ||
-                header[static_cast<size_t>(HeaderIdentifierOfAPC::APC_SCHEMA_ID)] !=
-                    CompleateRegionOrchestrator::ComputeAPCSchemaId(
-                        layout_buffer,
-                        schema_buffer
-                    )
-            )
-            {
-                header[VALIDATION_INDEX_OF_HEADER_BUFFER] = UNSIGNED_ZERO;
-                return false;
-            }
-
-            header[VALIDATION_INDEX_OF_HEADER_BUFFER] =
-                COMPLETE_HEADER_VALIDATION_MARK;
-            return true;
-        }
-
-        static constexpr bool IsHeaderBufferValidationMarked(const APCMetaBuffer& a_buffer) noexcept
-        {
-            if (a_buffer[VALIDATION_INDEX_OF_HEADER_BUFFER] == COMPLETE_HEADER_VALIDATION_MARK)
-            {
-                return true;
-            }
-            return false;
-        }
-
-    
-    private:
-        static constexpr void CopyAllBuffersToHeaderBuffer_(
-            APCMetaBuffer& header_buffer,
-            const BufferConfForTracking::TrackingBufferOfAPC& layout_buffer,
-            const BufferConfForTracking::TrackingBufferOfAPC& schema_buffer,
-            const CompleateRegionOrchestrator::CursorBuffers& cursors_buffrers
-        ) noexcept
-        {
-            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
-            {
-                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i] = layout_buffer[i];
-
-                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i] = cursors_buffrers.Enqueue[i];
-
-                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i] = cursors_buffrers.Dequeue[i];
-
-                header_buffer[static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i] = schema_buffer[i];
+                word = UNSIGNED_ZERO;
             }
             
-        }
-
-
-        static constexpr void GetAllBuffersFromHeaderBuffer_(
-            const APCMetaBuffer& header_buffer,
-            BufferConfForTracking::TrackingBufferOfAPC& layout_buffer,
-            BufferConfForTracking::TrackingBufferOfAPC& schema_buffer,
-            CompleateRegionOrchestrator::CursorBuffers& cursor_buffers
-        ) noexcept
-        {
-            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); ++i)
+            if (
+                !APCDataStructure::IsCapacityOfAPCValid(capacity_of_apc) ||
+                !APCDataStructure::IsValid32BitAPCUnit(apc_slot_idx)
+            )
             {
-                layout_buffer[i] = header_buffer[
-                    static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_BOUNDS) + i
-                ];
-                schema_buffer[i] = header_buffer[
-                    static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_REGION_SCHEMA) + i
-                ];
-                cursor_buffers.Enqueue[i] = header_buffer[
-                    static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_ENQUEUE_POSITION) + i
-                ];
-                cursor_buffers.Dequeue[i] = header_buffer[
-                    static_cast<size_t>(HeaderIdentifierOfAPC::FEEDFORWARD_DEQUEUE_POSITION) + i
-                ];
+                return false;
             }
+
+            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
+            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)] = apc_slot_idx;
+            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
+
+            return true;
         }
 
 

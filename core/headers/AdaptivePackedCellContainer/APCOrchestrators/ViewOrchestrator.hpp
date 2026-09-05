@@ -9,15 +9,15 @@ namespace BidirectionalInMemGraph
     struct ResolveRegionBiteView
     {
         std::span<std::byte> Bytes{};
-        LayoutBoundsOrchestrator::LayoutCarrier layout{};
-        SchemaDefinition::RegionSchemaRecord Schema{};
+        SchemaDefinition::RegionSchemaRecord* Schema{};
+        uint32_t RegionOrdinal = UNSIGNED_ZERO;
 
         constexpr bool IsValid() const noexcept
         {
             return 
-                layout.IsValid &&
-                Schema.IsValidSchema &&
-                !Bytes.empty();
+                !Bytes.empty() &&
+                Schema->MatrixHeight != UNSIGNED_ZERO &&
+                Schema->MatrixWidth != UNSIGNED_ZERO;
         }
 
         constexpr size_t ByteCount() const noexcept
@@ -25,7 +25,7 @@ namespace BidirectionalInMemGraph
             return Bytes.size_bytes();
         }
     };
-    static_assert(sizeof(ResolveRegionBiteView) <= 5 * sizeof(uint64_t));
+    static_assert(sizeof(ResolveRegionBiteView) <= 4 * sizeof(uint64_t));
     
 
     struct APCStorageGeometry
@@ -54,7 +54,7 @@ namespace BidirectionalInMemGraph
             if (
                 !region.IsValid() ||
                 !expected_dtype.has_value() ||
-                region.Schema.Dtype != expected_dtype.value() ||
+                region.Schema->Dtype != expected_dtype.value() ||
                 region.ByteCount() < sizeof(DType) ||
                 (region.ByteCount() % sizeof(DType)) != UNSIGNED_ZERO
             )

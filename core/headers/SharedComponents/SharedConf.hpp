@@ -52,13 +52,13 @@ namespace BidirectionalInMemGraph
     enum class FabricSegments : uint8_t
     {
         SLAB_RECORD_MAP = 0,
-        HORIZONTAL_EDGE_TABLE = 1,
-        VERTICAL_EDGE_TABLE = 2,
-        APC_HANDLE_TABLE = 3,
-        COMPILED_DAG_TABLE = 4,
-        READY_QUEUE = 5,
-        WORK_QUEUE = 6,
-        DEVICE_VIEW_TABLE = 7,
+        MATRIX_VIEW_TABLE = 1,
+        HORIZONTAL_EDGE_TABLE = 2,
+        VERTICAL_EDGE_TABLE = 3,
+        APC_HANDLE_TABLE = 4,
+        COMPILED_DAG_TABLE = 5,
+        READY_QUEUE = 6,
+        WORK_QUEUE = 7,
         SEGMENT_POOL = 8
     };
 
