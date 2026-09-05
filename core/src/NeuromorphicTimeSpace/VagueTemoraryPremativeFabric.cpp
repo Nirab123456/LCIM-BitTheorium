@@ -695,6 +695,7 @@ namespace BidirectionalInMemGraph
         bool vertical_reserved = false;
         bool pointer_stored = false;
         bool descriptor_live = false;
+        bool matrix_view_prepared = false;
 
         auto AbortCreation___ = [&]()
         {
@@ -735,6 +736,12 @@ namespace BidirectionalInMemGraph
                 );
             }
 
+            if (matrix_view_prepared)
+            {
+                ClearMatrixViewRow_(slot);
+            }
+            
+
             SwitchDescriptionState(
                 slot,
                 StateOfAPC::FREE,
@@ -765,6 +772,19 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
+        if (!PrepareMatrixViewRow_(slot, region_schemas))
+        {
+            AbortCreation___();
+            return false;
+        }
+        matrix_view_prepared = true;
+
+        if (!InitializeRegionProtocolStorage_(slot))
+        {
+            AbortCreation___();
+            return false;
+        }
+        
         const RangeOfAPC range = GetSegmentPoolRange(slot);
         if (
             !range.IsValid ||

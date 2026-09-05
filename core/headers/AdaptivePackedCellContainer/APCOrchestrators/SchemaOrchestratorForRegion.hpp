@@ -8,7 +8,7 @@ namespace BidirectionalInMemGraph
     {
 
         static constexpr uint32_t REGION_ALIGNMENT_CELLS = static_cast<uint32_t>(APCDataStructure::APC_CACHELINE_SIZE / sizeof(std::uint64_t));
-        static constexpr uint64_t NO_POSITION = UINT32_MAX;
+        static constexpr uint64_t NO_POSITION = FABRIC_CELL_SENTINAL;
 
         enum class SchemaProtocols : uint8_t
         {
@@ -54,8 +54,8 @@ namespace BidirectionalInMemGraph
             uint32_t MatrixHeight = UNSIGNED_ZERO;
             uint32_t MatrixWidth = UNSIGNED_ZERO;
 
-            uint32_t EnqueuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            uint32_t DequeuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint64_t EnqueuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint64_t DequeuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
             
             MacroColumnOfAPC Region = MacroColumnOfAPC::FREE_SLOT;
             SchemaProtocols Protocol = SchemaProtocols::PRIVATE_REGION;
@@ -64,44 +64,16 @@ namespace BidirectionalInMemGraph
             uint32_t SeqLockCounter = UNSIGNED_ZERO;
         };
         
-        static_assert(sizeof(RegionSchemaRecord) == 4u * sizeof(std::uint64_t));
+        static_assert(sizeof(RegionSchemaRecord) == 5u * sizeof(std::uint64_t));
         static_assert(alignof(RegionSchemaRecord) == alignof(std::uint64_t));
         static_assert(std::is_trivially_copyable_v<RegionSchemaRecord>);
         static_assert(std::is_trivially_destructible_v<RegionSchemaRecord>);
         
         struct FabricRegionConfig final
         {
-            uint8_t ActiveRegionCount = UNSIGNED_ZERO;
-            uint8_t Reserved = UNSIGNED_ZERO;
+            uint16_t ActiveRegionMask = UNSIGNED_ZERO;
+            uint16_t Reserved = UNSIGNED_ZERO;
             uint32_t BatchCapacity = UNSIGNED_ZERO;
-        };
-
-        struct InitialRegionalDtypeConf 
-        {
-            DataTypeOfMacroColumn FEEDFORWARD_MESSAGE  = DataTypeOfMacroColumn::FLOAT32_T;
-            DataTypeOfMacroColumn FEEDBACKWARD_MESSAGE = DataTypeOfMacroColumn::FLOAT32_T;
-            DataTypeOfMacroColumn LATERAL_MESAGE = DataTypeOfMacroColumn::FLOAT32_T;
-            DataTypeOfMacroColumn STATE_SLOT = DataTypeOfMacroColumn::UINT8_T;
-            DataTypeOfMacroColumn ERROR_SLOT = DataTypeOfMacroColumn::FLOAT32_T;
-            DataTypeOfMacroColumn WEIGHTLESS_LOOKUP = DataTypeOfMacroColumn::UINT8_T;
-            DataTypeOfMacroColumn WEIGHT_SLOT = DataTypeOfMacroColumn::UINT8_T;
-            DataTypeOfMacroColumn AUX_SLOT = DataTypeOfMacroColumn::UINT8_T;
-            DataTypeOfMacroColumn HETEROGENOUS_PTR = DataTypeOfMacroColumn::UINT64_T;
-            DataTypeOfMacroColumn FREE_SLOT = DataTypeOfMacroColumn::UINT64_T;
-        }; 
-
-        struct InitialRegionalProtocol
-        {
-            SchemaProtocols FEEDFORWARD_MESSAGE  = SchemaProtocols::ATOMIC_WORD_ARRAY;
-            SchemaProtocols FEEDBACKWARD_MESSAGE = SchemaProtocols::ATOMIC_WORD_ARRAY;
-            SchemaProtocols LATERAL_MESAGE = SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
-            SchemaProtocols STATE_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
-            SchemaProtocols ERROR_SLOT = SchemaProtocols::PRIVATE_REGION;
-            SchemaProtocols WEIGHTLESS_LOOKUP = SchemaProtocols::DOUBLE_BUFFERED;
-            SchemaProtocols WEIGHT_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
-            SchemaProtocols AUX_SLOT = SchemaProtocols::DOUBLE_BUFFERED;
-            SchemaProtocols HETEROGENOUS_PTR = SchemaProtocols::PRIVATE_REGION;
-            SchemaProtocols FREE_SLOT = SchemaProtocols::PRIVATE_REGION;
         };
 
     };
@@ -134,6 +106,7 @@ namespace BidirectionalInMemGraph
                 static_cast<uint8_t>(SchemaFlags::ALLOW_QUICENT_SCHEMA_MUTATION) |
                 static_cast<uint8_t>(SchemaFlags::ALLOW_TRAILING_PADDING) |
                 static_cast<uint8_t>(SchemaFlags::HAS_PER_SLOT_SEQUENSE) |
+                static_cast<uint8_t>(SchemaFlags::BATCHED_LAST_DIM) |
                 static_cast<uint8_t>(SchemaFlags::REGION_DISABLED);
             
             const uint8_t raw = static_cast<uint8_t>(flags);
@@ -198,22 +171,22 @@ namespace BidirectionalInMemGraph
             case DataTypeOfMacroColumn::UINT8_T:
             case DataTypeOfMacroColumn::INT8_T:
             case DataTypeOfMacroColumn::CHAR:
-                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint8_t));
+                return static_cast<uint8_t>(sizeof(uint8_t));
 
             case DataTypeOfMacroColumn::UINT16_T:
             case DataTypeOfMacroColumn::INT16_T:
             case DataTypeOfMacroColumn::FLOAT16_T:
-                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint16_t));
+                return static_cast<uint8_t>(sizeof(uint16_t));
 
             case DataTypeOfMacroColumn::UINT32_T:
             case DataTypeOfMacroColumn::INT32_T:
             case DataTypeOfMacroColumn::FLOAT32_T:
-                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint32_t));
+                return static_cast<uint8_t>(sizeof(uint32_t));
 
             case DataTypeOfMacroColumn::UINT64_T:
             case DataTypeOfMacroColumn::INT64_T:
             case DataTypeOfMacroColumn::FLOAT64_T:
-                return static_cast<uint8_t>(sizeof(uint64_t) / sizeof(uint64_t));
+                return static_cast<uint8_t>(sizeof(uint64_t));
 
             default:
                 return std::nullopt;
@@ -233,7 +206,7 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            const uint64_t elements = schema.MatrixHeight * schema.MatrixWidth;
+            const uint64_t elements = static_cast<uint64_t>(schema.MatrixHeight) * schema.MatrixWidth;
 
             if (elements > UINT64_MAX / dtype_bytes.value())
             {
@@ -255,7 +228,7 @@ namespace BidirectionalInMemGraph
                 static_cast<uint64_t>(bytes.value() % sizeof(uint64_t) != UNSIGNED_ZERO);
 
             return cells <= UINT32_MAX ?
-                std::optional<uint32_t>(cells) : std::nullopt;
+                std::optional<uint32_t>(static_cast<uint32_t>(cells)) : std::nullopt;
             
         }
 
@@ -272,7 +245,7 @@ namespace BidirectionalInMemGraph
             
             const uint64_t aligned = ((raw + REGION_ALIGNMENT_CELLS - 1u) / REGION_ALIGNMENT_CELLS) * REGION_ALIGNMENT_CELLS;
 
-            return aligned <= UINT16_MAX ? 
+            return aligned <= UINT32_MAX ? 
                 std::optional<uint32_t>(static_cast<uint32_t>(aligned)) : std::nullopt;
             
         }
@@ -280,7 +253,7 @@ namespace BidirectionalInMemGraph
 
         static constexpr std::optional<uint32_t> LogicalRecordCount(const RegionSchemaRecord& schema) noexcept
         {
-            const std::optional<uint64_t> stride = RecordStrideCells(schema);
+            const std::optional<uint32_t> stride = RecordStrideCells(schema);
             if (
                 !stride.has_value() ||
                 stride.value() == UNSIGNED_ZERO ||
