@@ -65,6 +65,12 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::FIRST_FREE_IDX)] = UNSIGNED_ZERO;
         SlabBasePtr_[static_cast<size_t>(FMI::EDGE_TABLE_RECORD_WIDTH)] = EdgeTableRecordWidth_;
         SlabBasePtr_[static_cast<size_t>(FMI::MAX_DIRECT_PARENTS_PER_AXIS)] = MaxDirectParentsPerAxis_;
+        SlabBasePtr_[static_cast<size_t>(FMI::ACTIVE_REGION_MASK)] = ActiveRegionMask_;
+        SlabBasePtr_[static_cast<size_t>(FMI::ACTIVE_REGION_COUNT)] = ActiveRegionCount_;
+        SlabBasePtr_[static_cast<size_t>(FMI::REGION_SCHEMA_RECORD_CELL_COUNT)] = SD::RegionSchemaCellCount();
+        SlabBasePtr_[static_cast<size_t>(FMI::DEVICE_VIEW_ROW_CELL_COUNT)] = MatrixViewRowCellCount_;
+        SlabBasePtr_[static_cast<size_t>(FMI::MATRIC_BATCH_CAPACITY)] = MatrixBatchCapacity_;
+        SlabBasePtr_[static_cast<size_t>(FMI::REGION_ALLIGNMENT_CELL_COUNT)] = SD::REGION_ALIGNMENT_CELLS;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
@@ -219,6 +225,7 @@ namespace BidirectionalInMemGraph
         HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
         HandleTableBeginIndex_ = apc_handle_table_begin;
+        MatrixViewTableBeginIndex_ = matrix_view_table_begin;
 
         if (!ConstructMatrixViewRecords_(matrix_view_table_begin, matrix_view_table_end))
         {

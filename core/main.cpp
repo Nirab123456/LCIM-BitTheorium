@@ -3,6 +3,5 @@
 
 int main()
 {
-    return 0;
-    // return APCDAGTests::RunAll();
+    return APCDAGTests::RunAll();
 }

@@ -63,7 +63,7 @@ namespace BidirectionalInMemGraph
         SD::RegionSchemaTable prepared{};
         uint16_t observed_mask = UNSIGNED_ZERO;
         uint8_t prepared_count = UNSIGNED_ZERO;
-        uint32_t cursor = UNSIGNED_ZERO;
+        uint32_t cursor = SD::AlignRegionCells(APCDataStructure::METACELL_COUNT);
 
         for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
         {
@@ -87,7 +87,7 @@ namespace BidirectionalInMemGraph
 
             if (
                 SD::HasSchemaFlag(record.Flags, SD::SchemaFlags::BATCHED_LAST_DIM) &&
-                record.MatrixHeight != MatrixBatchCapacity_
+                record.MatrixWidth != MatrixBatchCapacity_
             )
             {
                 return false;
@@ -113,7 +113,7 @@ namespace BidirectionalInMemGraph
         }
         
         if (
-            observed_mask != ActiveRegionCount_ ||
+            observed_mask != ActiveRegionMask_ ||
             prepared_count != ActiveRegionCount_
         )
         {

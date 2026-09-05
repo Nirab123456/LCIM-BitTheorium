@@ -16,7 +16,7 @@ namespace BidirectionalInMemGraph
         {
             return 
                 !Bytes.empty() &&
-                !Schema &&
+                Schema != nullptr &&
                 Schema->MatrixHeight != UNSIGNED_ZERO &&
                 Schema->MatrixWidth != UNSIGNED_ZERO;
         }

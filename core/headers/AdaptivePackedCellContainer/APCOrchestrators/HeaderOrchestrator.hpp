@@ -90,8 +90,7 @@ namespace BidirectionalInMemGraph
 
     struct HeaderOrchestrator : DescriptionOfAPC
     {
-        static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT + 1;
-        static constexpr uint8_t VALIDATION_INDEX_OF_HEADER_BUFFER = LEN_OF_APC_META_BUFFER_OR_COUNT - 1;
+        static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT;
 
 
         using DefaultMemCopyBuffer = std::array<uint64_t, UINT8_MAX>;
