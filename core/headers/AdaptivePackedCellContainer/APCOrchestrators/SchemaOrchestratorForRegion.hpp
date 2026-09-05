@@ -300,6 +300,71 @@ namespace BidirectionalInMemGraph
                 ((static_cast<uint64_t>(cell) + REGION_ALIGNMENT_CELLS - 1u) / REGION_ALIGNMENT_CELLS) * REGION_ALIGNMENT_CELLS
             );
         }
+
+        static constexpr bool ValidateStortedRegionSchema(
+            const RegionSchemaRecord& schema,
+            uint32_t apc_cell_count,
+            uint32_t  fabric_batch_capacity
+        ) noexcept
+        {
+            if (
+                !IsKnownSchemaFlags(schema.Flags) ||
+                HasSchemaFlag(schema.Flags, SchemaFlags::REGION_DISABLED) ||
+                schema.CellOffset < APCDataStructure::METACELL_COUNT ||
+                schema.CellOffset % REGION_ALIGNMENT_CELLS != UNSIGNED_ZERO ||
+                schema.CellCount == UNSIGNED_ZERO ||
+                schema.CellOffset > apc_cell_count ||
+                schema.CellCount > apc_cell_count - schema.CellOffset
+            )
+            {
+                return false;
+            }
+            
+            if (
+                HasSchemaFlag(schema.Flags, SchemaFlags::BATCHED_LAST_DIM) &&
+                schema.MatrixWidth != fabric_batch_capacity
+            )
+            {
+                return false;
+            }
+
+            const std::optional<uint32_t> record_count = LogicalRecordCount(schema);
+            if (!record_count.has_value())
+            {
+                return false;
+            }
+            
+
+            switch (schema.Protocol)
+            {
+            case SchemaProtocols::PRIVATE_REGION:
+            case SchemaProtocols::IMMUTABLE_SNAPSHOT:
+            case SchemaProtocols::ATOMIC_WORD_ARRAY:
+                return 
+                    record_count.value() == 1u &&
+                    schema.EnqueuePosition == NO_POSITION &&
+                    schema.DequeuePosition == NO_POSITION;
+            
+            case SchemaProtocols::DOUBLE_BUFFERED:
+                return 
+                    record_count.value() == 2u &&
+                    schema.EnqueuePosition < 2u &&
+                    schema.DequeuePosition < 2u;
+
+            case SchemaProtocols::MPMC_FIXED_RECORD_QUEUE:
+                return
+                    record_count.value() >= 2u &&
+                    (record_count.value() & (record_count.value() - 1u)) == UNSIGNED_ZERO &&
+                    HasSchemaFlag(schema.Flags, SchemaFlags::REQUIRED_POW_OF_TWO) &&
+                    HasSchemaFlag(schema.Flags, SchemaFlags::HAS_PER_SLOT_SEQUENSE);
+            
+            default:
+                return false;
+            }
+
+
+
+        }
     };
 
     static constexpr SchemaOrchestrator::SchemaFlags operator|(SchemaOrchestrator::SchemaFlags lhs, SchemaOrchestrator::SchemaFlags rhs) noexcept
