@@ -127,6 +127,62 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
+    void MatrixViewConstructor::ClearMatrixViewRow_(uint32_t apc_slot) noexcept
+    {
+        for (SD::RegionSchemaRecord& record : MetrixViewRow_(apc_slot))
+        {
+            record = SD::RegionSchemaRecord{};
+        };
+    }
+
+    bool MatrixViewConstructor::InitializeRegionProtocolStorage_(uint32_t apc_slot) noexcept
+    {
+        if (apc_slot >= CountOfAPC_)
+        {
+            return false;
+        }
+
+        const size_t apc_begin = SegmentPoolBegin_ +  static_cast<size_t>(apc_slot) * PerAPCRuntimeCellCount_;
+
+        for (SD::RegionSchemaRecord& schema : MetrixViewRow_(apc_slot))
+        {
+            if (schema.Protocol != SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE)
+            {
+                continue;
+            }
+            
+            const std::optional<uint32_t> matrix_cells = SD::MatrixCellCount(schema);
+            const std::optional<uint32_t> stride_cells = SD::RecordStrideCells(schema);
+            const std::optional<uint32_t> record_count = SD::LogicalRecordCount(schema);
+
+            if (
+                !matrix_cells.has_value() ||
+                !stride_cells.has_value() ||
+                !record_count.has_value()
+            )
+            {
+                return false;
+            }
+            
+            schema.EnqueuePosition = UNSIGNED_ZERO;
+            schema.DequeuePosition = UNSIGNED_ZERO;
+
+            for (uint32_t i = 0; i < record_count.value(); i++)
+            {
+                const std::size_t sequense_cell = apc_begin + schema.CellOffset + 
+                    (static_cast<size_t>(i) * stride_cells.value()) + matrix_cells.value();
+                if (sequense_cell >= SlabCellCount_)
+                {
+                    return false;
+                }
+                SlabBasePtr_[sequense_cell] = i;
+            }
+        }
+        
+        return true;
+    }
+
+
 
 
 }

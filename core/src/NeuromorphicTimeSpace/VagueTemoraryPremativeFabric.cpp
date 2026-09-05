@@ -669,11 +669,8 @@ namespace BidirectionalInMemGraph
 
     bool VagueTemoraryPremativeFabric::CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype,
-        const SchemaDefinition::InitialRegionalProtocol& protocol,
-        uint8_t version,
-        uint32_t internal_max_tries
+        const SchemaDefinition::RegionSchemaTable& region_schemas,
+        uint32_t internal_max_tries 
     ) noexcept
     {
         if (
@@ -778,12 +775,7 @@ namespace BidirectionalInMemGraph
                 generation_cell,
                 control_values.Generation
             ) ||
-            !desired_apc.InitiateAPCMetaHeader(
-                layout,
-                dtype,
-                protocol,
-                version
-            )
+            !desired_apc.InitiateAPCMetaHeader()
         )
         {
             AbortCreation___();

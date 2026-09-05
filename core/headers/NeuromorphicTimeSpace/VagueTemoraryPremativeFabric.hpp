@@ -92,10 +92,7 @@ public:
 
     bool CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype,
-        const SchemaDefinition::InitialRegionalProtocol& protocol,
-        uint8_t version,
+        const SD::RegionSchemaTable& region_schemas,
         uint32_t internal_max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
     

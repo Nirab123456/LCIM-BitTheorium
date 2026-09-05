@@ -55,7 +55,7 @@ namespace BidirectionalInMemGraph
                 return std::nullopt;
             }
 
-            const uint16_t lower = static_cast<uint16_t>((uint16_t{1u} << CountOfMacroColumn()) - 1u);
+            const uint16_t lower = static_cast<uint16_t>(active_mask & static_cast<uint16_t>(RegionBit(column) - 1u));
             return static_cast<uint8_t>(std::popcount(lower));
         }
     };

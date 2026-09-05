@@ -127,8 +127,13 @@ namespace BidirectionalInMemGraph
         ) noexcept;
 
     public:
+        using SD = SchemaDefinition;
+
         template<class DType>
-        std::optional<RegionView<DType>> BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept
+        std::optional<RegionView<DType>> BuildAViewOverRegion(
+            MacroColumnOfAPC macro_column,
+            uint32_t record_ordinal = UNSIGNED_ZERO
+        ) noexcept
         {
             static_assert(std::is_trivially_copyable_v<DType>);
 
@@ -139,12 +144,11 @@ namespace BidirectionalInMemGraph
             }
 
             ResolveRegionBiteView resolved{};
-            if (!ResolveRegionView_(macro_column, resolved))
+            if (!ResolveRegionView_(macro_column, record_ordinal, resolved))
             {
                 return std::nullopt;
             }
 
-            using SD = SchemaDefinition;
 
             switch (resolved.Schema->Protocol)
             {

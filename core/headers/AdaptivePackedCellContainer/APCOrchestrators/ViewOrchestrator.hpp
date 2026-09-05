@@ -9,13 +9,14 @@ namespace BidirectionalInMemGraph
     struct ResolveRegionBiteView
     {
         std::span<std::byte> Bytes{};
-        SchemaDefinition::RegionSchemaRecord* Schema{};
+        const SchemaDefinition::RegionSchemaRecord* Schema = nullptr;
         uint32_t RegionOrdinal = UNSIGNED_ZERO;
 
         constexpr bool IsValid() const noexcept
         {
             return 
                 !Bytes.empty() &&
+                !Schema &&
                 Schema->MatrixHeight != UNSIGNED_ZERO &&
                 Schema->MatrixWidth != UNSIGNED_ZERO;
         }
