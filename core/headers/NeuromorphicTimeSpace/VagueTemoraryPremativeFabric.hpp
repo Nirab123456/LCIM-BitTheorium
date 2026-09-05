@@ -79,7 +79,8 @@ public:
 
     bool InitializeFabricWithPtrTable(
         uint32_t slot_count,
-        uint32_t slot_cell_count = MINIMUM_APC_CELL_COUNT,
+        uint32_t slot_cell_count,
+        const SchemaDefinition::FabricRegionConfig& region_configuration,
         uint8_t max_direct_parents_per_axis = DEFAULT_DIRECTED_PARENT_PER_AXIS
     ) noexcept;
 
@@ -92,10 +93,7 @@ public:
 
     bool CreateAPC(
         AdaptivePackedCellContainer& desired_apc,
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype,
-        const SchemaDefinition::InitialRegionalProtocol& protocol,
-        uint8_t version,
+        const SD::RegionSchemaTable& region_schemas,
         uint32_t internal_max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
     

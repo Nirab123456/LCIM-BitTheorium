@@ -118,16 +118,22 @@ namespace BidirectionalInMemGraph
 
 
     class RegionViewConstructor : public FabricToAPCLinker
-    {
+    {   
     private:
         bool ResolveRegionView_(
             MacroColumnOfAPC column_name,
+            uint32_t record_ordinal,
             ResolveRegionBiteView& out
         ) noexcept;
 
     public:
+        using SD = SchemaDefinition;
+
         template<class DType>
-        std::optional<RegionView<DType>> BuildAViewOverRegion(MacroColumnOfAPC macro_column) noexcept
+        std::optional<RegionView<DType>> BuildAViewOverRegion(
+            MacroColumnOfAPC macro_column,
+            uint32_t record_ordinal = UNSIGNED_ZERO
+        ) noexcept
         {
             static_assert(std::is_trivially_copyable_v<DType>);
 
@@ -138,14 +144,13 @@ namespace BidirectionalInMemGraph
             }
 
             ResolveRegionBiteView resolved{};
-            if (!ResolveRegionView_(macro_column, resolved))
+            if (!ResolveRegionView_(macro_column, record_ordinal, resolved))
             {
                 return std::nullopt;
             }
 
-            using SD = SchemaDefinition;
 
-            switch (resolved.Schema.Protocol)
+            switch (resolved.Schema->Protocol)
             {
             case SD::SchemaProtocols::PRIVATE_REGION:
             case SD::SchemaProtocols::IMMUTABLE_SNAPSHOT:
@@ -167,11 +172,16 @@ namespace BidirectionalInMemGraph
             }
             
             DType* type_based = reinterpret_cast<DType*>(resolved.Bytes.data());
-            const size_t element_count = resolved.ByteCount() / sizeof(DType);
+            const size_t element_count = static_cast<uint64_t>(resolved.Schema->MatrixHeight) * resolved.Schema->MatrixWidth;
 
+            if (element_count > SIZE_MAX)
+            {
+                return std::nullopt;
+            }
+            
             return RegionView<DType>(
                 std::span<DType>(type_based, element_count),
-                resolved.Schema.Protocol,
+                resolved.Schema->Protocol,
                 std::move(use)
             );
         }

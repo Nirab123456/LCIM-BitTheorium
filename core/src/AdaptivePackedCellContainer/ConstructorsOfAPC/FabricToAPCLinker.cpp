@@ -29,6 +29,16 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+
+        std::span<SchemaDefinition::RegionSchemaRecord> region_row = fabric_owner->MetrixViewRow_(
+            static_cast<uint32_t>(fabric_slot_idx)
+        );
+
+        if (region_row.size() != fabric_owner->ActiveRegionCount_)
+        {
+            return false;
+        }
+
         APCSlotIdx_ = static_cast<uint32_t>(fabric_slot_idx);
         RawAPCBasePtr_ = reinterpret_cast<std::byte*>(raw_cells_ptr);
         CapacityOfThisAPC_ = fabric_owner->PerAPCRuntimeCellCount_;
@@ -36,6 +46,9 @@ namespace BidirectionalInMemGraph
         RangeOfThisAPCInSlab_ = range_of_this_apc;
         APCGenerationCellPtr_ = generation_cell;
         ExpectedGeneration_ = expected_generation;
+        MatrixOfSchemaRowPtr_ = region_row.data();
+        ActiveRegionMask_ = fabric_owner->ActiveRegionMask_;
+        RegionBatchCapacity_ = fabric_owner->MatrixBatchCapacity_;
         return true;
     }
 
@@ -49,14 +62,12 @@ namespace BidirectionalInMemGraph
         APCSlotIdx_ = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         APCGenerationCellPtr_ = nullptr;
         ExpectedGeneration_ = UNSIGNED_ZERO;
+        MatrixOfSchemaRowPtr_ = nullptr;
+        ActiveRegionMask_ = UNSIGNED_ZERO;
+        RegionBatchCapacity_ = UNSIGNED_ZERO;
     }
 
-    bool FabricToAPCLinker::InitiateAPCMetaHeader(
-        const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& layout_weight,
-        const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf,
-        const SchemaDefinition::InitialRegionalProtocol& protocol_conf,
-        uint8_t version
-    ) noexcept
+    bool FabricToAPCLinker::InitiateAPCMetaHeader() noexcept
     {
         using DSA = DescriptionOfAPC;
 
@@ -75,26 +86,17 @@ namespace BidirectionalInMemGraph
             current_state.StateOfTheAPC != StateOfAPC::RESERVED ||
             !HeaderOrchestrator::InitializeDefaultHeaderBuffer(
                 header_meta_buffer,
-                CapacityOfThisAPC_,
-                layout_weight,
-                dtype_conf,
-                protocol_conf,
-                version
-            ) ||
-            !HeaderOrchestrator::IsHeaderBufferValidationMarked(
-                header_meta_buffer
+                APCSlotIdx_,
+                CapacityOfThisAPC_
             )
         )
         {
             return false;
         }
 
-        const uint64_t raw_new_state_seq =
-            DSA::ComposeSeqLockAndState(current_state);
+        const uint64_t raw_new_state_seq = DSA::ComposeSeqLockAndState(current_state);
 
-        header_meta_buffer[
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)
-        ] = raw_new_state_seq;
+        header_meta_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
 
         return
             APCDataStructure::IsValidFabricUnit(raw_new_state_seq) &&
@@ -125,6 +127,9 @@ namespace BidirectionalInMemGraph
             RangeOfThisAPCInSlab_.IsValid &&
             RawAPCBasePtr_ != nullptr &&
             APCGenerationCellPtr_ != nullptr &&
+            MatrixOfSchemaRowPtr_ != nullptr &&
+            ActiveRegionMask_ != UNSIGNED_ZERO &&
+            RegionBatchCapacity_ != UNSIGNED_ZERO &&
             APCDataStructure::IsValid32BitAPCUnit(APCSlotIdx_) &&
             HandleOfAPCStatic::IsGenerationValid(ExpectedGeneration_);
     }

@@ -6,7 +6,8 @@
 namespace BidirectionalInMemGraph
 {
     bool RegionViewConstructor::ResolveRegionView_(
-        MacroColumnOfAPC column_name,
+        MacroColumnOfAPC column,
+        uint32_t record_ordinal,
         ResolveRegionBiteView& out
     ) noexcept
     {
@@ -16,64 +17,66 @@ namespace BidirectionalInMemGraph
         out = ResolveRegionBiteView{};
         if (
             !IsActiveAPC() ||
-            RawAPCBasePtr_ == nullptr
+            !RawAPCBasePtr_  ||
+            !MatrixOfSchemaRowPtr_
+        )
+        {
+            return false;
+        }
+
+        const std::optional<uint8_t> compact_index = ColumnConf::CompactRegionIndex(ActiveRegionMask_, column);
+        if (!compact_index.has_value())
+        {
+            return false;
+        }
+        
+
+        const SD::RegionSchemaRecord& stored = MatrixOfSchemaRowPtr_[compact_index.value()];
+
+        if (
+            stored.Region != column ||
+            !SD::ValidateStortedRegionSchema(
+                stored,
+                CapacityOfThisAPC_,
+                RegionBatchCapacity_
+            )
+        )
+        {
+            return false;
+        }
+
+        const std::optional<uint64_t> matrix_bytes = SD::MatrixByteCount(stored);
+        const std::optional<uint32_t> matrix_cells = SD::MatrixCellCount(stored);
+        const std::optional<uint32_t> stride_cells = SD::RecordStrideCells(stored);
+        const std::optional<uint32_t> record_count = SD::LogicalRecordCount(stored);
+
+        if (
+            !matrix_bytes.has_value() ||
+            !matrix_cells.has_value() ||
+            !stride_cells.has_value() ||
+            !record_count.has_value() ||
+            record_ordinal >= record_count.value()
+        )
+        {
+            return false;
+        }
+
+        const uint64_t local_data_cell = static_cast<uint64_t>(stored.CellOffset) + (static_cast<std::uint64_t>(record_ordinal) * stride_cells.value());
+
+        if (
+            local_data_cell >= CapacityOfThisAPC_ ||
+            matrix_cells.value() > CapacityOfThisAPC_ - local_data_cell
         )
         {
             return false;
         }
         
-        const HeaderIdentifierOfAPC bounds_header = APCDataStructure::BoundsMetaIdxInHeader(column_name);
-
-        const HeaderIdentifierOfAPC schema_header = APCDataStructure::SchemaHeaderIndexFromColumnName(column_name);
-
-        uint64_t packed_bounds = FABRIC_CELL_SENTINAL;
-        uint64_t packed_schema = FABRIC_CELL_SENTINAL;
-
-        if (
-            !ReadAPCMetaUnit(bounds_header, packed_bounds) ||
-            !ReadAPCMetaUnit(schema_header, packed_schema)
-        )
-        {
-            return false;
-        }
-
-        LayoutBoundsOrchestrator::LayoutCarrier bounds_values = LayoutBoundsOrchestrator::GetLayoutCarrierFromValidLayoutCell(packed_bounds, column_name);
-
-        if (
-            !bounds_values.IsValid ||
-            bounds_values.BeginIndex < APCDataStructure::METACELL_COUNT ||
-            bounds_values.EndIndex > CapacityOfThisAPC_
-        )
-        {
-            return false;
-        }
-        
-        const uint32_t local_span = static_cast<uint32_t>(bounds_values.EndIndex - bounds_values.BeginIndex);
-
-        SD::RegionSchemaRecord schema{};
-        schema.ParentColumn = column_name;
-
-        if (
-            local_span == UNSIGNED_ZERO ||
-            !SD::LayoutSchemaFromPackedCell(schema, packed_schema) ||
-            !SD::ValidateSchemaAgainstLayout(schema, local_span) ||
-            SD::HasSchemaFlag(schema.Flags, SD::SchemaFlags::REGION_DISABLED)
-        )
-        {
-            return false;
-        }
-        
-        const size_t byte_offset = ASG::ByteOffsetOfLocalIndex(bounds_values.BeginIndex);
-        const size_t byte_count = ASG::ByteCountOfLOcalSpan(local_span);
-
         out.Bytes = std::span<std::byte>(
-            RawAPCBasePtr_ + byte_offset,
-            byte_count
+            RawAPCBasePtr_ + (static_cast<size_t>(local_data_cell) * sizeof(uint64_t)),
+            static_cast<size_t>(matrix_bytes.value())
         );
-
-        out.layout = bounds_values;
-        out.Schema = schema;
-        
+        out.Schema = &stored;
+        out.RegionOrdinal = record_ordinal;
         return true;
     }
 

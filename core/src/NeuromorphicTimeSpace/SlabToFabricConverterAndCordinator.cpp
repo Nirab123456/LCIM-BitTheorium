@@ -65,6 +65,12 @@ namespace BidirectionalInMemGraph
         SlabBasePtr_[static_cast<size_t>(FMI::FIRST_FREE_IDX)] = UNSIGNED_ZERO;
         SlabBasePtr_[static_cast<size_t>(FMI::EDGE_TABLE_RECORD_WIDTH)] = EdgeTableRecordWidth_;
         SlabBasePtr_[static_cast<size_t>(FMI::MAX_DIRECT_PARENTS_PER_AXIS)] = MaxDirectParentsPerAxis_;
+        SlabBasePtr_[static_cast<size_t>(FMI::ACTIVE_REGION_MASK)] = ActiveRegionMask_;
+        SlabBasePtr_[static_cast<size_t>(FMI::ACTIVE_REGION_COUNT)] = ActiveRegionCount_;
+        SlabBasePtr_[static_cast<size_t>(FMI::REGION_SCHEMA_RECORD_CELL_COUNT)] = SD::RegionSchemaCellCount();
+        SlabBasePtr_[static_cast<size_t>(FMI::DEVICE_VIEW_ROW_CELL_COUNT)] = MatrixViewRowCellCount_;
+        SlabBasePtr_[static_cast<size_t>(FMI::MATRIC_BATCH_CAPACITY)] = MatrixBatchCapacity_;
+        SlabBasePtr_[static_cast<size_t>(FMI::REGION_ALLIGNMENT_CELL_COUNT)] = SD::REGION_ALIGNMENT_CELLS;
         SlabBasePtr_[static_cast<size_t>(FMI::EOF_FABRIC_HEADER)] = CoreOfFabricCoordinator::FABRIC_META_EOF;
     }
 
@@ -72,6 +78,7 @@ namespace BidirectionalInMemGraph
     bool SlabToFabricConverterAndCordinator::InitializeFabric(
         uint32_t slot_count,
         uint32_t slot_cell_count,
+        const SchemaDefinition::FabricRegionConfig& region_conf,
         uint8_t max_direct_parent_per_axis
     ) noexcept
     {
@@ -115,6 +122,20 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
+        const uint16_t active_mask = region_conf.ActiveRegionMask;
+        const uint8_t active_count = static_cast<uint8_t>(std::popcount(active_mask));
+
+        if (
+            active_mask == UNSIGNED_ZERO ||
+            (active_mask & static_cast<uint16_t>(~ColumnConf::ValidRegionMask())) != UNSIGNED_ZERO ||
+            active_count == UNSIGNED_ZERO ||
+            region_conf.BatchCapacity == UNSIGNED_ZERO ||
+            slot_cell_count % SD::REGION_ALIGNMENT_CELLS != UNSIGNED_ZERO
+        )
+        {
+            return false;
+        }
+
         if (
             !EdgeBuilder::IsValidConfigurableParentCapacity(max_direct_parent_per_axis) ||
             slot_count > (uint32_t{1u} << EdgeBuilder::RELATION_SLOT_BITS)
@@ -122,11 +143,19 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+
         MaxDirectParentsPerAxis_ = max_direct_parent_per_axis;
         EdgeTableRecordWidth_ = static_cast<uint16_t>(EdgeBuilder::EdgeTableRecordWidth(MaxDirectParentsPerAxis_));
-        
         CountOfAPC_ = static_cast<uint64_t>(slot_count);
         PerAPCRuntimeCellCount_ = static_cast<uint32_t>(slot_cell_count);
+
+        ActiveRegionMask_ = active_mask;
+        ActiveRegionCount_ = active_count;
+        MatrixBatchCapacity_ = region_conf.BatchCapacity;
+        MatrixViewRowCellCount_ = static_cast<uint16_t>(
+            static_cast<uint16_t>(ActiveRegionCount_) *
+            SD::RegionSchemaCellCount()
+        );
 
         size_t cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(CoreOfFabricCoordinator::FABRIC_UNIT_COUNT);
         const size_t record_book_begin = cursor;
@@ -134,10 +163,13 @@ namespace BidirectionalInMemGraph
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(record_book_end);
         const size_t horizontal_edge_begin = cursor;
-        const size_t horizontal_edge_end = horizontal_edge_begin + 
-                static_cast<size_t>(CountOfAPC_) * EdgeTableRecordWidth_;
-        
+        const size_t horizontal_edge_end = horizontal_edge_begin + static_cast<size_t>(CountOfAPC_) * EdgeTableRecordWidth_;
+
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(horizontal_edge_end);
+        const size_t matrix_view_table_begin = cursor;
+        const size_t matrix_view_table_end = matrix_view_table_begin + static_cast<size_t>(CountOfAPC_ * MatrixViewRowCellCount_);
+        
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(matrix_view_table_end);
         const size_t vertical_edge_begin = cursor;
         const size_t vertical_edge_end = vertical_edge_begin + 
                 static_cast<size_t>(CountOfAPC_) * EdgeTableRecordWidth_;
@@ -159,10 +191,6 @@ namespace BidirectionalInMemGraph
         const size_t work_queue_end = work_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::WORK_RECORD_WIDTH_OF_FABRIC);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(work_queue_end);
-        const size_t device_view_table_begin = cursor;
-        const size_t device_view_table_end = device_view_table_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DEVICE_VIEW_WIDTH_OF_APC_FABRIC);
-
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_view_table_end);
         SegmentPoolBegin_ = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(std::max<size_t>(cursor, CoreOfFabricCoordinator::DEFAULT_FABRIC_CONTROLIO_LENGTH));
         SlabCellCount_ = SegmentPoolBegin_ + static_cast<size_t>(CountOfAPC_ * PerAPCRuntimeCellCount_);
 
@@ -191,12 +219,19 @@ namespace BidirectionalInMemGraph
         WriteARecordBookOfTSCEntry_(FabricSegments::COMPILED_DAG_TABLE, compiled_dag_begin, compiled_dag_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_VIEW_TABLE, device_view_table_begin, device_view_table_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::MATRIX_VIEW_TABLE, matrix_view_table_begin, matrix_view_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SlabCellCount_);
 
         HorizontalEdgeBeginIdx_ = horizontal_edge_begin;
         VerticalEdgeBeginIdx_ = vertical_edge_begin;
         HandleTableBeginIndex_ = apc_handle_table_begin;
+        MatrixViewTableBeginIndex_ = matrix_view_table_begin;
+
+        if (!ConstructMatrixViewRecords_(matrix_view_table_begin, matrix_view_table_end))
+        {
+            return false;
+        }
+        
 
         if (!InitializeAPCGenerationTable_())
         {
@@ -207,7 +242,6 @@ namespace BidirectionalInMemGraph
         IdleAFabricTableClassRangesMemory_(FabricSegments::COMPILED_DAG_TABLE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::WORK_QUEUE);
-        IdleAFabricTableClassRangesMemory_(FabricSegments::DEVICE_VIEW_TABLE);
         //END:: IDELING
 
         //INIT: EDGE TABLES

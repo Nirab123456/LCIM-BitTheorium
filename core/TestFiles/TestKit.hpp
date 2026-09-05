@@ -1,14 +1,16 @@
 #pragma once
 
-// APC/Fabric dual-edge DAG test kit (C++20)
+// APC/Fabric fixed-region-schema + dual-edge DAG test kit (C++20)
 //
 // Put this file in core/TestFiles and compile a tiny runner:
 //
 //   #include "TestKit.hpp"
 //   int main() { return APCDAGTests::RunAll(); }
 //
-// Required completed production API: APC_Dual_Edge_DAG_Remaining_Functions.md.
-// The tests intentionally use only public APC/Fabric functions.
+// Add core/headers to the compiler include path and link the production .cpp files.
+// Tests 1-5 and 7 use only public APC/Fabric operations. Test 6 additionally uses
+// a read-only derived Fabric probe to verify the protected DEVICE_VIEW_TABLE ABI,
+// compact row geometry, Fabric metadata, and MPMC sequence-cell initialization.
 
 #ifndef APC_DAG_TEST_EXTERNAL_TYPES
 #include "NeuromorphicTimeSpace/VagueTemoraryPremativeFabric.hpp"
@@ -19,6 +21,7 @@
 #include <array>
 #include <atomic>
 #include <barrier>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +41,12 @@ using namespace BidirectionalInMemGraph;
 
 using Clock = std::chrono::steady_clock;
 using ReadOperation = FabricToAPCLinker::SeqLockedOperation;
+
+static_assert(APCDataStructure::METACELL_COUNT == 8u);
+static_assert(sizeof(SchemaDefinition::RegionSchemaRecord) == 5u * sizeof(std::uint64_t));
+static_assert(alignof(SchemaDefinition::RegionSchemaRecord) == alignof(std::uint64_t));
+static_assert(std::is_trivially_copyable_v<SchemaDefinition::RegionSchemaRecord>);
+static_assert(std::is_trivially_destructible_v<SchemaDefinition::RegionSchemaRecord>);
 
 enum class Axis : std::uint8_t
 {
@@ -491,43 +500,61 @@ public:
     {
         Slots_.fill(APCDataStructure::APC_INDEX_BOUND_SENTINAL);
 
+        constexpr std::uint32_t matrix_width =
+            PayloadWords == 0u ? 1u : static_cast<std::uint32_t>(PayloadWords);
+
+        const SD::FabricRegionConfig region_config{
+            static_cast<std::uint16_t>(
+                ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+                ColumnConf::RegionBit(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)
+            ),
+            0u,
+            matrix_width
+        };
+
         if (!Fabric_.InitializeFabricWithPtrTable(
             FABRIC_SLOT_COUNT,
             SLOT_WORDS,
+            region_config,
             ParentCapacity
         ))
         {
             return false;
         }
 
-        LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-        layout.FeedForward = 1u;
-        layout.FeedBackward = 1u;
-        layout.Lateral = 0u;
-        layout.StateSlot = 0u;
-        layout.ErrorSlot = 0u;
-        layout.Weightless = 0u;
-        layout.WeightSlot = 0u;
-        layout.AUXSlot = 0u;
-        layout.HeterogenousPtr = 0u;
-        layout.FreeSlot = 0u;
-
-        SD::InitialRegionalDtypeConf dtype{};
-        dtype.FEEDFORWARD_MESSAGE = SD::DataTypeOfMacroColumn::UINT64_T;
-        dtype.FEEDBACKWARD_MESSAGE = SD::DataTypeOfMacroColumn::UINT64_T;
-
-        SD::InitialRegionalProtocol protocol{};
-        protocol.FEEDFORWARD_MESSAGE = SD::SchemaProtocols::PRIVATE_REGION;
-        protocol.FEEDBACKWARD_MESSAGE = SD::SchemaProtocols::ATOMIC_WORD_ARRAY;
+        SD::RegionSchemaTable schemas{};
+        SD::MakeDisabledSchemaTable(schemas);
+        if (
+            !SD::MakeRegionSchema(
+                MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+                SD::DataTypeOfMacroColumn::UINT64_T,
+                SD::SchemaProtocols::PRIVATE_REGION,
+                1u,
+                matrix_width,
+                schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)],
+                0u,
+                SD::SchemaFlags::BATCHED_LAST_DIM
+            ) ||
+            !SD::MakeRegionSchema(
+                MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
+                SD::DataTypeOfMacroColumn::UINT64_T,
+                SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
+                1u,
+                matrix_width,
+                schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)],
+                0u,
+                SD::SchemaFlags::BATCHED_LAST_DIM
+            )
+        )
+        {
+            return false;
+        }
 
         for (std::size_t i = 0u; i < NodeCount; ++i)
         {
             if (!Fabric_.CreateAPC(
                 Nodes_[i],
-                layout,
-                dtype,
-                protocol,
-                APCDataStructure::BRANCH_VERSION
+                schemas
             ))
             {
                 return false;
@@ -1847,27 +1874,406 @@ inline Result Run()
 } // namespace Test05_CombinedAcyclicity
 
 // -----------------------------------------------------------------------------
-// Test 6: existing RegionView coverage, only creation signature is updated.
+// Test 6: fixed region schema, compact DEVICE_VIEW_TABLE rows, protocol storage,
+// typed zero-copy views, and slot-reuse cleanup.
 // -----------------------------------------------------------------------------
 
-namespace Test06_RegionViews
+namespace Test06_RegionSchemaAndViews
 {
 using SD = SchemaDefinition;
 
-inline LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier OneRegionLayout() noexcept
+constexpr std::uint32_t VIEW_WIDTH = 8u;
+
+constexpr SD::FabricRegionConfig OneRegionConfig(
+    std::uint32_t batch_capacity = VIEW_WIDTH
+) noexcept
 {
-    LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-    layout.FeedForward = 1u;
-    layout.FeedBackward = 0u;
-    layout.Lateral = 0u;
-    layout.StateSlot = 0u;
-    layout.ErrorSlot = 0u;
-    layout.Weightless = 0u;
-    layout.WeightSlot = 0u;
-    layout.AUXSlot = 0u;
-    layout.HeterogenousPtr = 0u;
-    layout.FreeSlot = 0u;
-    return layout;
+    return SD::FabricRegionConfig{
+        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        0u,
+        batch_capacity
+    };
+}
+
+class InspectableFabric final : public VagueTemoraryPremativeFabric
+{
+public:
+    std::span<const SD::RegionSchemaRecord> SchemaRow(
+        std::uint32_t slot
+    ) noexcept
+    {
+        const std::span<SD::RegionSchemaRecord> row = MetrixViewRow_(slot);
+        return std::span<const SD::RegionSchemaRecord>(row.data(), row.size());
+    }
+
+    std::optional<std::uint64_t> ReadAPCLocalCell(
+        std::uint32_t slot,
+        std::uint32_t local_cell
+    ) noexcept
+    {
+        const RangeOfAPC range = GetSegmentPoolRange(slot);
+        if (
+            !range.IsValid ||
+            local_cell >= range.EndIndex - range.BeginIndex ||
+            range.BeginIndex + local_cell >= SlabCellCount_
+        )
+        {
+            return std::nullopt;
+        }
+
+        return std::atomic_ref<const std::uint64_t>(
+            SlabBasePtr_[range.BeginIndex + local_cell]
+        ).load(std::memory_order_acquire);
+    }
+
+    std::optional<std::uint64_t> FabricMeta(
+        CoreOfFabricCoordinator::FabricMetaIndicies index
+    ) noexcept
+    {
+        if (!SlabBasePtr_)
+        {
+            return std::nullopt;
+        }
+        return std::atomic_ref<const std::uint64_t>(
+            SlabBasePtr_[static_cast<std::size_t>(index)]
+        ).load(std::memory_order_acquire);
+    }
+
+    std::optional<RangeOfAPC> TableRange(FabricSegments table) noexcept
+    {
+        RecordBookConf::RecordBookTablesBoundsCarrier bounds{};
+        if (!GetRecordMapCarrierRanges_(table, bounds) || !bounds.IsValid)
+        {
+            return std::nullopt;
+        }
+        return RangeOfAPC{
+            static_cast<std::size_t>(bounds.BeginIndex),
+            static_cast<std::size_t>(bounds.EndIndex),
+            true
+        };
+    }
+
+    std::size_t MatrixViewBegin() const noexcept
+    {
+        return MatrixViewTableBeginIndex_;
+    }
+
+    std::uint16_t ActiveMask() const noexcept { return ActiveRegionMask_; }
+    std::uint8_t ActiveCount() const noexcept { return ActiveRegionCount_; }
+    std::uint16_t ViewRowCells() const noexcept { return MatrixViewRowCellCount_; }
+    std::uint32_t BatchCapacity() const noexcept { return MatrixBatchCapacity_; }
+};
+
+inline bool MakeSchema(
+    SD::RegionSchemaTable& table,
+    MacroColumnOfAPC region,
+    SD::DataTypeOfMacroColumn dtype,
+    SD::SchemaProtocols protocol,
+    std::uint32_t height,
+    std::uint32_t width,
+    std::uint32_t record_count = 0u,
+    SD::SchemaFlags flags = SD::SchemaFlags::NONE
+) noexcept
+{
+    return SD::MakeRegionSchema(
+        region,
+        dtype,
+        protocol,
+        height,
+        width,
+        table[static_cast<std::size_t>(region)],
+        record_count,
+        flags
+    );
+}
+
+inline bool SchemaABIAndGeometry() noexcept
+{
+    SD::RegionSchemaTable disabled{};
+    SD::MakeDisabledSchemaTable(disabled);
+    for (std::size_t i = 0u; i < disabled.size(); ++i)
+    {
+        if (
+            disabled[i].Region != static_cast<MacroColumnOfAPC>(i) ||
+            !SD::HasSchemaFlag(disabled[i].Flags, SD::SchemaFlags::REGION_DISABLED)
+        )
+        {
+            return false;
+        }
+    }
+
+    SD::RegionSchemaRecord ordinary{};
+    if (!SD::MakeRegionSchema(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT16_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        3u,
+        4u,
+        ordinary,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ))
+    {
+        return false;
+    }
+
+    ordinary.CellOffset = APCDataStructure::METACELL_COUNT;
+    const auto ordinary_bytes = SD::MatrixByteCount(ordinary);
+    const auto ordinary_cells = SD::MatrixCellCount(ordinary);
+    const auto ordinary_stride = SD::RecordStrideCells(ordinary);
+    const auto ordinary_records = SD::LogicalRecordCount(ordinary);
+    const bool ordinary_ok =
+        ordinary_bytes == 24u &&
+        ordinary_cells == 3u &&
+        ordinary_stride == SD::REGION_ALIGNMENT_CELLS &&
+        ordinary_records == 1u &&
+        ordinary.CellCount == SD::REGION_ALIGNMENT_CELLS &&
+        ordinary.EnqueuePosition == SD::NO_POSITION &&
+        ordinary.DequeuePosition == SD::NO_POSITION &&
+        SD::ValidateStortedRegionSchema(ordinary, MINIMUM_APC_CELL_COUNT, 4u) &&
+        !SD::ValidateStortedRegionSchema(ordinary, MINIMUM_APC_CELL_COUNT, 8u);
+
+    SD::RegionSchemaRecord double_buffer{};
+    const bool double_ok = SD::MakeRegionSchema(
+        MacroColumnOfAPC::AUX_SLOT,
+        SD::DataTypeOfMacroColumn::UINT16_T,
+        SD::SchemaProtocols::DOUBLE_BUFFERED,
+        3u,
+        4u,
+        double_buffer,
+        2u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    );
+    double_buffer.CellOffset = APCDataStructure::METACELL_COUNT;
+
+    SD::RegionSchemaRecord queue{};
+    const bool queue_ok = SD::MakeRegionSchema(
+        MacroColumnOfAPC::ERROR_SLOT,
+        SD::DataTypeOfMacroColumn::UINT16_T,
+        SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE,
+        3u,
+        4u,
+        queue,
+        4u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    );
+    queue.CellOffset = APCDataStructure::METACELL_COUNT;
+
+    SD::RegionSchemaRecord invalid{};
+    const bool invalid_shapes_rejected =
+        !SD::MakeRegionSchema(
+            MacroColumnOfAPC::ERROR_SLOT,
+            SD::DataTypeOfMacroColumn::UINT16_T,
+            SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE,
+            3u,
+            4u,
+            invalid,
+            3u
+        ) &&
+        !SD::MakeRegionSchema(
+            MacroColumnOfAPC::STATE_SLOT,
+            SD::DataTypeOfMacroColumn::UINT16_T,
+            SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
+            3u,
+            4u,
+            invalid,
+            2u
+        ) &&
+        !SD::MakeRegionSchema(
+            MacroColumnOfAPC::STATE_SLOT,
+            SD::DataTypeOfMacroColumn::UINT16_T,
+            SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
+            0u,
+            4u,
+            invalid
+        );
+
+    constexpr std::uint16_t sparse_mask =
+        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::HETEROGENOUS_PTR);
+
+    const bool compact_ok =
+        ColumnConf::CompactRegionIndex(
+            sparse_mask, MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+        ) == 0u &&
+        ColumnConf::CompactRegionIndex(
+            sparse_mask, MacroColumnOfAPC::STATE_SLOT
+        ) == 1u &&
+        ColumnConf::CompactRegionIndex(
+            sparse_mask, MacroColumnOfAPC::WEIGHT_SLOT
+        ) == 2u &&
+        ColumnConf::CompactRegionIndex(
+            sparse_mask, MacroColumnOfAPC::HETEROGENOUS_PTR
+        ) == 3u &&
+        !ColumnConf::CompactRegionIndex(
+            sparse_mask, MacroColumnOfAPC::ERROR_SLOT
+        ).has_value();
+
+    return ordinary_ok &&
+        double_ok &&
+        SD::LogicalRecordCount(double_buffer) == 2u &&
+        double_buffer.CellCount == 2u * SD::REGION_ALIGNMENT_CELLS &&
+        double_buffer.EnqueuePosition == 1u &&
+        double_buffer.DequeuePosition == 0u &&
+        SD::ValidateStortedRegionSchema(
+            double_buffer, MINIMUM_APC_CELL_COUNT, 4u
+        ) &&
+        queue_ok &&
+        SD::LogicalRecordCount(queue) == 4u &&
+        queue.CellCount == 4u * SD::REGION_ALIGNMENT_CELLS &&
+        SD::HasSchemaFlag(queue.Flags, SD::SchemaFlags::REQUIRED_POW_OF_TWO) &&
+        SD::HasSchemaFlag(queue.Flags, SD::SchemaFlags::HAS_PER_SLOT_SEQUENSE) &&
+        SD::ValidateStortedRegionSchema(queue, MINIMUM_APC_CELL_COUNT, 4u) &&
+        invalid_shapes_rejected &&
+        compact_ok;
+}
+
+inline bool FabricConfigurationValidation() noexcept
+{
+    const auto accepts = [](
+        std::uint32_t slot_count,
+        std::uint32_t slot_cells,
+        SD::FabricRegionConfig config,
+        std::uint8_t parents
+    ) noexcept
+    {
+        VagueTemoraryPremativeFabric fabric{};
+        return fabric.InitializeFabricWithPtrTable(
+            slot_count,
+            slot_cells,
+            config,
+            parents
+        );
+    };
+
+    constexpr SD::FabricRegionConfig valid = OneRegionConfig();
+    constexpr SD::FabricRegionConfig zero_mask{0u, 0u, VIEW_WIDTH};
+    constexpr SD::FabricRegionConfig invalid_mask{
+        static_cast<std::uint16_t>(
+            std::uint16_t{1u} << ColumnConf::CountOfMacroColumn()
+        ),
+        0u,
+        VIEW_WIDTH
+    };
+    constexpr SD::FabricRegionConfig zero_batch{
+        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        0u,
+        0u
+    };
+
+    return
+        accepts(2u, MINIMUM_APC_CELL_COUNT, valid, 2u) &&
+        !accepts(0u, MINIMUM_APC_CELL_COUNT, valid, 2u) &&
+        !accepts(2u, MINIMUM_APC_CELL_COUNT + 1u, valid, 2u) &&
+        !accepts(2u, MINIMUM_APC_CELL_COUNT, zero_mask, 2u) &&
+        !accepts(2u, MINIMUM_APC_CELL_COUNT, invalid_mask, 2u) &&
+        !accepts(2u, MINIMUM_APC_CELL_COUNT, zero_batch, 2u) &&
+        !accepts(2u, MINIMUM_APC_CELL_COUNT, valid, 0u) &&
+        !accepts(
+            2u,
+            MINIMUM_APC_CELL_COUNT,
+            valid,
+            static_cast<std::uint8_t>(
+                EdgeBuilder::COMPILED_MAX_DIRECT_PARENTS_PER_AXIS + 1u
+            )
+        );
+}
+
+inline bool CreationValidationAndRollback() noexcept
+{
+    VagueTemoraryPremativeFabric fabric{};
+    if (!fabric.InitializeFabricWithPtrTable(
+        1u, MINIMUM_APC_CELL_COUNT, OneRegionConfig(), 2u
+    ))
+    {
+        return false;
+    }
+
+    SD::RegionSchemaTable valid{};
+    SD::MakeDisabledSchemaTable(valid);
+    if (!MakeSchema(
+        valid,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT64_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        1u,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ))
+    {
+        return false;
+    }
+
+    AdaptivePackedCellContainer candidate{};
+
+    SD::RegionSchemaTable missing_active{};
+    SD::MakeDisabledSchemaTable(missing_active);
+    const bool missing_rejected = !fabric.CreateAPC(candidate, missing_active);
+
+    SD::RegionSchemaTable wrong_region = valid;
+    wrong_region[0u].Region = MacroColumnOfAPC::STATE_SLOT;
+    const bool wrong_region_rejected = !fabric.CreateAPC(candidate, wrong_region);
+
+    SD::RegionSchemaTable wrong_batch{};
+    SD::MakeDisabledSchemaTable(wrong_batch);
+    const bool wrong_batch_defined = MakeSchema(
+        wrong_batch,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT64_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        1u,
+        VIEW_WIDTH / 2u,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    );
+    const bool wrong_batch_rejected =
+        wrong_batch_defined && !fabric.CreateAPC(candidate, wrong_batch);
+
+    SD::RegionSchemaTable oversized{};
+    SD::MakeDisabledSchemaTable(oversized);
+    const bool oversized_defined = MakeSchema(
+        oversized,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT64_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        MINIMUM_APC_CELL_COUNT,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    );
+    const bool oversized_rejected =
+        oversized_defined && !fabric.CreateAPC(candidate, oversized);
+
+    SD::RegionSchemaTable extra_region = valid;
+    const bool extra_defined = MakeSchema(
+        extra_region,
+        MacroColumnOfAPC::STATE_SLOT,
+        SD::DataTypeOfMacroColumn::UINT64_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        1u,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    );
+    const bool extra_rejected =
+        extra_defined && !fabric.CreateAPC(candidate, extra_region);
+
+    const bool candidate_remained_unbound =
+        !candidate.IsActiveAPC() &&
+        candidate.GetThisSlotIdx() == APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+
+    AdaptivePackedCellContainer valid_apc{};
+    const bool slot_reusable =
+        fabric.CreateAPC(valid_apc, valid) &&
+        valid_apc.GetThisSlotIdx() == 0u &&
+        valid_apc.Retire();
+
+    return missing_rejected && wrong_region_rejected &&
+        wrong_batch_rejected && oversized_rejected && extra_rejected &&
+        candidate_remained_unbound && slot_reusable;
 }
 
 template <typename T>
@@ -1899,18 +2305,18 @@ bool CreateTyped(
     constexpr auto dtype_value = SD::CppTypeToRegionDType<T>();
     static_assert(dtype_value.has_value());
 
-    SD::InitialRegionalDtypeConf dtype{};
-    dtype.FEEDFORWARD_MESSAGE = dtype_value.value();
-    SD::InitialRegionalProtocol protocol{};
-    protocol.FEEDFORWARD_MESSAGE = region_protocol;
-
-    return fabric.CreateAPC(
-        apc,
-        OneRegionLayout(),
-        dtype,
-        protocol,
-        APCDataStructure::BRANCH_VERSION
-    );
+    SD::RegionSchemaTable schemas{};
+    SD::MakeDisabledSchemaTable(schemas);
+    return MakeSchema(
+        schemas,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        dtype_value.value(),
+        region_protocol,
+        1u,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ) && fabric.CreateAPC(apc, schemas);
 }
 
 template <typename T>
@@ -1919,7 +2325,9 @@ bool PrivateCase() noexcept
     VagueTemoraryPremativeFabric fabric{};
     AdaptivePackedCellContainer apc{};
     if (
-        !fabric.InitializeFabricWithPtrTable(2u, MINIMUM_APC_CELL_COUNT, 2u) ||
+        !fabric.InitializeFabricWithPtrTable(
+            2u, MINIMUM_APC_CELL_COUNT, OneRegionConfig(), 2u
+        ) ||
         !CreateTyped<T>(fabric, apc, SD::SchemaProtocols::PRIVATE_REGION)
     )
     {
@@ -1929,10 +2337,17 @@ bool PrivateCase() noexcept
     auto view = apc.BuildAViewOverRegion<T>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
     auto wrong = apc.BuildAViewOverRegion<WrongType<T>>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
     if (
-        !view.has_value() || !view->IsValid() || view->Size() < 3u ||
+        !view.has_value() || !view->IsValid() || view->Size() != VIEW_WIDTH ||
         view->GetProtocol() != SD::SchemaProtocols::PRIVATE_REGION ||
         wrong.has_value() || view->RawMutableSpan().has_value() == false ||
-        view->AtomicStore(0u, FirstValue<T>())
+        view->AtomicStore(0u, FirstValue<T>()) ||
+        view->AtomicStore(view->Size(), FirstValue<T>()) ||
+        apc.BuildAViewOverRegion<T>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE, 1u
+        ).has_value() ||
+        apc.BuildAViewOverRegion<T>(
+            MacroColumnOfAPC::ERROR_SLOT
+        ).has_value()
     )
     {
         return false;
@@ -1952,7 +2367,9 @@ bool AtomicCase() noexcept
     VagueTemoraryPremativeFabric fabric{};
     AdaptivePackedCellContainer apc{};
     if (
-        !fabric.InitializeFabricWithPtrTable(2u, MINIMUM_APC_CELL_COUNT, 2u) ||
+        !fabric.InitializeFabricWithPtrTable(
+            2u, MINIMUM_APC_CELL_COUNT, OneRegionConfig(), 2u
+        ) ||
         !CreateTyped<T>(fabric, apc, SD::SchemaProtocols::ATOMIC_WORD_ARRAY)
     )
     {
@@ -1962,9 +2379,10 @@ bool AtomicCase() noexcept
     auto view = apc.BuildAViewOverRegion<T>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
     auto wrong = apc.BuildAViewOverRegion<WrongType<T>>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
     if (
-        !view.has_value() || !view->IsValid() || view->Size() < 3u ||
+        !view.has_value() || !view->IsValid() || view->Size() != VIEW_WIDTH ||
         view->GetProtocol() != SD::SchemaProtocols::ATOMIC_WORD_ARRAY ||
-        view->RawMutableSpan().has_value() || wrong.has_value()
+        view->RawMutableSpan().has_value() || wrong.has_value() ||
+        view->AtomicStore(view->Size(), FirstValue<T>())
     )
     {
         return false;
@@ -2004,37 +2422,467 @@ bool AtomicCase() noexcept
 }
 
 template <typename T>
+bool ImmutableCase() noexcept
+{
+    VagueTemoraryPremativeFabric fabric{};
+    AdaptivePackedCellContainer apc{};
+    if (
+        !fabric.InitializeFabricWithPtrTable(
+            2u, MINIMUM_APC_CELL_COUNT, OneRegionConfig(), 2u
+        ) ||
+        !CreateTyped<T>(fabric, apc, SD::SchemaProtocols::IMMUTABLE_SNAPSHOT)
+    )
+    {
+        return false;
+    }
+
+    auto view = apc.BuildAViewOverRegion<T>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+    return
+        view.has_value() &&
+        view->IsValid() &&
+        view->Size() == VIEW_WIDTH &&
+        view->GetProtocol() == SD::SchemaProtocols::IMMUTABLE_SNAPSHOT &&
+        !view->RawMutableSpan().has_value() &&
+        !view->AtomicStore(0u, FirstValue<T>()) &&
+        !apc.ZeroARegion<T>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE);
+}
+
+template <typename T>
 bool RunType(const char* name)
 {
     const bool private_ok = PrivateCase<T>();
     const bool atomic_ok = AtomicCase<T>();
+    const bool immutable_ok = ImmutableCase<T>();
     std::cout
         << "  " << std::left << std::setw(10) << name
         << " private=" << (private_ok ? "PASS" : "FAIL")
-        << " atomic=" << (atomic_ok ? "PASS" : "FAIL") << '\n';
-    return private_ok && atomic_ok;
+        << " atomic=" << (atomic_ok ? "PASS" : "FAIL")
+        << " immutable=" << (immutable_ok ? "PASS" : "FAIL") << '\n';
+    return private_ok && atomic_ok && immutable_ok;
+}
+
+inline bool DeviceViewAndProtocolStorage() noexcept
+{
+    constexpr std::uint32_t batch = 4u;
+    constexpr std::uint32_t slot_count = 3u;
+    constexpr std::uint16_t active_mask =
+        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::ERROR_SLOT) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
+        ColumnConf::RegionBit(MacroColumnOfAPC::AUX_SLOT);
+    constexpr std::uint8_t active_count = 5u;
+    constexpr std::uint16_t row_cells =
+        active_count * static_cast<std::uint16_t>(SD::RegionSchemaCellCount());
+
+    InspectableFabric fabric{};
+    const SD::FabricRegionConfig config{active_mask, 0u, batch};
+    if (!fabric.InitializeFabricWithPtrTable(
+        slot_count, MINIMUM_APC_CELL_COUNT, config, 2u
+    ))
+    {
+        std::cout << "    detail: valid mixed-region Fabric initialization was rejected\n";
+        return false;
+    }
+
+    using FMI = CoreOfFabricCoordinator::FabricMetaIndicies;
+    const auto matrix_range = fabric.TableRange(FabricSegments::MATRIX_VIEW_TABLE);
+    const bool fabric_metadata_ok =
+        fabric.ActiveMask() == active_mask &&
+        fabric.ActiveCount() == active_count &&
+        fabric.ViewRowCells() == row_cells &&
+        fabric.BatchCapacity() == batch &&
+        matrix_range.has_value() &&
+        matrix_range->EndIndex - matrix_range->BeginIndex ==
+            static_cast<std::size_t>(slot_count) * row_cells &&
+        fabric.MatrixViewBegin() == matrix_range->BeginIndex &&
+        fabric.FabricMeta(FMI::ACTIVE_REGION_MASK) == active_mask &&
+        fabric.FabricMeta(FMI::ACTIVE_REGION_COUNT) == active_count &&
+        fabric.FabricMeta(FMI::REGION_SCHEMA_RECORD_CELL_COUNT) ==
+            SD::RegionSchemaCellCount() &&
+        fabric.FabricMeta(FMI::DEVICE_VIEW_ROW_CELL_COUNT) == row_cells &&
+        fabric.FabricMeta(FMI::MATRIC_BATCH_CAPACITY) == batch &&
+        fabric.FabricMeta(FMI::REGION_ALLIGNMENT_CELL_COUNT) ==
+            SD::REGION_ALIGNMENT_CELLS;
+
+    SD::RegionSchemaTable schemas{};
+    SD::MakeDisabledSchemaTable(schemas);
+    if (
+        !MakeSchema(
+            schemas,
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+            SD::DataTypeOfMacroColumn::FLOAT32_T,
+            SD::SchemaProtocols::PRIVATE_REGION,
+            3u,
+            batch,
+            0u,
+            SD::SchemaFlags::BATCHED_LAST_DIM
+        ) ||
+        !MakeSchema(
+            schemas,
+            MacroColumnOfAPC::STATE_SLOT,
+            SD::DataTypeOfMacroColumn::FLOAT32_T,
+            SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
+            2u,
+            batch,
+            0u,
+            SD::SchemaFlags::BATCHED_LAST_DIM
+        ) ||
+        !MakeSchema(
+            schemas,
+            MacroColumnOfAPC::ERROR_SLOT,
+            SD::DataTypeOfMacroColumn::FLOAT32_T,
+            SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE,
+            1u,
+            batch,
+            4u,
+            SD::SchemaFlags::BATCHED_LAST_DIM
+        ) ||
+        !MakeSchema(
+            schemas,
+            MacroColumnOfAPC::WEIGHT_SLOT,
+            SD::DataTypeOfMacroColumn::FLOAT32_T,
+            SD::SchemaProtocols::IMMUTABLE_SNAPSHOT,
+            5u,
+            3u
+        ) ||
+        !MakeSchema(
+            schemas,
+            MacroColumnOfAPC::AUX_SLOT,
+            SD::DataTypeOfMacroColumn::UINT64_T,
+            SD::SchemaProtocols::DOUBLE_BUFFERED,
+            1u,
+            batch,
+            2u,
+            SD::SchemaFlags::BATCHED_LAST_DIM
+        )
+    )
+    {
+        std::cout << "    detail: one or more valid RegionSchemaRecord definitions were rejected\n";
+        return false;
+    }
+
+    AdaptivePackedCellContainer apc{};
+    if (!fabric.CreateAPC(apc, schemas))
+    {
+        std::cout
+            << "    detail: Fabric metadata precheck="
+            << (fabric_metadata_ok ? "PASS" : "FAIL")
+            << "; CreateAPC rejected the valid compact schema row\n";
+        return false;
+    }
+
+    SD::RegionSchemaTable second_schemas = schemas;
+    if (!MakeSchema(
+        second_schemas,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::FLOAT32_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        5u,
+        batch,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ))
+    {
+        return false;
+    }
+
+    AdaptivePackedCellContainer second_apc{};
+    if (!fabric.CreateAPC(second_apc, second_schemas))
+    {
+        std::cout << "    detail: second compact DEVICE_VIEW_TABLE row was rejected\n";
+        return false;
+    }
+
+    const std::uint32_t slot = apc.GetThisSlotIdx();
+    const std::span<const SD::RegionSchemaRecord> row = fabric.SchemaRow(slot);
+    const std::span<const SD::RegionSchemaRecord> second_row =
+        fabric.SchemaRow(second_apc.GetThisSlotIdx());
+    constexpr std::array<MacroColumnOfAPC, active_count> expected_regions{
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        MacroColumnOfAPC::STATE_SLOT,
+        MacroColumnOfAPC::ERROR_SLOT,
+        MacroColumnOfAPC::WEIGHT_SLOT,
+        MacroColumnOfAPC::AUX_SLOT
+    };
+
+    bool row_ok = row.size() == active_count;
+    std::uint32_t expected_offset = APCDataStructure::METACELL_COUNT;
+    for (std::size_t i = 0u; row_ok && i < row.size(); ++i)
+    {
+        expected_offset = SD::AlignRegionCells(expected_offset);
+        const SD::RegionSchemaRecord& record = row[i];
+        row_ok =
+            record.Region == expected_regions[i] &&
+            record.CellOffset == expected_offset &&
+            record.CellOffset % SD::REGION_ALIGNMENT_CELLS == 0u &&
+            record.SeqLockCounter == 0u &&
+            SD::FreshProtocolState(record) &&
+            SD::ValidateStortedRegionSchema(
+                record, MINIMUM_APC_CELL_COUNT, batch
+            );
+        expected_offset = record.CellOffset + record.CellCount;
+    }
+    row_ok = row_ok && expected_offset <= MINIMUM_APC_CELL_COUNT;
+    const bool row_stride_and_isolation_ok =
+        second_row.size() == active_count &&
+        reinterpret_cast<std::uintptr_t>(second_row.data()) -
+            reinterpret_cast<std::uintptr_t>(row.data()) ==
+            static_cast<std::uintptr_t>(row_cells) * sizeof(std::uint64_t) &&
+        row[0u].MatrixHeight == 3u &&
+        second_row[0u].MatrixHeight == 5u &&
+        row[0u].CellOffset == APCDataStructure::METACELL_COUNT &&
+        second_row[0u].CellOffset == APCDataStructure::METACELL_COUNT;
+
+    const bool header_ok =
+        fabric.ReadAPCLocalCell(
+            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::MAGIC_ID)
+        ) == APCDataStructure::BRANCH_MAGIC &&
+        fabric.ReadAPCLocalCell(
+            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)
+        ) == slot &&
+        fabric.ReadAPCLocalCell(
+            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)
+        ) == APCDataStructure::EOF_HEADER;
+
+    bool queue_storage_ok = row_ok;
+    if (queue_storage_ok)
+    {
+        const SD::RegionSchemaRecord& queue = row[2u];
+        const auto matrix_cells = SD::MatrixCellCount(queue);
+        const auto stride_cells = SD::RecordStrideCells(queue);
+        const auto record_count = SD::LogicalRecordCount(queue);
+        queue_storage_ok =
+            matrix_cells.has_value() &&
+            stride_cells.has_value() &&
+            record_count == 4u &&
+            queue.EnqueuePosition == 0u &&
+            queue.DequeuePosition == 0u;
+
+        for (std::uint32_t i = 0u;
+            queue_storage_ok && i < record_count.value();
+            ++i)
+        {
+            const std::uint32_t sequence_cell =
+                queue.CellOffset + i * stride_cells.value() + matrix_cells.value();
+            queue_storage_ok = fabric.ReadAPCLocalCell(slot, sequence_cell) == i;
+        }
+    }
+
+    auto feedforward = apc.BuildAViewOverRegion<float>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+    auto state = apc.BuildAViewOverRegion<float>(MacroColumnOfAPC::STATE_SLOT);
+    auto weight = apc.BuildAViewOverRegion<float>(MacroColumnOfAPC::WEIGHT_SLOT);
+    auto queue_view = apc.BuildAViewOverRegion<float>(MacroColumnOfAPC::ERROR_SLOT);
+    auto double_view = apc.BuildAViewOverRegion<std::uint64_t>(
+        MacroColumnOfAPC::AUX_SLOT
+    );
+    auto wrong_type = apc.BuildAViewOverRegion<double>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+    auto inactive = apc.BuildAViewOverRegion<float>(
+        MacroColumnOfAPC::HETEROGENOUS_PTR
+    );
+    auto second_feedforward = second_apc.BuildAViewOverRegion<float>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+
+    const bool public_views_ok =
+        feedforward.has_value() && feedforward->IsValid() &&
+        feedforward->Size() == 3u * batch &&
+        feedforward->GetProtocol() == SD::SchemaProtocols::PRIVATE_REGION &&
+        feedforward->RawMutableSpan().has_value() &&
+        state.has_value() && state->IsValid() &&
+        state->Size() == 2u * batch &&
+        state->GetProtocol() == SD::SchemaProtocols::ATOMIC_WORD_ARRAY &&
+        !state->RawMutableSpan().has_value() &&
+        weight.has_value() && weight->IsValid() &&
+        weight->Size() == 15u &&
+        weight->GetProtocol() == SD::SchemaProtocols::IMMUTABLE_SNAPSHOT &&
+        !weight->RawMutableSpan().has_value() &&
+        !queue_view.has_value() &&
+        !double_view.has_value() &&
+        !wrong_type.has_value() &&
+        !inactive.has_value() &&
+        second_feedforward.has_value() &&
+        second_feedforward->Size() == 5u * batch;
+
+    feedforward.reset();
+    state.reset();
+    weight.reset();
+    queue_view.reset();
+    double_view.reset();
+    wrong_type.reset();
+    inactive.reset();
+    second_feedforward.reset();
+
+    const bool retire_ok = apc.Retire() && second_apc.Retire();
+    const bool ok = fabric_metadata_ok && row_ok &&
+        row_stride_and_isolation_ok && header_ok && queue_storage_ok &&
+        public_views_ok && retire_ok;
+    if (!ok)
+    {
+        std::cout
+            << "    detail: metadata=" << (fabric_metadata_ok ? "PASS" : "FAIL")
+            << " row=" << (row_ok ? "PASS" : "FAIL")
+            << " row-stride=" << (row_stride_and_isolation_ok ? "PASS" : "FAIL")
+            << " header=" << (header_ok ? "PASS" : "FAIL")
+            << " MPMC=" << (queue_storage_ok ? "PASS" : "FAIL")
+            << " views=" << (public_views_ok ? "PASS" : "FAIL")
+            << " retire=" << (retire_ok ? "PASS" : "FAIL") << '\n';
+    }
+    return ok;
+}
+
+inline bool SlotReuseClearsPayloadAndSchema() noexcept
+{
+    InspectableFabric fabric{};
+    if (!fabric.InitializeFabricWithPtrTable(
+        1u, MINIMUM_APC_CELL_COUNT, OneRegionConfig(), 2u
+    ))
+    {
+        std::cout << "    detail: single-slot Fabric initialization was rejected\n";
+        return false;
+    }
+
+    SD::RegionSchemaTable first_schema{};
+    SD::MakeDisabledSchemaTable(first_schema);
+    if (!MakeSchema(
+        first_schema,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT64_T,
+        SD::SchemaProtocols::PRIVATE_REGION,
+        1u,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ))
+    {
+        return false;
+    }
+
+    AdaptivePackedCellContainer first{};
+    if (!fabric.CreateAPC(first, first_schema))
+    {
+        std::cout << "    detail: first APC creation was rejected\n";
+        return false;
+    }
+    const std::uint32_t retired_slot = first.GetThisSlotIdx();
+    {
+        auto first_view = first.BuildAViewOverRegion<std::uint64_t>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+        );
+        if (!first_view.has_value() || !first_view->RawMutableSpan().has_value())
+        {
+            return false;
+        }
+        const std::optional<std::span<std::uint64_t>> mutable_span =
+            first_view->RawMutableSpan();
+        for (std::uint64_t& value : mutable_span.value())
+        {
+            value = UINT64_MAX;
+        }
+    }
+    if (!first.Retire() || first.IsActiveAPC())
+    {
+        return false;
+    }
+
+    SD::RegionSchemaTable replacement_schema{};
+    SD::MakeDisabledSchemaTable(replacement_schema);
+    if (!MakeSchema(
+        replacement_schema,
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SD::DataTypeOfMacroColumn::UINT32_T,
+        SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
+        2u,
+        VIEW_WIDTH,
+        0u,
+        SD::SchemaFlags::BATCHED_LAST_DIM
+    ))
+    {
+        return false;
+    }
+
+    AdaptivePackedCellContainer replacement{};
+    if (
+        !fabric.CreateAPC(replacement, replacement_schema) ||
+        replacement.GetThisSlotIdx() != retired_slot ||
+        first.IsActiveAPC()
+    )
+    {
+        std::cout << "    detail: retired-slot reclamation or replacement creation failed\n";
+        return false;
+    }
+
+    auto replacement_view = replacement.BuildAViewOverRegion<std::uint32_t>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+    auto stale_dtype = replacement.BuildAViewOverRegion<std::uint64_t>(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+    );
+    bool zeroed =
+        replacement_view.has_value() &&
+        replacement_view->Size() == 2u * VIEW_WIDTH &&
+        replacement_view->GetProtocol() == SD::SchemaProtocols::ATOMIC_WORD_ARRAY &&
+        !stale_dtype.has_value();
+    for (std::size_t i = 0u;
+        zeroed && i < replacement_view->Size();
+        ++i)
+    {
+        zeroed = replacement_view->AtomicLoad(
+            i, std::memory_order_relaxed
+        ) == 0u;
+    }
+
+    replacement_view.reset();
+    stale_dtype.reset();
+    return zeroed && replacement.Retire();
 }
 
 inline Result Run()
 {
-    Banner("TEST 6 - PUBLIC REGION VIEW / ALL PRIMITIVE DTYPES");
-    bool ok = true;
-    ok = RunType<std::uint8_t>("uint8_t") && ok;
-    ok = RunType<std::uint16_t>("uint16_t") && ok;
-    ok = RunType<std::uint32_t>("uint32_t") && ok;
-    ok = RunType<std::uint64_t>("uint64_t") && ok;
-    ok = RunType<std::int8_t>("int8_t") && ok;
-    ok = RunType<std::int16_t>("int16_t") && ok;
-    ok = RunType<std::int32_t>("int32_t") && ok;
-    ok = RunType<std::int64_t>("int64_t") && ok;
-    ok = RunType<float>("float") && ok;
-    ok = RunType<double>("double") && ok;
-    ok = RunType<char>("char") && ok;
+    Banner("TEST 6 - REGION SCHEMA / DEVICE VIEW / PROTOCOL STORAGE / DTYPES");
+    const bool abi_geometry_ok = SchemaABIAndGeometry();
+    const bool config_ok = FabricConfigurationValidation();
+    const bool rollback_ok = CreationValidationAndRollback();
+    const bool device_view_ok = DeviceViewAndProtocolStorage();
+    const bool reuse_ok = SlotReuseClearsPayloadAndSchema();
 
+    std::cout
+        << "  8-cell header + 40-byte schema ABI     : "
+        << (abi_geometry_ok ? "PASS" : "FAIL") << '\n'
+        << "  Fabric construction validation         : "
+        << (config_ok ? "PASS" : "FAIL") << '\n'
+        << "  invalid schema rollback + slot reuse   : "
+        << (rollback_ok ? "PASS" : "FAIL") << '\n'
+        << "  compact rows + metadata + MPMC sequence: "
+        << (device_view_ok ? "PASS" : "FAIL") << '\n'
+        << "  retirement/reuse clears data and schema: "
+        << (reuse_ok ? "PASS" : "FAIL") << "\n\n";
+
+    bool primitive_ok = true;
+    primitive_ok = RunType<std::uint8_t>("uint8_t") && primitive_ok;
+    primitive_ok = RunType<std::uint16_t>("uint16_t") && primitive_ok;
+    primitive_ok = RunType<std::uint32_t>("uint32_t") && primitive_ok;
+    primitive_ok = RunType<std::uint64_t>("uint64_t") && primitive_ok;
+    primitive_ok = RunType<std::int8_t>("int8_t") && primitive_ok;
+    primitive_ok = RunType<std::int16_t>("int16_t") && primitive_ok;
+    primitive_ok = RunType<std::int32_t>("int32_t") && primitive_ok;
+    primitive_ok = RunType<std::int64_t>("int64_t") && primitive_ok;
+    primitive_ok = RunType<float>("float") && primitive_ok;
+    primitive_ok = RunType<double>("double") && primitive_ok;
+    primitive_ok = RunType<char>("char") && primitive_ok;
+
+    const bool ok = abi_geometry_ok && config_ok && rollback_ok &&
+        device_view_ok && reuse_ok && primitive_ok;
     std::cout << "\nTEST 6 OVERALL: " << (ok ? "PASS" : "FAIL") << '\n';
     return ok ? Result::PASS : Result::FAIL;
 }
-} // namespace Test06_RegionViews
+} // namespace Test06_RegionSchemaAndViews
 
 // -----------------------------------------------------------------------------
 // Test 7: concurrent mixed-axis mutation proof plus retirement/ABA lifecycle.
@@ -2168,37 +3016,33 @@ inline bool MixedAxisStress(std::uint64_t& retries_out)
     return !failed.load(std::memory_order_acquire) && proof.Passed();
 }
 
-inline LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier AtomicLayout() noexcept
+constexpr SchemaDefinition::FabricRegionConfig AtomicRegionConfig() noexcept
 {
-    LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier layout{};
-    layout.FeedForward = 1u;
-    layout.FeedBackward = 0u;
-    layout.Lateral = 0u;
-    layout.StateSlot = 0u;
-    layout.ErrorSlot = 0u;
-    layout.Weightless = 0u;
-    layout.WeightSlot = 0u;
-    layout.AUXSlot = 0u;
-    layout.HeterogenousPtr = 0u;
-    layout.FreeSlot = 0u;
-    return layout;
+    return SchemaDefinition::FabricRegionConfig{
+        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        0u,
+        8u
+    };
 }
 
 inline bool CreateAtomic(
     VagueTemoraryPremativeFabric& fabric,
     AdaptivePackedCellContainer& apc) noexcept
 {
-    SchemaDefinition::InitialRegionalDtypeConf dtype{};
-    dtype.FEEDFORWARD_MESSAGE = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
-    SchemaDefinition::InitialRegionalProtocol protocol{};
-    protocol.FEEDFORWARD_MESSAGE = SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY;
-    return fabric.CreateAPC(
-        apc,
-        AtomicLayout(),
-        dtype,
-        protocol,
-        APCDataStructure::BRANCH_VERSION
-    );
+    SchemaDefinition::RegionSchemaTable schemas{};
+    SchemaDefinition::MakeDisabledSchemaTable(schemas);
+    return SchemaDefinition::MakeRegionSchema(
+        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
+        SchemaDefinition::DataTypeOfMacroColumn::UINT64_T,
+        SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY,
+        1u,
+        8u,
+        schemas[static_cast<std::size_t>(
+            MacroColumnOfAPC::FEEDFORWARD_MESSAGE
+        )],
+        0u,
+        SchemaDefinition::SchemaFlags::BATCHED_LAST_DIM
+    ) && fabric.CreateAPC(apc, schemas);
 }
 
 inline bool RetirementAndABA()
@@ -2209,7 +3053,9 @@ inline bool RetirementAndABA()
     AdaptivePackedCellContainer replacement{};
 
     if (
-        !fabric.InitializeFabricWithPtrTable(2u, MINIMUM_APC_CELL_COUNT, 2u) ||
+        !fabric.InitializeFabricWithPtrTable(
+            2u, MINIMUM_APC_CELL_COUNT, AtomicRegionConfig(), 2u
+        ) ||
         !CreateAtomic(fabric, parent) ||
         !CreateAtomic(fabric, child)
     )
@@ -2286,7 +3132,7 @@ inline int RunAll()
         {"Test 3 - reader/writer atomicity", Test03_ReaderWriter::Run()},
         {"Test 4 - public mutation API", Test04_PublicMutationAPI::Run()},
         {"Test 5 - combined DAG proof", Test05_CombinedAcyclicity::Run()},
-        {"Test 6 - primitive region views", Test06_RegionViews::Run()},
+        {"Test 6 - region schema and views", Test06_RegionSchemaAndViews::Run()},
         {"Test 7 - concurrency and retirement", Test07_ConcurrentDAGAndRetirement::Run()}
     }};
 

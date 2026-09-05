@@ -89,6 +89,10 @@ namespace BidirectionalInMemGraph
         uint64_t* APCGenerationCellPtr_{nullptr};
         uint32_t ExpectedGeneration_{UNSIGNED_ZERO};
 
+        SchemaDefinition::RegionSchemaRecord* MatrixOfSchemaRowPtr_{nullptr};
+        std::uint16_t ActiveRegionMask_{UNSIGNED_ZERO};
+        uint32_t RegionBatchCapacity_{UNSIGNED_ZERO};
+
         struct RelationOparation 
         {
             AdaptivePackedCellContainer* APCPtr_ = nullptr;
@@ -110,12 +114,7 @@ namespace BidirectionalInMemGraph
             uint32_t expected_generation
         ) noexcept;
 
-        bool InitiateAPCMetaHeader(
-            const LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier& user_defined_weight = LayoutBoundsOrchestrator::LayoutSpanAndPercentageCarrier{},
-            const SchemaDefinition::InitialRegionalDtypeConf& dtype_conf = SchemaDefinition::InitialRegionalDtypeConf{},
-            const SchemaDefinition::InitialRegionalProtocol& protocol_conf = SchemaDefinition::InitialRegionalProtocol{},
-            uint8_t version = APCDataStructure::BRANCH_VERSION
-        ) noexcept;
+        bool InitiateAPCMetaHeader() noexcept;
 
         bool ReadAPCMetaUnit(
             HeaderIdentifierOfAPC meta_idx,

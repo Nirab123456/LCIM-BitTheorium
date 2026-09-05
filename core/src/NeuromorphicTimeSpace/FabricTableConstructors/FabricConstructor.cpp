@@ -123,37 +123,6 @@ namespace BidirectionalInMemGraph
         return true;
     }
 
-    bool FabricConstructor::ReadBufferwithSyncAtomicIndex(
-        size_t slab_starting_idx, 
-        size_t sequential_number_of_cells,
-        uint64_t* return_buffer,
-        uint64_t sync_idx_of_buffer
-    ) noexcept
-    {
-        if (
-            !IsDesiredIndexValidInSLab(slab_starting_idx) ||
-            !return_buffer ||
-            sequential_number_of_cells == UNSIGNED_ZERO ||
-            sequential_number_of_cells > SlabCellCount_ - slab_starting_idx ||
-            sync_idx_of_buffer >= sequential_number_of_cells
-        )
-        {
-            return false;
-        }
-
-        for (size_t i = 0; i < sequential_number_of_cells; i++)
-        {
-            std::atomic_ref<const uint64_t>  slab_range_ref(SlabBasePtr_[slab_starting_idx + i]);
-            return_buffer[i] = slab_range_ref.load(std::memory_order_acquire);
-        }
-        
-        std::atomic_ref<const uint64_t> sync_idx_atomic(SlabBasePtr_[slab_starting_idx + sync_idx_of_buffer]);
-
-        return_buffer[sync_idx_of_buffer] = sync_idx_atomic.load(std::memory_order_acquire);
-        return true;
-    }
-
-
     uint64_t* APCHandleAndRetirement::GetAPCGenerationPtr_(uint32_t slot) noexcept
     {
         if (

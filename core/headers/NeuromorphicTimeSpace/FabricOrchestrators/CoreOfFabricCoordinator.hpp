@@ -11,7 +11,6 @@ namespace BidirectionalInMemGraph
         static constexpr size_t COMPILED_DAG_LEN = 0u;
         static constexpr size_t QUEUE_RECORD_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 0u;
-        static constexpr size_t DEVICE_VIEW_WIDTH_OF_APC_FABRIC = 0u;
         static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
         static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
         static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 512u;
@@ -39,6 +38,13 @@ namespace BidirectionalInMemGraph
             FIRST_FREE_IDX = 6,
             MAX_DIRECT_PARENTS_PER_AXIS = 7,
             EDGE_TABLE_RECORD_WIDTH = 8,
+
+            ACTIVE_REGION_MASK = 9,
+            ACTIVE_REGION_COUNT = 10,
+            REGION_SCHEMA_RECORD_CELL_COUNT = 11,
+            DEVICE_VIEW_ROW_CELL_COUNT = 12,
+            MATRIC_BATCH_CAPACITY = 13,
+            REGION_ALLIGNMENT_CELL_COUNT = 14,
 
             EOF_FABRIC_HEADER = 15
         };

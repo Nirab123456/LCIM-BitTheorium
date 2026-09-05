@@ -16,12 +16,11 @@ namespace BidirectionalInMemGraph
         size_t SlabCellCount_{UNSIGNED_ZERO};
         size_t SegmentPoolBegin_{CoreOfFabricCoordinator::FABRIC_UNIT_COUNT};
 
-        uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};
-        uint64_t VerticalEdgeBeginIdx_{UNSIGNED_ZERO};
-        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
-
         uint8_t MaxDirectParentsPerAxis_{UNSIGNED_ZERO};
         uint16_t EdgeTableRecordWidth_{UNSIGNED_ZERO};
+    
+        uint64_t HandleTableBeginIndex_{UNSIGNED_ZERO};
+
 
         std::atomic<bool> FabricInitialized_{false};
         std::atomic<bool> InitializationInProgress_{false};
@@ -69,14 +68,6 @@ namespace BidirectionalInMemGraph
             const uint64_t* desired_cells
         ) noexcept;
 
-        /// @param sync_idx_of_buffer It is the buffer index caller dosent need to know slab index 
-        bool ReadBufferwithSyncAtomicIndex(
-            size_t slab_starting_idx, 
-            size_t sequential_number_of_cells,
-            uint64_t* return_buffer,
-            uint64_t sync_idx_of_buffer
-        ) noexcept;
-
         constexpr bool IsDesiredIndexValidInSLab(size_t desired_idx) noexcept
         {
             if (SlabBasePtr_ && desired_idx < SlabCellCount_)
@@ -89,7 +80,33 @@ namespace BidirectionalInMemGraph
 
     };
 
-    class APCHandleAndRetirement : public FabricConstructor
+    class MatrixViewConstructor : public FabricConstructor
+    {
+        friend class FabricToAPCLinker;
+    protected:
+        using SD = SchemaDefinition;
+        uint64_t MatrixViewTableBeginIndex_{UNSIGNED_ZERO};
+        uint16_t ActiveRegionMask_{UNSIGNED_ZERO};
+        uint8_t ActiveRegionCount_{UNSIGNED_ZERO};
+        uint16_t MatrixViewRowCellCount_{UNSIGNED_ZERO};
+        uint32_t MatrixBatchCapacity_{UNSIGNED_ZERO};
+
+        std::span<SD::RegionSchemaRecord> MetrixViewRow_(uint32_t apc_slot) noexcept;
+
+        bool ConstructMatrixViewRecords_(size_t table_begin, size_t table_end) noexcept;
+
+        bool PrepareMatrixViewRow_(
+            uint32_t apc_slot,
+            const SD::RegionSchemaTable& requested
+        ) noexcept;
+
+        void ClearMatrixViewRow_(uint32_t apc_slot) noexcept;
+
+        bool InitializeRegionProtocolStorage_(uint32_t apc_slot) noexcept;
+
+    };
+
+    class APCHandleAndRetirement : public MatrixViewConstructor
     {
     protected:
         uint64_t* GetAPCGenerationPtr_(uint32_t slot) noexcept;
@@ -105,8 +122,6 @@ namespace BidirectionalInMemGraph
         std::optional<uint32_t> ReadFirstFreeAPCIdx_() noexcept;
 
         void UpdateFirstFreeIdx_(uint64_t& expected_value, uint64_t desired_value) noexcept;
-
-
     };
 
 
