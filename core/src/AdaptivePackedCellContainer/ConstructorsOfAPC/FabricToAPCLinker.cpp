@@ -29,6 +29,16 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
+
+        std::span<SchemaDefinition::RegionSchemaRecord> region_row = fabric_owner->MetrixViewRow_(
+            static_cast<uint32_t>(fabric_slot_idx)
+        );
+
+        if (region_row.size() != fabric_owner->ActiveRegionCount_)
+        {
+            return false;
+        }
+
         APCSlotIdx_ = static_cast<uint32_t>(fabric_slot_idx);
         RawAPCBasePtr_ = reinterpret_cast<std::byte*>(raw_cells_ptr);
         CapacityOfThisAPC_ = fabric_owner->PerAPCRuntimeCellCount_;
@@ -36,6 +46,9 @@ namespace BidirectionalInMemGraph
         RangeOfThisAPCInSlab_ = range_of_this_apc;
         APCGenerationCellPtr_ = generation_cell;
         ExpectedGeneration_ = expected_generation;
+        MatrixOfSchemaRowPtr_ = region_row.data();
+        ActiveRegionMask_ = fabric_owner->ActiveRegionMask_;
+        RegionBatchCapacity_ = fabric_owner->MatrixBatchCapacity_;
         return true;
     }
 
@@ -49,6 +62,9 @@ namespace BidirectionalInMemGraph
         APCSlotIdx_ = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
         APCGenerationCellPtr_ = nullptr;
         ExpectedGeneration_ = UNSIGNED_ZERO;
+        MatrixOfSchemaRowPtr_ = nullptr;
+        ActiveRegionMask_ = UNSIGNED_ZERO;
+        RegionBatchCapacity_ = UNSIGNED_ZERO;
     }
 
     bool FabricToAPCLinker::InitiateAPCMetaHeader() noexcept
@@ -111,6 +127,9 @@ namespace BidirectionalInMemGraph
             RangeOfThisAPCInSlab_.IsValid &&
             RawAPCBasePtr_ != nullptr &&
             APCGenerationCellPtr_ != nullptr &&
+            MatrixOfSchemaRowPtr_ != nullptr &&
+            ActiveRegionMask_ != UNSIGNED_ZERO &&
+            RegionBatchCapacity_ != UNSIGNED_ZERO &&
             APCDataStructure::IsValid32BitAPCUnit(APCSlotIdx_) &&
             HandleOfAPCStatic::IsGenerationValid(ExpectedGeneration_);
     }

@@ -82,6 +82,7 @@ namespace BidirectionalInMemGraph
 
     class MatrixViewConstructor : public FabricConstructor
     {
+        friend class FabricToAPCLinker;
     protected:
         using SD = SchemaDefinition;
         uint64_t MatrixViewTableBeginIndex_{UNSIGNED_ZERO};

@@ -172,8 +172,13 @@ namespace BidirectionalInMemGraph
             }
             
             DType* type_based = reinterpret_cast<DType*>(resolved.Bytes.data());
-            const size_t element_count = resolved.ByteCount() / sizeof(DType);
+            const size_t element_count = static_cast<uint64_t>(resolved.Schema->MatrixHeight) * resolved.Schema->MatrixWidth;
 
+            if (element_count > SIZE_MAX)
+            {
+                return std::nullopt;
+            }
+            
             return RegionView<DType>(
                 std::span<DType>(type_based, element_count),
                 resolved.Schema->Protocol,

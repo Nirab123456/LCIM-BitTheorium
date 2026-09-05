@@ -8,7 +8,7 @@ namespace BidirectionalInMemGraph
     {
         if (
             !SlabBasePtr_ ||
-            apc_slot > CountOfAPC_ ||
+            apc_slot >= CountOfAPC_ ||
             ActiveRegionCount_ == UNSIGNED_ZERO ||
             MatrixViewRowCellCount_ != ActiveRegionCount_ * SD::RegionSchemaCellCount()
         )
@@ -16,7 +16,7 @@ namespace BidirectionalInMemGraph
             return {};
         }
 
-        std::byte* table_bytes = reinterpret_cast<std::byte*>(SlabBasePtr_ + MatrixViewRowCellCount_);
+        std::byte* table_bytes = reinterpret_cast<std::byte*>(SlabBasePtr_ + MatrixViewTableBeginIndex_);
 
         const size_t row_byte_offset = static_cast<size_t>(apc_slot) * MatrixViewRowCellCount_ * sizeof(uint64_t);
 
@@ -143,8 +143,13 @@ namespace BidirectionalInMemGraph
         }
 
         const size_t apc_begin = SegmentPoolBegin_ +  static_cast<size_t>(apc_slot) * PerAPCRuntimeCellCount_;
+        std::span<SD::RegionSchemaRecord> row = MetrixViewRow_(apc_slot);
+        if (row.size() != ActiveRegionCount_)
+        {
+            return false;
+        }
 
-        for (SD::RegionSchemaRecord& schema : MetrixViewRow_(apc_slot))
+        for (SD::RegionSchemaRecord& schema : row)
         {
             if (schema.Protocol != SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE)
             {
