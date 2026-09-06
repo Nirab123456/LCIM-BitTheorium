@@ -524,26 +524,30 @@ public:
 
         SD::RegionSchemaTable schemas{};
         SD::MakeDisabledSchemaTable(schemas);
+
+
+
+        SD::RegionSchemaRecord& ff_schema_prop = schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)];
+        SD::RegionSchemaRecord& fb_schema = schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)];
+        ff_schema_prop.Region = MacroColumnOfAPC::FEEDFORWARD_MESSAGE;
+        ff_schema_prop.Dtype = SD::DataTypeOfMacroColumn::UINT64_T;
+        ff_schema_prop.Protocol = SD::SchemaProtocols::PRIVATE_REGION;
+        ff_schema_prop.MatrixHeight = 1u;
+        ff_schema_prop.MatrixWidth = matrix_width;
+        ff_schema_prop.Flags = SD::SchemaFlags::BATCHED_LAST_DIM;
+
+        fb_schema = ff_schema_prop;
+        fb_schema.Region = MacroColumnOfAPC::FEEDBACKWARD_MESSAGE;
+        fb_schema.Protocol = SD::SchemaProtocols::ATOMIC_WORD_ARRAY;
+
         if (
-            !SD::MakeRegionSchema(
-                MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
-                SD::DataTypeOfMacroColumn::UINT64_T,
-                SD::SchemaProtocols::PRIVATE_REGION,
-                1u,
-                matrix_width,
-                schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE)],
-                0u,
-                SD::SchemaFlags::BATCHED_LAST_DIM
+            !SD::SealDesiredSchema(
+                ff_schema_prop,
+                0u
             ) ||
-            !SD::MakeRegionSchema(
-                MacroColumnOfAPC::FEEDBACKWARD_MESSAGE,
-                SD::DataTypeOfMacroColumn::UINT64_T,
-                SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
-                1u,
-                matrix_width,
-                schemas[static_cast<std::size_t>(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)],
-                0u,
-                SD::SchemaFlags::BATCHED_LAST_DIM
+            !SD::SealDesiredSchema(
+                fb_schema,
+                0u
             )
         )
         {
@@ -1975,15 +1979,17 @@ inline bool MakeSchema(
     SD::SchemaFlags flags = SD::SchemaFlags::NONE
 ) noexcept
 {
-    return SD::MakeRegionSchema(
-        region,
-        dtype,
-        protocol,
-        height,
-        width,
-        table[static_cast<std::size_t>(region)],
-        record_count,
-        flags
+    SD::RegionSchemaRecord& schema = table[static_cast<std::size_t>(region)];
+    schema.Region = region;
+    schema.Dtype = dtype;
+    schema.Protocol = protocol;
+    schema.MatrixHeight = height;
+    schema.MatrixWidth = width;
+    schema.Flags = flags;
+
+    return SD::SealDesiredSchema(
+        schema,
+        record_count
     );
 }
 
@@ -2003,15 +2009,16 @@ inline bool SchemaABIAndGeometry() noexcept
     }
 
     SD::RegionSchemaRecord ordinary{};
-    if (!SD::MakeRegionSchema(
-        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
-        SD::DataTypeOfMacroColumn::UINT16_T,
-        SD::SchemaProtocols::PRIVATE_REGION,
-        3u,
-        4u,
+    ordinary.Region = MacroColumnOfAPC::FEEDFORWARD_MESSAGE;
+    ordinary.Dtype = SD::DataTypeOfMacroColumn::UINT16_T;
+    ordinary.Protocol = SD::SchemaProtocols::PRIVATE_REGION;
+    ordinary.MatrixHeight = 3u;
+    ordinary.MatrixWidth = 4u;
+    ordinary.Flags = SD::SchemaFlags::BATCHED_LAST_DIM;
+
+    if (!SD::SealDesiredSchema(
         ordinary,
-        0u,
-        SD::SchemaFlags::BATCHED_LAST_DIM
+        0u
     ))
     {
         return false;
@@ -2033,59 +2040,48 @@ inline bool SchemaABIAndGeometry() noexcept
         SD::ValidateStortedRegionSchema(ordinary, MINIMUM_APC_CELL_COUNT, 4u) &&
         !SD::ValidateStortedRegionSchema(ordinary, MINIMUM_APC_CELL_COUNT, 8u);
 
-    SD::RegionSchemaRecord double_buffer{};
-    const bool double_ok = SD::MakeRegionSchema(
-        MacroColumnOfAPC::AUX_SLOT,
-        SD::DataTypeOfMacroColumn::UINT16_T,
-        SD::SchemaProtocols::DOUBLE_BUFFERED,
-        3u,
-        4u,
+    SD::RegionSchemaRecord double_buffer = ordinary;
+    double_buffer.Region = MacroColumnOfAPC::AUX_SLOT;
+    double_buffer.Protocol = SD::SchemaProtocols::DOUBLE_BUFFERED;
+
+    const bool double_ok = SD::SealDesiredSchema(
         double_buffer,
-        2u,
-        SD::SchemaFlags::BATCHED_LAST_DIM
+        2u
     );
     double_buffer.CellOffset = APCDataStructure::METACELL_COUNT;
 
     SD::RegionSchemaRecord queue{};
-    const bool queue_ok = SD::MakeRegionSchema(
-        MacroColumnOfAPC::ERROR_SLOT,
-        SD::DataTypeOfMacroColumn::UINT16_T,
-        SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE,
-        3u,
-        4u,
+    queue = ordinary;
+    queue.Region = MacroColumnOfAPC::ERROR_SLOT;
+    queue.Protocol = SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
+    
+    const bool queue_ok = SD::SealDesiredSchema(
         queue,
-        4u,
-        SD::SchemaFlags::BATCHED_LAST_DIM
+        4u
     );
     queue.CellOffset = APCDataStructure::METACELL_COUNT;
 
     SD::RegionSchemaRecord invalid{};
+    SD::RegionSchemaRecord invalid_1{};
+    SD::RegionSchemaRecord invalid_2{};
+    
+    invalid_1.Protocol = SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE;
+    invalid_1.Flags = SD::SchemaFlags::BATCHED_LAST_DIM;
+
+    invalid_2.Protocol = SD::SchemaProtocols::DOUBLE_BUFFERED;
+
     const bool invalid_shapes_rejected =
-        !SD::MakeRegionSchema(
-            MacroColumnOfAPC::ERROR_SLOT,
-            SD::DataTypeOfMacroColumn::UINT16_T,
-            SD::SchemaProtocols::MPMC_FIXED_RECORD_QUEUE,
-            3u,
-            4u,
-            invalid,
+        !SD::SealDesiredSchema(
+            invalid_1,
             3u
         ) &&
-        !SD::MakeRegionSchema(
-            MacroColumnOfAPC::STATE_SLOT,
-            SD::DataTypeOfMacroColumn::UINT16_T,
-            SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
-            3u,
-            4u,
+        !SD::SealDesiredSchema(
             invalid,
             2u
         ) &&
-        !SD::MakeRegionSchema(
-            MacroColumnOfAPC::STATE_SLOT,
-            SD::DataTypeOfMacroColumn::UINT16_T,
-            SD::SchemaProtocols::ATOMIC_WORD_ARRAY,
-            0u,
-            4u,
-            invalid
+        !SD::SealDesiredSchema(
+            invalid_2,
+            2u
         );
 
     constexpr std::uint16_t sparse_mask =
@@ -3031,17 +3027,20 @@ inline bool CreateAtomic(
 {
     SchemaDefinition::RegionSchemaTable schemas{};
     SchemaDefinition::MakeDisabledSchemaTable(schemas);
-    return SchemaDefinition::MakeRegionSchema(
-        MacroColumnOfAPC::FEEDFORWARD_MESSAGE,
-        SchemaDefinition::DataTypeOfMacroColumn::UINT64_T,
-        SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY,
-        1u,
-        8u,
-        schemas[static_cast<std::size_t>(
+
+    SchemaDefinition::RegionSchemaRecord& schema = schemas[static_cast<std::size_t>(
             MacroColumnOfAPC::FEEDFORWARD_MESSAGE
-        )],
-        0u,
-        SchemaDefinition::SchemaFlags::BATCHED_LAST_DIM
+    )];
+    schema.Region = MacroColumnOfAPC::FEEDFORWARD_MESSAGE;
+    schema.Dtype = SchemaDefinition::DataTypeOfMacroColumn::UINT64_T;
+    schema.Protocol = SchemaDefinition::SchemaProtocols::ATOMIC_WORD_ARRAY;
+    schema.MatrixHeight = 1u;
+    schema.MatrixWidth = 8u;
+    schema.Flags = SchemaDefinition::SchemaFlags::BATCHED_LAST_DIM;
+
+    return SchemaDefinition::SealDesiredSchema(
+        schema,
+        0u
     ) && fabric.CreateAPC(apc, schemas);
 }
 

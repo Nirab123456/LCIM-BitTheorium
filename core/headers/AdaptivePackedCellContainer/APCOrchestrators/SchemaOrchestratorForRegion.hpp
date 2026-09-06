@@ -54,8 +54,8 @@ namespace BidirectionalInMemGraph
             uint32_t MatrixHeight = UNSIGNED_ZERO;
             uint32_t MatrixWidth = UNSIGNED_ZERO;
 
-            uint64_t EnqueuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
-            uint64_t DequeuePosition = APCDataStructure::APC_INDEX_BOUND_SENTINAL;
+            uint64_t EnqueuePosition = FABRIC_CELL_SENTINAL;
+            uint64_t DequeuePosition = FABRIC_CELL_SENTINAL;
             
             MacroColumnOfAPC Region = MacroColumnOfAPC::FREE_SLOT;
             SchemaProtocols Protocol = SchemaProtocols::PRIVATE_REGION;
@@ -353,45 +353,7 @@ namespace BidirectionalInMemGraph
         );
     }
 
-    struct MPMCQOrchestrator : public SchemaValidator
-    {
-        static constexpr uint8_t FIXED_ADDITIONAL_UIT_FRO_MPMCQ = 1;
-
-
-        static constexpr uint32_t FloorPoweOfTwoUnsigned32(uint32_t value) noexcept
-        {
-            if (value == UNSIGNED_ZERO)
-            {
-                return UNSIGNED_ZERO;
-            }
-
-            uint32_t result = 1u;
-            while (result <= value / 2u)
-            {
-                result <<= 1u;
-            }
-            return result;
-        }
-
-    protected:
-        static constexpr uint32_t UpwordRoundingDivision_(
-            uint32_t numerator,
-            uint32_t denominator
-        ) noexcept
-        {
-            if (denominator == UNSIGNED_ZERO)
-            {
-                return UNSIGNED_ZERO;
-            }
-
-            return numerator / denominator +
-                static_cast<uint32_t>(numerator % denominator != UNSIGNED_ZERO);
-            
-        }
-    };
-
-
-    struct SchemaDefinition : public MPMCQOrchestrator
+    struct SchemaDefinition : public SchemaValidator
     {
     private:
 
@@ -451,34 +413,11 @@ namespace BidirectionalInMemGraph
     public:
         using RegionSchemaTable = std::array<RegionSchemaRecord, ColumnConf::CountOfMacroColumn()>;
 
-        static constexpr bool MakeRegionSchema(
-            MacroColumnOfAPC region,
-            DataTypeOfMacroColumn dtype,
-            SchemaProtocols protocol,
-            uint32_t matrix_height,
-            uint32_t matrix_width,
+        static constexpr bool SealDesiredSchema(
             RegionSchemaRecord& schema,
-            uint32_t protocol_record_count = UNSIGNED_ZERO,
-            SchemaFlags extra_flags = SchemaFlags::NONE
+            uint32_t protocol_record_count = UNSIGNED_ZERO
         ) noexcept
-        {
-            schema = RegionSchemaRecord{};
-            schema.Region = region;
-            schema.Dtype = dtype;
-            schema.Protocol = protocol;
-            schema.MatrixHeight = matrix_height;
-            schema.MatrixWidth = matrix_width;
-            schema.Flags = extra_flags;
-
-            if (
-                !IsKnownSchemaFlags(extra_flags) ||
-                HasSchemaFlag(extra_flags, SchemaFlags::REGION_DISABLED)
-            )
-            {
-                schema = RegionSchemaRecord{};
-                return false;
-            }
-
+        {   
             const std::optional<uint32_t> stride = RecordStrideCells(schema);
             if (!stride.has_value())
             {
