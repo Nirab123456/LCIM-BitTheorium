@@ -64,8 +64,6 @@ namespace BidirectionalInMemGraph
     {
 
         static constexpr uint8_t METACELL_COUNT = static_cast<uint8_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER) + 1u;
-        static constexpr uint8_t FABRIC_CELL_COUNT = 16;
-
 
         static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
         static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian

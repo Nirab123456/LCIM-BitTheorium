@@ -719,7 +719,7 @@ namespace BidirectionalInMemGraph
             if (vertical_reserved)
             {
                 PublishReservedEdgeRow_(
-                    FabricSegments::VERTICAL_EDGE_TABLE,
+                    FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
                     slot,
                     vertical_before,
                     EdgeBuilder::RELATION_NULL,
@@ -730,7 +730,7 @@ namespace BidirectionalInMemGraph
             if (horizontal_reserved)
             {
                 PublishReservedEdgeRow_(
-                    FabricSegments::HORIZONTAL_EDGE_TABLE,
+                    FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                     slot,
                     horizontal_before,
                     EdgeBuilder::RELATION_NULL,
@@ -806,7 +806,7 @@ namespace BidirectionalInMemGraph
         
         if (
             ReserveEdgeRow_(
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                 slot,
                 EdgeBuilder::EdgeStatus::FREE,
                 horizontal_before,
@@ -821,7 +821,7 @@ namespace BidirectionalInMemGraph
 
         if (
             ReserveEdgeRow_(
-                FabricSegments::VERTICAL_EDGE_TABLE,
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
                 slot,
                 EdgeBuilder::EdgeStatus::FREE,
                 vertical_before,
@@ -858,8 +858,8 @@ namespace BidirectionalInMemGraph
         if (
             horizontal_before.TailLocator != EdgeBuilder::RELATION_NULL ||
             vertical_before.TailLocator != EdgeBuilder::RELATION_NULL ||
-            !ReservedRowIsEmpty___(FabricSegments::HORIZONTAL_EDGE_TABLE) ||
-            !ReservedRowIsEmpty___(FabricSegments::VERTICAL_EDGE_TABLE) ||
+            !ReservedRowIsEmpty___(FabricSegments::VALUE_PARENT_EDGE_TABLE_H) ||
+            !ReservedRowIsEmpty___(FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V) ||
             !StoreAPCRuntimePtr(slot, &desired_apc)
         )
         {
@@ -889,7 +889,7 @@ namespace BidirectionalInMemGraph
         
 
         PublishReservedEdgeRow_(
-            FabricSegments::HORIZONTAL_EDGE_TABLE,
+            FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
             slot,
             horizontal_before,
             EdgeBuilder::RELATION_NULL,
@@ -898,7 +898,7 @@ namespace BidirectionalInMemGraph
         horizontal_reserved = false;
 
         PublishReservedEdgeRow_(
-            FabricSegments::VERTICAL_EDGE_TABLE,
+            FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
             slot,
             vertical_before,
             EdgeBuilder::RELATION_NULL,
@@ -929,7 +929,7 @@ namespace BidirectionalInMemGraph
 
         if (
             ReserveEdgeRow_(
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                 slot,
                 EdgeBuilder::EdgeStatus::LIVE,
                 horizontal_before,
@@ -942,7 +942,7 @@ namespace BidirectionalInMemGraph
 
         if (
             ReserveEdgeRow_(
-                FabricSegments::VERTICAL_EDGE_TABLE,
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
                 slot,
                 EdgeBuilder::EdgeStatus::LIVE,
                 vertical_before,
@@ -951,7 +951,7 @@ namespace BidirectionalInMemGraph
         )
         {
             PublishReservedEdgeRow_(
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                 slot,
                 horizontal_before,
                 horizontal_before.TailLocator,
@@ -963,14 +963,14 @@ namespace BidirectionalInMemGraph
         auto ReleaseRows___ = [&]() noexcept
         {
             PublishReservedEdgeRow_(
-                FabricSegments::VERTICAL_EDGE_TABLE,
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
                 slot,
                 vertical_before,
                 vertical_before.TailLocator,
                 EdgeBuilder::EdgeStatus::LIVE
             );
             PublishReservedEdgeRow_(
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                 slot,
                 horizontal_before,
                 horizontal_before.TailLocator,
@@ -1012,10 +1012,10 @@ namespace BidirectionalInMemGraph
             horizontal_before.TailLocator != EdgeBuilder::RELATION_NULL ||
             vertical_before.TailLocator != EdgeBuilder::RELATION_NULL ||
             !ReservedRowIsEmpty___(
-                FabricSegments::HORIZONTAL_EDGE_TABLE
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H
             ) ||
             !ReservedRowIsEmpty___(
-                FabricSegments::VERTICAL_EDGE_TABLE
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V
             )
         )
         {
@@ -1075,14 +1075,14 @@ namespace BidirectionalInMemGraph
         }
 
         PublishReservedEdgeRow_(
-            FabricSegments::VERTICAL_EDGE_TABLE,
+            FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
             slot,
             vertical_before,
             EdgeBuilder::RELATION_NULL,
             EdgeBuilder::EdgeStatus::FREE
         );
         PublishReservedEdgeRow_(
-            FabricSegments::HORIZONTAL_EDGE_TABLE,
+            FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
             slot,
             horizontal_before,
             EdgeBuilder::RELATION_NULL,
@@ -1132,12 +1132,12 @@ namespace BidirectionalInMemGraph
 
         if (
             !ReadEdgeHeader_(
-                FabricSegments::HORIZONTAL_EDGE_TABLE,
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H,
                 slot,
                 horizontal
             ) ||
             !ReadEdgeHeader_(
-                FabricSegments::VERTICAL_EDGE_TABLE,
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V,
                 slot,
                 vertical
             ) ||
@@ -1184,10 +1184,10 @@ namespace BidirectionalInMemGraph
 
         if (
             !FreeRowIsEmpty___(
-                FabricSegments::HORIZONTAL_EDGE_TABLE
+                FabricSegments::VALUE_PARENT_EDGE_TABLE_H
             ) ||
             !FreeRowIsEmpty___(
-                FabricSegments::VERTICAL_EDGE_TABLE
+                FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V
             )
         )
         {

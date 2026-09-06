@@ -57,8 +57,8 @@ enum class Axis : std::uint8_t
 constexpr FabricSegments EdgeTableForAxis(Axis axis) noexcept
 {
     return axis == Axis::HORIZONTAL
-        ? FabricSegments::HORIZONTAL_EDGE_TABLE
-        : FabricSegments::VERTICAL_EDGE_TABLE;
+        ? FabricSegments::VALUE_PARENT_EDGE_TABLE_H
+        : FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V;
 }
 
 enum class Result : std::uint8_t
@@ -1754,7 +1754,7 @@ inline Result Run()
     ok = backend.AddParent(0u, 5u, Axis::HORIZONTAL) && ok;
     ok = backend.Node(1u).AttachMyChild(
         backend.Node(5u),
-        FabricSegments::HORIZONTAL_EDGE_TABLE
+        FabricSegments::VALUE_PARENT_EDGE_TABLE_H
     ) && ok;
     ok = ParentSetEquals(backend, 5u, Axis::HORIZONTAL, {0u, 1u}, 2u) && ok;
 
@@ -1767,7 +1767,7 @@ inline Result Run()
     ok = backend.AddParent(2u, 5u, Axis::HORIZONTAL) && ok;
     ok = backend.Node(1u).DetachMyChild(
         backend.Node(5u),
-        FabricSegments::HORIZONTAL_EDGE_TABLE
+        FabricSegments::VALUE_PARENT_EDGE_TABLE_H
     ) && ok;
     ok = ParentSetEquals(backend, 5u, Axis::HORIZONTAL, {2u, 0u}, 1u) && ok;
 
@@ -1780,7 +1780,7 @@ inline Result Run()
         !backend.Node(5u).ReplaceParent(
             backend.Node(1u),
             backend.Node(1u),
-            FabricSegments::VERTICAL_EDGE_TABLE
+            FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V
         );
     const bool invalid_table_rejected =
         !backend.Node(5u).AddParent(
@@ -3065,13 +3065,13 @@ inline bool RetirementAndABA()
 
     const std::uint32_t child_slot = child.GetThisSlotIdx();
     if (
-        !child.AddParent(parent, FabricSegments::HORIZONTAL_EDGE_TABLE) ||
-        !child.AddParent(parent, FabricSegments::VERTICAL_EDGE_TABLE) ||
+        !child.AddParent(parent, FabricSegments::VALUE_PARENT_EDGE_TABLE_H) ||
+        !child.AddParent(parent, FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V) ||
         parent.Retire() ||
         child.Retire() ||
-        !child.RemoveParent(parent, FabricSegments::HORIZONTAL_EDGE_TABLE) ||
+        !child.RemoveParent(parent, FabricSegments::VALUE_PARENT_EDGE_TABLE_H) ||
         child.Retire() ||
-        !child.RemoveParent(parent, FabricSegments::VERTICAL_EDGE_TABLE)
+        !child.RemoveParent(parent, FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V)
     )
     {
         return false;

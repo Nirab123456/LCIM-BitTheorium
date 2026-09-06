@@ -9,7 +9,7 @@ namespace BidirectionalInMemGraph
         /// UNCHECKED
         static constexpr size_t RELATION_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t COMPILED_DAG_LEN = 0u;
-        static constexpr size_t QUEUE_RECORD_WIDTH_OF_FABRIC = 0u;
+        static constexpr size_t DEVICE_PLANNER_RECORD_LEN = 0u;
         static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
         static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
@@ -18,7 +18,6 @@ namespace BidirectionalInMemGraph
 
         ///--------------------------
 
-        static constexpr uint8_t FABRIC_UNIT_COUNT = APCDataStructure::FABRIC_CELL_COUNT;
 
         enum class RecordBookInternalIndexing : uint8_t
         {
@@ -48,6 +47,9 @@ namespace BidirectionalInMemGraph
 
             EOF_FABRIC_HEADER = 15
         };
+
+        static constexpr uint8_t FABRIC_UNIT_COUNT = static_cast<uint8_t>(FabricMetaIndicies::EOF_FABRIC_HEADER) + 1u;
+
     };
 
     struct CoreOfFabricCoordinator : public EnumsOfFabricCoordinator
@@ -62,8 +64,8 @@ namespace BidirectionalInMemGraph
         static constexpr bool IsValidEdgeTable(FabricSegments table_class) noexcept
         {
             return
-                table_class == FabricSegments::HORIZONTAL_EDGE_TABLE ||
-                table_class == FabricSegments::VERTICAL_EDGE_TABLE;
+                table_class == FabricSegments::VALUE_PARENT_EDGE_TABLE_H ||
+                table_class == FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V;
         }
 
 

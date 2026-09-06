@@ -28,7 +28,7 @@ namespace BidirectionalInMemGraph
         }
 
         const uint64_t table_begin =
-            edge_table == FabricSegments::HORIZONTAL_EDGE_TABLE
+            edge_table == FabricSegments::VALUE_PARENT_EDGE_TABLE_H
                 ? HorizontalEdgeBeginIdx_
                 : VerticalEdgeBeginIdx_;
 

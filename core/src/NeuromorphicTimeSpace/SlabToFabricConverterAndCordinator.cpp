@@ -183,10 +183,10 @@ namespace BidirectionalInMemGraph
         const size_t compiled_dag_end = compiled_dag_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::COMPILED_DAG_LEN);
 
         cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(compiled_dag_end);
-        const size_t ready_queue_begin = cursor;
-        const size_t ready_queue_end = ready_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::QUEUE_RECORD_WIDTH_OF_FABRIC);
+        const size_t device_planner_begain = cursor;
+        const size_t device_planner_end = device_planner_begain + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::DEVICE_PLANNER_RECORD_LEN);
 
-        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(ready_queue_end);
+        cursor = CoreOfFabricCoordinator::DefaultFabricAlignment16Cell_(device_planner_end);
         const size_t work_queue_begin = cursor;
         const size_t work_queue_end = work_queue_begin + static_cast<size_t>(CountOfAPC_ * CoreOfFabricCoordinator::WORK_RECORD_WIDTH_OF_FABRIC);
 
@@ -213,11 +213,11 @@ namespace BidirectionalInMemGraph
 
         //RECORD_BOOK_OF_TABLE_SEGMENT_CLASS - ENTRIES
         WriteARecordBookOfTSCEntry_(FabricSegments::SLAB_RECORD_MAP, record_book_begin, record_book_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::HORIZONTAL_EDGE_TABLE, horizontal_edge_begin, horizontal_edge_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::VERTICAL_EDGE_TABLE, vertical_edge_begin, vertical_edge_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::VALUE_PARENT_EDGE_TABLE_H, horizontal_edge_begin, horizontal_edge_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V, vertical_edge_begin, vertical_edge_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::APC_HANDLE_TABLE, apc_handle_table_begin, apc_handle_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::COMPILED_DAG_TABLE, compiled_dag_begin, compiled_dag_end);
-        WriteARecordBookOfTSCEntry_(FabricSegments::READY_QUEUE, ready_queue_begin, ready_queue_end);
+        WriteARecordBookOfTSCEntry_(FabricSegments::DEVICE_PLANNER_TABLE, device_planner_begain, device_planner_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::WORK_QUEUE, work_queue_begin, work_queue_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::MATRIX_VIEW_TABLE, matrix_view_table_begin, matrix_view_table_end);
         WriteARecordBookOfTSCEntry_(FabricSegments::SEGMENT_POOL, SegmentPoolBegin_, SlabCellCount_);
@@ -240,14 +240,14 @@ namespace BidirectionalInMemGraph
         
         //IDLE UNUSED FabricSegments
         IdleAFabricTableClassRangesMemory_(FabricSegments::COMPILED_DAG_TABLE);
-        IdleAFabricTableClassRangesMemory_(FabricSegments::READY_QUEUE);
+        IdleAFabricTableClassRangesMemory_(FabricSegments::DEVICE_PLANNER_TABLE);
         IdleAFabricTableClassRangesMemory_(FabricSegments::WORK_QUEUE);
         //END:: IDELING
 
         //INIT: EDGE TABLES
         if (
-            !InitializeEdgeTable_(FabricSegments::HORIZONTAL_EDGE_TABLE) ||
-            !InitializeEdgeTable_(FabricSegments::VERTICAL_EDGE_TABLE)
+            !InitializeEdgeTable_(FabricSegments::VALUE_PARENT_EDGE_TABLE_H) ||
+            !InitializeEdgeTable_(FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V)
         )
         {
             return false;

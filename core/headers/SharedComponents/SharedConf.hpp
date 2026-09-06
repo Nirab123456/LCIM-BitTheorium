@@ -53,11 +53,11 @@ namespace BidirectionalInMemGraph
     {
         SLAB_RECORD_MAP = 0,
         MATRIX_VIEW_TABLE = 1,
-        HORIZONTAL_EDGE_TABLE = 2,
-        VERTICAL_EDGE_TABLE = 3,
+        VALUE_PARENT_EDGE_TABLE_H = 2,
+        VOLATILE_PARENT_EDGE_TABLE_V = 3,
         APC_HANDLE_TABLE = 4,
         COMPILED_DAG_TABLE = 5,
-        READY_QUEUE = 6,
+        DEVICE_PLANNER_TABLE = 6,
         WORK_QUEUE = 7,
         SEGMENT_POOL = 8
     };
