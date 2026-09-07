@@ -139,8 +139,9 @@ namespace BidirectionalInMemGraph
             profile.FabricConfig.Reserved = UNSIGNED_ZERO;
             profile.FabricConfig.BatchCapacity = profile.BatchCapacity;
 
-            
-            
+            profile.IsValid = true;
+
+            return true;
         }
 
     };
