@@ -58,7 +58,6 @@ namespace BidirectionalInMemGraph
     {
     public:
         using EdgeTableRange = RangeOfAPC;
-        static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
     protected:
         uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};

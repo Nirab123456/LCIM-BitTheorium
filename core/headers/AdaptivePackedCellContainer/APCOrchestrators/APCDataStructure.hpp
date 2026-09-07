@@ -67,9 +67,9 @@ namespace BidirectionalInMemGraph
 
         static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
         static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
-        static constexpr uint8_t BRANCH_VERSION = 1u;
         static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
         static constexpr size_t APC_CACHELINE_SIZE = 64u;
+        static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
 
         static constexpr bool IsValid32BitAPCUnit(uint64_t index) noexcept
