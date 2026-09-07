@@ -94,7 +94,7 @@ namespace BidirectionalInMemGraph
         AllocateFunction AllocatePackedCellStorage{nullptr};
         FreeFunction FreePackedCellStorage{nullptr};
         void* User{nullptr};
-        size_t Alignment{BIT_LENGTH_OF_FABRIC};
+        size_t Alignment{BIT_COUNT_OF_UINT64_T};
 
         static size_t AlignBiteCount_(size_t bytes, size_t alignment) noexcept
         {

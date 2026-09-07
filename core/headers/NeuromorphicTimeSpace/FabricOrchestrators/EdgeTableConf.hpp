@@ -22,28 +22,18 @@ namespace BidirectionalInMemGraph
         static constexpr uint8_t EDGE_SEQUENCE_BITS = 30u;
         static constexpr uint8_t EDGE_STATUS_BITS = 2u;
 
-        static_assert(
-            EDGE_TAIL_BITS + EDGE_SEQUENCE_BITS + EDGE_STATUS_BITS == 64u
-        );
+        static_assert(EDGE_TAIL_BITS + EDGE_SEQUENCE_BITS + EDGE_STATUS_BITS == 64u);
 
         static constexpr uint32_t RELATION_NULL = UINT32_MAX;
-        static constexpr uint32_t RELATION_SLOT_MASK =
-            MaskLowBitsForU32(RELATION_SLOT_BITS);
-        static constexpr uint32_t EDGE_SEQUENCE_MASK =
-            MaskLowBitsForU32(EDGE_SEQUENCE_BITS);
-        static constexpr uint64_t EDGE_STATUS_MASK =
-            MaskLowBitsForU64(EDGE_STATUS_BITS);
+        static constexpr uint32_t RELATION_SLOT_MASK = MaskLowBitsForU32(RELATION_SLOT_BITS);
+        static constexpr uint32_t EDGE_SEQUENCE_MASK = MaskLowBitsForU32(EDGE_SEQUENCE_BITS);
+        static constexpr uint64_t EDGE_STATUS_MASK = MaskLowBitsForU64(EDGE_STATUS_BITS);
 
         struct alignas(uint64_t) ParentRelation final
         {
             uint64_t ParentHandle = FABRIC_CELL_SENTINAL;
             uint64_t SiblingLocators = FABRIC_CELL_SENTINAL;
         };
-
-        static_assert(sizeof(ParentRelation) == 2u * sizeof(uint64_t));
-        static_assert(alignof(ParentRelation) == alignof(uint64_t));
-        static_assert(std::is_trivially_copyable_v<ParentRelation>);
-        static_assert(std::is_trivially_destructible_v<ParentRelation>);
 
         struct EdgeData final
         {

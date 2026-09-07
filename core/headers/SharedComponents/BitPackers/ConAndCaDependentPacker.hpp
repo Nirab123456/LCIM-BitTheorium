@@ -9,18 +9,18 @@ namespace BidirectionalInMemGraph
         {
             return (
                 (uint64_t{low_32} << UNSIGNED_ZERO) |
-                (uint64_t{high_32} << BIT_LENGTH_OF_APC)
+                (uint64_t{high_32} << BIT_COUNT_OF_UINT32_T)
             );
         }
 
         static constexpr uint32_t ExtractLow32Of64(uint64_t packed_value) noexcept
         {
-            return static_cast<uint32_t>((packed_value >> UNSIGNED_ZERO) & MaskLowBitsForU64(BIT_LENGTH_OF_APC));
+            return static_cast<uint32_t>((packed_value >> UNSIGNED_ZERO) & MaskLowBitsForU64(BIT_COUNT_OF_UINT32_T));
         }
 
         static constexpr uint32_t ExtractHigh32Of64(uint64_t packed_value) noexcept
         {
-            return static_cast<uint32_t>((packed_value >> BIT_LENGTH_OF_APC) & MaskLowBitsForU64(BIT_LENGTH_OF_APC));
+            return static_cast<uint32_t>((packed_value >> BIT_COUNT_OF_UINT32_T) & MaskLowBitsForU64(BIT_COUNT_OF_UINT32_T));
         }
     };
 

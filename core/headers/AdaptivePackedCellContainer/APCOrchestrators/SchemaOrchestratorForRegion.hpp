@@ -76,6 +76,8 @@ namespace BidirectionalInMemGraph
             uint32_t BatchCapacity = UNSIGNED_ZERO;
         };
 
+        using RegionSchemaTable = std::array<RegionSchemaRecord, APCDataStructure::CountOfMacroColumn()>;
+
     };
     
     struct SchemaValidator : public SchemaOrchestrator
@@ -355,7 +357,77 @@ namespace BidirectionalInMemGraph
 
     struct SchemaDefinition : public SchemaValidator
     {
+        friend class GHGFLayerModel;
     private:
+        static constexpr bool AttachPrivateFloat32ToTable_(
+            RegionSchemaTable& table,
+            MacroColumnOfAPC region,
+            uint32_t height,
+            uint32_t width,
+            SchemaFlags flags
+        ) noexcept
+        {
+            RegionSchemaRecord& schema =
+                table[static_cast<std::size_t>(region)];
+
+            schema.Region = region;
+            schema.Dtype = DataTypeOfMacroColumn::FLOAT32_T;
+            schema.Protocol = SchemaProtocols::PRIVATE_REGION;
+            schema.MatrixHeight = height;
+            schema.MatrixWidth = width;
+            schema.Flags = flags;
+
+            return SealDesiredSchema(schema, UNSIGNED_ZERO);
+        }
+
+        static constexpr uint16_t GetActiveMaskOfRegionTable_(const RegionSchemaTable& table) noexcept
+        {
+            uint16_t mask = UNSIGNED_ZERO;
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
+            {
+                const RegionSchemaRecord& schema = table[i];
+                if (!HasSchemaFlag(schema.Flags, SchemaFlags::REGION_DISABLED))
+                {
+                    mask = static_cast<uint16_t>(mask | APCDataStructure::RegionBit(static_cast<MacroColumnOfAPC>(i)));
+                }
+            }
+            return mask;
+        }
+
+        static constexpr uint32_t RequiredCellsForSchemaTable_(const RegionSchemaTable& table) noexcept
+        {
+            uint32_t cursor = AlignRegionCells(APCDataStructure::META_CELL_COUNT);
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
+            {
+                const RegionSchemaRecord& schema = table[i];
+                if (HasSchemaFlag(schema.Flags, SchemaFlags::REGION_DISABLED))
+                {
+                    continue;
+                }
+
+                cursor = AlignRegionCells(cursor);
+
+                if (
+                    schema.CellCount == UNSIGNED_ZERO ||
+                    cursor > UINT32_MAX - schema.CellCount
+                )
+                {
+                    return UNSIGNED_ZERO;
+                }
+                
+                cursor += schema.CellCount;
+            }
+
+            cursor = AlignRegionCells(cursor);
+            if (cursor < MINIMUM_APC_CELL_COUNT)
+            {
+                cursor = AlignRegionCells(MINIMUM_APC_CELL_COUNT);
+            }
+            
+            return APCDataStructure::IsCapacityOfAPCValid(cursor) ? cursor : UNSIGNED_ZERO;
+            
+        }
+
 
         static constexpr std::optional<uint32_t> SetRecords_(
             RegionSchemaRecord& schema,
@@ -411,7 +483,6 @@ namespace BidirectionalInMemGraph
 
         
     public:
-        using RegionSchemaTable = std::array<RegionSchemaRecord, APCDataStructure::CountOfMacroColumn()>;
 
         static constexpr bool SealDesiredSchema(
             RegionSchemaRecord& schema,

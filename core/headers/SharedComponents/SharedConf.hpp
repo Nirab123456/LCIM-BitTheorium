@@ -26,13 +26,14 @@ namespace BidirectionalInMemGraph
 {
     #define DEFAULT_MAX_TRIES 128
     static constexpr uint8_t LEN_OF_BYTE_IN_BITS = 8u;
-    static constexpr size_t BIT_LENGTH_OF_FABRIC = LEN_OF_BYTE_IN_BITS * sizeof(uint64_t);
-    static constexpr uint8_t BIT_LENGTH_OF_APC = LEN_OF_BYTE_IN_BITS * sizeof(uint32_t);
-    static constexpr uint8_t SIZE_OF_CACHELINE = LEN_OF_BYTE_IN_BITS * sizeof(uint64_t);
+    static constexpr size_t BIT_COUNT_OF_UINT64_T = LEN_OF_BYTE_IN_BITS * sizeof(uint64_t);
+    static constexpr uint8_t BIT_COUNT_OF_UINT32_T = LEN_OF_BYTE_IN_BITS * sizeof(uint32_t);
     static constexpr unsigned UNSIGNED_ZERO = 0u;
     static constexpr uint16_t MINIMUM_APC_CELL_COUNT = 128u;
-    static constexpr uint8_t EIGHT_BIT_SENTINAL = UINT8_MAX;
     static constexpr uint64_t FABRIC_CELL_SENTINAL = UINT64_MAX;
+
+    static constexpr uint8_t AXIS_COUNT = 2u;
+
 
 
     enum class MacroColumnOfAPC : uint8_t
@@ -79,7 +80,7 @@ namespace BidirectionalInMemGraph
     static  constexpr uint64_t MaskLowBitsForU64(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return uint64_t(0);
-        if (n >= BIT_LENGTH_OF_FABRIC) return ~uint64_t(0);
+        if (n >= BIT_COUNT_OF_UINT64_T) return ~uint64_t(0);
         // produce low-n ones without shifting by >= width
         return ((uint64_t(1) << n) - 1u);                  
     }
@@ -87,7 +88,7 @@ namespace BidirectionalInMemGraph
     static  constexpr uint32_t MaskLowBitsForU32(unsigned n) noexcept
     {
         if (n == UNSIGNED_ZERO) return uint32_t(0);
-        if (n >= BIT_LENGTH_OF_APC) return ~uint32_t(0);
+        if (n >= BIT_COUNT_OF_UINT32_T) return ~uint32_t(0);
         // produce low-n ones without shifting by >= width
         return ((uint32_t(1) << n) - 1u);                  
     }
