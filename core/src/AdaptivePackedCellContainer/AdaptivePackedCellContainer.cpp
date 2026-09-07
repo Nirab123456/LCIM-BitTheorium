@@ -214,7 +214,7 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-
+        owner->StoreAPCRuntimePtr(slot, nullptr);
         ReleseFabricBindingOnly_();
         return true;
     }

@@ -4,7 +4,7 @@
 namespace BidirectionalInMemGraph
 {
 
-class VagueTemoraryPremativeFabric : public ConstructDAGOnEachAxis
+class VagueTemoraryPremativeFabric : public APCFinilizer
 {
     friend class AdaptivePackedCellContainer;
 private:
@@ -67,14 +67,6 @@ private:
         uint32_t max_tries = DEFAULT_MAX_TRIES
     ) noexcept;
 
-    bool RetireAPC_(
-        uint32_t slot,
-        uint32_t generation,
-        uint32_t max_tries = DEFAULT_MAX_TRIES
-    ) noexcept;
-
-    bool ReclaimRetiredSlot_(uint32_t slot) noexcept;
-
 public:
 
     bool InitializeFabricWithPtrTable(
@@ -91,7 +83,7 @@ public:
         ShutDownFabric();
     }
 
-    bool CreateAPC(
+    bool CreateCustomAPC(
         AdaptivePackedCellContainer& desired_apc,
         const SD::RegionSchemaTable& region_schemas,
         uint32_t internal_max_tries = DEFAULT_MAX_TRIES

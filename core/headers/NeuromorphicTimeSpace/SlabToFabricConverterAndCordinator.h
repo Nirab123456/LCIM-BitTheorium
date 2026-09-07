@@ -201,4 +201,21 @@ namespace BidirectionalInMemGraph
 
     };
 
+    class APCFinilizer : public ConstructDAGOnEachAxis
+    {
+        friend class AdaptivePackedCellContainer;
+    private:
+        bool RetireAPC_(
+            uint32_t slot,
+            uint32_t generation,
+            uint32_t max_tries = DEFAULT_MAX_TRIES
+        ) noexcept;
+
+    protected:
+        bool ReclaimRetiredSlotTemp_(uint32_t slot) noexcept;
+
+        bool IsDefaultSchemaCompatible(const SD::RegionSchemaTable& table) noexcept;
+
+    };
+
 }
