@@ -3,9 +3,9 @@
 namespace BidirectionalInMemGraph
 {
 
-    RangeOfAPC APCLifeCycle::GetSegmentPoolRange(uint64_t single_description_index) noexcept
+    APCDataStructure::RangeOfAPC APCLifeCycle::GetSegmentPoolRange(uint64_t single_description_index) noexcept
     {
-        RangeOfAPC desired_segment_pool_range{};
+        APCDataStructure::RangeOfAPC desired_segment_pool_range{};
 
         if (
             single_description_index >= CountOfAPC_ ||
@@ -97,14 +97,14 @@ namespace BidirectionalInMemGraph
 
     std::optional<uint64_t> APCLifeCycle::GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept
     {
-        const RangeOfAPC range_of_segmentpool = GetSegmentPoolRange(description_idx);
+        const APCDataStructure::RangeOfAPC range_of_segmentpool = GetSegmentPoolRange(description_idx);
 
         if (!range_of_segmentpool.IsValid)
         {
             return std::nullopt;
         }
         const size_t state_cell_idx = range_of_segmentpool.BeginIndex + 
-            static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE);
+            static_cast<uint8_t>(APCDataStructure::HeaderIdentifierOfAPC::APC_LIFE_CYCLE);
         
         return state_cell_idx;
     }

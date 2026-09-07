@@ -90,7 +90,7 @@ namespace BidirectionalInMemGraph
 
     struct HeaderOrchestrator : DescriptionOfAPC
     {
-        static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::METACELL_COUNT;
+        static constexpr uint8_t LEN_OF_APC_META_BUFFER_OR_COUNT = APCDataStructure::META_CELL_COUNT;
 
 
         using DefaultMemCopyBuffer = std::array<uint64_t, UINT8_MAX>;
@@ -133,9 +133,9 @@ namespace BidirectionalInMemGraph
                 return false;
             }
 
-            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
-            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)] = apc_slot_idx;
-            header[static_cast<std::size_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
+            header[static_cast<std::size_t>(APCDataStructure::HeaderIdentifierOfAPC::MAGIC_ID)] = APCDataStructure::BRANCH_MAGIC;
+            header[static_cast<std::size_t>(APCDataStructure::HeaderIdentifierOfAPC::APC_SLOT_IDX)] = apc_slot_idx;
+            header[static_cast<std::size_t>(APCDataStructure::HeaderIdentifierOfAPC::EOF_APC_HEADER)] = APCDataStructure::EOF_HEADER;
 
             return true;
         }

@@ -81,7 +81,7 @@ namespace BidirectionalInMemGraph
 
     protected:
         VagueTemoraryPremativeFabric* FabricOwnerPtr_{nullptr};
-        RangeOfAPC RangeOfThisAPCInSlab_{};
+        APCDataStructure::RangeOfAPC RangeOfThisAPCInSlab_{};
         uint32_t CapacityOfThisAPC_{UNSIGNED_ZERO};
         std::byte* RawAPCBasePtr_{nullptr};
         
@@ -117,7 +117,7 @@ namespace BidirectionalInMemGraph
         bool InitiateAPCMetaHeader() noexcept;
 
         bool ReadAPCMetaUnit(
-            HeaderIdentifierOfAPC meta_idx,
+            APCDataStructure::HeaderIdentifierOfAPC meta_idx,
             uint64_t& return_value
         ) noexcept;
 

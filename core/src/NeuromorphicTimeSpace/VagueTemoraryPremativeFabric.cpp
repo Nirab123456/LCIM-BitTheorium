@@ -787,7 +787,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
         
-        const RangeOfAPC range = GetSegmentPoolRange(slot);
+        const APCDataStructure::RangeOfAPC range = GetSegmentPoolRange(slot);
         if (
             !range.IsValid ||
             !desired_apc.BindExternalRawFabricBacking_(
@@ -1101,7 +1101,7 @@ namespace BidirectionalInMemGraph
             return false;
         }
 
-        const RangeOfAPC range = GetSegmentPoolRange(slot);
+        const APCDataStructure::RangeOfAPC range = GetSegmentPoolRange(slot);
         if (!range.IsValid)
         {
             return false;
@@ -1204,7 +1204,7 @@ namespace BidirectionalInMemGraph
 
         const size_t lifecycle_index =
             range.BeginIndex +
-            static_cast<size_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE);
+            static_cast<size_t>(APCDataStructure::HeaderIdentifierOfAPC::APC_LIFE_CYCLE);
 
         for (size_t idx = range.BeginIndex; idx < range.EndIndex; ++idx)
         {

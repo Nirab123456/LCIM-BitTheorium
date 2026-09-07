@@ -127,7 +127,7 @@ namespace BidirectionalInMemGraph
 
         if (
             active_mask == UNSIGNED_ZERO ||
-            (active_mask & static_cast<uint16_t>(~ColumnConf::ValidRegionMask())) != UNSIGNED_ZERO ||
+            (active_mask & static_cast<uint16_t>(~APCDataStructure::ValidRegionMask())) != UNSIGNED_ZERO ||
             active_count == UNSIGNED_ZERO ||
             region_conf.BatchCapacity == UNSIGNED_ZERO ||
             slot_cell_count % SD::REGION_ALIGNMENT_CELLS != UNSIGNED_ZERO

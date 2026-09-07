@@ -42,7 +42,7 @@ using namespace BidirectionalInMemGraph;
 using Clock = std::chrono::steady_clock;
 using ReadOperation = FabricToAPCLinker::SeqLockedOperation;
 
-static_assert(APCDataStructure::METACELL_COUNT == 8u);
+static_assert(APCDataStructure::META_CELL_COUNT == 8u);
 static_assert(sizeof(SchemaDefinition::RegionSchemaRecord) == 5u * sizeof(std::uint64_t));
 static_assert(alignof(SchemaDefinition::RegionSchemaRecord) == alignof(std::uint64_t));
 static_assert(std::is_trivially_copyable_v<SchemaDefinition::RegionSchemaRecord>);
@@ -505,8 +505,8 @@ public:
 
         const SD::FabricRegionConfig region_config{
             static_cast<std::uint16_t>(
-                ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
-                ColumnConf::RegionBit(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)
+                APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+                APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDBACKWARD_MESSAGE)
             ),
             0u,
             matrix_width
@@ -1893,7 +1893,7 @@ constexpr SD::FabricRegionConfig OneRegionConfig(
 ) noexcept
 {
     return SD::FabricRegionConfig{
-        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
         0u,
         batch_capacity
     };
@@ -1915,7 +1915,7 @@ public:
         std::uint32_t local_cell
     ) noexcept
     {
-        const RangeOfAPC range = GetSegmentPoolRange(slot);
+        const APCDataStructure::RangeOfAPC range = GetSegmentPoolRange(slot);
         if (
             !range.IsValid ||
             local_cell >= range.EndIndex - range.BeginIndex ||
@@ -1943,14 +1943,14 @@ public:
         ).load(std::memory_order_acquire);
     }
 
-    std::optional<RangeOfAPC> TableRange(FabricSegments table) noexcept
+    std::optional<APCDataStructure::RangeOfAPC> TableRange(FabricSegments table) noexcept
     {
         RecordBookConf::RecordBookTablesBoundsCarrier bounds{};
         if (!GetRecordMapCarrierRanges_(table, bounds) || !bounds.IsValid)
         {
             return std::nullopt;
         }
-        return RangeOfAPC{
+        return APCDataStructure::RangeOfAPC{
             static_cast<std::size_t>(bounds.BeginIndex),
             static_cast<std::size_t>(bounds.EndIndex),
             true
@@ -2024,7 +2024,7 @@ inline bool SchemaABIAndGeometry() noexcept
         return false;
     }
 
-    ordinary.CellOffset = APCDataStructure::METACELL_COUNT;
+    ordinary.CellOffset = APCDataStructure::META_CELL_COUNT;
     const auto ordinary_bytes = SD::MatrixByteCount(ordinary);
     const auto ordinary_cells = SD::MatrixCellCount(ordinary);
     const auto ordinary_stride = SD::RecordStrideCells(ordinary);
@@ -2048,7 +2048,7 @@ inline bool SchemaABIAndGeometry() noexcept
         double_buffer,
         2u
     );
-    double_buffer.CellOffset = APCDataStructure::METACELL_COUNT;
+    double_buffer.CellOffset = APCDataStructure::META_CELL_COUNT;
 
     SD::RegionSchemaRecord queue{};
     queue = ordinary;
@@ -2059,7 +2059,7 @@ inline bool SchemaABIAndGeometry() noexcept
         queue,
         4u
     );
-    queue.CellOffset = APCDataStructure::METACELL_COUNT;
+    queue.CellOffset = APCDataStructure::META_CELL_COUNT;
 
     SD::RegionSchemaRecord invalid{};
     SD::RegionSchemaRecord invalid_1{};
@@ -2085,25 +2085,25 @@ inline bool SchemaABIAndGeometry() noexcept
         );
 
     constexpr std::uint16_t sparse_mask =
-        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::HETEROGENOUS_PTR);
+        APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::HETEROGENOUS_PTR);
 
     const bool compact_ok =
-        ColumnConf::CompactRegionIndex(
+        APCDataStructure::CompactRegionIndex(
             sparse_mask, MacroColumnOfAPC::FEEDFORWARD_MESSAGE
         ) == 0u &&
-        ColumnConf::CompactRegionIndex(
+        APCDataStructure::CompactRegionIndex(
             sparse_mask, MacroColumnOfAPC::STATE_SLOT
         ) == 1u &&
-        ColumnConf::CompactRegionIndex(
+        APCDataStructure::CompactRegionIndex(
             sparse_mask, MacroColumnOfAPC::WEIGHT_SLOT
         ) == 2u &&
-        ColumnConf::CompactRegionIndex(
+        APCDataStructure::CompactRegionIndex(
             sparse_mask, MacroColumnOfAPC::HETEROGENOUS_PTR
         ) == 3u &&
-        !ColumnConf::CompactRegionIndex(
+        !APCDataStructure::CompactRegionIndex(
             sparse_mask, MacroColumnOfAPC::ERROR_SLOT
         ).has_value();
 
@@ -2148,13 +2148,13 @@ inline bool FabricConfigurationValidation() noexcept
     constexpr SD::FabricRegionConfig zero_mask{0u, 0u, VIEW_WIDTH};
     constexpr SD::FabricRegionConfig invalid_mask{
         static_cast<std::uint16_t>(
-            std::uint16_t{1u} << ColumnConf::CountOfMacroColumn()
+            std::uint16_t{1u} << APCDataStructure::CountOfMacroColumn()
         ),
         0u,
         VIEW_WIDTH
     };
     constexpr SD::FabricRegionConfig zero_batch{
-        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
         0u,
         0u
     };
@@ -2464,11 +2464,11 @@ inline bool DeviceViewAndProtocolStorage() noexcept
     constexpr std::uint32_t batch = 4u;
     constexpr std::uint32_t slot_count = 3u;
     constexpr std::uint16_t active_mask =
-        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::ERROR_SLOT) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
-        ColumnConf::RegionBit(MacroColumnOfAPC::AUX_SLOT);
+        APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::STATE_SLOT) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::ERROR_SLOT) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::WEIGHT_SLOT) |
+        APCDataStructure::RegionBit(MacroColumnOfAPC::AUX_SLOT);
     constexpr std::uint8_t active_count = 5u;
     constexpr std::uint16_t row_cells =
         active_count * static_cast<std::uint16_t>(SD::RegionSchemaCellCount());
@@ -2605,7 +2605,7 @@ inline bool DeviceViewAndProtocolStorage() noexcept
     };
 
     bool row_ok = row.size() == active_count;
-    std::uint32_t expected_offset = APCDataStructure::METACELL_COUNT;
+    std::uint32_t expected_offset = APCDataStructure::META_CELL_COUNT;
     for (std::size_t i = 0u; row_ok && i < row.size(); ++i)
     {
         expected_offset = SD::AlignRegionCells(expected_offset);
@@ -2629,18 +2629,18 @@ inline bool DeviceViewAndProtocolStorage() noexcept
             static_cast<std::uintptr_t>(row_cells) * sizeof(std::uint64_t) &&
         row[0u].MatrixHeight == 3u &&
         second_row[0u].MatrixHeight == 5u &&
-        row[0u].CellOffset == APCDataStructure::METACELL_COUNT &&
-        second_row[0u].CellOffset == APCDataStructure::METACELL_COUNT;
+        row[0u].CellOffset == APCDataStructure::META_CELL_COUNT &&
+        second_row[0u].CellOffset == APCDataStructure::META_CELL_COUNT;
 
     const bool header_ok =
         fabric.ReadAPCLocalCell(
-            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::MAGIC_ID)
+            slot, static_cast<std::uint32_t>(APCDataStructure::HeaderIdentifierOfAPC::MAGIC_ID)
         ) == APCDataStructure::BRANCH_MAGIC &&
         fabric.ReadAPCLocalCell(
-            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::APC_SLOT_IDX)
+            slot, static_cast<std::uint32_t>(APCDataStructure::HeaderIdentifierOfAPC::APC_SLOT_IDX)
         ) == slot &&
         fabric.ReadAPCLocalCell(
-            slot, static_cast<std::uint32_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER)
+            slot, static_cast<std::uint32_t>(APCDataStructure::HeaderIdentifierOfAPC::EOF_APC_HEADER)
         ) == APCDataStructure::EOF_HEADER;
 
     bool queue_storage_ok = row_ok;
@@ -3015,7 +3015,7 @@ inline bool MixedAxisStress(std::uint64_t& retries_out)
 constexpr SchemaDefinition::FabricRegionConfig AtomicRegionConfig() noexcept
 {
     return SchemaDefinition::FabricRegionConfig{
-        ColumnConf::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
+        APCDataStructure::RegionBit(MacroColumnOfAPC::FEEDFORWARD_MESSAGE),
         0u,
         8u
     };

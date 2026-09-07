@@ -283,7 +283,7 @@ namespace BidirectionalInMemGraph
             if (
                 !IsKnownSchemaFlags(schema.Flags) ||
                 HasSchemaFlag(schema.Flags, SchemaFlags::REGION_DISABLED) ||
-                schema.CellOffset < APCDataStructure::METACELL_COUNT ||
+                schema.CellOffset < APCDataStructure::META_CELL_COUNT ||
                 schema.CellOffset % REGION_ALIGNMENT_CELLS != UNSIGNED_ZERO ||
                 schema.CellCount == UNSIGNED_ZERO ||
                 schema.CellOffset > apc_cell_count ||
@@ -411,7 +411,7 @@ namespace BidirectionalInMemGraph
 
         
     public:
-        using RegionSchemaTable = std::array<RegionSchemaRecord, ColumnConf::CountOfMacroColumn()>;
+        using RegionSchemaTable = std::array<RegionSchemaRecord, APCDataStructure::CountOfMacroColumn()>;
 
         static constexpr bool SealDesiredSchema(
             RegionSchemaRecord& schema,
@@ -449,7 +449,7 @@ namespace BidirectionalInMemGraph
         static constexpr void MakeDisabledSchemaTable(RegionSchemaTable& schema_table) noexcept
         {
             schema_table = RegionSchemaTable{};
-            for (uint8_t i = 0; i < ColumnConf::CountOfMacroColumn(); i++)
+            for (uint8_t i = 0; i < APCDataStructure::CountOfMacroColumn(); i++)
             {
                 RegionSchemaRecord& schema = schema_table[i];
                 schema.Region = static_cast<MacroColumnOfAPC>(i);

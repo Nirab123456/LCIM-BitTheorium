@@ -38,7 +38,7 @@ namespace BidirectionalInMemGraph
     
         std::optional<uint64_t> GetDescriptionLockIdxInFabric_(uint64_t description_idx) noexcept;
 
-        RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
+        APCDataStructure::RangeOfAPC GetSegmentPoolRange(uint64_t single_description_index) noexcept;
 
         /// @return previous ID_STATE -> raw value for reverting safely 
         bool SwitchDescriptionState(
@@ -57,7 +57,7 @@ namespace BidirectionalInMemGraph
     class EdgeTableConstructor : public APCLifeCycle
     {
     public:
-        using EdgeTableRange = RangeOfAPC;
+        using EdgeTableRange = APCDataStructure::RangeOfAPC;
 
     protected:
         uint64_t HorizontalEdgeBeginIdx_{UNSIGNED_ZERO};

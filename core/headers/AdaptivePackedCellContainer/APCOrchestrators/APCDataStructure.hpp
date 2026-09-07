@@ -6,27 +6,32 @@
 
 namespace BidirectionalInMemGraph
 {
-
-    enum class HeaderIdentifierOfAPC : uint8_t
+    struct APCDataStructure 
     {
-        // Identity
-        MAGIC_ID = 0,
-        APC_SLOT_IDX = 1,
-        APC_LIFE_CYCLE                      = 6,
-        EOF_APC_HEADER                      = 7
-    };
+        enum class HeaderIdentifierOfAPC : uint8_t
+        {
+            // Identity
+            MAGIC_ID = 0,
+            APC_SLOT_IDX = 1,
+            APC_LIFE_CYCLE                      = 6,
+            EOF_APC_HEADER                      = 7
+        };
 
+        static constexpr uint8_t META_CELL_COUNT = static_cast<uint8_t>(APCDataStructure::HeaderIdentifierOfAPC::EOF_APC_HEADER) + 1u;
 
-    struct RangeOfAPC
-    {
-        size_t BeginIndex = UNSIGNED_ZERO;
-        size_t EndIndex = UNSIGNED_ZERO;
-        bool IsValid = false;
-    };
+        static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
+        static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
+        static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
+        static constexpr size_t APC_CACHELINE_SIZE = 64u;
+        static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
 
+        struct RangeOfAPC
+        {
+            size_t BeginIndex = UNSIGNED_ZERO;
+            size_t EndIndex = UNSIGNED_ZERO;
+            bool IsValid = false;
+        };
 
-    struct ColumnConf 
-    {
         static constexpr uint8_t CountOfMacroColumn() noexcept
         {
             return static_cast<uint8_t>(MacroColumnOfAPC::FREE_SLOT) - static_cast<uint8_t>(MacroColumnOfAPC::FEEDFORWARD_MESSAGE) + 1;
@@ -58,19 +63,6 @@ namespace BidirectionalInMemGraph
             const uint16_t lower = static_cast<uint16_t>(active_mask & static_cast<uint16_t>(RegionBit(column) - 1u));
             return static_cast<uint8_t>(std::popcount(lower));
         }
-    };
-
-    struct APCDataStructure : public ColumnConf
-    {
-
-        static constexpr uint8_t METACELL_COUNT = static_cast<uint8_t>(HeaderIdentifierOfAPC::EOF_APC_HEADER) + 1u;
-
-        static constexpr uint32_t BRANCH_MAGIC = 0x41504342u;//big-endian
-        static constexpr uint32_t EOF_HEADER = 0x72616600;//big-endian
-        static constexpr uint32_t APC_INDEX_BOUND_SENTINAL = UINT32_MAX;
-        static constexpr size_t APC_CACHELINE_SIZE = 64u;
-        static constexpr uint8_t DEFAULT_DIRECTED_PARENT_PER_AXIS = 8u;
-
 
         static constexpr bool IsValid32BitAPCUnit(uint64_t index) noexcept
         {

@@ -21,7 +21,7 @@ namespace BidirectionalInMemGraph
         {
             return false;
         }
-        const RangeOfAPC range_of_this_apc = fabric_owner->GetSegmentPoolRange(fabric_slot_idx);
+        const APCDataStructure::RangeOfAPC range_of_this_apc = fabric_owner->GetSegmentPoolRange(fabric_slot_idx);
         if (
             !range_of_this_apc.IsValid ||
             range_of_this_apc.EndIndex - range_of_this_apc.BeginIndex != fabric_owner->PerAPCRuntimeCellCount_
@@ -55,7 +55,7 @@ namespace BidirectionalInMemGraph
 
     void FabricToAPCLinker::ReleseFabricBindingOnly_() noexcept
     {
-        RangeOfThisAPCInSlab_ = RangeOfAPC{};
+        RangeOfThisAPCInSlab_ = APCDataStructure::RangeOfAPC{};
         CapacityOfThisAPC_ = UNSIGNED_ZERO;
         FabricOwnerPtr_ = nullptr;
         RawAPCBasePtr_ = nullptr;
@@ -96,19 +96,19 @@ namespace BidirectionalInMemGraph
 
         const uint64_t raw_new_state_seq = DSA::ComposeSeqLockAndState(current_state);
 
-        header_meta_buffer[static_cast<uint8_t>(HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
+        header_meta_buffer[static_cast<uint8_t>(APCDataStructure::HeaderIdentifierOfAPC::APC_LIFE_CYCLE)] = raw_new_state_seq;
 
         return
             APCDataStructure::IsValidFabricUnit(raw_new_state_seq) &&
             FabricOwnerPtr_->ForceNxLenMemCopy(
                 RangeOfThisAPCInSlab_.BeginIndex,
-                APCDataStructure::METACELL_COUNT,
+                APCDataStructure::META_CELL_COUNT,
                 header_meta_buffer.data()
             );
     }
 
     bool FabricToAPCLinker::ReadAPCMetaUnit(
-        HeaderIdentifierOfAPC meta_idx,
+        APCDataStructure::HeaderIdentifierOfAPC meta_idx,
         uint64_t& return_value
     ) noexcept
     {
