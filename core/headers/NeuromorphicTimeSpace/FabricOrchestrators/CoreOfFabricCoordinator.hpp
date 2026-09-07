@@ -4,20 +4,20 @@
 namespace BidirectionalInMemGraph
 {
 
-    struct EnumsOfFabricCoordinator
+    struct CoreOfFabricCoordinator
     {
         /// UNCHECKED
         static constexpr size_t RELATION_WIDTH_OF_FABRIC = 0u;
         static constexpr size_t COMPILED_DAG_LEN = 0u;
         static constexpr size_t DEVICE_PLANNER_RECORD_LEN = 0u;
         static constexpr size_t WORK_RECORD_WIDTH_OF_FABRIC = 0u;
-        static constexpr size_t THREAD_TABLE_RECORD_WIDTH = 0u;
-        static constexpr size_t DEFAULT_THREAD_TABLE_CAPACITY = 256u;
         static constexpr size_t DEFAULT_FABRIC_CONTROLIO_LENGTH = 512u;
-        static constexpr uint8_t MIN_LIMIT_POW_OF_2 = 16u;
-
         ///--------------------------
-
+        static constexpr uint32_t FABRIC_MAGIC = 0x41504643u;
+        static constexpr uint32_t FABRIC_META_EOF = 0x41474946u;
+        static constexpr uint8_t EACH_TABLE_RECORD_SENTINAL = UINT8_MAX;
+        static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
+        static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
         enum class RecordBookInternalIndexing : uint8_t
         {
@@ -47,19 +47,7 @@ namespace BidirectionalInMemGraph
 
             EOF_FABRIC_HEADER = 15
         };
-
         static constexpr uint8_t FABRIC_UNIT_COUNT = static_cast<uint8_t>(FabricMetaIndicies::EOF_FABRIC_HEADER) + 1u;
-
-    };
-
-    struct CoreOfFabricCoordinator : public EnumsOfFabricCoordinator
-    {
-        static constexpr uint32_t FABRIC_MAGIC = 0x41504643u;
-        static constexpr uint32_t FABRIC_META_EOF = 0x41474946u;
-        static constexpr uint8_t EACH_TABLE_RECORD_SENTINAL = UINT8_MAX;
-        
-        static constexpr uint32_t HASH32_GRATIO_1 = 2654435769u;
-        static constexpr uint32_t HASH32_GRATIO_2 = 123456789u;
 
         static constexpr bool IsValidEdgeTable(FabricSegments table_class) noexcept
         {
@@ -67,7 +55,6 @@ namespace BidirectionalInMemGraph
                 table_class == FabricSegments::VALUE_PARENT_EDGE_TABLE_H ||
                 table_class == FabricSegments::VOLATILE_PARENT_EDGE_TABLE_V;
         }
-
 
         static constexpr size_t DefaultFabricAlignment16Cell_(size_t value) noexcept
         {
